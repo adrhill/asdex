@@ -9,7 +9,7 @@ repo_name: adrhill/asdex
 theme:
   name: material
   custom_dir: overrides
-  favicon: assets/logo.svg
+  favicon: assets/bw.svg
   icon:
     logo: custom/logo
   palette:
