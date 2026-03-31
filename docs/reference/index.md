@@ -44,3 +44,4 @@
 
 ::: asdex.JacobianMode
 ::: asdex.HessianMode
+::: asdex.VerificationError
