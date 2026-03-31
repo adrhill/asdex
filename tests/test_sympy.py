@@ -77,7 +77,7 @@ class SympyToJax:
 
         # Handle numbers
         if e.is_number:
-            val = float(e.evalf())  # type: ignore[union-attr]
+            val = float(e.evalf())  # ty: ignore[unresolved-attribute]
             return lambda x, v=val: v
 
         # Handle unary functions via lookup
@@ -107,7 +107,7 @@ class SympyToJax:
         if e.func == sp.Pow:
             base_fn = self.convert(e.args[0])
             if e.args[1].is_number:
-                exp_val = float(e.args[1].evalf())  # type: ignore[union-attr]
+                exp_val = float(e.args[1].evalf())  # ty: ignore[unresolved-attribute]
                 return lambda x, b=base_fn, p=exp_val: b(x) ** p
             exp_fn = self.convert(e.args[1])
             return lambda x, b=base_fn, p=exp_fn: b(x) ** p(x)

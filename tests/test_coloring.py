@@ -1191,14 +1191,14 @@ def test_empty_hessian_symmetric_non_square_raises():
 def test_jacobian_coloring_from_sparsity_rejects_unsupported_type():
     """jacobian_coloring_from_sparsity raises TypeError for unsupported input."""
     with pytest.raises(TypeError, match="Expected a SparsityPattern"):
-        jacobian_coloring_from_sparsity((3, 3))  # type: ignore[arg-type]
+        jacobian_coloring_from_sparsity((3, 3))  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.coloring
 def test_hessian_coloring_from_sparsity_rejects_unsupported_type():
     """hessian_coloring_from_sparsity raises TypeError for unsupported input."""
     with pytest.raises(TypeError, match="Expected a SparsityPattern"):
-        hessian_coloring_from_sparsity((3, 3))  # type: ignore[arg-type]
+        hessian_coloring_from_sparsity((3, 3))  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.coloring

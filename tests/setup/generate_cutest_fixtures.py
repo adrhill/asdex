@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pycutest  # type: ignore[import-untyped]
+import pycutest  # ty: ignore[unresolved-import]
 
 from asdex import SparsityPattern
 

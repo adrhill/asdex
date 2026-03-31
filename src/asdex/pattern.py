@@ -395,7 +395,7 @@ class ColoredPattern:
             colors=data["colors"].astype(np.int32),
             num_colors=int(data["num_colors"]),
             symmetric=bool(data["symmetric"]),
-            mode=mode,  # type: ignore[arg-type]
+            mode=mode,  # ty: ignore[invalid-argument-type]
         )
 
     # Display
