@@ -1,0 +1,7 @@
+[files]
+extend-exclude = ["tests/test_cutest.py"]
+
+[default.extend-words]
+arange = "arange"
+convnet = "convnet"
+nd = "nd"

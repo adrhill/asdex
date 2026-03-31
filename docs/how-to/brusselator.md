@@ -107,5 +107,5 @@ Consider giving the [Julia programming language](https://julialang.org) a shot, 
 
 - [NonlinearSolve.jl: _Efficiently Solving Large Sparse Ill-Conditioned Nonlinear Systems in Julia_](https://docs.sciml.ai/NonlinearSolve/stable/tutorials/large_systems/)
   (MIT License, [Copyright (c) 2020 Julia Computing, Inc.](https://github.com/SciML/NonlinearSolve.jl/blob/master/LICENSE))
-- [MethodOfLines.jl: _Getting Started_](https://docs.sciml.ai/MethodOfLines/stable/tutorials/brusselator/) 
+- [MethodOfLines.jl: _Getting Started_](https://docs.sciml.ai/MethodOfLines/stable/tutorials/brusselator/)
   (MIT License, [Copyright (c) 2022 SciML Open Source Scientific Machine Learning Organization.](https://github.com/SciML/MethodOfLines.jl/blob/master/LICENSE))

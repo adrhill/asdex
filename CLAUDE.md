@@ -40,7 +40,7 @@ uv run pytest              # run tests
 
 - Favor `match` statements over long if-else chains.
   Use explicit cases and default to `case _ as unreachable: assert_never(unreachable)`.
-- Use plain `# Section name` comments for section separators, 
+- Use plain `# Section name` comments for section separators,
   not banner-style `# -- Section name ---`.
 
 ## Architecture
@@ -100,4 +100,4 @@ When writing new code, adhere to these design principles:
 
 - **Pull complexity downward**: It's better for a module to be internally complex if it keeps the interface simple for others. Don't expose complexity to callers.
 
-- **Favor exceptions over wrong results**: Raise errors for unknown edge cases rather than guessing. 
+- **Favor exceptions over wrong results**: Raise errors for unknown edge cases rather than guessing.
