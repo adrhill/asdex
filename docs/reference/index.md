@@ -1,5 +1,7 @@
 # Full API
 
+## Differentiation
+
 ::: asdex.jacobian
 ::: asdex.value_and_jacobian
 ::: asdex.hessian
@@ -12,7 +14,7 @@
 ::: asdex.hessian_from_coloring
 ::: asdex.value_and_hessian_from_coloring
 
----
+## Coloring
 
 ::: asdex.jacobian_coloring
 ::: asdex.hessian_coloring
@@ -24,10 +26,16 @@
 
 ---
 
+::: asdex.color_rows
+::: asdex.color_cols
+::: asdex.color_symmetric
+
+## Sparsity Detection
+
 ::: asdex.jacobian_sparsity
 ::: asdex.hessian_sparsity
 
----
+## Data Structures
 
 ::: asdex.SparsityPattern
 ::: asdex.ColoredPattern
