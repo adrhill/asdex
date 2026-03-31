@@ -311,7 +311,7 @@ def test_invalid_method_jacobian():
     x = np.array([1.0, 2.0])
     coloring = jacobian_coloring(f, input_shape=x.shape)
     with pytest.raises(ValueError, match="Unknown method"):
-        check_jacobian_correctness(f, x, coloring, method="invalid")  # type: ignore[arg-type]
+        check_jacobian_correctness(f, x, coloring, method="invalid")  # ty: ignore[invalid-argument-type]
 
 
 def test_invalid_method_hessian():
@@ -323,7 +323,7 @@ def test_invalid_method_hessian():
     x = np.array([1.0, 2.0])
     coloring = hessian_coloring(f, input_shape=x.shape)
     with pytest.raises(ValueError, match="Unknown method"):
-        check_hessian_correctness(f, x, coloring, method="invalid")  # type: ignore[arg-type]
+        check_hessian_correctness(f, x, coloring, method="invalid")  # ty: ignore[invalid-argument-type]
 
 
 # VerificationError

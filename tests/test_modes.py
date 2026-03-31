@@ -25,39 +25,39 @@ def test_assert_hessian_mode_invalid():
 def test_jacobian_coloring_invalid_mode():
     """jacobian_coloring raises ValueError on invalid mode."""
     with pytest.raises(ValueError, match="Unknown mode"):
-        asdex.jacobian_coloring(lambda x: x, (3,), mode="invalid")  # type: ignore[arg-type]
+        asdex.jacobian_coloring(lambda x: x, (3,), mode="invalid")  # ty: ignore[invalid-argument-type]
 
 
 def test_hessian_coloring_invalid_mode():
     """hessian_coloring raises ValueError on invalid mode."""
     with pytest.raises(ValueError, match="Unknown mode"):
-        asdex.hessian_coloring(lambda x: x.sum(), (3,), mode="invalid")  # type: ignore[arg-type]
+        asdex.hessian_coloring(lambda x: x.sum(), (3,), mode="invalid")  # ty: ignore[invalid-argument-type]
 
 
 def test_jacobian_invalid_mode():
     """Jacobian raises ValueError on invalid mode."""
     with pytest.raises(ValueError, match="Unknown mode"):
-        asdex.jacobian(lambda x: x, (3,), mode="invalid")  # type: ignore[arg-type]
+        asdex.jacobian(lambda x: x, (3,), mode="invalid")  # ty: ignore[invalid-argument-type]
 
 
 def test_hessian_invalid_mode():
     """Hessian raises ValueError on invalid mode."""
     with pytest.raises(ValueError, match="Unknown mode"):
-        asdex.hessian(lambda x: x.sum(), (3,), mode="invalid")  # type: ignore[arg-type]
+        asdex.hessian(lambda x: x.sum(), (3,), mode="invalid")  # ty: ignore[invalid-argument-type]
 
 
 def test_jacobian_coloring_from_sparsity_invalid_mode():
     """jacobian_coloring_from_sparsity raises ValueError on invalid mode."""
     sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
     with pytest.raises(ValueError, match="Unknown mode"):
-        asdex.jacobian_coloring_from_sparsity(sparsity, mode="invalid")  # type: ignore[arg-type]
+        asdex.jacobian_coloring_from_sparsity(sparsity, mode="invalid")  # ty: ignore[invalid-argument-type]
 
 
 def test_hessian_coloring_from_sparsity_invalid_mode():
     """hessian_coloring_from_sparsity raises ValueError on invalid mode."""
     sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
     with pytest.raises(ValueError, match="Unknown mode"):
-        asdex.hessian_coloring_from_sparsity(sparsity, mode="invalid")  # type: ignore[arg-type]
+        asdex.hessian_coloring_from_sparsity(sparsity, mode="invalid")  # ty: ignore[invalid-argument-type]
 
 
 def test_check_jacobian_correctness_invalid_method():
@@ -65,7 +65,7 @@ def test_check_jacobian_correctness_invalid_method():
     coloring = asdex.jacobian_coloring(lambda x: x, (3,), mode="fwd")
     x = np.ones(3)
     with pytest.raises(ValueError, match="Unknown method"):
-        asdex.check_jacobian_correctness(lambda x: x, x, coloring, method="invalid")  # type: ignore[arg-type]
+        asdex.check_jacobian_correctness(lambda x: x, x, coloring, method="invalid")  # ty: ignore[invalid-argument-type]
 
 
 def test_check_hessian_correctness_invalid_method():
@@ -77,5 +77,5 @@ def test_check_hessian_correctness_invalid_method():
             lambda x: x.sum(),
             x,
             coloring,
-            method="invalid",  # type: ignore[arg-type]
+            method="invalid",  # ty: ignore[invalid-argument-type]
         )

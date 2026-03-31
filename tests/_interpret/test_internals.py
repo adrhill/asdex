@@ -51,7 +51,7 @@ def test_nested_jaxpr_missing_param_raises():
     state_consts = {}
 
     with pytest.raises(ValueError, match="has no 'jaxpr' parameter"):
-        prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # type: ignore[arg-type]
+        prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_nested_jaxpr_missing_param_error_message():
@@ -61,7 +61,7 @@ def test_nested_jaxpr_missing_param_error_message():
     state_consts = {}
 
     with pytest.raises(ValueError, match="xla_call"):
-        prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # type: ignore[arg-type]
+        prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_custom_call_missing_param_raises():
@@ -71,7 +71,7 @@ def test_custom_call_missing_param_raises():
     state_consts = {}
 
     with pytest.raises(ValueError, match="has no 'call_jaxpr' parameter"):
-        prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # type: ignore[arg-type]
+        prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_custom_call_missing_param_error_message():
@@ -81,7 +81,7 @@ def test_custom_call_missing_param_error_message():
     state_consts = {}
 
     with pytest.raises(ValueError, match="custom_vjp_call"):
-        prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # type: ignore[arg-type]
+        prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_raises():
@@ -91,7 +91,7 @@ def test_unknown_primitive_raises():
     state_consts = {}
 
     with pytest.raises(NotImplementedError, match="No handler for primitive"):
-        prop_dispatch(eqn, state_indices, state_consts, {})  # type: ignore[arg-type]
+        prop_dispatch(eqn, state_indices, state_consts, {})  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_error_message():
@@ -101,7 +101,7 @@ def test_unknown_primitive_error_message():
     state_consts = {}
 
     with pytest.raises(NotImplementedError) as exc_info:
-        prop_dispatch(eqn, state_indices, state_consts, {})  # type: ignore[arg-type]
+        prop_dispatch(eqn, state_indices, state_consts, {})  # ty: ignore[invalid-argument-type]
 
     assert "fake_primitive" in str(exc_info.value)
     assert "https://github.com/adrhill/asdex/issues" in str(exc_info.value)
@@ -158,7 +158,7 @@ def test_reshape_size_mismatch_raises():
         in_var: [singleton_index_set(0), singleton_index_set(1), singleton_index_set(2)]
     }
     with pytest.raises(ValueError, match="Reshape size mismatch"):
-        prop_reshape(eqn, state_indices, {})  # type: ignore[arg-type]
+        prop_reshape(eqn, state_indices, {})  # ty: ignore[invalid-argument-type]
 
 
 # Integration tests for precise handlers

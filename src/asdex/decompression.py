@@ -312,7 +312,7 @@ def _eval_jacobian(
         case "fwd":
             return _jacobian_cols(f, x, coloring)
         case _ as unreachable:
-            assert_never(unreachable)  # type: ignore[type-assertion-failure]
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
 
 def _eval_hessian(
@@ -385,7 +385,7 @@ def _eval_value_and_jacobian(
         case "fwd":
             return _value_and_jacobian_cols(f, x, coloring)
         case _ as unreachable:
-            assert_never(unreachable)  # type: ignore[type-assertion-failure]
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
 
 def _eval_value_and_hessian(
@@ -534,7 +534,7 @@ def _compute_hvps(
                 return hvp.ravel()
 
         case _ as unreachable:
-            assert_never(unreachable)  # type: ignore[type-assertion-failure]
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
     return jax.vmap(single_hvp)(seeds)
 
@@ -582,7 +582,7 @@ def _value_and_compute_hvps(
                 return hvp.ravel()
 
         case _ as unreachable:
-            assert_never(unreachable)  # type: ignore[type-assertion-failure]
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
     return value, jax.vmap(single_hvp)(seeds)
 

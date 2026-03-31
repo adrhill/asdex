@@ -70,7 +70,7 @@ def check_jacobian_correctness(
         case "fwd" | "rev":
             ref_mode = coloring.mode
         case _ as unreachable:
-            assert_never(unreachable)  # type: ignore[type-assertion-failure]
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
     J_sparse = jacobian_from_coloring(f, coloring)(x)
 

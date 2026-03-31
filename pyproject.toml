@@ -58,7 +58,7 @@ dev = [
     "ruff>=0.9.0",
     "sif2jax>=0.0.1",
     "sympy>=1.13.0",
-    "ty>=0.0.1a6",
+    "ty>=0.0.26",
 ]
 docs = [
     "markdown-exec[ansi]>=1.9.0",
