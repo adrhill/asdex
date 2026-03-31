@@ -22,7 +22,7 @@
         
       
       
-      <link rel="icon" href="../../assets/logo.svg">
+      <link rel="icon" href="../../assets/bw.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
@@ -946,6 +946,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#jacobian-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jacobian Computation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asdex.jacobian" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -990,6 +1001,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#coloring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coloring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asdex.jacobian_coloring" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1012,10 +1034,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sparsity-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sparsity Detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asdex.jacobian_sparsity" class="md-nav__link">
     <span class="md-ellipsis">
       
         jacobian_sparsity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
       
     </span>
   </a>
@@ -1034,10 +1078,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#asdex.VerificationError" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        VerificationError
+        Configuration
       
     </span>
   </a>
@@ -1237,6 +1281,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#jacobian-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jacobian Computation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asdex.jacobian" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1281,6 +1336,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#coloring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Coloring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asdex.jacobian_coloring" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1303,10 +1369,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sparsity-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sparsity Detection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asdex.jacobian_sparsity" class="md-nav__link">
     <span class="md-ellipsis">
       
         jacobian_sparsity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
       
     </span>
   </a>
@@ -1325,10 +1413,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#asdex.VerificationError" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        VerificationError
+        Configuration
       
     </span>
   </a>
@@ -1367,6 +1455,7 @@
 
 
 <h1 id="jacobian">Jacobian<a class="headerlink" href="#jacobian" title="Permanent link">&para;</a></h1>
+<h2 id="jacobian-computation">Jacobian Computation<a class="headerlink" href="#jacobian-computation" title="Permanent link">&para;</a></h2>
 
 
 <div class="doc doc-object doc-function">
@@ -1843,7 +1932,8 @@ of shape <code>(m, n)</code>.</p>
 
     </div>
 
-</div>
+</div><h2 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">&para;</a></h2>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2118,7 +2208,8 @@ Requires a square pattern.</p>
 
     </div>
 
-</div>
+</div><h2 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">&para;</a></h2>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2217,7 +2308,8 @@ Entry <code>(i, j)</code> is present if output <code>i</code> depends on input <
 
     </div>
 
-</div>
+</div><h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2399,7 +2491,7 @@ Defaults to 1e-5 for <code>"matvec"</code> and 1e-7 for <code>"dense"</code>.</p
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.VerificationError (asdex.verify.VerificationError)" href="#asdex.VerificationError">VerificationError</a></code>
+                  <code><a class="autorefs autorefs-internal" title="asdex.VerificationError (asdex.verify.VerificationError)" href="../#asdex.VerificationError">VerificationError</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2413,44 +2505,7 @@ Defaults to 1e-5 for <code>"matvec"</code> and 1e-7 for <code>"dense"</code>.</p
 
     </div>
 
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="asdex.VerificationError" class="doc doc-heading">
-            <code>asdex.VerificationError</code>
-
-
-<a href="#asdex.VerificationError" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="AssertionError">AssertionError</span></code></p>
-
-
-
-        <p>Raised when asdex's sparse result does not match JAX's dense reference.</p>
-<p>This indicates that the detected sparsity pattern is missing nonzeros,
-which is a bug — asdex's patterns should always be conservative
-(i.e., contain at least all true nonzeros).
-If you encounter this error,
-please help out asdex's development by reporting this at
-https://github.com/adrhill/asdex/issues.</p>
-
-
-
-
-
-
-
-
-
-    </div>
-
-</div><hr />
+</div><h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 
 
 <div class="doc doc-object doc-attribute">
