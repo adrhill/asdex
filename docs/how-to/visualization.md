@@ -140,7 +140,51 @@ ax2.set_title("viridis")
 plt.tight_layout()
 ```
 
-### Larger Example
+### Examples
+
+Row coloring (reverse mode):
+
+```python
+# mkdocs: render
+import matplotlib.pyplot as plt
+from asdex import jacobian_coloring, spy
+
+def f(x):
+    return (x[1:] - x[:-1]) ** 2
+
+coloring = jacobian_coloring(f, input_shape=20, mode="rev")
+m, n = coloring.sparsity.shape
+c = coloring.num_colors
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+spy(coloring, ax=ax1)
+spy(coloring, compressed=True, ax=ax2)
+ax1.set_title(f"Sparse Jacobian ({m}×{n})")
+ax2.set_title(f"Compressed Jacobian ({c}×{n})")
+plt.tight_layout()
+```
+
+Symmetric coloring (Hessian):
+
+```python
+# mkdocs: render
+import matplotlib.pyplot as plt
+from asdex import hessian_coloring, spy
+
+def g(x):
+    return ((x[1:] - x[:-1]) ** 2).sum()
+
+coloring = hessian_coloring(g, input_shape=20)
+n = coloring.sparsity.shape[0]
+c = coloring.num_colors
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+spy(coloring, ax=ax1)
+spy(coloring, compressed=True, ax=ax2)
+ax1.set_title(f"Sparse Hessian ({n}×{n})")
+ax2.set_title(f"Compressed Hessian ({n}×{c})")
+plt.tight_layout()
+```
 
 Here is a larger example using the
 [Brusselator PDE](brusselator.md) discretized on an \(8 \times 8\) grid,
