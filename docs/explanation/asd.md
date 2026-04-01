@@ -114,7 +114,7 @@ across arbitrarily many evaluations at different inputs.
 
 In a typical workflow,
 a user calls [`jacobian_coloring`](../reference/index.md#asdex.jacobian_coloring) (or [`hessian_coloring`](../reference/index.md#asdex.hessian_coloring)) once during setup
-and passes the result to [`jacobian`](../reference/index.md#asdex.jacobian) (or [`hessian`](../reference/index.md#asdex.hessian)) in a loop.
+and passes the result to [`jacobian_from_coloring`](../reference/index.md#asdex.jacobian_from_coloring) (or [`hessian_from_coloring`](../reference/index.md#asdex.hessian_from_coloring)) in a loop.
 The per-evaluation cost is then just the decompression step:
 \(c\) AD passes plus a cheap index lookup,
 where \(c\) is the number of colors.
