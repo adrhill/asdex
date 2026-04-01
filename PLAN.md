@@ -39,6 +39,21 @@ annotate only the first row of each group.
 
 Apply to all `tests/_interpret/test_*.py` files, not just `test_scan.py`.
 
+### Return `jax.Array` data by default, make BCOO optional [S]
+
+The `*_from_coloring` functions currently return BCOO sparse matrices.
+BCOO wrapping forces the constant index array into the jaxpr output,
+adding trace-time overhead that XLA must constant-fold.
+
+Change the default return type to a raw `jax.Array` data vector (shape `(nnz,)`).
+Callers who need BCOO can wrap with `coloring.sparsity.to_bcoo(data=data)`.
+Consider a `format=` keyword (`"array"` | `"bcoo"`) for convenience.
+
+This keeps the jitted computation minimal: only the seed matrix and gather indices
+are closed-over constants, and the only output is the dynamic data array.
+
+**Follow-up PR** — do not bundle with the `lax.gather` / `unique_indices` changes.
+
 ## Later
 
 ### Symbolic index tracking for gather/scatter composition [L]

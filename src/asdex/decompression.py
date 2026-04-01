@@ -590,21 +590,49 @@ def _value_and_compute_hvps(
 # Private helpers: decompression
 
 
-def _decompress(coloring: ColoredPattern, compressed: jax.Array) -> BCOO:
-    """Extract sparse entries from compressed gradient rows.
+def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Array:
+    """Extract sparse data values from compressed gradient rows.
 
-    Uses pre-computed extraction indices on the ``ColoredPattern``
+    Uses pre-computed gather indices on the ``ColoredPattern``
     to vectorize the decompression step
     (no Python loop over nnz entries).
 
     Args:
         coloring: Colored sparsity pattern with cached indices.
-        compressed: JAX array of shape (num_colors, vector_len),
+        compressed: JAX array of shape ``(num_colors, vector_len)``,
+            one row per color.
+
+    Returns:
+        Data array of shape ``(nnz,)`` in sparsity-pattern order.
+    """
+    return jax.lax.gather(
+        compressed,
+        coloring._gather_indices,
+        dimension_numbers=jax.lax.GatherDimensionNumbers(
+            offset_dims=(),
+            collapsed_slice_dims=(0, 1),
+            start_index_map=(0, 1),
+        ),
+        slice_sizes=(1, 1),
+        unique_indices=True,
+        mode=jax.lax.GatherScatterMode.PROMISE_IN_BOUNDS,
+    )
+
+
+def _decompress(coloring: ColoredPattern, compressed: jax.Array) -> BCOO:
+    """Extract sparse entries from compressed gradient rows and wrap as BCOO.
+
+    Calls :func:`_decompress_data` for the gather,
+    then wraps the result into a BCOO sparse matrix
+    using the precomputed indices on the sparsity pattern.
+
+    Args:
+        coloring: Colored sparsity pattern with cached indices.
+        compressed: JAX array of shape ``(num_colors, vector_len)``,
             one row per color.
 
     Returns:
         Sparse matrix as BCOO in sparsity-pattern order.
     """
-    color_idx, elem_idx = coloring._extraction_indices
-    data = compressed[jnp.asarray(color_idx), jnp.asarray(elem_idx)]
+    data = _decompress_data(coloring, compressed)
     return coloring.sparsity.to_bcoo(data=data)
