@@ -65,9 +65,10 @@ as the decompression overhead dominates.
 Now we can compute the sparse Jacobian using the coloring:
 
 ```python exec="true" session="gs" source="above"
+import jax
 from asdex import jacobian_from_coloring
 
-jac_fn = jacobian_from_coloring(f, coloring)
+jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 J = jac_fn(x)
 ```
 
@@ -102,8 +103,8 @@ import timeit
 n = 5000
 x = jnp.ones(n)
 
-jac_fn_asdex = asdex.jacobian(f, input_shape=n)
-jac_fn_jax = jax.jacobian(f)
+jac_fn_asdex = jax.jit(asdex.jacobian(f, input_shape=n))
+jac_fn_jax = jax.jit(jax.jacobian(f))
 
 # Warm up JIT caches
 _ = jac_fn_asdex(x)
@@ -130,7 +131,7 @@ print("```\n" + "\n".join(lines) + "\n```")
     precompute the coloring once and reuse it:
 
     ```python
-    jac_fn = jacobian(f, input_shape=5000)
+    jac_fn = jax.jit(jacobian(f, input_shape=5000))
 
     for x in inputs:
         J = jac_fn(x)
@@ -142,12 +143,13 @@ For scalar-valued functions \(f: \mathbb{R}^n \to \mathbb{R}\),
 `asdex` can detect Hessian sparsity and compute sparse Hessians:
 
 ```python
+import jax
 from asdex import hessian
 
 def g(x):
     return jnp.sum(x ** 2)
 
-hess_fn = hessian(g, input_shape=20)
+hess_fn = jax.jit(hessian(g, input_shape=20))
 
 for x in inputs:
     H = hess_fn(x)

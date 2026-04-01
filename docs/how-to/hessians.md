@@ -16,9 +16,10 @@ using symmetric coloring and forward-over-reverse AD.
 Pass your scalar-valued function and its `input_shape` to [`hessian`](../reference/index.md#asdex.hessian):
 
 ```python
+import jax
 from asdex import hessian
 
-hess_fn = hessian(f, input_shape=100)
+hess_fn = jax.jit(hessian(f, input_shape=100))
 H = hess_fn(x)
 ```
 
@@ -67,7 +68,7 @@ or save it to disk to avoid recomputation.
 Pass the coloring to [`hessian_from_coloring`](../reference/index.md#asdex.hessian_from_coloring) to compute the Hessian:
 
 ```python
-hess_fn = hessian_from_coloring(g, coloring)
+hess_fn = jax.jit(hessian_from_coloring(g, coloring))
 
 for x in inputs:
     H = hess_fn(x)
@@ -96,7 +97,7 @@ coloring.save("colored.npz")
 from asdex import ColoredPattern, hessian_from_coloring
 
 coloring = ColoredPattern.load("colored.npz")
-hess_fn = hessian_from_coloring(g, coloring)
+hess_fn = jax.jit(hessian_from_coloring(g, coloring))
 ```
 
 [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern) supports the same `save`/`load` interface.
@@ -190,7 +191,7 @@ Finally, color the sparsity pattern and compute the Hessian:
 from asdex import hessian_coloring_from_sparsity, hessian_from_coloring
 
 coloring = hessian_coloring_from_sparsity(sparsity)
-hess_fn = hessian_from_coloring(f, coloring)
+hess_fn = jax.jit(hessian_from_coloring(f, coloring))
 H = hess_fn(x)
 ```
 
@@ -202,9 +203,9 @@ You can select a different AD composition strategy via the `mode` parameter:
 ```python
 from asdex import hessian
 
-hess_fn_for = hessian(f, input_shape=100, mode="fwd_over_rev")  # default
-hess_fn_rof = hessian(f, input_shape=100, mode="rev_over_fwd")
-hess_fn_ror = hessian(f, input_shape=100, mode="rev_over_rev")
+hess_fn_for = jax.jit(hessian(f, input_shape=100, mode="fwd_over_rev"))  # default
+hess_fn_rof = jax.jit(hessian(f, input_shape=100, mode="rev_over_fwd"))
+hess_fn_ror = jax.jit(hessian(f, input_shape=100, mode="rev_over_rev"))
 ```
 
 All three modes produce the same mathematical result.
