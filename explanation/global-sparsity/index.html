@@ -598,6 +598,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/brusselator/" class="md-nav__link">
         
   
@@ -1256,12 +1284,12 @@
   
 
 
-<h1 id="global-sparsity-patterns">Global Sparsity Patterns<a class="headerlink" href="#global-sparsity-patterns" title="Permanent link">&para;</a></h1>
+<h1 id="global-sparsity-patterns">Global Sparsity Patterns<a class="headerlink" href="#global-sparsity-patterns" title="Permanent link">¶</a></h1>
 <p>Before detecting sparsity or coloring a matrix,
 we need to decide <em>which</em> sparsity pattern to work with.
 This page explains the distinction between local and global patterns
 and <strong>why <code>asdex</code> uses global patterns exclusively</strong>.</p>
-<h2 id="local-vs-global-patterns">Local vs. Global Patterns<a class="headerlink" href="#local-vs-global-patterns" title="Permanent link">&para;</a></h2>
+<h2 id="local-vs-global-patterns">Local vs. Global Patterns<a class="headerlink" href="#local-vs-global-patterns" title="Permanent link">¶</a></h2>
 <p>Consider <span class="arithmatex">\(f(x) = x_1 \cdot x_2\)</span>, whose Jacobian is <span class="arithmatex">\([x_2,\; x_1]\)</span>.</p>
 <p><strong>A local pattern</strong> is the sparsity at a specific input point <span class="arithmatex">\(x\)</span>,
 so it depends on the numerical values.
@@ -1272,7 +1300,7 @@ making it input-independent.
 For the same example, the global pattern is always <code>[1, 1]</code> — no sparsity.
 Global patterns are supersets of local patterns:
 less sparse, but valid everywhere.</p>
-<h2 id="why-conservative-patterns-are-safe">Why Conservative Patterns Are Safe<a class="headerlink" href="#why-conservative-patterns-are-safe" title="Permanent link">&para;</a></h2>
+<h2 id="why-conservative-patterns-are-safe">Why Conservative Patterns Are Safe<a class="headerlink" href="#why-conservative-patterns-are-safe" title="Permanent link">¶</a></h2>
 <p>A sparsity pattern used for <a href="../coloring/">coloring</a> must be either accurate or conservative.</p>
 <p>If the pattern <strong>misses a nonzero entry</strong> (under-approximation),
 the coloring may merge rows or columns that actually conflict,
@@ -1283,7 +1311,7 @@ the coloring simply uses more colors than strictly necessary.
 The computed Jacobian is still correct — just slightly less efficient to obtain.</p>
 <p>This asymmetry is why <code>asdex</code> errs on the side of conservatism:
 correctness comes first.</p>
-<h2 id="why-global-over-local">Why Global Over Local<a class="headerlink" href="#why-global-over-local" title="Permanent link">&para;</a></h2>
+<h2 id="why-global-over-local">Why Global Over Local<a class="headerlink" href="#why-global-over-local" title="Permanent link">¶</a></h2>
 <p><a href="../sparsity-detection/">Sparsity detection</a> and <a href="../coloring/">graph coloring</a> are preprocessing steps
 that happen before any Jacobian is actually computed.
 Both are expensive enough that we want their results to be <strong>reusable</strong>
@@ -1300,7 +1328,7 @@ it propagates index sets through the computation graph.
 The result depends only on the function's structure,
 not on any particular input.
 The details are covered in <a href="../sparsity-detection/">Sparsity Detection</a>.</p>
-<h2 id="the-trade-off">The Trade-Off<a class="headerlink" href="#the-trade-off" title="Permanent link">&para;</a></h2>
+<h2 id="the-trade-off">The Trade-Off<a class="headerlink" href="#the-trade-off" title="Permanent link">¶</a></h2>
 <p>Global patterns may be less sparse than local ones.
 In the <span class="arithmatex">\(f(x) = x_1 \cdot x_2\)</span> example,
 the global pattern is fully dense even though every local pattern has a zero.
@@ -1317,7 +1345,7 @@ please help out <code>asdex</code>'s development by
 These reports directly drive improvements
 and are one of the most impactful ways to contribute.</p>
 </div>
-<h2 id="precision-over-speed">Precision Over Speed<a class="headerlink" href="#precision-over-speed" title="Permanent link">&para;</a></h2>
+<h2 id="precision-over-speed">Precision Over Speed<a class="headerlink" href="#precision-over-speed" title="Permanent link">¶</a></h2>
 <p><code>asdex</code> is designed around the assumption
 that detection and coloring costs are amortized over many Jacobian evaluations.
 Given this, it favors <strong>sparser patterns</strong> even if detecting them is slower:

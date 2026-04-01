@@ -598,6 +598,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/brusselator/" class="md-nav__link">
         
   
@@ -1190,207 +1218,178 @@
   
 
 
-<h1 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">&para;</a></h1>
-
-
+<h1 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">¶</a></h1>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.jacobian_sparsity" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">)</span></code>
-
-<a href="#asdex.jacobian_sparsity" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Detect global Jacobian sparsity pattern for f: R^n -&gt; R^m.</p>
+<h2 class="doc doc-heading" id="asdex.jacobian_sparsity">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacobian_sparsity" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect global Jacobian sparsity pattern for f: R^n -&gt; R^m.</p>
 <p>Analyzes the computation graph structure directly,
 without evaluating any derivatives.
 The result is valid for all inputs.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>input_shape</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Shape of the input array.
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>input_shape</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Shape of the input array.
 An integer is treated as a 1D length.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>SparsityPattern of shape <code>(m, n)</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>SparsityPattern of shape <code>(m, n)</code>
 where <code>n = prod(input_shape)</code> and <code>m = prod(output_shape)</code>.
 Entry <code>(i, j)</code> is present if output <code>i</code> depends on input <code>j</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.hessian_sparsity" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">)</span></code>
-
-<a href="#asdex.hessian_sparsity" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Detect global Hessian sparsity pattern for f: R^n -&gt; R.</p>
+<h2 class="doc doc-heading" id="asdex.hessian_sparsity">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.hessian_sparsity" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect global Hessian sparsity pattern for f: R^n -&gt; R.</p>
 <p>Analyzes the Jacobian sparsity of the gradient function,
 without evaluating any derivatives.
 The result is valid for all inputs.</p>
 <p>If <code>f</code> returns a squeezable shape like <code>(1,)</code> or <code>(1, 1)</code>,
 it is automatically squeezed to scalar.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Scalar-valued function taking an array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>input_shape</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Shape of the input array.
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Scalar-valued function taking an array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>input_shape</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Shape of the input array.
 An integer is treated as a 1D length.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>SparsityPattern of shape <code>(n, n)</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>SparsityPattern of shape <code>(n, n)</code>
 where <code>n = prod(input_shape)</code>.
 Entry <code>(i, j)</code> is present if <code>H[i, j]</code> may be nonzero.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 
 

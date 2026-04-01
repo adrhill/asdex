@@ -598,6 +598,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/brusselator/" class="md-nav__link">
         
   
@@ -1344,11 +1372,11 @@
   
 
 
-<h1 id="automatic-sparse-differentiation">Automatic Sparse Differentiation<a class="headerlink" href="#automatic-sparse-differentiation" title="Permanent link">&para;</a></h1>
+<h1 id="automatic-sparse-differentiation">Automatic Sparse Differentiation<a class="headerlink" href="#automatic-sparse-differentiation" title="Permanent link">¶</a></h1>
 <p>Automatic sparse differentiation (ASD) exploits the sparsity structure of Jacobians and Hessians
 to compute them far more efficiently than dense automatic differentiation (AD).
 This page explains the mathematical ideas behind the approach.</p>
-<h2 id="automatic-differentiation-in-brief">Automatic Differentiation in Brief<a class="headerlink" href="#automatic-differentiation-in-brief" title="Permanent link">&para;</a></h2>
+<h2 id="automatic-differentiation-in-brief">Automatic Differentiation in Brief<a class="headerlink" href="#automatic-differentiation-in-brief" title="Permanent link">¶</a></h2>
 <p>AD computes exact derivatives of programs
 by applying the chain rule to each elementary operation.
 For a function <span class="arithmatex">\(f: \mathbb{R}^n \to \mathbb{R}^m\)</span>,
@@ -1365,7 +1393,7 @@ AD can evaluate Jacobian-vector products in two modes:</p>
 not the full Jacobian.
 Building the complete matrix requires multiple passes,
 and reducing their number is the goal of sparse differentiation.</p>
-<h2 id="computational-cost-of-ad">Computational Cost of AD<a class="headerlink" href="#computational-cost-of-ad" title="Permanent link">&para;</a></h2>
+<h2 id="computational-cost-of-ad">Computational Cost of AD<a class="headerlink" href="#computational-cost-of-ad" title="Permanent link">¶</a></h2>
 <p>Consider a function <span class="arithmatex">\(f: \mathbb{R}^n \to \mathbb{R}^m\)</span> with Jacobian <span class="arithmatex">\(J \in \mathbb{R}^{m \times n}\)</span>.
 Computing <span class="arithmatex">\(J\)</span> by standard autodiff requires either:</p>
 <ul>
@@ -1378,7 +1406,7 @@ yet dense autodiff pays the full cost of <span class="arithmatex">\(m\)</span> o
 ASD reduces this to a number of passes proportional to the
 number of colors in a graph coloring of the sparsity pattern,
 which is often orders of magnitude smaller.</p>
-<h2 id="structural-orthogonality">Structural Orthogonality<a class="headerlink" href="#structural-orthogonality" title="Permanent link">&para;</a></h2>
+<h2 id="structural-orthogonality">Structural Orthogonality<a class="headerlink" href="#structural-orthogonality" title="Permanent link">¶</a></h2>
 <p>The key insight is structural orthogonality:
 two rows <span class="arithmatex">\(i_1\)</span> and <span class="arithmatex">\(i_2\)</span> of <span class="arithmatex">\(J\)</span> are structurally orthogonal
 when they share no nonzero column —
@@ -1389,7 +1417,7 @@ by summing their seed vectors.
 The nonzeros don't overlap,
 so the result is unambiguous.
 The same idea applies symmetrically to columns and JVPs.</p>
-<h2 id="seed-matrices-and-compression">Seed Matrices and Compression<a class="headerlink" href="#seed-matrices-and-compression" title="Permanent link">&para;</a></h2>
+<h2 id="seed-matrices-and-compression">Seed Matrices and Compression<a class="headerlink" href="#seed-matrices-and-compression" title="Permanent link">¶</a></h2>
 <p>Graph coloring assigns each row a color
 such that rows sharing a nonzero column get different colors.
 From this coloring, we build a seed matrix <span class="arithmatex">\(S \in \mathbb{R}^{m \times c}\)</span>,
@@ -1404,7 +1432,7 @@ S_{:,c} = \sum_{i \,:\, \text{color}(i) = c} e_i
 B = S^\top \cdot J \in \mathbb{R}^{c \times n}
 \]</div>
 <p>Computing <span class="arithmatex">\(B\)</span> requires only <span class="arithmatex">\(c\)</span> VJPs — one per color — instead of <span class="arithmatex">\(m\)</span>.</p>
-<h2 id="decompression">Decompression<a class="headerlink" href="#decompression" title="Permanent link">&para;</a></h2>
+<h2 id="decompression">Decompression<a class="headerlink" href="#decompression" title="Permanent link">¶</a></h2>
 <p>Recovering the sparse Jacobian from <span class="arithmatex">\(B\)</span> is called decompression.
 Because same-colored rows are structurally orthogonal,
 each nonzero <span class="arithmatex">\(J_{ij}\)</span> appears in exactly one entry of <span class="arithmatex">\(B\)</span>:</p>
@@ -1414,7 +1442,7 @@ J_{ij} = B_{\text{color}(i),\, j}
 <p>We simply read off each nonzero from the compressed matrix
 using the known color assignments.
 This is <strong>direct decompression</strong> — no systems of equations need to be solved.</p>
-<h2 id="the-three-step-pipeline">The Three-Step Pipeline<a class="headerlink" href="#the-three-step-pipeline" title="Permanent link">&para;</a></h2>
+<h2 id="the-three-step-pipeline">The Three-Step Pipeline<a class="headerlink" href="#the-three-step-pipeline" title="Permanent link">¶</a></h2>
 <p>ASD decomposes the problem into three independent stages:</p>
 <ol>
 <li><strong><a href="../sparsity-detection/">Detection</a></strong> — determine the <a href="../global-sparsity/">global sparsity pattern</a> of the Jacobian
@@ -1428,7 +1456,7 @@ they depend only on the function's structure and input shape,
 not on the input values.
 Once computed, the coloring can be reused across arbitrarily many evaluations.
 Step 3 is the only part that touches actual numerical data.</p>
-<h2 id="amortization">Amortization<a class="headerlink" href="#amortization" title="Permanent link">&para;</a></h2>
+<h2 id="amortization">Amortization<a class="headerlink" href="#amortization" title="Permanent link">¶</a></h2>
 <p>The three-step split is designed around amortization.
 Detection and coloring are the most expensive steps,
 but their results depend only on the function's structure and input shape —
@@ -1449,7 +1477,7 @@ it is worth spending more time on <a href="../sparsity-detection/">detection</a>
 if it produces <a href="../global-sparsity/">sparser patterns</a>,
 because fewer nonzeros lead to fewer colors
 and fewer AD passes on every subsequent evaluation.</p>
-<h2 id="extension-to-hessians">Extension to Hessians<a class="headerlink" href="#extension-to-hessians" title="Permanent link">&para;</a></h2>
+<h2 id="extension-to-hessians">Extension to Hessians<a class="headerlink" href="#extension-to-hessians" title="Permanent link">¶</a></h2>
 <p>For a scalar function <span class="arithmatex">\(f: \mathbb{R}^n \to \mathbb{R}\)</span>,
 the Hessian <span class="arithmatex">\(H \in \mathbb{R}^{n \times n}\)</span> is symmetric: <span class="arithmatex">\(H_{ij} = H_{ji}\)</span>.</p>
 <p>Since the Hessian is the Jacobian of the gradient,
@@ -1464,7 +1492,7 @@ which typically needs far fewer colors than treating the Hessian as a general ma
 computed via forward-over-reverse autodiff.
 The decompression step recovers both <span class="arithmatex">\(H_{ij}\)</span> and <span class="arithmatex">\(H_{ji}\)</span> from each entry,
 halving the effective number of unknowns.</p>
-<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">¶</a></h2>
 <ul>
 <li><a href="https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/"><em>An Illustrated Guide to Automatic Sparse Differentiation</em></a>, Hill, Dalle, Montoison (2025) — a visual walkthrough of the ideas on this page.</li>
 </ul>

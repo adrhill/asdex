@@ -598,6 +598,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/brusselator/" class="md-nav__link">
         
   
@@ -1454,1082 +1482,954 @@
   
 
 
-<h1 id="jacobian">Jacobian<a class="headerlink" href="#jacobian" title="Permanent link">&para;</a></h1>
-<h2 id="jacobian-computation">Jacobian Computation<a class="headerlink" href="#jacobian-computation" title="Permanent link">&para;</a></h2>
-
-
+<h1 id="jacobian">Jacobian<a class="headerlink" href="#jacobian" title="Permanent link">¶</a></h1>
+<h2 id="jacobian-computation">Jacobian Computation<a class="headerlink" href="#jacobian-computation" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.jacobian" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
-
-<a href="#asdex.jacobian" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Detect sparsity, color, and return a function computing sparse Jacobians.</p>
+<h2 class="doc doc-heading" id="asdex.jacobian">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacobian" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect sparsity, color, and return a function computing sparse Jacobians.</p>
 <p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
 and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
 in one call.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.
 Input and output may be multi-dimensional.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>input_shape</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Shape of the input array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>mode</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>input_shape</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Shape of the input array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>mode</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
 
   
       module-attribute
    (asdex.modes.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>AD mode.
+</td>
+<td>
+<div class="doc-md-description">
+<p>AD mode.
 <code>"fwd"</code> uses JVPs (forward-mode AD),
 <code>"rev"</code> uses VJPs (reverse-mode AD).
 <code>None</code> picks whichever of fwd/rev needs fewer colors.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symmetric</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to use symmetric (star) coloring.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric (star) coloring.
 Requires a square Jacobian.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A function that takes an input array and returns
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>A function that takes an input array and returns
 the sparse Jacobian as BCOO of shape <code>(m, n)</code>
 where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.value_and_jacobian" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
-
-<a href="#asdex.value_and_jacobian" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Detect sparsity, color, and return a function computing value and sparse Jacobian.</p>
+<h2 class="doc doc-heading" id="asdex.value_and_jacobian">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.value_and_jacobian" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect sparsity, color, and return a function computing value and sparse Jacobian.</p>
 <p>Like <a class="autorefs autorefs-internal" title="asdex.jacobian(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian"><code>jacobian</code></a>,
 but also returns the primal value <code>f(x)</code>
 without an extra forward pass.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.
 Input and output may be multi-dimensional.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>input_shape</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Shape of the input array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>mode</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>input_shape</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Shape of the input array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>mode</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
 
   
       module-attribute
    (asdex.modes.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>AD mode.
+</td>
+<td>
+<div class="doc-md-description">
+<p>AD mode.
 <code>"fwd"</code> uses JVPs (forward-mode AD),
 <code>"rev"</code> uses VJPs (reverse-mode AD).
 <code>None</code> picks whichever of fwd/rev needs fewer colors.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symmetric</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to use symmetric (star) coloring.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric (star) coloring.
 Requires a square Jacobian.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A function that takes an input array and returns
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span>]]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>A function that takes an input array and returns
 <code>(f(x), J)</code> where <code>J</code> is the sparse Jacobian as BCOO
 of shape <code>(m, n)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.jacobian_from_coloring" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span></code>
-
-<a href="#asdex.jacobian_from_coloring" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Build a sparse Jacobian function from a pre-computed coloring.</p>
+<h2 class="doc doc-heading" id="asdex.jacobian_from_coloring">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacobian_from_coloring" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Build a sparse Jacobian function from a pre-computed coloring.</p>
 <p>Uses row coloring + VJPs or column coloring + JVPs,
 depending on which needs fewer colors.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.
 Input and output may be multi-dimensional.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>coloring</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>coloring</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Pre-computed <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>Pre-computed <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a>
 from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A function that takes an input array and returns
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>A function that takes an input array and returns
 the sparse Jacobian as BCOO of shape <code>(m, n)</code>
 where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.value_and_jacobian_from_coloring" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span></code>
-
-<a href="#asdex.value_and_jacobian_from_coloring" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Build a function computing value and sparse Jacobian from a pre-computed coloring.</p>
+<h2 class="doc doc-heading" id="asdex.value_and_jacobian_from_coloring">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.value_and_jacobian_from_coloring" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Build a function computing value and sparse Jacobian from a pre-computed coloring.</p>
 <p>Like <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>,
 but also returns the primal value <code>f(x)</code> without an extra forward pass.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.
 Input and output may be multi-dimensional.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>coloring</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>coloring</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Pre-computed <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>Pre-computed <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a>
 from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A function that takes an input array and returns
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span>]]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>A function that takes an input array and returns
 <code>(f(x), J)</code> where <code>J</code> is the sparse Jacobian as BCOO
 of shape <code>(m, n)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div><h2 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">&para;</a></h2>
-
-
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div><h2 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.jacobian_coloring" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
-
-<a href="#asdex.jacobian_coloring" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Detect Jacobian sparsity and color in one step.</p>
-
-
+<h2 class="doc doc-heading" id="asdex.jacobian_coloring">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacobian_coloring" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect Jacobian sparsity and color in one step.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>input_shape</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Shape of the input array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>mode</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>input_shape</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Shape of the input array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>mode</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
 
   
       module-attribute
    (asdex.modes.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>AD mode.
+</td>
+<td>
+<div class="doc-md-description">
+<p>AD mode.
 <code>"fwd"</code> uses JVPs (forward-mode AD),
 <code>"rev"</code> uses VJPs (reverse-mode AD),
 <code>None</code> picks whichever of fwd/rev needs fewer colors
 (unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symmetric</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to use symmetric (star) coloring.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric (star) coloring.
 Requires a square Jacobian.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.jacobian_coloring_from_sparsity" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
-
-<a href="#asdex.jacobian_coloring_from_sparsity" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Color a sparsity pattern for sparse Jacobian computation.</p>
+<h2 class="doc doc-heading" id="asdex.jacobian_coloring_from_sparsity">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacobian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Color a sparsity pattern for sparse Jacobian computation.</p>
 <p>Assigns colors so that same-colored rows (or columns) can be
 computed together in a single VJP (or JVP).</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>sparsity</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>sparsity</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
   " href="../#asdex.SparsityPattern"><code>SparsityPattern</code></a>, NumPy array,
 or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>mode</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>mode</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
 
   
       module-attribute
    (asdex.modes.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>AD mode.
+</td>
+<td>
+<div class="doc-md-description">
+<p>AD mode.
 <code>"fwd"</code> uses JVPs (column coloring),
 <code>"rev"</code> uses VJPs (row coloring).
 <code>None</code> picks whichever of fwd/rev needs fewer colors
 (unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symmetric</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to use symmetric (star) coloring.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric (star) coloring.
 Requires a square pattern.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div><h2 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">&para;</a></h2>
-
-
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div><h2 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.jacobian_sparsity" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">)</span></code>
-
-<a href="#asdex.jacobian_sparsity" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Detect global Jacobian sparsity pattern for f: R^n -&gt; R^m.</p>
+<h2 class="doc doc-heading" id="asdex.jacobian_sparsity">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacobian_sparsity" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect global Jacobian sparsity pattern for f: R^n -&gt; R^m.</p>
 <p>Analyzes the computation graph structure directly,
 without evaluating any derivatives.
 The result is valid for all inputs.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>input_shape</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Shape of the input array.
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>input_shape</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Shape of the input array.
 An integer is treated as a 1D length.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>SparsityPattern of shape <code>(m, n)</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>SparsityPattern of shape <code>(m, n)</code>
 where <code>n = prod(input_shape)</code> and <code>m = prod(output_shape)</code>.
 Entry <code>(i, j)</code> is present if output <code>i</code> depends on input <code>j</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div><h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
-
-
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div><h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.check_jacobian_correctness" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;matvec&#39;</span><span class="p">,</span> <span class="n">num_probes</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
-
-<a href="#asdex.check_jacobian_correctness" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Verify asdex's sparse Jacobian against a JAX reference at a given input.</p>
-
-
+<h2 class="doc doc-heading" id="asdex.check_jacobian_correctness">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'matvec'</span><span class="p">,</span> <span class="n">num_probes</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.check_jacobian_correctness" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Verify asdex's sparse Jacobian against a JAX reference at a given input.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>x</code>
-            </td>
-            <td>
-                  <code><span title="numpy.typing.ArrayLike">ArrayLike</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Input at which to evaluate the Jacobian.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>coloring</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="numpy.typing.ArrayLike">ArrayLike</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>x</code>
+</td>
+<td>
+<code><span title="numpy.typing.ArrayLike">ArrayLike</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Input at which to evaluate the Jacobian.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>coloring</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Pre-computed colored pattern from
+</td>
+<td>
+<div class="doc-md-description">
+<p>Pre-computed colored pattern from
 :func:<code>~asdex.jacobian_coloring</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>method</code>
-            </td>
-            <td>
-                  <code><span title="typing.Literal">Literal</span>[&#39;matvec&#39;, &#39;dense&#39;]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Verification method.
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>method</code>
+</td>
+<td>
+<code><span title="typing.Literal">Literal</span>['matvec', 'dense']</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Verification method.
 <code>"matvec"</code> uses randomized matrix-vector products,
 which is O(k) in the number of probes.
 <code>"dense"</code> materializes the full dense Jacobian,
 which is O(n^2).</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;matvec&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>num_probes</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of random probe vectors (only used by <code>"matvec"</code>).</p>
-              </div>
-            </td>
-            <td>
-                  <code>25</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>seed</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>PRNG seed for reproducibility (only used by <code>"matvec"</code>).</p>
-              </div>
-            </td>
-            <td>
-                  <code>0</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>rtol</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Relative tolerance for comparison.
+</div>
+</td>
+<td>
+<code>'matvec'</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>num_probes</code>
+</td>
+<td>
+<code><span title="int">int</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Number of random probe vectors (only used by <code>"matvec"</code>).</p>
+</div>
+</td>
+<td>
+<code>25</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>seed</code>
+</td>
+<td>
+<code><span title="int">int</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>PRNG seed for reproducibility (only used by <code>"matvec"</code>).</p>
+</div>
+</td>
+<td>
+<code>0</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>rtol</code>
+</td>
+<td>
+<code><span title="float">float</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Relative tolerance for comparison.
 Defaults to 1e-5 for <code>"matvec"</code> and 1e-7 for <code>"dense"</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>atol</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Absolute tolerance for comparison.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>atol</code>
+</td>
+<td>
+<code><span title="float">float</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Absolute tolerance for comparison.
 Defaults to 1e-5 for <code>"matvec"</code> and 1e-7 for <code>"dense"</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+</tbody>
+</table>
 <p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.VerificationError (asdex.verify.VerificationError)" href="../#asdex.VerificationError">VerificationError</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the sparse and reference Jacobians disagree.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div><h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
-
-
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.VerificationError (asdex.verify.VerificationError)" href="../#asdex.VerificationError">VerificationError</a></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>If the sparse and reference Jacobians disagree.</p>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div><h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-attribute">
-
-
-
-<h2 id="asdex.JacobianMode" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">JacobianMode</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">&#39;fwd&#39;</span><span class="p">,</span> <span class="s1">&#39;rev&#39;</span><span class="p">]</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
-  </span>
-
-<a href="#asdex.JacobianMode" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>AD mode for Jacobian computation.</p>
+<h2 class="doc doc-heading" id="asdex.JacobianMode">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">JacobianMode</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'fwd'</span><span class="p">,</span> <span class="s1">'rev'</span><span class="p">]</span></code>
+<span class="doc doc-labels">
+<small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+</span>
+<a class="headerlink" href="#asdex.JacobianMode" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>AD mode for Jacobian computation.</p>
 <p><code>"fwd"</code> uses JVPs (forward-mode AD),
 <code>"rev"</code> uses VJPs (reverse-mode AD).</p>
-
-    </div>
-
+</div>
 </div>
 
 

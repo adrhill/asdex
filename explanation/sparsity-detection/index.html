@@ -598,6 +598,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/brusselator/" class="md-nav__link">
         
   
@@ -1422,14 +1450,14 @@
   
 
 
-<h1 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">&para;</a></h1>
+<h1 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">¶</a></h1>
 <p>Sparsity detection determines which entries of a Jacobian can be nonzero.
 Given <span class="arithmatex">\(f: \mathbb{R}^n \to \mathbb{R}^m\)</span>,
 it computes a binary <a href="../global-sparsity/">global sparsity pattern</a> —
 a conservative superset of the true nonzero structure of the Jacobian <span class="arithmatex">\(J_{ij} = \partial f_i / \partial x_j\)</span>.
 This pattern is the input to <a href="../coloring/">graph coloring</a>,
 which exploits the sparsity to reduce the number of AD passes.</p>
-<h2 id="why-abstract-interpretation">Why Abstract Interpretation<a class="headerlink" href="#why-abstract-interpretation" title="Permanent link">&para;</a></h2>
+<h2 id="why-abstract-interpretation">Why Abstract Interpretation<a class="headerlink" href="#why-abstract-interpretation" title="Permanent link">¶</a></h2>
 <p>Since we need <a href="../global-sparsity/">global sparsity patterns</a> —
 patterns that are valid for all inputs, not just a specific one —
 numerical approaches like finite-difference probing or computing the Jacobian via AD
@@ -1443,7 +1471,7 @@ without evaluating it on real numbers.
 This gives global patterns directly —
 no numerical evaluation, no dependence on a particular input,
 and no risk of missing nonzeros due to cancellation.</p>
-<h2 id="jaxpr-jaxs-intermediate-representation">Jaxpr: JAX's Intermediate Representation<a class="headerlink" href="#jaxpr-jaxs-intermediate-representation" title="Permanent link">&para;</a></h2>
+<h2 id="jaxpr-jaxs-intermediate-representation">Jaxpr: JAX's Intermediate Representation<a class="headerlink" href="#jaxpr-jaxs-intermediate-representation" title="Permanent link">¶</a></h2>
 <p>JAX represents computations as <strong>jaxprs</strong> (JAX expressions) —
 a flat sequence of primitive operations with explicit data flow.
 When you call <code>jax.make_jaxpr(f)(x)</code>,
@@ -1457,16 +1485,16 @@ and returns a jaxpr that records every operation.</p>
 <li><strong>Output variables</strong> — the function's return values.</li>
 </ul>
 <p>For example, <code>f(x) = sin(x) + 1</code> produces the following jaxpr:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>{ lambda ; a:f32[3]. let
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    b:f32[3] = sin a
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    c:f32[3] = add b 1.0
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  in (c,) }
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>{ lambda ; a:f32[3]. let
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    b:f32[3] = sin a
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    c:f32[3] = add b 1.0
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>  in (c,) }
 </code></pre></div>
 <p><code>asdex</code> hooks into this representation:
 it calls <code>jax.make_jaxpr</code> to obtain the computation graph,
 then walks the equations one by one,
 propagating index sets instead of numerical values.</p>
-<h2 id="index-set-propagation">Index Set Propagation<a class="headerlink" href="#index-set-propagation" title="Permanent link">&para;</a></h2>
+<h2 id="index-set-propagation">Index Set Propagation<a class="headerlink" href="#index-set-propagation" title="Permanent link">¶</a></h2>
 <p>The core idea is to track, for each element of each intermediate array,
 <em>which input elements it depends on</em>.
 This dependency information is stored as index sets —
@@ -1485,7 +1513,7 @@ After processing all equations,
 read the index sets of the output variables.
 Output <span class="arithmatex">\(i\)</span> depends on input <span class="arithmatex">\(j\)</span> iff <span class="arithmatex">\(j \in S_i\)</span>,
 which directly gives the sparsity pattern.</p>
-<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
+<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">¶</a></h2>
 <p>Consider <span class="arithmatex">\(f(x) = \bigl[\sin(x_1 \cdot x_2),\; x_2 + x_3\bigr]\)</span>
 with input <span class="arithmatex">\(x \in \mathbb{R}^3\)</span>.</p>
 <p><strong>Initialization:</strong></p>
@@ -1559,10 +1587,10 @@ J = \begin{pmatrix} \times &amp; \times &amp; \\ &amp; \times &amp; \times \end{
 \]</div>
 <p>The true Jacobian is <span class="arithmatex">\(\bigl[\begin{smallmatrix} x_2 \cos(x_1 x_2) &amp; x_1 \cos(x_1 x_2) &amp; 0 \\ 0 &amp; 1 &amp; 1 \end{smallmatrix}\bigr]\)</span>,
 which confirms the detected pattern.</p>
-<h2 id="primitive-handlers">Primitive Handlers<a class="headerlink" href="#primitive-handlers" title="Permanent link">&para;</a></h2>
+<h2 id="primitive-handlers">Primitive Handlers<a class="headerlink" href="#primitive-handlers" title="Permanent link">¶</a></h2>
 <p>Each JAX primitive has a handler that defines how it propagates index sets.
 The handlers fall into a few families.</p>
-<h3 id="elementwise-operations">Elementwise Operations<a class="headerlink" href="#elementwise-operations" title="Permanent link">&para;</a></h3>
+<h3 id="elementwise-operations">Elementwise Operations<a class="headerlink" href="#elementwise-operations" title="Permanent link">¶</a></h3>
 <p>Unary operations like <code>sin</code>, <code>exp</code>, <code>neg</code>
 pass each element's index set through unchanged —
 <span class="arithmatex">\(y_i = g(x_i)\)</span> means <span class="arithmatex">\(S_{y_i} = S_{x_i}\)</span>.</p>
@@ -1570,11 +1598,11 @@ pass each element's index set through unchanged —
 take the union of their operands' index sets —
 <span class="arithmatex">\(y_i = x_i \oplus z_i\)</span> means <span class="arithmatex">\(S_{y_i} = S_{x_i} \cup S_{z_i}\)</span>.
 When shapes differ, broadcasting rules determine which elements pair up.</p>
-<h3 id="reductions">Reductions<a class="headerlink" href="#reductions" title="Permanent link">&para;</a></h3>
+<h3 id="reductions">Reductions<a class="headerlink" href="#reductions" title="Permanent link">¶</a></h3>
 <p>A reduction like <code>sum</code> over an axis unions all index sets along that axis.
 If <span class="arithmatex">\(y_i = \sum_k x_{ik}\)</span>, then <span class="arithmatex">\(S_{y_i} = \bigcup_k S_{x_{ik}}\)</span>.
 A full reduction (no remaining axes) unions everything into a single set.</p>
-<h3 id="permutations-and-reshapes">Permutations and Reshapes<a class="headerlink" href="#permutations-and-reshapes" title="Permanent link">&para;</a></h3>
+<h3 id="permutations-and-reshapes">Permutations and Reshapes<a class="headerlink" href="#permutations-and-reshapes" title="Permanent link">¶</a></h3>
 <p>Operations like <code>transpose</code>, <code>reshape</code>, <code>slice</code>, <code>reverse</code>, and <code>broadcast</code>
 rearrange elements without combining them.
 Each output element maps to exactly one input element,
@@ -1582,7 +1610,7 @@ so the handler copies the corresponding index set.
 <code>asdex</code> implements this via a position map:
 apply the operation to an array where each element holds its own flat index,
 then read off the mapping.</p>
-<h3 id="indexing-gather-and-scatter">Indexing (Gather and Scatter)<a class="headerlink" href="#indexing-gather-and-scatter" title="Permanent link">&para;</a></h3>
+<h3 id="indexing-gather-and-scatter">Indexing (Gather and Scatter)<a class="headerlink" href="#indexing-gather-and-scatter" title="Permanent link">¶</a></h3>
 <p><code>gather</code> and <code>scatter</code> are the most complex primitives.
 When the indices are <strong>statically known</strong> (constants in the jaxpr),
 the handler resolves exactly which input position each output reads from
@@ -1594,7 +1622,7 @@ It falls back to the <a href="#fallback-handlers">conservative strategy</a> desc
 if an index array is built from literals and arithmetic on constants,
 the handler can still resolve it precisely
 even though it is not a direct literal in the jaxpr.</p>
-<h2 id="fallback-handlers">Fallback Handlers<a class="headerlink" href="#fallback-handlers" title="Permanent link">&para;</a></h2>
+<h2 id="fallback-handlers">Fallback Handlers<a class="headerlink" href="#fallback-handlers" title="Permanent link">¶</a></h2>
 <p>Not every JAX primitive has a precise handler.
 When <code>asdex</code> encounters an unhandled primitive,
 it uses a conservative fallback:
@@ -1612,7 +1640,7 @@ since silent over-approximation could mask bugs in the handler coverage.</p>
 to reduce conservatism and produce sparser patterns.
 Please open an issue if you encounter overly conservative patterns.</p>
 </div>
-<h2 id="sources-of-conservatism">Sources of Conservatism<a class="headerlink" href="#sources-of-conservatism" title="Permanent link">&para;</a></h2>
+<h2 id="sources-of-conservatism">Sources of Conservatism<a class="headerlink" href="#sources-of-conservatism" title="Permanent link">¶</a></h2>
 <p>Even with precise handlers,
 three mechanisms make global patterns conservative relative to local ones:</p>
 <ol>
@@ -1627,7 +1655,7 @@ three mechanisms make global patterns conservative relative to local ones:</p>
    when gather/scatter indices depend on the input,
    the handler must assume any element could be accessed.</li>
 </ol>
-<h2 id="hessian-detection">Hessian Detection<a class="headerlink" href="#hessian-detection" title="Permanent link">&para;</a></h2>
+<h2 id="hessian-detection">Hessian Detection<a class="headerlink" href="#hessian-detection" title="Permanent link">¶</a></h2>
 <p>Hessian sparsity is detected by applying Jacobian detection to the gradient:</p>
 <div class="arithmatex">\[
 \operatorname{hessian\_sparsity}(f) = \operatorname{jacobian\_sparsity}(\nabla f)

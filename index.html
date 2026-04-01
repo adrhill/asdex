@@ -689,6 +689,34 @@
   
   
     <li class="md-nav__item">
+      <a href="how-to/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="how-to/brusselator/" class="md-nav__link">
         
   
@@ -1232,13 +1260,13 @@
   
 
 
-<h1 id="asdex">asdex<a class="headerlink" href="#asdex" title="Permanent link">&para;</a></h1>
-<p><a href="https://github.com/adrhill/asdex/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/adrhill/asdex/actions/workflows/ci.yml/badge.svg" /></a>
-<a href="https://codecov.io/gh/adrhill/asdex"><img alt="codecov" src="https://codecov.io/gh/adrhill/asdex/graph/badge.svg" /></a>
-<a href="https://pypi.org/project/asdex/"><img alt="PyPI" src="https://img.shields.io/pypi/v/asdex" /></a>
-<a href="https://doi.org/10.5281/zenodo.18788242"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg" /></a>
-<a href="https://adrianhill.de/asdex/dev/bench/"><img alt="Benchmarks" src="https://img.shields.io/badge/benchmarks-view-blue" /></a>
-<a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><img alt="Changelog" src="https://img.shields.io/badge/news-changelog-yellow" /></a></p>
+<h1 id="asdex">asdex<a class="headerlink" href="#asdex" title="Permanent link">¶</a></h1>
+<p><a href="https://github.com/adrhill/asdex/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/adrhill/asdex/actions/workflows/ci.yml/badge.svg"/></a>
+<a href="https://codecov.io/gh/adrhill/asdex"><img alt="codecov" src="https://codecov.io/gh/adrhill/asdex/graph/badge.svg"/></a>
+<a href="https://pypi.org/project/asdex/"><img alt="PyPI" src="https://img.shields.io/pypi/v/asdex"/></a>
+<a href="https://doi.org/10.5281/zenodo.18788242"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg"/></a>
+<a href="https://adrianhill.de/asdex/dev/bench/"><img alt="Benchmarks" src="https://img.shields.io/badge/benchmarks-view-blue"/></a>
+<a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><img alt="Changelog" src="https://img.shields.io/badge/news-changelog-yellow"/></a></p>
 <p><strong>Automatic Sparse Differentiation in JAX.</strong></p>
 <p><code>asdex</code> (pronounced <em>Aztecs</em>) exploits sparsity structure to efficiently compute sparse Jacobians and Hessians.
 It implements a custom <a href="https://docs.jax.dev/en/latest/jaxpr.html">Jaxpr</a> interpreter
@@ -1246,34 +1274,34 @@ that uses <a href="explanation/sparsity-detection/">abstract interpretation</a>
 to detect <a href="explanation/global-sparsity/">global sparsity patterns</a> from the computation graph,
 then uses <a href="explanation/coloring/">graph coloring</a> to minimize the number of AD passes needed.
 Refer to our <a href="https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/"><em>Illustrated Guide to Automatic Sparse Differentiation</em></a> for more information.</p>
-<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>asdex
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">¶</a></h2>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>asdex
 </code></pre></div>
 <p>Or with <a href="https://docs.astral.sh/uv/">uv</a>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span>asdex
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span>asdex
 </code></pre></div>
-<h2 id="quick-example">Quick Example<a class="headerlink" href="#quick-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<h2 id="quick-example">Quick Example<a class="headerlink" href="#quick-example" title="Permanent link">¶</a></h2>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a href="#__codelineno-2-2" id="__codelineno-2-2" name="__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian</span>
+<a href="#__codelineno-2-3" id="__codelineno-2-3" name="__codelineno-2-3"></a>
+<a href="#__codelineno-2-4" id="__codelineno-2-4" name="__codelineno-2-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a href="#__codelineno-2-5" id="__codelineno-2-5" name="__codelineno-2-5"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
+<a href="#__codelineno-2-6" id="__codelineno-2-6" name="__codelineno-2-6"></a>
+<a href="#__codelineno-2-7" id="__codelineno-2-7" name="__codelineno-2-7"></a><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
+<a href="#__codelineno-2-8" id="__codelineno-2-8" name="__codelineno-2-8"></a>
+<a href="#__codelineno-2-9" id="__codelineno-2-9" name="__codelineno-2-9"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<a href="#__codelineno-2-10" id="__codelineno-2-10" name="__codelineno-2-10"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </code></pre></div>
 <p>Instead of 999 VJPs or 1000 JVPs,
 <code>asdex</code> computes the full sparse Jacobian with just 2 JVPs.</p>
-<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">¶</a></h2>
 <ul>
 <li><a href="tutorials/getting-started/">Getting Started</a> — step-by-step tutorial</li>
 <li><a href="how-to/jacobians/">How-To Guides</a> — task-oriented recipes</li>
 <li><a href="explanation/asd/">Explanation</a> — how and why it works</li>
 <li><a href="reference/jacobian/">API Reference</a> — full API documentation</li>
 </ul>
-<h2 id="acknowledgements">Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permanent link">&para;</a></h2>
+<h2 id="acknowledgements">Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permanent link">¶</a></h2>
 <p>This package is built with Claude Code based on previous work by <a href="https://github.com/adrhill">Adrian Hill</a>, <a href="https://github.com/gdalle">Guillaume Dalle</a>, and <a href="https://github.com/amontoison">Alexis Montoison</a> in the <a href="https://julialang.org">Julia programming language</a>:</p>
 <ul>
 <li><a href="https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/"><em>An Illustrated Guide to Automatic Sparse Differentiation</em></a>, A. Hill, G. Dalle, A. Montoison (2025)</li>

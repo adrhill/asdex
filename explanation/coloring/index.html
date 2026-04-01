@@ -598,6 +598,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/brusselator/" class="md-nav__link">
         
   
@@ -1278,12 +1306,12 @@
   
 
 
-<h1 id="graph-coloring">Graph Coloring<a class="headerlink" href="#graph-coloring" title="Permanent link">&para;</a></h1>
+<h1 id="graph-coloring">Graph Coloring<a class="headerlink" href="#graph-coloring" title="Permanent link">¶</a></h1>
 <p>Graph coloring is the key technique that makes <a href="../asd/">automatic sparse differentiation</a> efficient.
 This page explains how the conflict graph is built,
 the coloring variants <code>asdex</code> supports,
 and the algorithm used to find colorings.</p>
-<h2 id="the-conflict-graph">The Conflict Graph<a class="headerlink" href="#the-conflict-graph" title="Permanent link">&para;</a></h2>
+<h2 id="the-conflict-graph">The Conflict Graph<a class="headerlink" href="#the-conflict-graph" title="Permanent link">¶</a></h2>
 <p>Given a <a href="../global-sparsity/">sparsity pattern</a>,
 we build a <strong>conflict graph</strong> whose vertices are the rows (or columns) of the matrix
 and whose edges connect pairs that share a nonzero column (or row).
@@ -1293,7 +1321,7 @@ Vertices with the same color are then guaranteed to be structurally orthogonal,
 meaning they can share an AD pass.
 The total number of passes equals the number of colors,
 which is often dramatically fewer than the matrix dimension.</p>
-<h2 id="row-and-column-coloring">Row and Column Coloring<a class="headerlink" href="#row-and-column-coloring" title="Permanent link">&para;</a></h2>
+<h2 id="row-and-column-coloring">Row and Column Coloring<a class="headerlink" href="#row-and-column-coloring" title="Permanent link">¶</a></h2>
 <p>There are two variants.
 Row coloring treats rows as vertices and connects rows that share a nonzero column;
 same-colored rows are evaluated together using VJPs (reverse-mode AD).
@@ -1302,7 +1330,7 @@ same-colored columns are evaluated together using JVPs (forward-mode AD).
 By default, <code>asdex</code> tries both and picks whichever needs fewer colors.
 When tied, it prefers column coloring
 since JVPs are generally cheaper in JAX.</p>
-<h2 id="symmetric-coloring-for-hessians">Symmetric Coloring for Hessians<a class="headerlink" href="#symmetric-coloring-for-hessians" title="Permanent link">&para;</a></h2>
+<h2 id="symmetric-coloring-for-hessians">Symmetric Coloring for Hessians<a class="headerlink" href="#symmetric-coloring-for-hessians" title="Permanent link">¶</a></h2>
 <p>Hessians are symmetric (<span class="arithmatex">\(H_{ij} = H_{ji}\)</span>),
 so each off-diagonal entry appears twice in the matrix.
 Exploiting this redundancy can significantly reduce the number of colors needed,
@@ -1318,7 +1346,7 @@ at least one of <span class="arithmatex">\(i\)</span> or <span class="arithmatex
 making every entry unambiguously recoverable from the compressed product.
 Star coloring typically needs far fewer colors
 than treating the Hessian as a general Jacobian and applying row or column coloring.</p>
-<h2 id="the-greedy-algorithm">The Greedy Algorithm<a class="headerlink" href="#the-greedy-algorithm" title="Permanent link">&para;</a></h2>
+<h2 id="the-greedy-algorithm">The Greedy Algorithm<a class="headerlink" href="#the-greedy-algorithm" title="Permanent link">¶</a></h2>
 <p><code>asdex</code> colors graphs using a greedy algorithm with <strong>LargestFirst</strong> vertex ordering.
 Vertices are sorted by decreasing degree (number of conflicts),
 and each vertex is assigned the smallest color not already used by any of its neighbors.
@@ -1327,7 +1355,7 @@ because the most constrained vertices are colored while the most options are sti
 <p>The greedy algorithm does not guarantee an optimal coloring,
 but it is fast and produces good results for the sparsity patterns
 typically encountered in scientific computing.</p>
-<h2 id="from-coloring-to-decompression">From Coloring to Decompression<a class="headerlink" href="#from-coloring-to-decompression" title="Permanent link">&para;</a></h2>
+<h2 id="from-coloring-to-decompression">From Coloring to Decompression<a class="headerlink" href="#from-coloring-to-decompression" title="Permanent link">¶</a></h2>
 <p>The coloring result is materialized as a <strong>seed matrix</strong>
 whose columns are indicator vectors — one per color group
 (see <a href="../asd/#seed-matrices-and-compression">Seed Matrices and Compression</a>).
@@ -1344,7 +1372,7 @@ The star coloring guarantee ensures that at least one direction is always unambi
 <p>See the API reference for
 <a href="../../reference/#asdex.jacobian_coloring"><code>jacobian_coloring</code></a> and
 <a href="../../reference/#asdex.hessian_coloring"><code>hessian_coloring</code></a>.</p>
-<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">¶</a></h2>
 <ul>
 <li><a href="https://arxiv.org/abs/2505.07308"><em>Revisiting Sparse Matrix Coloring and Bicoloring</em></a>, Montoison et al. (2025)</li>
 <li><a href="https://epubs.siam.org/doi/10.1137/S0036144504444711"><em>What Color Is Your Jacobian? Graph Coloring for Computing Derivatives</em></a>, Gebremedhin et al. (2005)</li>

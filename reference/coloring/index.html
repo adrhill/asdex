@@ -598,6 +598,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/brusselator/" class="md-nav__link">
         
   
@@ -1366,843 +1394,740 @@
   
 
 
-<h1 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">&para;</a></h1>
-<h2 id="sparsity-detection-and-coloring">Sparsity Detection and Coloring<a class="headerlink" href="#sparsity-detection-and-coloring" title="Permanent link">&para;</a></h2>
-
-
+<h1 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">¶</a></h1>
+<h2 id="sparsity-detection-and-coloring">Sparsity Detection and Coloring<a class="headerlink" href="#sparsity-detection-and-coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.jacobian_coloring" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
-
-<a href="#asdex.jacobian_coloring" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Detect Jacobian sparsity and color in one step.</p>
-
-
+<h2 class="doc doc-heading" id="asdex.jacobian_coloring">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacobian_coloring" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect Jacobian sparsity and color in one step.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Function taking an array and returning an array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>input_shape</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Shape of the input array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>mode</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function taking an array and returning an array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>input_shape</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Shape of the input array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>mode</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
 
   
       module-attribute
    (asdex.modes.JacobianMode)" href="../#asdex.JacobianMode">JacobianMode</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>AD mode.
+</td>
+<td>
+<div class="doc-md-description">
+<p>AD mode.
 <code>"fwd"</code> uses JVPs (forward-mode AD),
 <code>"rev"</code> uses VJPs (reverse-mode AD),
 <code>None</code> picks whichever of fwd/rev needs fewer colors
 (unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symmetric</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to use symmetric (star) coloring.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric (star) coloring.
 Requires a square Jacobian.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="../#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.hessian_coloring" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
-
-<a href="#asdex.hessian_coloring" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Detect Hessian sparsity and color in one step.</p>
-
-
+<h2 class="doc doc-heading" id="asdex.hessian_coloring">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.hessian_coloring" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect Hessian sparsity and color in one step.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>f</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Scalar-valued function taking an array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>input_shape</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Shape of the input array.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>mode</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.HessianMode = Literal['fwd_over_rev', 'rev_over_fwd', 'rev_over_rev']
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Scalar-valued function taking an array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>input_shape</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Shape of the input array.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>mode</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.HessianMode = Literal['fwd_over_rev', 'rev_over_fwd', 'rev_over_rev']
 
   
       module-attribute
    (asdex.modes.HessianMode)" href="../#asdex.HessianMode">HessianMode</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>AD composition strategy for Hessian-vector products.
+</td>
+<td>
+<div class="doc-md-description">
+<p>AD composition strategy for Hessian-vector products.
 <code>"fwd_over_rev"</code> uses forward-over-reverse,
 <code>"rev_over_fwd"</code> uses reverse-over-forward,
 <code>"rev_over_rev"</code> uses reverse-over-reverse.
 Defaults to <code>"fwd_over_rev"</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symmetric</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to use symmetric (star) coloring.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric (star) coloring.
 Defaults to True (exploits H = H^T for fewer colors).</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</div>
+</td>
+<td>
+<code>True</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring)" href="../#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div><h2 id="coloring-known-sparsity-patterns">Coloring Known Sparsity Patterns<a class="headerlink" href="#coloring-known-sparsity-patterns" title="Permanent link">&para;</a></h2>
-
-
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div><h2 id="coloring-known-sparsity-patterns">Coloring Known Sparsity Patterns<a class="headerlink" href="#coloring-known-sparsity-patterns" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.jacobian_coloring_from_sparsity" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
-
-<a href="#asdex.jacobian_coloring_from_sparsity" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Color a sparsity pattern for sparse Jacobian computation.</p>
+<h2 class="doc doc-heading" id="asdex.jacobian_coloring_from_sparsity">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacobian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Color a sparsity pattern for sparse Jacobian computation.</p>
 <p>Assigns colors so that same-colored rows (or columns) can be
 computed together in a single VJP (or JVP).</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>sparsity</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>sparsity</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
   " href="../#asdex.SparsityPattern"><code>SparsityPattern</code></a>, NumPy array,
 or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>mode</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>mode</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.JacobianMode = Literal['fwd', 'rev']
 
   
       module-attribute
    (asdex.modes.JacobianMode)" href="../#asdex.JacobianMode">JacobianMode</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>AD mode.
+</td>
+<td>
+<div class="doc-md-description">
+<p>AD mode.
 <code>"fwd"</code> uses JVPs (column coloring),
 <code>"rev"</code> uses VJPs (row coloring).
 <code>None</code> picks whichever of fwd/rev needs fewer colors
 (unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symmetric</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to use symmetric (star) coloring.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric (star) coloring.
 Requires a square pattern.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="../#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.hessian_coloring_from_sparsity" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
-
-<a href="#asdex.hessian_coloring_from_sparsity" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Color a sparsity pattern for sparse Hessian computation.</p>
-
-
+<h2 class="doc doc-heading" id="asdex.hessian_coloring_from_sparsity">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.hessian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Color a sparsity pattern for sparse Hessian computation.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>sparsity</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>sparsity</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
   " href="../#asdex.SparsityPattern"><code>SparsityPattern</code></a>, NumPy array,
 or JAX BCOO matrix of shape <code>(n, n)</code>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>mode</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.HessianMode = Literal['fwd_over_rev', 'rev_over_fwd', 'rev_over_rev']
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>mode</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.HessianMode = Literal['fwd_over_rev', 'rev_over_fwd', 'rev_over_rev']
 
   
       module-attribute
    (asdex.modes.HessianMode)" href="../#asdex.HessianMode">HessianMode</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>AD composition strategy for Hessian-vector products.
+</td>
+<td>
+<div class="doc-md-description">
+<p>AD composition strategy for Hessian-vector products.
 <code>"fwd_over_rev"</code> uses forward-over-reverse,
 <code>"rev_over_fwd"</code> uses reverse-over-forward,
 <code>"rev_over_rev"</code> uses reverse-over-reverse.
 Defaults to <code>"fwd_over_rev"</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symmetric</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to use symmetric (star) coloring.
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric (star) coloring.
 Defaults to True (exploits Hessian symmetry for fewer colors).</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</div>
+</td>
+<td>
+<code>True</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
    (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+</td>
+<td>
+<div class="doc-md-description">
+<p>A <a class="autorefs autorefs-internal" title="asdex.ColoredPattern
 
 
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring)" href="../#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div><h2 id="low-level-algorithms">Low-Level Algorithms<a class="headerlink" href="#low-level-algorithms" title="Permanent link">&para;</a></h2>
-
-
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div><h2 id="low-level-algorithms">Low-Level Algorithms<a class="headerlink" href="#low-level-algorithms" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.color_rows" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_rows</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span></code>
-
-<a href="#asdex.color_rows" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Greedy row-wise coloring for sparse Jacobian computation.</p>
+<h2 class="doc doc-heading" id="asdex.color_rows">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_rows</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.color_rows" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Greedy row-wise coloring for sparse Jacobian computation.</p>
 <p>Assigns colors to rows such that no two rows sharing a non-zero column
 have the same color.
 This enables computing multiple Jacobian rows in a single VJP
 by using a combined seed vector.</p>
 <p>Uses LargestFirst vertex ordering for fewer colors.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>sparsity</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>sparsity</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>SparsityPattern of shape (m, n) representing the
+</td>
+<td>
+<div class="doc-md-description">
+<p>SparsityPattern of shape (m, n) representing the
 Jacobian sparsity pattern</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Tuple of (colors, num_colors) where:</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Tuple of (colors, num_colors) where:</p>
 <ul>
 <li>colors: Array of shape (m,) with color assignment for each row</li>
 <li>num_colors: Total number of colors used</li>
 </ul>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.color_cols" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_cols</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span></code>
-
-<a href="#asdex.color_cols" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Greedy column-wise coloring for sparse Jacobian computation.</p>
+<h2 class="doc doc-heading" id="asdex.color_cols">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_cols</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.color_cols" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Greedy column-wise coloring for sparse Jacobian computation.</p>
 <p>Assigns colors to columns such that no two columns sharing a non-zero row
 have the same color.
 This enables computing multiple Jacobian columns in a single JVP
 by using a combined tangent vector.</p>
 <p>Uses LargestFirst vertex ordering for fewer colors.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>sparsity</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>sparsity</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>SparsityPattern of shape (m, n) representing the
+</td>
+<td>
+<div class="doc-md-description">
+<p>SparsityPattern of shape (m, n) representing the
 Jacobian sparsity pattern</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Tuple of (colors, num_colors) where:</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Tuple of (colors, num_colors) where:</p>
 <ul>
 <li>colors: Array of shape (n,) with color assignment for each column</li>
 <li>num_colors: Total number of colors used</li>
 </ul>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
 </div>
-
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <div class="doc doc-object doc-function">
-
-
-<h2 id="asdex.color_symmetric" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_symmetric</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span></code>
-
-<a href="#asdex.color_symmetric" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Greedy symmetric coloring for sparse Hessian computation.</p>
+<h2 class="doc doc-heading" id="asdex.color_symmetric">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_symmetric</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.color_symmetric" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Greedy symmetric coloring for sparse Hessian computation.</p>
 <p>Uses star coloring (Gebremedhin et al., 2005):
 a distance-1 coloring with the additional constraint
 that every path on 4 vertices uses at least 3 colors.
 This enables symmetric decompression using fewer colors than row coloring.</p>
 <p>Requires a square sparsity pattern (Hessians are always square).
 Uses LargestFirst vertex ordering.</p>
-
-
 <p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>sparsity</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>sparsity</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.SparsityPattern
 
 
   
       dataclass
    (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>SparsityPattern of shape (n, n) representing the
+</td>
+<td>
+<div class="doc-md-description">
+<p>SparsityPattern of shape (n, n) representing the
 symmetric Hessian sparsity pattern</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Tuple of (colors, num_colors) where:</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Tuple of (colors, num_colors) where:</p>
 <ul>
 <li>colors: Array of shape (n,) with color assignment for each row/column</li>
 <li>num_colors: Total number of colors used</li>
 </ul>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
+</div>
+</td>
+</tr>
+</tbody>
+</table>
 <p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="ValueError">ValueError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If pattern is not square</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="ValueError">ValueError</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>If pattern is not square</p>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 
 

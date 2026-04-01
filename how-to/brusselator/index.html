@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://adrianhill.de/asdex/how-to/brusselator/">
       
       
-        <link rel="prev" href="../hessians/">
+        <link rel="prev" href="../visualization/">
       
       
         <link rel="next" href="../../explanation/asd/">
@@ -580,6 +580,34 @@
     
   
     Sparse Hessians
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
   
 
     
@@ -1256,10 +1284,10 @@
   
 
 
-<h1 id="example-brusselator-pde">Example: Brusselator PDE<a class="headerlink" href="#example-brusselator-pde" title="Permanent link">&para;</a></h1>
+<h1 id="example-brusselator-pde">Example: Brusselator PDE<a class="headerlink" href="#example-brusselator-pde" title="Permanent link">¶</a></h1>
 <p>This example computes the sparse Jacobian of a semi-discretized
 2D reaction-diffusion system using <code>asdex</code>.</p>
-<h2 id="the-brusselator-system">The Brusselator System<a class="headerlink" href="#the-brusselator-system" title="Permanent link">&para;</a></h2>
+<h2 id="the-brusselator-system">The Brusselator System<a class="headerlink" href="#the-brusselator-system" title="Permanent link">¶</a></h2>
 <p>The Brusselator models autocatalytic reactions
 on a 2D domain <span class="arithmatex">\([0, 1]^2\)</span> with periodic boundary conditions:</p>
 <div class="arithmatex">\[
@@ -1273,88 +1301,88 @@ See the <a href="#references">SciML Brusselator tutorials</a> for the full formu
 including a localized forcing term,
 which is omitted here since it is state-independent
 and does not affect the Jacobian sparsity.</p>
-<h2 id="discretizing-the-rhs">Discretizing the RHS<a class="headerlink" href="#discretizing-the-rhs" title="Permanent link">&para;</a></h2>
+<h2 id="discretizing-the-rhs">Discretizing the RHS<a class="headerlink" href="#discretizing-the-rhs" title="Permanent link">¶</a></h2>
 <p>Semi-discretize in space using second-order finite differences
 on an <span class="arithmatex">\(N \times N\)</span> grid.
 The state vector concatenates both species <span class="arithmatex">\(u\)</span> and <span class="arithmatex">\(v\)</span>,
 giving <span class="arithmatex">\(2N^2\)</span> unknowns:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">N</span> <span class="o">=</span> <span class="mi">32</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">alpha</span> <span class="o">=</span> <span class="mf">10.0</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">dx</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">N</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">brusselator_rhs</span><span class="p">(</span><span class="n">uv</span><span class="p">):</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">u</span> <span class="o">=</span> <span class="n">uv</span><span class="p">[:</span><span class="n">N</span><span class="o">*</span><span class="n">N</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">v</span> <span class="o">=</span> <span class="n">uv</span><span class="p">[</span><span class="n">N</span><span class="o">*</span><span class="n">N</span><span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1"># 5-point Laplacian with periodic boundary conditions</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">laplacian</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="k">return</span> <span class="p">(</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>            <span class="n">jnp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>            <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>            <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">w</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="p">)</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">du</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">u</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">v</span> <span class="o">-</span> <span class="mf">4.4</span> <span class="o">*</span> <span class="n">u</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">laplacian</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">dv</span> <span class="o">=</span> <span class="mf">3.4</span> <span class="o">*</span> <span class="n">u</span> <span class="o">-</span> <span class="n">u</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">laplacian</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">du</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">dv</span><span class="o">.</span><span class="n">ravel</span><span class="p">()])</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">N</span> <span class="o">=</span> <span class="mi">32</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">alpha</span> <span class="o">=</span> <span class="mf">10.0</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="n">dx</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">N</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">brusselator_rhs</span><span class="p">(</span><span class="n">uv</span><span class="p">):</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>    <span class="n">u</span> <span class="o">=</span> <span class="n">uv</span><span class="p">[:</span><span class="n">N</span><span class="o">*</span><span class="n">N</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a>    <span class="n">v</span> <span class="o">=</span> <span class="n">uv</span><span class="p">[</span><span class="n">N</span><span class="o">*</span><span class="n">N</span><span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>
+<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a>    <span class="c1"># 5-point Laplacian with periodic boundary conditions</span>
+<a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">laplacian</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+<a href="#__codelineno-0-13" id="__codelineno-0-13" name="__codelineno-0-13"></a>        <span class="k">return</span> <span class="p">(</span>
+<a href="#__codelineno-0-14" id="__codelineno-0-14" name="__codelineno-0-14"></a>            <span class="n">jnp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a>            <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a>            <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">w</span>
+<a href="#__codelineno-0-17" id="__codelineno-0-17" name="__codelineno-0-17"></a>        <span class="p">)</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
+<a href="#__codelineno-0-18" id="__codelineno-0-18" name="__codelineno-0-18"></a>
+<a href="#__codelineno-0-19" id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="n">du</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">u</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">v</span> <span class="o">-</span> <span class="mf">4.4</span> <span class="o">*</span> <span class="n">u</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">laplacian</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+<a href="#__codelineno-0-20" id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="n">dv</span> <span class="o">=</span> <span class="mf">3.4</span> <span class="o">*</span> <span class="n">u</span> <span class="o">-</span> <span class="n">u</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">v</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">laplacian</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+<a href="#__codelineno-0-21" id="__codelineno-0-21" name="__codelineno-0-21"></a>
+<a href="#__codelineno-0-22" id="__codelineno-0-22" name="__codelineno-0-22"></a>    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">du</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">dv</span><span class="o">.</span><span class="n">ravel</span><span class="p">()])</span>
 </code></pre></div>
-<h2 id="detecting-and-coloring-the-jacobian">Detecting and Coloring the Jacobian<a class="headerlink" href="#detecting-and-coloring-the-jacobian" title="Permanent link">&para;</a></h2>
+<h2 id="detecting-and-coloring-the-jacobian">Detecting and Coloring the Jacobian<a class="headerlink" href="#detecting-and-coloring-the-jacobian" title="Permanent link">¶</a></h2>
 <p>The Jacobian has shape <span class="arithmatex">\(2048 \times 2048\)</span>,
 but only 6 nonzeros per row
 (5 from the Laplacian stencil plus 1 from reaction coupling).
 Detect the sparsity and color it in one call:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">brusselator_rhs</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">N</span> <span class="o">*</span> <span class="n">N</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">brusselator_rhs</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">N</span> <span class="o">*</span> <span class="n">N</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ColoredPattern(2048×2048, nnz=12288, sparsity=99.7%, JVP, 12 colors)
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  12 JVPs (instead of 2048 VJPs or 2048 JVPs)
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>⎡⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⣿⣇⎤
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>⎢⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡟⎥
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>⎢⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡏⎥
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡇⎥
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡿⎥
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡇⎥
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡧⎥
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⎥   ⎢⣿⡇⎥
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⎥   ⎢⣿⡇⎥
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>⎢⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⎥   ⎢⣿⣏⎥
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>⎢⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⎥ → ⎢⣿⣿⎥
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⣟⎥
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡟⎥
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⣧⎥
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⣿⎥
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡇⎥
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⎥   ⎢⣿⣟⎥
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⎥   ⎢⣿⡇⎥
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⎥   ⎢⣿⣧⎥
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⎦   ⎣⣿⣷⎦
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>ColoredPattern(2048×2048, nnz=12288, sparsity=99.7%, JVP, 12 colors)
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>  12 JVPs (instead of 2048 VJPs or 2048 JVPs)
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>⎡⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⣿⣇⎤
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>⎢⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡟⎥
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>⎢⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡏⎥
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡇⎥
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡿⎥
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡇⎥
+<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡧⎥
+<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⎥   ⎢⣿⡇⎥
+<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⎥   ⎢⣿⡇⎥
+<a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a>⎢⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⎥   ⎢⣿⣏⎥
+<a href="#__codelineno-0-13" id="__codelineno-0-13" name="__codelineno-0-13"></a>⎢⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⎥ → ⎢⣿⣿⎥
+<a href="#__codelineno-0-14" id="__codelineno-0-14" name="__codelineno-0-14"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⣟⎥
+<a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡟⎥
+<a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⣧⎥
+<a href="#__codelineno-0-17" id="__codelineno-0-17" name="__codelineno-0-17"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⣿⎥
+<a href="#__codelineno-0-18" id="__codelineno-0-18" name="__codelineno-0-18"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⣿⡇⎥
+<a href="#__codelineno-0-19" id="__codelineno-0-19" name="__codelineno-0-19"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⎥   ⎢⣿⣟⎥
+<a href="#__codelineno-0-20" id="__codelineno-0-20" name="__codelineno-0-20"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⎥   ⎢⣿⡇⎥
+<a href="#__codelineno-0-21" id="__codelineno-0-21" name="__codelineno-0-21"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⣄⠀⎥   ⎢⣿⣧⎥
+<a href="#__codelineno-0-22" id="__codelineno-0-22" name="__codelineno-0-22"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣷⎦   ⎣⣿⣷⎦
 </code></pre></div>
 <p>Instead of 2048 JVPs or VJPs,
 <code>asdex</code> needs only as many as there are colors.</p>
-<h2 id="computing-the-jacobian">Computing the Jacobian<a class="headerlink" href="#computing-the-jacobian" title="Permanent link">&para;</a></h2>
+<h2 id="computing-the-jacobian">Computing the Jacobian<a class="headerlink" href="#computing-the-jacobian" title="Permanent link">¶</a></h2>
 <p>With the coloring precomputed,
 evaluate the sparse Jacobian at any state:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_from_coloring</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Brusselator initial condition</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">xx</span><span class="p">,</span> <span class="n">yy</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">u0</span> <span class="o">=</span> <span class="mf">22.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">yy</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">yy</span><span class="p">))</span> <span class="o">**</span> <span class="mf">1.5</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">v0</span> <span class="o">=</span> <span class="mf">27.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">xx</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">xx</span><span class="p">))</span> <span class="o">**</span> <span class="mf">1.5</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">uv0</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">u0</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">v0</span><span class="o">.</span><span class="n">ravel</span><span class="p">()])</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">brusselator_rhs</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">uv0</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_from_coloring</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="c1"># Brusselator initial condition</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="n">xx</span><span class="p">,</span> <span class="n">yy</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="n">u0</span> <span class="o">=</span> <span class="mf">22.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">yy</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">yy</span><span class="p">))</span> <span class="o">**</span> <span class="mf">1.5</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">v0</span> <span class="o">=</span> <span class="mf">27.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">xx</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">xx</span><span class="p">))</span> <span class="o">**</span> <span class="mf">1.5</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="n">uv0</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">u0</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">v0</span><span class="o">.</span><span class="n">ravel</span><span class="p">()])</span>
+<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a>
+<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">brusselator_rhs</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
+<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">uv0</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>BCOO(float32[2048, 2048], nse=12288)
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>BCOO(float32[2048, 2048], nse=12288)
 </code></pre></div>
 <p>Make sure to reuse the <code>coloring</code> across evaluations at different states,
 such that only the decompression step is repeated.</p>
-<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">¶</a></h2>
 <p>This example is based on tutorials from the <a href="https://sciml.ai">SciML</a> ecosystem.
 Consider giving the <a href="https://julialang.org">Julia programming language</a> a shot, it is fantastic.</p>
 <ul>

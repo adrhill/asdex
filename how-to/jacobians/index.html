@@ -735,6 +735,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../brusselator/" class="md-nav__link">
         
   
@@ -1322,7 +1350,7 @@
   
 
 
-<h1 id="computing-sparse-jacobians">Computing Sparse Jacobians<a class="headerlink" href="#computing-sparse-jacobians" title="Permanent link">&para;</a></h1>
+<h1 id="computing-sparse-jacobians">Computing Sparse Jacobians<a class="headerlink" href="#computing-sparse-jacobians" title="Permanent link">¶</a></h1>
 <p><code>asdex</code> computes sparse Jacobians for functions
 <span class="arithmatex">\(f: \mathbb{R}^n \to \mathbb{R}^m\)</span>
 using <a href="../../explanation/coloring/">row or column coloring</a> with forward- or reverse-mode AD.</p>
@@ -1333,68 +1361,68 @@ but a bug in <a href="../../explanation/sparsity-detection/">sparsity detection<
 Always verify against vanilla JAX at least once on a new function.
 See <a href="#verifying-results">Verifying Results</a> below.</p>
 </div>
-<h2 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
+<h2 id="basic-usage">Basic Usage<a class="headerlink" href="#basic-usage" title="Permanent link">¶</a></h2>
 <p>Pass your function and its <code>input_shape</code> to <a href="../../reference/#asdex.jacobian"><code>jacobian</code></a>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </code></pre></div>
 <p>This runs the computationally expensive sparsity detection and coloring steps when defining <code>jac_fn</code>.
 Subsequent calls to <code>jac_fn</code> only need to perform the cheap decompression step.
 The result is a JAX <a href="https://docs.jax.dev/en/latest/jax.experimental.sparse.html">BCOO</a> sparse matrix.</p>
 <p>The same function can be reused across evaluations at different inputs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
+<a href="#__codelineno-1-2" id="__codelineno-1-2" name="__codelineno-1-2"></a>    <span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </code></pre></div>
 <p><code>asdex</code> supports multi-dimensional input and output arrays.
 The Jacobian is always returned as a 2D matrix
 of shape <span class="arithmatex">\((m, n)\)</span> where <span class="arithmatex">\(n\)</span> is the total number of input elements
 and <span class="arithmatex">\(m\)</span> is the total number of output elements</p>
-<h2 id="getting-the-primal-value-too">Getting the Primal Value Too<a class="headerlink" href="#getting-the-primal-value-too" title="Permanent link">&para;</a></h2>
+<h2 id="getting-the-primal-value-too">Getting the Primal Value Too<a class="headerlink" href="#getting-the-primal-value-too" title="Permanent link">¶</a></h2>
 <p>Use <a href="../../reference/#asdex.value_and_jacobian"><code>value_and_jacobian</code></a>
 or <a href="../../reference/#asdex.value_and_jacobian_from_coloring"><code>value_and_jacobian_from_coloring</code></a>
 to get <code>(f(x), J)</code> without a redundant forward pass.</p>
-<h2 id="precomputing-the-colored-pattern">Precomputing the Colored Pattern<a class="headerlink" href="#precomputing-the-colored-pattern" title="Permanent link">&para;</a></h2>
+<h2 id="precomputing-the-colored-pattern">Precomputing the Colored Pattern<a class="headerlink" href="#precomputing-the-colored-pattern" title="Permanent link">¶</a></h2>
 <p>For more control,
 precompute the coloring explicitly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span><span class="p">,</span> <span class="n">jacobian_from_coloring</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span><span class="p">,</span> <span class="n">jacobian_from_coloring</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ColoredPattern(99×100, nnz=198, sparsity=98.0%, JVP, 2 colors)
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  2 JVPs (instead of 99 VJPs or 100 JVPs)
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⡇⢸⎤
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥ → ⎢⡇⢸⎥
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠦⎦   ⎣⡇⢸⎦
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>ColoredPattern(99×100, nnz=198, sparsity=98.0%, JVP, 2 colors)
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>  2 JVPs (instead of 99 VJPs or 100 JVPs)
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⡇⢸⎤
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-13" id="__codelineno-0-13" name="__codelineno-0-13"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥ → ⎢⡇⢸⎥
+<a href="#__codelineno-0-14" id="__codelineno-0-14" name="__codelineno-0-14"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-17" id="__codelineno-0-17" name="__codelineno-0-17"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-18" id="__codelineno-0-18" name="__codelineno-0-18"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-19" id="__codelineno-0-19" name="__codelineno-0-19"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-20" id="__codelineno-0-20" name="__codelineno-0-20"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-21" id="__codelineno-0-21" name="__codelineno-0-21"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-22" id="__codelineno-0-22" name="__codelineno-0-22"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠦⎦   ⎣⡇⢸⎦
 </code></pre></div>
 <p>This is useful when you want to visually inspect the coloring for correctness,
 or save it to disk to avoid recomputation.
 Pass the coloring to <a href="../../reference/#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a> to compute the Jacobian:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
+<a href="#__codelineno-2-2" id="__codelineno-2-2" name="__codelineno-2-2"></a>
+<a href="#__codelineno-2-3" id="__codelineno-2-3" name="__codelineno-2-3"></a><span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
+<a href="#__codelineno-2-4" id="__codelineno-2-4" name="__codelineno-2-4"></a>    <span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -1404,147 +1432,147 @@ please help out <code>asdex</code>'s development by
 These reports directly drive improvements
 and are one of the most impactful ways to contribute.</p>
 </div>
-<h2 id="saving-and-loading-patterns">Saving and Loading Patterns<a class="headerlink" href="#saving-and-loading-patterns" title="Permanent link">&para;</a></h2>
+<h2 id="saving-and-loading-patterns">Saving and Loading Patterns<a class="headerlink" href="#saving-and-loading-patterns" title="Permanent link">¶</a></h2>
 <p>Save a coloring to disk and reload it in a later session:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">coloring</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;colored.npz&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-3-1" id="__codelineno-3-1" name="__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span>
+<a href="#__codelineno-3-2" id="__codelineno-3-2" name="__codelineno-3-2"></a>
+<a href="#__codelineno-3-3" id="__codelineno-3-3" name="__codelineno-3-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<a href="#__codelineno-3-4" id="__codelineno-3-4" name="__codelineno-3-4"></a><span class="n">coloring</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"colored.npz"</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">ColoredPattern</span><span class="p">,</span> <span class="n">jacobian_from_coloring</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">ColoredPattern</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;colored.npz&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-4-1" id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">ColoredPattern</span><span class="p">,</span> <span class="n">jacobian_from_coloring</span>
+<a href="#__codelineno-4-2" id="__codelineno-4-2" name="__codelineno-4-2"></a>
+<a href="#__codelineno-4-3" id="__codelineno-4-3" name="__codelineno-4-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">ColoredPattern</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"colored.npz"</span><span class="p">)</span>
+<a href="#__codelineno-4-4" id="__codelineno-4-4" name="__codelineno-4-4"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
 </code></pre></div>
 <p><a href="../../reference/#asdex.SparsityPattern"><code>SparsityPattern</code></a> supports the same <code>save</code>/<code>load</code> interface.</p>
-<h2 id="choosing-row-vs-column-coloring">Choosing Row vs Column Coloring<a class="headerlink" href="#choosing-row-vs-column-coloring" title="Permanent link">&para;</a></h2>
+<h2 id="choosing-row-vs-column-coloring">Choosing Row vs Column Coloring<a class="headerlink" href="#choosing-row-vs-column-coloring" title="Permanent link">¶</a></h2>
 <p>By default, <code>asdex</code> tries both row and column coloring
 and picks whichever needs fewer colors:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Automatic selection (default):</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="c1"># Automatic selection (default):</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ColoredPattern(99×100, nnz=198, sparsity=98.0%, JVP, 2 colors)
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  2 JVPs (instead of 99 VJPs or 100 JVPs)
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⡇⢸⎤
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥ → ⎢⡇⢸⎥
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⎥   ⎢⡇⢸⎥
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠦⎦   ⎣⡇⢸⎦
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>ColoredPattern(99×100, nnz=198, sparsity=98.0%, JVP, 2 colors)
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>  2 JVPs (instead of 99 VJPs or 100 JVPs)
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⡇⢸⎤
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-13" id="__codelineno-0-13" name="__codelineno-0-13"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥ → ⎢⡇⢸⎥
+<a href="#__codelineno-0-14" id="__codelineno-0-14" name="__codelineno-0-14"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-17" id="__codelineno-0-17" name="__codelineno-0-17"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-18" id="__codelineno-0-18" name="__codelineno-0-18"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-19" id="__codelineno-0-19" name="__codelineno-0-19"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-20" id="__codelineno-0-20" name="__codelineno-0-20"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-21" id="__codelineno-0-21" name="__codelineno-0-21"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⎥   ⎢⡇⢸⎥
+<a href="#__codelineno-0-22" id="__codelineno-0-22" name="__codelineno-0-22"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠦⎦   ⎣⡇⢸⎦
 </code></pre></div>
 <p>You can also force a specific AD mode.
 <code>"fwd"</code> colors columns (uses JVPs, forward-mode AD),
 <code>"rev"</code> colors rows (uses VJPs, reverse-mode AD):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Force forward mode (column coloring, uses JVPs):</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;fwd&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Force reverse mode (row coloring, uses VJPs):</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rev&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="c1"># Force forward mode (column coloring, uses JVPs):</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"fwd"</span><span class="p">)</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="c1"># Force reverse mode (row coloring, uses VJPs):</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"rev"</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ColoredPattern(99×100, nnz=198, sparsity=98.0%, VJP, 2 colors)
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  2 VJPs (instead of 99 VJPs or 100 JVPs)
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⎥
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⎥
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⎥
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠦⎦
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                     ↓
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>⎡⠈⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁⎤
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>⎣⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⎦
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>ColoredPattern(99×100, nnz=198, sparsity=98.0%, VJP, 2 colors)
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>  2 VJPs (instead of 99 VJPs or 100 JVPs)
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-13" id="__codelineno-0-13" name="__codelineno-0-13"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-14" id="__codelineno-0-14" name="__codelineno-0-14"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-17" id="__codelineno-0-17" name="__codelineno-0-17"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-18" id="__codelineno-0-18" name="__codelineno-0-18"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-19" id="__codelineno-0-19" name="__codelineno-0-19"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⎥
+<a href="#__codelineno-0-20" id="__codelineno-0-20" name="__codelineno-0-20"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⎥
+<a href="#__codelineno-0-21" id="__codelineno-0-21" name="__codelineno-0-21"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⎥
+<a href="#__codelineno-0-22" id="__codelineno-0-22" name="__codelineno-0-22"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠦⎦
+<a href="#__codelineno-0-23" id="__codelineno-0-23" name="__codelineno-0-23"></a>                     ↓
+<a href="#__codelineno-0-24" id="__codelineno-0-24" name="__codelineno-0-24"></a>⎡⠈⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁⎤
+<a href="#__codelineno-0-25" id="__codelineno-0-25" name="__codelineno-0-25"></a>⎣⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⎦
 </code></pre></div>
 <p>The one-call <a href="../../reference/#asdex.jacobian"><code>jacobian</code></a> API accepts the same <code>mode</code> parameter:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;rev&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-5-1" id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"rev"</span><span class="p">)</span>
 </code></pre></div>
 <p>When the number of colors is equal,
 <code>asdex</code> prefers column coloring since JVPs are generally cheaper to compute in JAX.</p>
-<h2 id="separate-detection-and-coloring">Separate Detection and Coloring<a class="headerlink" href="#separate-detection-and-coloring" title="Permanent link">&para;</a></h2>
+<h2 id="separate-detection-and-coloring">Separate Detection and Coloring<a class="headerlink" href="#separate-detection-and-coloring" title="Permanent link">¶</a></h2>
 <p>For even more control, you can split detection and coloring:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_sparsity</span><span class="p">,</span> <span class="n">jacobian_coloring_from_sparsity</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;fwd&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-6-1" id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_sparsity</span><span class="p">,</span> <span class="n">jacobian_coloring_from_sparsity</span>
+<a href="#__codelineno-6-2" id="__codelineno-6-2" name="__codelineno-6-2"></a>
+<a href="#__codelineno-6-3" id="__codelineno-6-3" name="__codelineno-6-3"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<a href="#__codelineno-6-4" id="__codelineno-6-4" name="__codelineno-6-4"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"fwd"</span><span class="p">)</span>
 </code></pre></div>
 <p>This is useful when you want to manually provide a sparsity pattern.</p>
-<h2 id="manually-providing-a-sparsity-pattern">Manually Providing a Sparsity Pattern<a class="headerlink" href="#manually-providing-a-sparsity-pattern" title="Permanent link">&para;</a></h2>
+<h2 id="manually-providing-a-sparsity-pattern">Manually Providing a Sparsity Pattern<a class="headerlink" href="#manually-providing-a-sparsity-pattern" title="Permanent link">¶</a></h2>
 <p>You can provide a sparsity pattern manually if you already know it ahead of time.
 Create a <code>SparsityPattern</code> from coordinate arrays, a dense matrix, or a JAX BCOO matrix.</p>
 <p>From a dense boolean or numeric matrix:</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparsityPattern</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">dense</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">SparsityPattern</span><span class="o">.</span><span class="n">from_dense</span><span class="p">(</span><span class="n">dense</span><span class="p">)</span>
+<p><div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparsityPattern</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">dense</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>                  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">SparsityPattern</span><span class="o">.</span><span class="n">from_dense</span><span class="p">(</span><span class="n">dense</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>SparsityPattern(3×4, nnz=6, sparsity=50.0%)
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>● ● ⋅ ⋅
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>⋅ ● ● ⋅
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>⋅ ⋅ ● ●
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>SparsityPattern(3×4, nnz=6, sparsity=50.0%)
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>● ● ⋅ ⋅
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>⋅ ● ● ⋅
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>⋅ ⋅ ● ●
 </code></pre></div></p>
 <p>From row and column index arrays:</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">SparsityPattern</span><span class="o">.</span><span class="n">from_coo</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">rows</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+<p><div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">SparsityPattern</span><span class="o">.</span><span class="n">from_coo</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">rows</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>SparsityPattern(3×4, nnz=6, sparsity=50.0%)
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>● ● ⋅ ⋅
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>⋅ ● ● ⋅
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>⋅ ⋅ ● ●
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>SparsityPattern(3×4, nnz=6, sparsity=50.0%)
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>● ● ⋅ ⋅
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>⋅ ● ● ⋅
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>⋅ ⋅ ● ●
 </code></pre></div></p>
 <p>From a JAX BCOO sparse matrix:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">SparsityPattern</span><span class="o">.</span><span class="n">from_bcoo</span><span class="p">(</span><span class="n">bcoo_matrix</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-7-1" id="__codelineno-7-1" name="__codelineno-7-1"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">SparsityPattern</span><span class="o">.</span><span class="n">from_bcoo</span><span class="p">(</span><span class="n">bcoo_matrix</span><span class="p">)</span>
 </code></pre></div></p>
 <p>Finally, color the sparsity pattern and compute the Jacobian:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring_from_sparsity</span><span class="p">,</span> <span class="n">jacobian_from_coloring</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-8-1" id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring_from_sparsity</span><span class="p">,</span> <span class="n">jacobian_from_coloring</span>
+<a href="#__codelineno-8-2" id="__codelineno-8-2" name="__codelineno-8-2"></a>
+<a href="#__codelineno-8-3" id="__codelineno-8-3" name="__codelineno-8-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span>
+<a href="#__codelineno-8-4" id="__codelineno-8-4" name="__codelineno-8-4"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
+<a href="#__codelineno-8-5" id="__codelineno-8-5" name="__codelineno-8-5"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </code></pre></div></p>
-<h2 id="verifying-results">Verifying Results<a class="headerlink" href="#verifying-results" title="Permanent link">&para;</a></h2>
+<h2 id="verifying-results">Verifying Results<a class="headerlink" href="#verifying-results" title="Permanent link">¶</a></h2>
 <p>Use <a class="autorefs autorefs-internal" title="asdex.check_jacobian_correctness(f, x, coloring, *, method='matvec', num_probes=25, seed=0, rtol=None, atol=None)" href="../../reference/jacobian/#asdex.check_jacobian_correctness"><code>check_jacobian_correctness</code></a>
 to verify <code>asdex</code>'s sparse Jacobian against vanilla JAX.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_jacobian_correctness</span><span class="p">,</span> <span class="n">jacobian_coloring</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-9-1" id="__codelineno-9-1" name="__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_jacobian_correctness</span><span class="p">,</span> <span class="n">jacobian_coloring</span>
+<a href="#__codelineno-9-2" id="__codelineno-9-2" name="__codelineno-9-2"></a>
+<a href="#__codelineno-9-3" id="__codelineno-9-3" name="__codelineno-9-3"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<a href="#__codelineno-9-4" id="__codelineno-9-4" name="__codelineno-9-4"></a><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>
 </code></pre></div>
 <p>Use verification for debugging and initial setup, not in production loops.
 A good place to call it is in your test suite.</p>
@@ -1555,11 +1583,11 @@ This is cheap — O(k) in the number of probes — and scales to large problems.
 If the results match, the function returns silently.
 If they disagree, it raises a <a class="autorefs autorefs-internal" title="asdex.VerificationError" href="../../reference/#asdex.VerificationError"><code>VerificationError</code></a>.</p>
 <p>You can also set custom tolerances, the number of probes, and the PRNG seed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">num_probes</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-10-1" id="__codelineno-10-1" name="__codelineno-10-1"></a><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">num_probes</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </code></pre></div>
 <p>For an exact element-wise comparison against the full dense Jacobian,
 use <code>method="dense"</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;dense&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-11-1" id="__codelineno-11-1" name="__codelineno-11-1"></a><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"dense"</span><span class="p">)</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Dense computation</p>
