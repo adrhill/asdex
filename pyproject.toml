@@ -97,6 +97,7 @@ markers = [
     "fallback: documents conservative fallback behavior",
     "bug: documents known bugs",
     "slow: tests that take more than 1 second",
+    "plot: matplotlib visualization smoke tests",
     "cutest: CUTEst benchmark problem tests (requires sif2jax)",
 ]
 
