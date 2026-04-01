@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --group dev --extra matplotlib
       - name: Test with coverage
         run: uv run pytest -m "" --cov=src/asdex --cov-report=xml  # -m "" overrides default marker filter to include slow and benchmark tests
       - name: Upload coverage to Codecov
@@ -40,7 +40,7 @@ jobs:
       - name: Set up Python
         run: uv python install 3.14
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --group dev --extra matplotlib
       - name: Lint
         run: uv run ruff check .
       - name: Format
