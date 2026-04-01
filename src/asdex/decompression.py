@@ -1,7 +1,7 @@
 """Sparse Jacobian and Hessian computation using coloring and AD."""
 
 from collections.abc import Callable
-from typing import assert_never
+from typing import Literal, assert_never, overload
 
 import jax
 import jax.numpy as jnp
@@ -14,21 +14,42 @@ from asdex.detection import _ensure_scalar
 from asdex.modes import (
     HessianMode,
     JacobianMode,
+    OutputFormat,
     _assert_hessian_mode,
     _assert_jacobian_mode,
+    _assert_output_format,
 )
 from asdex.pattern import ColoredPattern
 
 # Public API
 
 
+@overload
 def jacobian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
-) -> Callable[[ArrayLike], BCOO]:
+    output_format: Literal["bcoo"] = ...,
+) -> Callable[[ArrayLike], BCOO]: ...
+@overload
+def jacobian(
+    f: Callable[[ArrayLike], ArrayLike],
+    input_shape: int | tuple[int, ...],
+    *,
+    mode: JacobianMode | None = None,
+    symmetric: bool = False,
+    output_format: Literal["dense"],
+) -> Callable[[ArrayLike], jax.Array]: ...
+def jacobian(
+    f: Callable[[ArrayLike], ArrayLike],
+    input_shape: int | tuple[int, ...],
+    *,
+    mode: JacobianMode | None = None,
+    symmetric: bool = False,
+    output_format: OutputFormat = "bcoo",
+) -> Callable[[ArrayLike], BCOO | jax.Array]:
     """Detect sparsity, color, and return a function computing sparse Jacobians.
 
     Combines [`jacobian_coloring`][asdex.jacobian_coloring]
@@ -45,23 +66,48 @@ def jacobian(
             ``None`` picks whichever of fwd/rev needs fewer colors.
         symmetric: Whether to use symmetric (star) coloring.
             Requires a square Jacobian.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
         A function that takes an input array and returns
-            the sparse Jacobian as BCOO of shape ``(m, n)``
+            the Jacobian of shape ``(m, n)``
             where ``n = x.size`` and ``m = prod(output_shape)``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     coloring = _jacobian_coloring(f, input_shape, mode=mode, symmetric=symmetric)
-    return jacobian_from_coloring(f, coloring)
+    return jacobian_from_coloring(f, coloring, output_format=output_format)
 
 
+@overload
 def value_and_jacobian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
-) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]:
+    output_format: Literal["bcoo"] = ...,
+) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]: ...
+@overload
+def value_and_jacobian(
+    f: Callable[[ArrayLike], ArrayLike],
+    input_shape: int | tuple[int, ...],
+    *,
+    mode: JacobianMode | None = None,
+    symmetric: bool = False,
+    output_format: Literal["dense"],
+) -> Callable[[ArrayLike], tuple[jax.Array, jax.Array]]: ...
+def value_and_jacobian(
+    f: Callable[[ArrayLike], ArrayLike],
+    input_shape: int | tuple[int, ...],
+    *,
+    mode: JacobianMode | None = None,
+    symmetric: bool = False,
+    output_format: OutputFormat = "bcoo",
+) -> Callable[[ArrayLike], tuple[jax.Array, BCOO | jax.Array]]:
     """Detect sparsity, color, and return a function computing value and sparse Jacobian.
 
     Like [`jacobian`][asdex.jacobian],
@@ -78,23 +124,49 @@ def value_and_jacobian(
             ``None`` picks whichever of fwd/rev needs fewer colors.
         symmetric: Whether to use symmetric (star) coloring.
             Requires a square Jacobian.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
         A function that takes an input array and returns
-            ``(f(x), J)`` where ``J`` is the sparse Jacobian as BCOO
-            of shape ``(m, n)``.
+            ``(f(x), J)`` where ``J`` is the Jacobian
+            of shape ``(m, n)``
+            where ``n = x.size`` and ``m = prod(output_shape)``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     coloring = _jacobian_coloring(f, input_shape, mode=mode, symmetric=symmetric)
-    return value_and_jacobian_from_coloring(f, coloring)
+    return value_and_jacobian_from_coloring(f, coloring, output_format=output_format)
 
 
+@overload
 def hessian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
     mode: HessianMode | None = None,
     symmetric: bool = True,
-) -> Callable[[ArrayLike], BCOO]:
+    output_format: Literal["bcoo"] = ...,
+) -> Callable[[ArrayLike], BCOO]: ...
+@overload
+def hessian(
+    f: Callable[[ArrayLike], ArrayLike],
+    input_shape: int | tuple[int, ...],
+    *,
+    mode: HessianMode | None = None,
+    symmetric: bool = True,
+    output_format: Literal["dense"],
+) -> Callable[[ArrayLike], jax.Array]: ...
+def hessian(
+    f: Callable[[ArrayLike], ArrayLike],
+    input_shape: int | tuple[int, ...],
+    *,
+    mode: HessianMode | None = None,
+    symmetric: bool = True,
+    output_format: OutputFormat = "bcoo",
+) -> Callable[[ArrayLike], BCOO | jax.Array]:
     """Detect sparsity, color, and return a function computing sparse Hessians.
 
     Combines [`hessian_coloring`][asdex.hessian_coloring]
@@ -115,23 +187,48 @@ def hessian(
             Defaults to ``"fwd_over_rev"``.
         symmetric: Whether to use symmetric (star) coloring.
             Defaults to True (exploits H = H^T for fewer colors).
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
         A function that takes an input array and returns
-            the sparse Hessian as BCOO of shape ``(n, n)``
+            the Hessian of shape ``(n, n)``
             where ``n = x.size``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     coloring = _hessian_coloring(f, input_shape, mode=mode, symmetric=symmetric)
-    return hessian_from_coloring(f, coloring)
+    return hessian_from_coloring(f, coloring, output_format=output_format)
 
 
+@overload
 def value_and_hessian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
     mode: HessianMode | None = None,
     symmetric: bool = True,
-) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]:
+    output_format: Literal["bcoo"] = ...,
+) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]: ...
+@overload
+def value_and_hessian(
+    f: Callable[[ArrayLike], ArrayLike],
+    input_shape: int | tuple[int, ...],
+    *,
+    mode: HessianMode | None = None,
+    symmetric: bool = True,
+    output_format: Literal["dense"],
+) -> Callable[[ArrayLike], tuple[jax.Array, jax.Array]]: ...
+def value_and_hessian(
+    f: Callable[[ArrayLike], ArrayLike],
+    input_shape: int | tuple[int, ...],
+    *,
+    mode: HessianMode | None = None,
+    symmetric: bool = True,
+    output_format: OutputFormat = "bcoo",
+) -> Callable[[ArrayLike], tuple[jax.Array, BCOO | jax.Array]]:
     """Detect sparsity, color, and return a function computing value and sparse Hessian.
 
     Like [`hessian`][asdex.hessian],
@@ -152,20 +249,40 @@ def value_and_hessian(
             Defaults to ``"fwd_over_rev"``.
         symmetric: Whether to use symmetric (star) coloring.
             Defaults to True (exploits H = H^T for fewer colors).
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
         A function that takes an input array and returns
-            ``(f(x), H)`` where ``H`` is the sparse Hessian as BCOO
-            of shape ``(n, n)``.
+            ``(f(x), H)`` where ``H`` is the Hessian
+            of shape ``(n, n)``
+            where ``n = x.size``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     coloring = _hessian_coloring(f, input_shape, mode=mode, symmetric=symmetric)
-    return value_and_hessian_from_coloring(f, coloring)
+    return value_and_hessian_from_coloring(f, coloring, output_format=output_format)
 
 
+@overload
 def jacobian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
-) -> Callable[[ArrayLike], BCOO]:
+    output_format: Literal["bcoo"] = ...,
+) -> Callable[[ArrayLike], BCOO]: ...
+@overload
+def jacobian_from_coloring(
+    f: Callable[[ArrayLike], ArrayLike],
+    coloring: ColoredPattern,
+    output_format: Literal["dense"],
+) -> Callable[[ArrayLike], jax.Array]: ...
+def jacobian_from_coloring(
+    f: Callable[[ArrayLike], ArrayLike],
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+) -> Callable[[ArrayLike], BCOO | jax.Array]:
     """Build a sparse Jacobian function from a pre-computed coloring.
 
     Uses row coloring + VJPs or column coloring + JVPs,
@@ -176,23 +293,43 @@ def jacobian_from_coloring(
             Input and output may be multi-dimensional.
         coloring: Pre-computed [`ColoredPattern`][asdex.ColoredPattern]
             from [`jacobian_coloring`][asdex.jacobian_coloring].
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
         A function that takes an input array and returns
-            the sparse Jacobian as BCOO of shape ``(m, n)``
+            the Jacobian of shape ``(m, n)``
             where ``n = x.size`` and ``m = prod(output_shape)``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
+    _assert_output_format(output_format)
 
-    def jac_fn(x: ArrayLike) -> BCOO:
-        return _eval_jacobian(f, jnp.asarray(x), coloring)
+    def jac_fn(x: ArrayLike) -> BCOO | jax.Array:
+        return _eval_jacobian(f, jnp.asarray(x), coloring, output_format)
 
     return jac_fn
 
 
+@overload
 def hessian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
-) -> Callable[[ArrayLike], BCOO]:
+    output_format: Literal["bcoo"] = ...,
+) -> Callable[[ArrayLike], BCOO]: ...
+@overload
+def hessian_from_coloring(
+    f: Callable[[ArrayLike], ArrayLike],
+    coloring: ColoredPattern,
+    output_format: Literal["dense"],
+) -> Callable[[ArrayLike], jax.Array]: ...
+def hessian_from_coloring(
+    f: Callable[[ArrayLike], ArrayLike],
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+) -> Callable[[ArrayLike], BCOO | jax.Array]:
     """Build a sparse Hessian function from a pre-computed coloring.
 
     Uses symmetric (star) coloring and Hessian-vector products by default.
@@ -205,23 +342,43 @@ def hessian_from_coloring(
             Input may be multi-dimensional.
         coloring: Pre-computed [`ColoredPattern`][asdex.ColoredPattern]
             from [`hessian_coloring`][asdex.hessian_coloring].
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
         A function that takes an input array and returns
-            the sparse Hessian as BCOO of shape ``(n, n)``
+            the Hessian of shape ``(n, n)``
             where ``n = x.size``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
+    _assert_output_format(output_format)
 
-    def hess_fn(x: ArrayLike) -> BCOO:
-        return _eval_hessian(f, jnp.asarray(x), coloring)
+    def hess_fn(x: ArrayLike) -> BCOO | jax.Array:
+        return _eval_hessian(f, jnp.asarray(x), coloring, output_format)
 
     return hess_fn
 
 
+@overload
 def value_and_jacobian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
-) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]:
+    output_format: Literal["bcoo"] = ...,
+) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]: ...
+@overload
+def value_and_jacobian_from_coloring(
+    f: Callable[[ArrayLike], ArrayLike],
+    coloring: ColoredPattern,
+    output_format: Literal["dense"],
+) -> Callable[[ArrayLike], tuple[jax.Array, jax.Array]]: ...
+def value_and_jacobian_from_coloring(
+    f: Callable[[ArrayLike], ArrayLike],
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+) -> Callable[[ArrayLike], tuple[jax.Array, BCOO | jax.Array]]:
     """Build a function computing value and sparse Jacobian from a pre-computed coloring.
 
     Like [`jacobian_from_coloring`][asdex.jacobian_from_coloring],
@@ -232,23 +389,44 @@ def value_and_jacobian_from_coloring(
             Input and output may be multi-dimensional.
         coloring: Pre-computed [`ColoredPattern`][asdex.ColoredPattern]
             from [`jacobian_coloring`][asdex.jacobian_coloring].
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
         A function that takes an input array and returns
-            ``(f(x), J)`` where ``J`` is the sparse Jacobian as BCOO
-            of shape ``(m, n)``.
+            ``(f(x), J)`` where ``J`` is the Jacobian
+            of shape ``(m, n)``
+            where ``n = x.size`` and ``m = prod(output_shape)``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
+    _assert_output_format(output_format)
 
-    def val_jac_fn(x: ArrayLike) -> tuple[jax.Array, BCOO]:
-        return _eval_value_and_jacobian(f, jnp.asarray(x), coloring)
+    def val_jac_fn(x: ArrayLike) -> tuple[jax.Array, BCOO | jax.Array]:
+        return _eval_value_and_jacobian(f, jnp.asarray(x), coloring, output_format)
 
     return val_jac_fn
 
 
+@overload
 def value_and_hessian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
-) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]:
+    output_format: Literal["bcoo"] = ...,
+) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]: ...
+@overload
+def value_and_hessian_from_coloring(
+    f: Callable[[ArrayLike], ArrayLike],
+    coloring: ColoredPattern,
+    output_format: Literal["dense"],
+) -> Callable[[ArrayLike], tuple[jax.Array, jax.Array]]: ...
+def value_and_hessian_from_coloring(
+    f: Callable[[ArrayLike], ArrayLike],
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+) -> Callable[[ArrayLike], tuple[jax.Array, BCOO | jax.Array]]:
     """Build a function computing value and sparse Hessian from a pre-computed coloring.
 
     Like [`hessian_from_coloring`][asdex.hessian_from_coloring],
@@ -262,15 +440,23 @@ def value_and_hessian_from_coloring(
             Input may be multi-dimensional.
         coloring: Pre-computed [`ColoredPattern`][asdex.ColoredPattern]
             from [`hessian_coloring`][asdex.hessian_coloring].
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
         A function that takes an input array and returns
-            ``(f(x), H)`` where ``H`` is the sparse Hessian as BCOO
-            of shape ``(n, n)``.
+            ``(f(x), H)`` where ``H`` is the Hessian
+            of shape ``(n, n)``
+            where ``n = x.size``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
+    _assert_output_format(output_format)
 
-    def val_hess_fn(x: ArrayLike) -> tuple[jax.Array, BCOO]:
-        return _eval_value_and_hessian(f, jnp.asarray(x), coloring)
+    def val_hess_fn(x: ArrayLike) -> tuple[jax.Array, BCOO | jax.Array]:
+        return _eval_value_and_hessian(f, jnp.asarray(x), coloring, output_format)
 
     return val_hess_fn
 
@@ -282,7 +468,8 @@ def _eval_jacobian(
     f: Callable[[ArrayLike], ArrayLike],
     x: jax.Array,
     coloring: ColoredPattern,
-) -> BCOO:
+    output_format: OutputFormat = "bcoo",
+) -> BCOO | jax.Array:
     """Evaluate the sparse Jacobian of f at x."""
     n = x.size
 
@@ -299,18 +486,18 @@ def _eval_jacobian(
 
     # Handle edge case: no outputs
     if m == 0:
-        return BCOO((jnp.array([]), jnp.zeros((0, 2), dtype=jnp.int32)), shape=(0, n))
+        return _empty_result((0, n), output_format)
 
     # Handle edge case: all-zero Jacobian
     if sparsity.nnz == 0:
-        return BCOO((jnp.array([]), jnp.zeros((0, 2), dtype=jnp.int32)), shape=(m, n))
+        return _empty_result((m, n), output_format)
 
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
         case "rev":
-            return _jacobian_rows(f, x, coloring, out_shape)
+            return _jacobian_rows(f, x, coloring, out_shape, output_format)
         case "fwd":
-            return _jacobian_cols(f, x, coloring)
+            return _jacobian_cols(f, x, coloring, output_format)
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
@@ -319,7 +506,8 @@ def _eval_hessian(
     f: Callable[[ArrayLike], ArrayLike],
     x: jax.Array,
     coloring: ColoredPattern,
-) -> BCOO:
+    output_format: OutputFormat = "bcoo",
+) -> BCOO | jax.Array:
     """Evaluate the sparse Hessian of f at x.
 
     If ``f`` returns a squeezable shape like ``(1,)``,
@@ -339,17 +527,18 @@ def _eval_hessian(
 
     # Handle edge case: all-zero Hessian
     if sparsity.nnz == 0:
-        return BCOO((jnp.array([]), jnp.zeros((0, 2), dtype=jnp.int32)), shape=(n, n))
+        return _empty_result((n, n), output_format)
 
     grads = _compute_hvps(f, x, coloring)
-    return _decompress(coloring, grads)
+    return _decompress(grads, coloring, output_format)
 
 
 def _eval_value_and_jacobian(
     f: Callable[[ArrayLike], ArrayLike],
     x: jax.Array,
     coloring: ColoredPattern,
-) -> tuple[jax.Array, BCOO]:
+    output_format: OutputFormat = "bcoo",
+) -> tuple[jax.Array, BCOO | jax.Array]:
     """Evaluate f(x) and the sparse Jacobian of f at x."""
     n = x.size
 
@@ -367,23 +556,19 @@ def _eval_value_and_jacobian(
     # Handle edge case: no outputs
     if m == 0:
         y = jnp.asarray(f(x))
-        return y, BCOO(
-            (jnp.array([]), jnp.zeros((0, 2), dtype=jnp.int32)), shape=(0, n)
-        )
+        return y, _empty_result((0, n), output_format)
 
     # Handle edge case: all-zero Jacobian
     if sparsity.nnz == 0:
         y = jnp.asarray(f(x))
-        return y, BCOO(
-            (jnp.array([]), jnp.zeros((0, 2), dtype=jnp.int32)), shape=(m, n)
-        )
+        return y, _empty_result((m, n), output_format)
 
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
         case "rev":
-            return _value_and_jacobian_rows(f, x, coloring, out_shape)
+            return _value_and_jacobian_rows(f, x, coloring, out_shape, output_format)
         case "fwd":
-            return _value_and_jacobian_cols(f, x, coloring)
+            return _value_and_jacobian_cols(f, x, coloring, output_format)
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
@@ -392,7 +577,8 @@ def _eval_value_and_hessian(
     f: Callable[[ArrayLike], ArrayLike],
     x: jax.Array,
     coloring: ColoredPattern,
-) -> tuple[jax.Array, BCOO]:
+    output_format: OutputFormat = "bcoo",
+) -> tuple[jax.Array, BCOO | jax.Array]:
     """Evaluate f(x) and the sparse Hessian of f at x.
 
     If ``f`` returns a squeezable shape like ``(1,)``,
@@ -413,12 +599,10 @@ def _eval_value_and_hessian(
     # Handle edge case: all-zero Hessian
     if sparsity.nnz == 0:
         y = jnp.asarray(f(x))
-        return y, BCOO(
-            (jnp.array([]), jnp.zeros((0, 2), dtype=jnp.int32)), shape=(n, n)
-        )
+        return y, _empty_result((n, n), output_format)
 
     value, grads = _value_and_compute_hvps(f, x, coloring)
-    return value, _decompress(coloring, grads)
+    return value, _decompress(grads, coloring, output_format)
 
 
 # Private helpers: Jacobian
@@ -429,7 +613,8 @@ def _jacobian_rows(
     x: jax.Array,
     coloring: ColoredPattern,
     out_shape: tuple[int, ...],
-) -> BCOO:
+    output_format: OutputFormat = "bcoo",
+) -> BCOO | jax.Array:
     """Compute sparse Jacobian via row coloring + VJPs."""
     seeds = jnp.asarray(coloring._seed_matrix, dtype=x.dtype)
     _, vjp_fn = jax.vjp(f, x)
@@ -438,7 +623,8 @@ def _jacobian_rows(
         (grad,) = vjp_fn(seed.reshape(out_shape))
         return grad.ravel()
 
-    return _decompress(coloring, jax.vmap(single_vjp)(seeds))
+    compressed_jacobian = jax.vmap(single_vjp)(seeds)
+    return _decompress(compressed_jacobian, coloring, output_format)
 
 
 def _value_and_jacobian_rows(
@@ -446,7 +632,8 @@ def _value_and_jacobian_rows(
     x: jax.Array,
     coloring: ColoredPattern,
     out_shape: tuple[int, ...],
-) -> tuple[jax.Array, BCOO]:
+    output_format: OutputFormat = "bcoo",
+) -> tuple[jax.Array, BCOO | jax.Array]:
     """Compute value and sparse Jacobian via row coloring + VJPs.
 
     The primal is free from the VJP forward pass.
@@ -458,14 +645,16 @@ def _value_and_jacobian_rows(
         (grad,) = vjp_fn(seed.reshape(out_shape))
         return grad.ravel()
 
-    return y, _decompress(coloring, jax.vmap(single_vjp)(seeds))
+    compressed_jacobian = jax.vmap(single_vjp)(seeds)
+    return y, _decompress(compressed_jacobian, coloring, output_format)
 
 
 def _jacobian_cols(
     f: Callable[[ArrayLike], ArrayLike],
     x: jax.Array,
     coloring: ColoredPattern,
-) -> BCOO:
+    output_format: OutputFormat = "bcoo",
+) -> BCOO | jax.Array:
     """Compute sparse Jacobian via column coloring + JVPs."""
     seeds = jnp.asarray(coloring._seed_matrix, dtype=x.dtype)
 
@@ -474,14 +663,16 @@ def _jacobian_cols(
     def single_jvp(seed: jax.Array) -> jax.Array:
         return jvp_fn(seed.reshape(x.shape)).ravel()
 
-    return _decompress(coloring, jax.vmap(single_jvp)(seeds))
+    compressed_jacobian = jax.vmap(single_jvp)(seeds)
+    return _decompress(compressed_jacobian, coloring, output_format)
 
 
 def _value_and_jacobian_cols(
     f: Callable[[ArrayLike], ArrayLike],
     x: jax.Array,
     coloring: ColoredPattern,
-) -> tuple[jax.Array, BCOO]:
+    output_format: OutputFormat = "bcoo",
+) -> tuple[jax.Array, BCOO | jax.Array]:
     """Compute value and sparse Jacobian via column coloring + JVPs.
 
     Uses ``jax.linearize`` so the nonlinear forward pass runs only once.
@@ -493,8 +684,8 @@ def _value_and_jacobian_cols(
     def single_jvp(seed: jax.Array) -> jax.Array:
         return jvp_fn(seed.reshape(x.shape)).ravel()
 
-    tangents = jax.vmap(single_jvp)(seeds)
-    return y, _decompress(coloring, tangents)
+    compressed_jacobian = jax.vmap(single_jvp)(seeds)
+    return y, _decompress(compressed_jacobian, coloring, output_format)
 
 
 # Private helpers: Hessian
@@ -619,20 +810,67 @@ def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arr
     )
 
 
-def _decompress(coloring: ColoredPattern, compressed: jax.Array) -> BCOO:
-    """Extract sparse entries from compressed gradient rows and wrap as BCOO.
+def _decompress(
+    compressed: jax.Array,
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+) -> BCOO | jax.Array:
+    """Extract sparse entries from compressed gradient rows.
 
     Calls :func:`_decompress_data` for the gather,
-    then wraps the result into a BCOO sparse matrix
-    using the precomputed indices on the sparsity pattern.
+    then wraps the result as BCOO or scatters into a dense array
+    depending on ``output_format``.
 
     Args:
-        coloring: Colored sparsity pattern with cached indices.
         compressed: JAX array of shape ``(num_colors, vector_len)``,
             one row per color.
+        coloring: Colored sparsity pattern with cached indices.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
-        Sparse matrix as BCOO in sparsity-pattern order.
+        Matrix of shape ``coloring.sparsity.shape``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     data = _decompress_data(coloring, compressed)
-    return coloring.sparsity.to_bcoo(data=data)
+    match output_format:
+        case "bcoo":
+            return coloring.sparsity.to_bcoo(data=data)
+        case "dense":
+            return _scatter_dense(coloring, data)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _scatter_dense(coloring: ColoredPattern, data: jax.Array) -> jax.Array:
+    """Scatter sparse data values into a dense zero array.
+
+    Args:
+        coloring: Colored sparsity pattern with precomputed indices.
+        data: Data array of shape ``(nnz,)``.
+
+    Returns:
+        Dense array of shape ``coloring.sparsity.shape``.
+    """
+    sparsity = coloring.sparsity
+    indices = sparsity._bcoo_indices  # (nnz, 2)
+    result = jnp.zeros(sparsity.shape, dtype=data.dtype)
+    return result.at[indices[:, 0], indices[:, 1]].set(data)
+
+
+def _empty_result(
+    shape: tuple[int, ...], output_format: OutputFormat
+) -> BCOO | jax.Array:
+    """Return an all-zero matrix in the requested format."""
+    match output_format:
+        case "bcoo":
+            return BCOO(
+                (jnp.array([]), jnp.zeros((0, 2), dtype=jnp.int32)), shape=shape
+            )
+        case "dense":
+            return jnp.zeros(shape)
+        case _ as unreachable:
+            assert_never(unreachable)
