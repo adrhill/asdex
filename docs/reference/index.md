@@ -30,6 +30,10 @@
 ::: asdex.color_cols
 ::: asdex.color_symmetric
 
+## Visualization
+
+::: asdex.spy
+
 ## Sparsity Detection
 
 ::: asdex.jacobian_sparsity

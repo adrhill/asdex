@@ -38,6 +38,9 @@ dependencies = [
     "numpy>=1.26.0",
 ]
 
+[project.optional-dependencies]
+matplotlib = ["matplotlib>=3.5.0"]
+
 [project.urls]
 Homepage = "https://github.com/adrhill/asdex"
 Documentation = "https://adrianhill.de/asdex"
@@ -62,8 +65,10 @@ dev = [
 ]
 docs = [
     "markdown-exec[ansi]>=1.9.0",
+    "matplotlib>=3.5.0",
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.0",
+    "mkdocs-matplotlib>=0.10.0",
     "mkdocstrings[python]>=0.27.0",
 ]
 
@@ -92,6 +97,7 @@ markers = [
     "fallback: documents conservative fallback behavior",
     "bug: documents known bugs",
     "slow: tests that take more than 1 second",
+    "plot: matplotlib visualization smoke tests",
     "cutest: CUTEst benchmark problem tests (requires sif2jax)",
 ]
 
@@ -139,6 +145,12 @@ exclude_also = [
     "assert_never\\(",
     "if TYPE_CHECKING:",
 ]
+
+[[tool.ty.overrides]]
+include = ["src/asdex/_plotting.py"]
+
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"
 
 [tool.ty.environment]
 python-version = "3.14"

@@ -40,6 +40,7 @@ nav:
   - How-To Guides:
       - Sparse Jacobians: how-to/jacobians.md
       - Sparse Hessians: how-to/hessians.md
+      - Visualization: how-to/visualization.md
       - "Example: Brusselator PDE": how-to/brusselator.md
   - Explanation:
       - Automatic Sparse Differentiation: explanation/asd.md
@@ -87,6 +88,7 @@ extra_javascript:
 plugins:
   - search
   - markdown-exec
+  - mkdocs_matplotlib
   - autorefs:
       resolve_closest: true
   - mkdocstrings:
