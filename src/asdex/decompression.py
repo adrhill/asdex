@@ -73,10 +73,10 @@ def jacobian(
     Returns:
         A function that takes an input array and returns
             the Jacobian of shape ``(m, n)``
-            where ``n = x.size`` and ``m = prod(output_shape)``,
-            as a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default)
-            or a dense matrix of type ``jax.Array``,
-            depending on ``output_format``.
+            where ``n = x.size`` and ``m = prod(output_shape)``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     coloring = _jacobian_coloring(f, input_shape, mode=mode, symmetric=symmetric)
     return jacobian_from_coloring(f, coloring, output_format=output_format)
@@ -132,10 +132,10 @@ def value_and_jacobian(
         A function that takes an input array and returns
             ``(f(x), J)`` where ``J`` is the Jacobian
             of shape ``(m, n)``
-            where ``n = x.size`` and ``m = prod(output_shape)``,
-            as a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default)
-            or a dense matrix of type ``jax.Array``,
-            depending on ``output_format``.
+            where ``n = x.size`` and ``m = prod(output_shape)``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     coloring = _jacobian_coloring(f, input_shape, mode=mode, symmetric=symmetric)
     return value_and_jacobian_from_coloring(f, coloring, output_format=output_format)
@@ -194,10 +194,10 @@ def hessian(
     Returns:
         A function that takes an input array and returns
             the Hessian of shape ``(n, n)``
-            where ``n = x.size``,
-            as a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default)
-            or a dense matrix of type ``jax.Array``,
-            depending on ``output_format``.
+            where ``n = x.size``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     coloring = _hessian_coloring(f, input_shape, mode=mode, symmetric=symmetric)
     return hessian_from_coloring(f, coloring, output_format=output_format)
@@ -257,10 +257,10 @@ def value_and_hessian(
         A function that takes an input array and returns
             ``(f(x), H)`` where ``H`` is the Hessian
             of shape ``(n, n)``
-            where ``n = x.size``,
-            as a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default)
-            or a dense matrix of type ``jax.Array``,
-            depending on ``output_format``.
+            where ``n = x.size``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     coloring = _hessian_coloring(f, input_shape, mode=mode, symmetric=symmetric)
     return value_and_hessian_from_coloring(f, coloring, output_format=output_format)
@@ -300,10 +300,10 @@ def jacobian_from_coloring(
     Returns:
         A function that takes an input array and returns
             the Jacobian of shape ``(m, n)``
-            where ``n = x.size`` and ``m = prod(output_shape)``,
-            as a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default)
-            or a dense matrix of type ``jax.Array``,
-            depending on ``output_format``.
+            where ``n = x.size`` and ``m = prod(output_shape)``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     _assert_output_format(output_format)
 
@@ -349,10 +349,10 @@ def hessian_from_coloring(
     Returns:
         A function that takes an input array and returns
             the Hessian of shape ``(n, n)``
-            where ``n = x.size``,
-            as a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default)
-            or a dense matrix of type ``jax.Array``,
-            depending on ``output_format``.
+            where ``n = x.size``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     _assert_output_format(output_format)
 
@@ -397,10 +397,10 @@ def value_and_jacobian_from_coloring(
         A function that takes an input array and returns
             ``(f(x), J)`` where ``J`` is the Jacobian
             of shape ``(m, n)``
-            where ``n = x.size`` and ``m = prod(output_shape)``,
-            as a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default)
-            or a dense matrix of type ``jax.Array``,
-            depending on ``output_format``.
+            where ``n = x.size`` and ``m = prod(output_shape)``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     _assert_output_format(output_format)
 
@@ -448,10 +448,10 @@ def value_and_hessian_from_coloring(
         A function that takes an input array and returns
             ``(f(x), H)`` where ``H`` is the Hessian
             of shape ``(n, n)``
-            where ``n = x.size``,
-            as a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default)
-            or a dense matrix of type ``jax.Array``,
-            depending on ``output_format``.
+            where ``n = x.size``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     _assert_output_format(output_format)
 
@@ -530,7 +530,7 @@ def _eval_hessian(
         return _empty_result((n, n), output_format)
 
     grads = _compute_hvps(f, x, coloring)
-    return _decompress(coloring, grads, output_format)
+    return _decompress(grads, coloring, output_format)
 
 
 def _eval_value_and_jacobian(
@@ -602,7 +602,7 @@ def _eval_value_and_hessian(
         return y, _empty_result((n, n), output_format)
 
     value, grads = _value_and_compute_hvps(f, x, coloring)
-    return value, _decompress(coloring, grads, output_format)
+    return value, _decompress(grads, coloring, output_format)
 
 
 # Private helpers: Jacobian
@@ -624,7 +624,7 @@ def _jacobian_rows(
         return grad.ravel()
 
     compressed_jacobian = jax.vmap(single_vjp)(seeds)
-    return _decompress(coloring, compressed_jacobian, output_format)
+    return _decompress(compressed_jacobian, coloring, output_format)
 
 
 def _value_and_jacobian_rows(
@@ -646,7 +646,7 @@ def _value_and_jacobian_rows(
         return grad.ravel()
 
     compressed_jacobian = jax.vmap(single_vjp)(seeds)
-    return y, _decompress(coloring, compressed_jacobian, output_format)
+    return y, _decompress(compressed_jacobian, coloring, output_format)
 
 
 def _jacobian_cols(
@@ -664,7 +664,7 @@ def _jacobian_cols(
         return jvp_fn(seed.reshape(x.shape)).ravel()
 
     compressed_jacobian = jax.vmap(single_jvp)(seeds)
-    return _decompress(coloring, compressed_jacobian, output_format)
+    return _decompress(compressed_jacobian, coloring, output_format)
 
 
 def _value_and_jacobian_cols(
@@ -685,7 +685,7 @@ def _value_and_jacobian_cols(
         return jvp_fn(seed.reshape(x.shape)).ravel()
 
     compressed_jacobian = jax.vmap(single_jvp)(seeds)
-    return y, _decompress(coloring, compressed_jacobian, output_format)
+    return y, _decompress(compressed_jacobian, coloring, output_format)
 
 
 # Private helpers: Hessian
@@ -811,8 +811,8 @@ def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arr
 
 
 def _decompress(
-    coloring: ColoredPattern,
     compressed: jax.Array,
+    coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
 ) -> BCOO | jax.Array:
     """Extract sparse entries from compressed gradient rows.
@@ -822,13 +822,18 @@ def _decompress(
     depending on ``output_format``.
 
     Args:
-        coloring: Colored sparsity pattern with cached indices.
         compressed: JAX array of shape ``(num_colors, vector_len)``,
             one row per color.
-        output_format: ``"bcoo"`` or ``"dense"``.
+        coloring: Colored sparsity pattern with cached indices.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns a dense matrix of type ``jax.Array``.
 
     Returns:
-        Sparse matrix as BCOO or dense array.
+        Matrix of shape ``coloring.sparsity.shape``.
+            The output type depends on ``output_format``:
+            a sparse ``jax.experimental.sparse.BCOO`` (default)
+            or a dense ``jax.Array``.
     """
     data = _decompress_data(coloring, compressed)
     match output_format:
