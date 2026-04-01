@@ -1437,7 +1437,7 @@ This means they can be computed once and reused
 across arbitrarily many evaluations at different inputs.</p>
 <p>In a typical workflow,
 a user calls <a href="../../reference/#asdex.jacobian_coloring"><code>jacobian_coloring</code></a> (or <a href="../../reference/#asdex.hessian_coloring"><code>hessian_coloring</code></a>) once during setup
-and passes the result to <a href="../../reference/#asdex.jacobian"><code>jacobian</code></a> (or <a href="../../reference/#asdex.hessian"><code>hessian</code></a>) in a loop.
+and passes the result to <a href="../../reference/#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a> (or <a href="../../reference/#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>) in a loop.
 The per-evaluation cost is then just the decompression step:
 <span class="arithmatex">\(c\)</span> AD passes plus a cheap index lookup,
 where <span class="arithmatex">\(c\)</span> is the number of colors.
