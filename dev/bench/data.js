@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775060923065,
+  "lastUpdate": 1775067317011,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -12150,6 +12150,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0022537045313480207",
             "extra": "mean: 34.48634492592625 msec\nrounds: 27"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e57175e7bb09b88689f6b758fb9f6c5c02293f18",
+          "message": "feat: add `spy` matplotlib visualization (#97)\n\n* feat: add `spy` matplotlib visualization as optional `asdex[matplotlib]` dependency\n\nAdd `_plotting.py` with `spy()` that accepts `SparsityPattern` (black markers)\nor `ColoredPattern` (colored by color assignment). `compressed=True` shows\noriginal and compressed patterns side by side.\n\nmatplotlib is an optional dependency (`pip install asdex[matplotlib]`) with a\nlazy import and clear error message when missing.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* docs: add visualization how-to guide with `mkdocs-matplotlib`\n\nAdd how-to page covering `print` output (dot/braille) and `spy` matplotlib\nplots for sparsity patterns, colored patterns, and compressed views.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* refactor: use grid-based rendering in `spy` and improve docs\n\nSwitch `spy` from `scatter` to `imshow` for proper grid display.\nReplace `markersize` with configurable `cmap` (default `tab10`).\n`compressed` now controls what a single plot shows, letting users\ncompose their own subplots. Remove \"Larger Patterns\" section.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* fix: correct colormap handling and add Brusselator example to visualization docs\n\nHandle discrete vs continuous colormaps correctly: discrete colormaps\n(N <= 20) map index i to entry i, continuous colormaps spread colors\nevenly for maximum contrast. Cycle indices when `num_colors > cmap.N`.\n\nAdd \"Larger Example\" section to visualization docs using an N=8\nBrusselator PDE.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* test: add smoke tests for `spy` matplotlib visualization\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* docs: add row coloring and symmetric coloring examples to visualization guide\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* docs: use 2D grid Hessian for symmetric coloring example\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* ci: install `asdex[matplotlib]` in CI workflows\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-04-01T20:14:35+02:00",
+          "tree_id": "0ca7d2f71d5fe44afcb91e48bcc557a1c452b664",
+          "url": "https://github.com/adrhill/asdex/commit/e57175e7bb09b88689f6b758fb9f6c5c02293f18"
+        },
+        "date": 1775067315703,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 808.9641460630016,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0033967480116471765",
+            "extra": "mean: 1.2361487278103924 msec\nrounds: 169"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 3305.631626308491,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010222932246770509",
+            "extra": "mean: 302.5140466473372 usec\nrounds: 2058"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 68.5767071752779,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00040107408911354187",
+            "extra": "mean: 14.582210800003281 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 70.18819368117545,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013537182788806205",
+            "extra": "mean: 14.247410391303475 msec\nrounds: 69"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 83.28637231226787,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00033133930977655347",
+            "extra": "mean: 12.006766200005359 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 20.705027050453065,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01656553094548225",
+            "extra": "mean: 48.29744957894745 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 242.07094053814257,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006286498725348445",
+            "extra": "mean: 4.131020426396172 msec\nrounds: 197"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 22.736511191858924,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03065210064607115",
+            "extra": "mean: 43.982121599995594 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 34.335487351532464,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006239110223890793",
+            "extra": "mean: 29.124386375001254 msec\nrounds: 32"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 38.91565360528865,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0010165500937639321",
+            "extra": "mean: 25.696600400002012 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 91.31913025367948,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014702161480136155",
+            "extra": "mean: 10.950608018517649 msec\nrounds: 54"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 3256.6806326700994,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010173134076495378",
+            "extra": "mean: 307.0611192169974 usec\nrounds: 2248"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 29.28182402807005,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008566272181126394",
+            "extra": "mean: 34.150877999996965 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 29.630297549840478,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008335629384184254",
+            "extra": "mean: 33.74923921428469 msec\nrounds: 14"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 28.892936938405118,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007863197237824631",
+            "extra": "mean: 34.610534821428224 msec\nrounds: 28"
           }
         ]
       }
