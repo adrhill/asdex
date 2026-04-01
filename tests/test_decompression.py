@@ -958,3 +958,68 @@ def test_value_and_hessian_squeeze(mode):
 
     assert_allclose(value, jnp.sum(x**2), rtol=1e-5)
     assert_allclose(hess.todense(), jax.hessian(lambda x: jnp.sum(x**2))(x), rtol=1e-5)
+
+
+# Dense output format
+
+
+@pytest.mark.jacobian
+def test_jacobian_dense_output():
+    """Jacobian with output_format="dense" returns a dense jax.Array."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian(f, input_shape=x.shape, output_format="dense")(x)
+
+    assert isinstance(result, jax.Array)
+    assert not isinstance(result, BCOO)
+    assert_allclose(result, jax.jacobian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_dense_output():
+    """Hessian with output_format="dense" returns a dense jax.Array."""
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = hessian(f, input_shape=x.shape, output_format="dense")(x)
+
+    assert isinstance(result, jax.Array)
+    assert not isinstance(result, BCOO)
+    assert_allclose(result, jax.hessian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_value_and_jacobian_dense_output():
+    """value_and_jacobian with output_format="dense" returns dense jax.Arrays."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0])
+    value, jac = value_and_jacobian(f, input_shape=x.shape, output_format="dense")(x)
+
+    assert isinstance(jac, jax.Array)
+    assert not isinstance(jac, BCOO)
+    assert_allclose(value, f(x), rtol=1e-5)
+    assert_allclose(jac, jax.jacobian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_value_and_hessian_dense_output():
+    """value_and_hessian with output_format="dense" returns dense jax.Arrays."""
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    x = np.array([1.0, 2.0, 3.0])
+    value, hess = value_and_hessian(f, input_shape=x.shape, output_format="dense")(x)
+
+    assert isinstance(hess, jax.Array)
+    assert not isinstance(hess, BCOO)
+    assert_allclose(value, f(x), rtol=1e-5)
+    assert_allclose(hess, jax.hessian(f)(x), rtol=1e-5)
