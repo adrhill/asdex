@@ -114,13 +114,29 @@ def _spy_colored(
         colors = pattern.cols if compressed else colored.colors[pattern.cols]
     else:
         colors = pattern.rows if compressed else colored.colors[pattern.rows]
-    grid[pattern.rows, pattern.cols] = colors
-
     if cmap is None:
         cmap = "tab10"
 
+    resolved_cmap = plt.colormaps[cmap] if isinstance(cmap, str) else cmap
+
+    n_cmap = resolved_cmap.N
+    is_discrete = n_cmap <= 20
+
+    if colored.num_colors > n_cmap:
+        # More colors than colormap entries: cycle
+        grid[pattern.rows, pattern.cols] = colors % n_cmap
+        vmax = n_cmap - 1
+    elif is_discrete:
+        # Discrete colormap: map index i to entry i
+        grid[pattern.rows, pattern.cols] = colors
+        vmax = n_cmap - 1
+    else:
+        # Continuous colormap: spread evenly for maximum contrast
+        grid[pattern.rows, pattern.cols] = colors
+        vmax = colored.num_colors - 1
+
     kwargs.setdefault("interpolation", "none")
-    ax.imshow(grid, cmap=cmap, vmin=0, vmax=colored.num_colors - 1, **kwargs)
+    ax.imshow(grid, cmap=resolved_cmap, vmin=0, vmax=vmax, **kwargs)
     _format_axes(ax, pattern.m, pattern.n)
     return ax
 

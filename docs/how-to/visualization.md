@@ -139,3 +139,80 @@ ax1.set_title("tab10 (default)")
 ax2.set_title("viridis")
 plt.tight_layout()
 ```
+
+### Larger Example
+
+Here is a larger example using the
+[Brusselator PDE](brusselator.md) discretized on an \(8 \times 8\) grid,
+giving a Jacobian of shape \(128 \times 128\):
+
+```python
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+from asdex import jacobian_coloring, spy
+
+N = 8
+alpha = 10.0
+dx = 1.0 / N
+
+def brusselator_rhs(uv):
+    u = uv[:N*N].reshape(N, N)
+    v = uv[N*N:].reshape(N, N)
+    def laplacian(w):
+        return (
+            jnp.roll(w, 1, axis=0) + jnp.roll(w, -1, axis=0)
+            + jnp.roll(w, 1, axis=1) + jnp.roll(w, -1, axis=1)
+            - 4 * w
+        ) / dx**2
+    du = 1.0 + u**2 * v - 4.4 * u + alpha * laplacian(u)
+    dv = 3.4 * u - u**2 * v + alpha * laplacian(v)
+    return jnp.concatenate([du.ravel(), dv.ravel()])
+
+coloring = jacobian_coloring(brusselator_rhs, input_shape=2 * N * N)
+m, n = coloring.sparsity.shape
+c = coloring.num_colors
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+spy(coloring, ax=ax1)
+spy(coloring, compressed=True, ax=ax2)
+ax1.set_title(f"Sparse Jacobian ({m}×{n})")
+ax2.set_title(f"Compressed Jacobian ({m}×{c})")
+plt.tight_layout()
+```
+
+```python
+# mkdocs: render
+# mkdocs: hidecode
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+from asdex import jacobian_coloring, spy
+
+N = 8
+alpha = 10.0
+dx = 1.0 / N
+
+def brusselator_rhs(uv, N=N, alpha=alpha, dx=dx):
+    import jax.numpy as jnp
+    u = uv[:N*N].reshape(N, N)
+    v = uv[N*N:].reshape(N, N)
+    def laplacian(w):
+        return (
+            jnp.roll(w, 1, axis=0) + jnp.roll(w, -1, axis=0)
+            + jnp.roll(w, 1, axis=1) + jnp.roll(w, -1, axis=1)
+            - 4 * w
+        ) / dx**2
+    du = 1.0 + u**2 * v - 4.4 * u + alpha * laplacian(u)
+    dv = 3.4 * u - u**2 * v + alpha * laplacian(v)
+    return jnp.concatenate([du.ravel(), dv.ravel()])
+
+coloring = jacobian_coloring(brusselator_rhs, input_shape=2 * N * N)
+m, n = coloring.sparsity.shape
+c = coloring.num_colors
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+spy(coloring, ax=ax1)
+spy(coloring, compressed=True, ax=ax2)
+ax1.set_title(f"Sparse Jacobian ({m}×{n})")
+ax2.set_title(f"Compressed Jacobian ({m}×{c})")
+plt.tight_layout()
+```
