@@ -31,15 +31,16 @@ uv add asdex
 ## Quick Example
 
 ```python
+import asdex
+import jax
 import numpy as np
-from asdex import jacobian
 
 def f(x):
     return (x[1:] - x[:-1]) ** 2
 
 x = np.random.randn(1000)
 
-jac_fn = jacobian(f, input_shape=x.shape)
+jac_fn = jax.jit(asdex.jacobian(f, input_shape=x.shape))
 J = jac_fn(x)
 ```
 

@@ -40,13 +40,14 @@ uv add asdex
 ## Example
 
 ```python
+import asdex
+import jax
 import numpy as np
-from asdex import jacobian
 
 def f(x):
     return (x[1:] - x[:-1]) ** 2
 
-jac_fn = jacobian(f, input_shape=50)
+jac_fn = jax.jit(asdex.jacobian(f, input_shape=50))
 # ColoredPattern(49×50, nnz=98, sparsity=96.0%, JVP, 2 colors)
 #   2 JVPs (instead of 49 VJPs or 50 JVPs)
 # ⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⣿⎤

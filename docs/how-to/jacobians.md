@@ -16,9 +16,10 @@ using [row or column coloring](../explanation/coloring.md) with forward- or reve
 Pass your function and its `input_shape` to [`jacobian`](../reference/index.md#asdex.jacobian):
 
 ```python
+import jax
 from asdex import jacobian
 
-jac_fn = jacobian(f, input_shape=1000)
+jac_fn = jax.jit(jacobian(f, input_shape=1000))
 J = jac_fn(x)
 ```
 
@@ -67,7 +68,7 @@ or save it to disk to avoid recomputation.
 Pass the coloring to [`jacobian_from_coloring`](../reference/index.md#asdex.jacobian_from_coloring) to compute the Jacobian:
 
 ```python
-jac_fn = jacobian_from_coloring(f, coloring)
+jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 
 for x in inputs:
     J = jac_fn(x)
@@ -96,7 +97,7 @@ coloring.save("colored.npz")
 from asdex import ColoredPattern, jacobian_from_coloring
 
 coloring = ColoredPattern.load("colored.npz")
-jac_fn = jacobian_from_coloring(f, coloring)
+jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 ```
 
 [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern) supports the same `save`/`load` interface.
@@ -139,7 +140,7 @@ print(f"```\n{coloring}\n```")
 The one-call [`jacobian`](../reference/index.md#asdex.jacobian) API accepts the same `mode` parameter:
 
 ```python
-jac_fn = jacobian(f, input_shape=100, mode="rev")
+jac_fn = jax.jit(jacobian(f, input_shape=100, mode="rev"))
 ```
 
 When the number of colors is equal,
@@ -201,7 +202,7 @@ Finally, color the sparsity pattern and compute the Jacobian:
 from asdex import jacobian_coloring_from_sparsity, jacobian_from_coloring
 
 coloring = jacobian_coloring_from_sparsity(sparsity)
-jac_fn = jacobian_from_coloring(f, coloring)
+jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 J = jac_fn(x)
 ```
 
