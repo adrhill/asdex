@@ -334,6 +334,24 @@ class ColoredPattern:
         return color_idx, elem_idx
 
     @cached_property
+    def _gather_indices(self) -> jnp.ndarray:
+        """Stacked extraction indices of shape ``(nnz, 2)`` for ``lax.gather``.
+
+        Column 0 is the color index, column 1 is the element index.
+        Pre-computed so the gather index array is a single closed-over constant.
+        """
+        color_idx, elem_idx = self._extraction_indices
+        if len(color_idx) == 0:
+            return jnp.zeros((0, 2), dtype=jnp.int32)
+        return jnp.stack(
+            [
+                jnp.asarray(color_idx, dtype=jnp.int32),
+                jnp.asarray(elem_idx, dtype=jnp.int32),
+            ],
+            axis=1,
+        )
+
+    @cached_property
     def _seed_matrix(self) -> NDArray[np.bool_]:
         """Boolean seed matrix of shape ``(num_colors, dim)``.
 
