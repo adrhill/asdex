@@ -20,6 +20,13 @@ HessianMode = Literal["fwd_over_rev", "rev_over_fwd", "rev_over_rev"]
 ColoringMode = JacobianMode | HessianMode
 """AD mode that a coloring was computed for."""
 
+OutputFormat = Literal["bcoo", "dense"]
+"""Output format for materialized Jacobians and Hessians.
+
+``"bcoo"`` returns a ``jax.experimental.sparse.BCOO`` sparse matrix,
+``"dense"`` returns a dense ``jax.Array``.
+"""
+
 
 def _assert_jacobian_mode(mode: str) -> None:
     """Raise ``ValueError`` if *mode* is not a valid ``JacobianMode``."""
@@ -40,3 +47,11 @@ def _assert_coloring_mode(mode: str) -> None:
     """Raise ``ValueError`` if *mode* is not a valid ``ColoringMode``."""
     if mode not in (*get_args(JacobianMode), *get_args(HessianMode)):
         raise ValueError(f"Unknown mode {mode!r}.")
+
+
+def _assert_output_format(output_format: str) -> None:
+    """Raise ``ValueError`` if *output_format* is not a valid ``OutputFormat``."""
+    if output_format not in get_args(OutputFormat):
+        raise ValueError(
+            f"Unknown output_format {output_format!r}. Expected 'bcoo' or 'dense'."
+        )
