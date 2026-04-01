@@ -2258,12 +2258,30 @@
 <h2 id="differentiation">Differentiation<a class="headerlink" href="#differentiation" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian" title="Permanent link">¶</a></h2>
+<div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">jacobian</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">input_shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">JacobianMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="n">symmetric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"bcoo"</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">BCOO</span><span class="p">]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">jacobian</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">input_shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">JacobianMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="n">symmetric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dense"</span><span class="p">],</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
+</code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing sparse Jacobians.</p>
 <p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
-and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
+and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
 in one call.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
@@ -2349,6 +2367,24 @@ Requires a square Jacobian.</p>
 <code>False</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2362,13 +2398,16 @@ Requires a square Jacobian.</p>
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span>]</code>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span> | <span title="jax.Array">Array</span>]</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>A function that takes an input array and returns
-the sparse Jacobian as BCOO of shape <code>(m, n)</code>
-where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.</p>
+the Jacobian of shape <code>(m, n)</code>
+where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.
+The output type depends on <code>output_format</code>:
+a sparse <code>jax.experimental.sparse.BCOO</code> (default)
+or a dense <code>jax.Array</code>.</p>
 </div>
 </td>
 </tr>
@@ -2378,11 +2417,29 @@ where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.value_and_jacobian">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.value_and_jacobian" title="Permanent link">¶</a></h2>
+<div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">value_and_jacobian</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">input_shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">JacobianMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="n">symmetric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"bcoo"</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">BCOO</span><span class="p">]]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">value_and_jacobian</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">input_shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">JacobianMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="n">symmetric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dense"</span><span class="p">],</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]]</span>
+</code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing value and sparse Jacobian.</p>
-<p>Like <a class="autorefs autorefs-internal" title="asdex.jacobian(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian"><code>jacobian</code></a>,
+<p>Like <a class="autorefs autorefs-internal" title="asdex.jacobian(f, input_shape, *, mode=None, symmetric=False, output_format='bcoo')" href="#asdex.jacobian"><code>jacobian</code></a>,
 but also returns the primal value <code>f(x)</code>
 without an extra forward pass.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2469,6 +2526,24 @@ Requires a square Jacobian.</p>
 <code>False</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2482,13 +2557,17 @@ Requires a square Jacobian.</p>
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span>]]</code>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span> | <span title="jax.Array">Array</span>]]</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>A function that takes an input array and returns
-<code>(f(x), J)</code> where <code>J</code> is the sparse Jacobian as BCOO
-of shape <code>(m, n)</code>.</p>
+<code>(f(x), J)</code> where <code>J</code> is the Jacobian
+of shape <code>(m, n)</code>
+where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.
+The output type depends on <code>output_format</code>:
+a sparse <code>jax.experimental.sparse.BCOO</code> (default)
+or a dense <code>jax.Array</code>.</p>
 </div>
 </td>
 </tr>
@@ -2498,12 +2577,30 @@ of shape <code>(m, n)</code>.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian" title="Permanent link">¶</a></h2>
+<div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">hessian</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">input_shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">HessianMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="n">symmetric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"bcoo"</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">BCOO</span><span class="p">]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">hessian</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">input_shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">HessianMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="n">symmetric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dense"</span><span class="p">],</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
+</code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing sparse Hessians.</p>
 <p>Combines <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, input_shape, *, mode=None, symmetric=True)" href="#asdex.hessian_coloring"><code>hessian_coloring</code></a>
-and <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring)" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>
+and <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>
 in one call.</p>
 <p>If <code>f</code> returns a squeezable shape like <code>(1,)</code> or <code>(1, 1)</code>,
 it is automatically squeezed to scalar.</p>
@@ -2592,6 +2689,24 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 <code>True</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2605,13 +2720,16 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span>]</code>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span> | <span title="jax.Array">Array</span>]</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>A function that takes an input array and returns
-the sparse Hessian as BCOO of shape <code>(n, n)</code>
-where <code>n = x.size</code>.</p>
+the Hessian of shape <code>(n, n)</code>
+where <code>n = x.size</code>.
+The output type depends on <code>output_format</code>:
+a sparse <code>jax.experimental.sparse.BCOO</code> (default)
+or a dense <code>jax.Array</code>.</p>
 </div>
 </td>
 </tr>
@@ -2621,11 +2739,29 @@ where <code>n = x.size</code>.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.value_and_hessian">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.value_and_hessian" title="Permanent link">¶</a></h2>
+<div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">value_and_hessian</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">input_shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">HessianMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="n">symmetric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"bcoo"</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">BCOO</span><span class="p">]]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">value_and_hessian</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">input_shape</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">HessianMode</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="n">symmetric</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dense"</span><span class="p">],</span>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]]</span>
+</code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing value and sparse Hessian.</p>
-<p>Like <a class="autorefs autorefs-internal" title="asdex.hessian(f, input_shape, *, mode=None, symmetric=True)" href="#asdex.hessian"><code>hessian</code></a>,
+<p>Like <a class="autorefs autorefs-internal" title="asdex.hessian(f, input_shape, *, mode=None, symmetric=True, output_format='bcoo')" href="#asdex.hessian"><code>hessian</code></a>,
 but can also return the primal value <code>f(x)</code>
 without an extra forward pass.</p>
 <p>If <code>f</code> returns a squeezable shape like <code>(1,)</code> or <code>(1, 1)</code>,
@@ -2715,6 +2851,24 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 <code>True</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2728,13 +2882,17 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span>]]</code>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span> | <span title="jax.Array">Array</span>]]</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>A function that takes an input array and returns
-<code>(f(x), H)</code> where <code>H</code> is the sparse Hessian as BCOO
-of shape <code>(n, n)</code>.</p>
+<code>(f(x), H)</code> where <code>H</code> is the Hessian
+of shape <code>(n, n)</code>
+where <code>n = x.size</code>.
+The output type depends on <code>output_format</code>:
+a sparse <code>jax.experimental.sparse.BCOO</code> (default)
+or a dense <code>jax.Array</code>.</p>
 </div>
 </td>
 </tr>
@@ -2744,8 +2902,20 @@ of shape <code>(n, n)</code>.</p>
 </div><hr/>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_from_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_from_coloring" title="Permanent link">¶</a></h2>
+<div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">jacobian_from_coloring</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">coloring</span><span class="p">:</span> <span class="n">ColoredPattern</span><span class="p">,</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"bcoo"</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">BCOO</span><span class="p">]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">jacobian_from_coloring</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">coloring</span><span class="p">:</span> <span class="n">ColoredPattern</span><span class="p">,</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dense"</span><span class="p">],</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
+</code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Build a sparse Jacobian function from a pre-computed coloring.</p>
 <p>Uses row coloring + VJPs or column coloring + JVPs,
@@ -2805,6 +2975,24 @@ from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, inp
 <em>required</em>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2818,13 +3006,16 @@ from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, inp
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span>]</code>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span> | <span title="jax.Array">Array</span>]</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>A function that takes an input array and returns
-the sparse Jacobian as BCOO of shape <code>(m, n)</code>
-where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.</p>
+the Jacobian of shape <code>(m, n)</code>
+where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.
+The output type depends on <code>output_format</code>:
+a sparse <code>jax.experimental.sparse.BCOO</code> (default)
+or a dense <code>jax.Array</code>.</p>
 </div>
 </td>
 </tr>
@@ -2834,11 +3025,23 @@ where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.value_and_jacobian_from_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.value_and_jacobian_from_coloring" title="Permanent link">¶</a></h2>
+<div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">value_and_jacobian_from_coloring</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">coloring</span><span class="p">:</span> <span class="n">ColoredPattern</span><span class="p">,</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"bcoo"</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">BCOO</span><span class="p">]]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">value_and_jacobian_from_coloring</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">coloring</span><span class="p">:</span> <span class="n">ColoredPattern</span><span class="p">,</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dense"</span><span class="p">],</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]]</span>
+</code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Build a function computing value and sparse Jacobian from a pre-computed coloring.</p>
-<p>Like <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>,
+<p>Like <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>,
 but also returns the primal value <code>f(x)</code> without an extra forward pass.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
@@ -2895,6 +3098,24 @@ from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, inp
 <em>required</em>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2908,13 +3129,17 @@ from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, inp
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span>]]</code>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span> | <span title="jax.Array">Array</span>]]</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>A function that takes an input array and returns
-<code>(f(x), J)</code> where <code>J</code> is the sparse Jacobian as BCOO
-of shape <code>(m, n)</code>.</p>
+<code>(f(x), J)</code> where <code>J</code> is the Jacobian
+of shape <code>(m, n)</code>
+where <code>n = x.size</code> and <code>m = prod(output_shape)</code>.
+The output type depends on <code>output_format</code>:
+a sparse <code>jax.experimental.sparse.BCOO</code> (default)
+or a dense <code>jax.Array</code>.</p>
 </div>
 </td>
 </tr>
@@ -2924,8 +3149,20 @@ of shape <code>(m, n)</code>.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_from_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_from_coloring" title="Permanent link">¶</a></h2>
+<div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">hessian_from_coloring</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">coloring</span><span class="p">:</span> <span class="n">ColoredPattern</span><span class="p">,</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"bcoo"</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">BCOO</span><span class="p">]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">hessian_from_coloring</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">coloring</span><span class="p">:</span> <span class="n">ColoredPattern</span><span class="p">,</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dense"</span><span class="p">],</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]</span>
+</code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Build a sparse Hessian function from a pre-computed coloring.</p>
 <p>Uses symmetric (star) coloring and Hessian-vector products by default.</p>
@@ -2986,6 +3223,24 @@ from <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, inpu
 <em>required</em>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2999,13 +3254,16 @@ from <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, inpu
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span>]</code>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="jax.experimental.sparse.BCOO">BCOO</span> | <span title="jax.Array">Array</span>]</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>A function that takes an input array and returns
-the sparse Hessian as BCOO of shape <code>(n, n)</code>
-where <code>n = x.size</code>.</p>
+the Hessian of shape <code>(n, n)</code>
+where <code>n = x.size</code>.
+The output type depends on <code>output_format</code>:
+a sparse <code>jax.experimental.sparse.BCOO</code> (default)
+or a dense <code>jax.Array</code>.</p>
 </div>
 </td>
 </tr>
@@ -3015,11 +3273,23 @@ where <code>n = x.size</code>.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.value_and_hessian_from_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_hessian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_hessian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.value_and_hessian_from_coloring" title="Permanent link">¶</a></h2>
+<div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">value_and_hessian_from_coloring</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">coloring</span><span class="p">:</span> <span class="n">ColoredPattern</span><span class="p">,</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"bcoo"</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">BCOO</span><span class="p">]]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nf">value_and_hessian_from_coloring</span><span class="p">(</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">ArrayLike</span><span class="p">],</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>    <span class="n">coloring</span><span class="p">:</span> <span class="n">ColoredPattern</span><span class="p">,</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>    <span class="n">output_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dense"</span><span class="p">],</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">Array</span><span class="p">]]</span>
+</code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Build a function computing value and sparse Hessian from a pre-computed coloring.</p>
-<p>Like <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring)" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>,
+<p>Like <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>,
 but can also return the primal value <code>f(x)</code> without an extra forward pass.</p>
 <p>If <code>f</code> returns a squeezable shape like <code>(1,)</code> or <code>(1, 1)</code>,
 it is automatically squeezed to scalar.</p>
@@ -3078,6 +3348,24 @@ from <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, inpu
 <em>required</em>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -3091,13 +3379,17 @@ from <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, inpu
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span>]]</code>
+<code><span title="collections.abc.Callable">Callable</span>[[<span title="numpy.typing.ArrayLike">ArrayLike</span>], <span title="tuple">tuple</span>[<span title="jax.Array">Array</span>, <span title="jax.experimental.sparse.BCOO">BCOO</span> | <span title="jax.Array">Array</span>]]</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>A function that takes an input array and returns
-<code>(f(x), H)</code> where <code>H</code> is the sparse Hessian as BCOO
-of shape <code>(n, n)</code>.</p>
+<code>(f(x), H)</code> where <code>H</code> is the Hessian
+of shape <code>(n, n)</code>
+where <code>n = x.size</code>.
+The output type depends on <code>output_format</code>:
+a sparse <code>jax.experimental.sparse.BCOO</code> (default)
+or a dense <code>jax.Array</code>.</p>
 </div>
 </td>
 </tr>
@@ -3222,7 +3514,7 @@ Requires a square Jacobian.</p>
 
   
       dataclass
-  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
+  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -3347,7 +3639,7 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 
   
       dataclass
-  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring)" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
+  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -3469,7 +3761,7 @@ Requires a square pattern.</p>
 
   
       dataclass
-  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
+  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -3589,7 +3881,7 @@ Defaults to True (exploits Hessian symmetry for fewer colors).</p>
 
   
       dataclass
-  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring)" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
+  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
