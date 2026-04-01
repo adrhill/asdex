@@ -4,6 +4,7 @@ This is global sparsity detection - asdex analyzes the computation graph
 structure without evaluating derivatives, so results are valid for all inputs.
 """
 
+from asdex._plotting import spy
 from asdex.coloring import (
     DenseColoringWarning,
     color_cols,
@@ -55,6 +56,7 @@ __all__ = [
     "jacobian_coloring_from_sparsity",
     "jacobian_from_coloring",
     "jacobian_sparsity",
+    "spy",
     "value_and_hessian",
     "value_and_hessian_from_coloring",
     "value_and_jacobian",
