@@ -172,9 +172,10 @@ import matplotlib.pyplot as plt
 from asdex import hessian_coloring, spy
 
 def g(x):
-    return ((x[1:] - x[:-1]) ** 2).sum()
+    X = x.reshape(5, 5)
+    return ((X[1:, :] - X[:-1, :]) ** 2).sum() + ((X[:, 1:] - X[:, :-1]) ** 2).sum()
 
-coloring = hessian_coloring(g, input_shape=20)
+coloring = hessian_coloring(g, input_shape=25)
 n = coloring.sparsity.shape[0]
 c = coloring.num_colors
 
