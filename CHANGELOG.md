@@ -1,5 +1,11 @@
 # asdex
 
+## Version `v0.1.7`
+* ![Feature][badge-feature] Add `spy` matplotlib visualization ([#97])
+* ![Documentation][badge-docs] Add coloring algorithm references and subsections to API docs ([#94])
+* ![Documentation][badge-docs] Fix incorrect API references in amortization section ([#96])
+* ![Maintenance][badge-maintenance] Upgrade `ty` and pin linter versions ([#95])
+
 ## Version `v0.1.6`
 * ![Feature][badge-feature] Export `color_rows`, `color_cols`, and `color_symmetric` in public API ([669b5c])
 * ![Feature][badge-feature] Validate and coerce inputs in `*_coloring_from_sparsity` ([#90])
@@ -39,20 +45,23 @@
 * ![Feature][badge-feature] Initial release ([#70])
 
 
-[669b5c]: https://github.com/adrhill/asdex/commit/669b5c
-[#90]: https://github.com/adrhill/asdex/pull/90
+[#97]: https://github.com/adrhill/asdex/pull/97
+[#96]: https://github.com/adrhill/asdex/pull/96
+[#95]: https://github.com/adrhill/asdex/pull/95
+[#94]: https://github.com/adrhill/asdex/pull/94
 [#91]: https://github.com/adrhill/asdex/pull/91
+[#90]: https://github.com/adrhill/asdex/pull/90
 [#89]: https://github.com/adrhill/asdex/pull/89
 [#88]: https://github.com/adrhill/asdex/pull/88
-[#83]: https://github.com/adrhill/asdex/pull/83
-[#84]: https://github.com/adrhill/asdex/pull/84
-[#85]: https://github.com/adrhill/asdex/pull/85
 [#87]: https://github.com/adrhill/asdex/pull/87
-[#77]: https://github.com/adrhill/asdex/pull/77
-[#78]: https://github.com/adrhill/asdex/pull/78
-[#79]: https://github.com/adrhill/asdex/pull/79
-[#80]: https://github.com/adrhill/asdex/pull/80
+[#85]: https://github.com/adrhill/asdex/pull/85
+[#84]: https://github.com/adrhill/asdex/pull/84
+[#83]: https://github.com/adrhill/asdex/pull/83
 [#81]: https://github.com/adrhill/asdex/pull/81
+[#80]: https://github.com/adrhill/asdex/pull/80
+[#79]: https://github.com/adrhill/asdex/pull/79
+[#78]: https://github.com/adrhill/asdex/pull/78
+[#77]: https://github.com/adrhill/asdex/pull/77
 [#76]: https://github.com/adrhill/asdex/pull/76
 [#75]: https://github.com/adrhill/asdex/pull/75
 [#74]: https://github.com/adrhill/asdex/pull/74
@@ -60,6 +69,7 @@
 [#72]: https://github.com/adrhill/asdex/pull/72
 [#71]: https://github.com/adrhill/asdex/pull/71
 [#70]: https://github.com/adrhill/asdex/pull/70
+[669b5c]: https://github.com/adrhill/asdex/commit/669b5c
 
 <!--
 # Badges
