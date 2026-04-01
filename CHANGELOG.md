@@ -1,5 +1,10 @@
 # asdex
 
+## Version `v0.1.8`
+* ![Feature][badge-feature] Add `output_format` kwarg for optional dense decompression ([#100])
+* ![Enhancement][badge-enhancement] Smaller decompression jaxpr by using `lax.gather` ([#99])
+* ![Documentation][badge-docs] Use `jax.jit` in all examples ([#101])
+
 ## Version `v0.1.7`
 * ![Feature][badge-feature] Add `spy` matplotlib visualization ([#97])
 * ![Documentation][badge-docs] Add coloring algorithm references and subsections to API docs ([#94])
@@ -45,6 +50,9 @@
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#101]: https://github.com/adrhill/asdex/pull/101
+[#100]: https://github.com/adrhill/asdex/pull/100
+[#99]: https://github.com/adrhill/asdex/pull/99
 [#97]: https://github.com/adrhill/asdex/pull/97
 [#96]: https://github.com/adrhill/asdex/pull/96
 [#95]: https://github.com/adrhill/asdex/pull/95
