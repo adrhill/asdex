@@ -4,7 +4,7 @@
 
 Every [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern)
 and [`ColoredPattern`](../reference/index.md#asdex.ColoredPattern)
-has a built-in text representation that works anywhere — no extra dependencies needed.
+has a built-in text representation that works without extra dependencies.
 
 Small patterns use a dot display:
 
@@ -33,7 +33,7 @@ print(f"```\n{sparsity}\n```")
 
 Printing a [`ColoredPattern`](../reference/index.md#asdex.ColoredPattern)
 shows the original and compressed patterns side by side,
-along with a summary of the AD savings:
+along with a summary of the coloring:
 
 ```python exec="true" session="vis" source="above"
 from asdex import jacobian_coloring
@@ -47,18 +47,18 @@ print(f"```\n{coloring}\n```")
 
 ## Matplotlib Plots
 
-For publication-quality figures,
-use [`spy`](../reference/index.md#asdex.spy).
+For matplotlib figures,
+use [`asdex.spy`](../reference/index.md#asdex.spy).
 
 !!! note "Optional dependency"
 
     Plotting requires matplotlib.
-    Install it with `pip install asdex[matplotlib]`.
+    Install it manually or using `pip install asdex[matplotlib]`.
 
 ### Sparsity Patterns
 
-Pass a [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern) to `spy`
-to plot nonzeros as black markers:
+Pass a [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern)
+to [`asdex.spy`](../reference/index.md#asdex.spy):
 
 ```python
 # mkdocs: render
@@ -78,7 +78,7 @@ spy(sparsity)
 
 ### Colored Patterns
 
-Pass a [`ColoredPattern`](../reference/index.md#asdex.ColoredPattern) to `spy`
+Pass a [`ColoredPattern`](../reference/index.md#asdex.ColoredPattern) to `asdex.spy`
 to color nonzeros by their color assignment:
 
 ```python
@@ -94,28 +94,33 @@ spy(coloring)
 
 ### Showing Compression
 
-Set `compressed=True` to show the original and compressed patterns side by side.
-This visualizes how graph coloring reduces the number of AD evaluations:
+Set `compressed=True` to plot the compressed pattern after coloring.
+Use subplots to show original and compressed patterns side by side:
 
 ```python
 # mkdocs: render
+import matplotlib.pyplot as plt
 from asdex import jacobian_coloring, spy
 
 def f(x):
     return (x[1:] - x[:-1]) ** 2
 
 coloring = jacobian_coloring(f, input_shape=20)
-spy(coloring, compressed=True)
-```
+m, n = coloring.sparsity.shape
+c = coloring.num_colors
 
-Column compression (JVP/HVP) is shown side by side,
-row compression (VJP) is shown stacked.
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+spy(coloring, ax=ax1)
+spy(coloring, compressed=True, ax=ax2)
+ax1.set_title(f"Sparse Jacobian ({m}×{n})")
+ax2.set_title(f"Compressed Jacobian ({m}×{c})")
+plt.tight_layout()
+```
 
 ### Customizing Plots
 
-`spy` accepts standard matplotlib arguments.
-Pass an `ax` to plot on existing axes,
-or use `markersize` and any `scatter` keyword argument:
+`asdex.spy` accepts a `cmap` argument to change the color scheme,
+as well as any keyword argument supported by `ax.imshow`:
 
 ```python
 # mkdocs: render
@@ -128,38 +133,9 @@ def f(x):
 coloring = jacobian_coloring(f, input_shape=20)
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
-spy(coloring.sparsity, ax=ax1)
-spy(coloring, ax=ax2)
-ax1.set_title("Sparsity")
-ax2.set_title("Coloring")
+spy(coloring, ax=ax1)
+spy(coloring, ax=ax2, cmap="viridis")
+ax1.set_title("tab10 (default)")
+ax2.set_title("viridis")
 plt.tight_layout()
-```
-
-### Larger Patterns
-
-For larger matrices, `spy` auto-scales the marker size:
-
-```python
-import jax.numpy as jnp
-from asdex import hessian_coloring, spy
-
-def rosenbrock(x):
-    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
-
-coloring = hessian_coloring(rosenbrock, input_shape=100)
-spy(coloring, compressed=True)
-```
-
-```python
-# mkdocs: render
-# mkdocs: hidecode
-import jax.numpy as jnp
-from asdex import hessian_coloring, spy
-
-def rosenbrock(x):
-    import jax.numpy as jnp
-    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
-
-coloring = hessian_coloring(rosenbrock, input_shape=100)
-spy(coloring, compressed=True)
 ```
