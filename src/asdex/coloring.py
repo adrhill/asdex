@@ -386,32 +386,44 @@ def color_symmetric(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     for v in order:
         # Forbidden colors from distance-1 constraint
         forbidden: set[int] = set()
+        # neighbor_color_count[c] = number of colored neighbors of v with color c
+        neighbor_color_count: dict[int, int] = {}
         for w in adj[v]:
-            if colors[w] >= 0:
-                forbidden.add(colors[w])
+            cw = int(colors[w])
+            if cw >= 0:
+                forbidden.add(cw)
+                neighbor_color_count[cw] = neighbor_color_count.get(cw, 0) + 1
 
-        # Star constraint: for each colored neighbor w of v,
-        # check w's other colored neighbors u.
-        # If colors[w] == colors[u] would create a 2-colored path v-w-u-?,
-        # we need to forbid the color of any neighbor of u that has color[w]'s color.
-        # More precisely: for neighbor w (colored), for neighbor u of w (u != v, colored),
-        # if colors[u] is not in forbidden yet, check if u has a neighbor x (x != w)
-        # with colors[x] == colors[w]. If so, colors[u] is forbidden for v because
-        # x-u-w-v would be a 4-path with only 2 colors.
+        # Star constraint: forbid colors that would create a 2-colored 4-path
+        # v1-v2-v3-v4 involving v.  Two cases, by v's position in the path.
+        #
+        # Case A (v is endpoint, path v-w-u-x): forbid colors[u] when u has
+        # another colored neighbor x != w with colors[x] == colors[w].
+        #
+        # Case B (v is internal, path a-v-w-x): forbid colors[x] when v has
+        # another colored neighbor a != w with colors[a] == colors[w], and x
+        # is any colored neighbor of w with x != v.  Trigger when
+        # neighbor_color_count[colors[w]] >= 2.
         for w in adj[v]:
-            if colors[w] < 0:
+            cw = int(colors[w])
+            if cw < 0:
                 continue
+            case_b = neighbor_color_count[cw] >= 2
             for u in adj[w]:
-                if u == v or colors[u] < 0:
+                if u == v:
                     continue
-                if colors[u] in forbidden:
+                cu = int(colors[u])
+                if cu < 0:
                     continue
-                # Check if u has a neighbor x != w with colors[x] == colors[w]
+                if cu in forbidden:
+                    continue
+                if case_b:
+                    forbidden.add(cu)
+                    continue
+                # Case A: check if u has a neighbor x != w with colors[x] == cw
                 for x in adj[u]:
-                    if x != w and colors[x] == colors[w]:
-                        # Path x-u-w-v would use only colors[w] and colors[u]
-                        # if we assign colors[u] to v. Forbid colors[u].
-                        forbidden.add(colors[u])
+                    if x != w and colors[x] == cw:
+                        forbidden.add(cu)
                         break
 
         # Assign smallest non-forbidden color
