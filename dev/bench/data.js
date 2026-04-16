@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776349373532,
+  "lastUpdate": 1776374933688,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -13440,6 +13440,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000007092027335592206",
             "extra": "mean: 22.158516344364855 usec\nrounds: 11686"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd9241e4ed555394503e78488a61ea4a22ff35c7",
+          "message": "feat(coloring)!: JIT with numba, port SMC graph layer, track star sets (#104)\n\n* feat(coloring)!: track star sets and add public coloring validators\n\n- `color_symmetric` now returns `(colors, num_colors, star_set)` instead of\n  `(colors, num_colors)`. The new `StarSet` stores per-edge star assignment\n  and per-star hub vertex, enabling O(1) hub lookup during Hessian\n  decompression.\n- Add `postprocess=True` (default) which demotes colors never needed as a\n  hub to neutral (`-1`), reducing HVP count.\n- Add `forced_colors` kwarg to verify a user-supplied coloring against the\n  star-coloring constraints; raises the new `InvalidColoringError` on\n  violation.\n- Promote private validators to public API: `check_coloring_rows`,\n  `check_coloring_cols`, `check_coloring_symmetric` (in `verify.py`).\n- `ColoredPattern` gains an optional `star_set` field; decompression uses\n  hub-based extraction when present and falls back to the existing\n  uniqueness heuristic otherwise.\n- `color_rows` and `color_cols` are unchanged.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* refactor(coloring): polish docstrings and simplify tests\n\n- Drop `SMC` reference from `color_symmetric` docstring and cite\n  Gebremedhin et al. (2007), Algorithm 4.1 directly.\n- Add backticks to `True` in the `postprocess` docstring.\n- Rename section headers from `Public API: ...` to plain descriptive\n  headers so they don't imply `StarSet` above isn't public.\n- Add a permalink to the SMC stamp-trick line in the source comment.\n- Drop the three `_is_valid_*_coloring` test helpers; call\n  `check_coloring_rows` / `check_coloring_cols` /\n  `check_coloring_symmetric` directly — the validators already raise\n  `InvalidColoringError` with the specific violation.\n- Drop seed reporting from the fuzz test since the validator error\n  already identifies the offending vertex/edge.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* docs(coloring): fold hub encoding into StarSet docstring\n\n- Inline the trivial-star hub encoding notes (previously a floating\n  comment block) into the `StarSet.hub` attribute docstring.\n- Drop the `(Gebremedhin et al., 2007)` citation from `_update_stars`:\n  `_update_stars!` is SMC's own function name, not from the paper.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* refactor(coloring): split coloring.py into private submodules\n\nGroups the module's contents into five private submodules behind an\n`__init__.py` re-export:\n\n- `_types.py`: `StarSet`, `DenseColoringWarning`, `InvalidColoringError`\n- `_color_greedy.py`: `color_rows`, `color_cols` + conflict/greedy\n  helpers\n- `_color_symmetric.py`: `color_symmetric` + adjacency/star helpers\n- `_postprocessing.py`: `_postprocess_star_coloring`\n- `_api.py`: `jacobian_coloring*`, `hessian_coloring*` + empty/dense\n  helpers\n\nThe public surface of `asdex.coloring` is unchanged — every name in\n`__all__` still resolves via `__init__.py` re-exports.\n`tests/test_coloring.py` moves its `_greedy_color` import to\n`asdex.coloring._color_greedy`.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* docs(coloring): add SMC attribution and source file links\n\nAdd the SparseMatrixColorings.jl attribution block plus a link to the\ncorresponding SMC source file in each submodule docstring of\n`src/asdex/coloring/`. Also correct `_types.py`, which previously claimed\n`StarSet` lived in `forest.jl` — it is actually defined in `coloring.jl`.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* refactor(detection): nest `_interpret/` under `detection/`\n\nConvert `detection.py` into a package mirroring `coloring/`:\n`detection.py` → `detection/_api.py`,\n`_interpret/` → `detection/_interpret/`.\n\nThe interpreter is consumed only by `detection`,\nso nesting it under its sole consumer reflects the dependency\ndirection and keeps the package root focused on pipeline stages.\n\nUpdates imports in `decompression.py` and `tests/_interpret/test_internals.py`,\nand path references in `CLAUDE.md`, `tests/CLAUDE.md`,\nand `.claude/skills/add-handler/SKILL.md`.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* perf(coloring): port SMC's CSR graph layer\n\nIntroduces `_graph.py` mirroring SparseMatrixColorings.jl's `graph.jl`\n(`_build_csr`, `_build_symmetric_csr`, `_build_edge_to_index`) and\nrewrites both coloring paths on top of it.\n\n- `_color_greedy.py` now mirrors `partial_distance2_coloring` faithfully.\n  Drops the O(Σ deg²) `list[set[int]]` conflict graphs and per-vertex\n  `set[int]` allocations for SMC's `forbidden_colors` timestamp trick.\n  LargestFirst uses SMC's `visited`-timestamp trick. `color_rows` and\n  `color_cols` share one `_partial_distance2_coloring` helper.\n- `_color_symmetric.py`'s `_build_adjacency_with_edge_index`\n  (list-of-tuples + `dict[(i, j), int]`) is replaced by\n  `_build_symmetric_csr` + `_build_edge_to_index`; `_treat` and\n  `_update_stars` iterate CSR slices.\n\nPublic API and `StarSet` contract unchanged. `_greedy_color` removed;\nits zero-vertex test is covered by `test_color_zero_row_pattern`.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* perf(coloring): run hot loops on Python lists, not numpy scalars\n\nThe SMC port in `_color_greedy.py` and `_color_symmetric.py` iterated CSR\narrays (`indptr`, `neighbors`, `edge_to_index`) and stamp buffers\n(`forbidden`, `visited`, `colors`, `star`) as numpy arrays, with per-element\n`int(...)` boxing in the triple-nested loops. That boxing dominates in\nCPython and made `color_rows` 4-7x slower than `main`'s conflict-set approach.\n\nRebind the hot arrays to Python lists via `.tolist()` at the top of each\nfunction, run the loop in unboxed-int territory, and re-wrap as numpy only\nat the public boundary. No algorithmic change; all 93 coloring tests pass.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* perf(coloring): JIT hot loops with numba\n\nCloses the 1.2-1.6× perf gap vs `main` left by the list-based port in\n0a12bf0 and goes further — post-compile timings beat `main` by 6-9×:\n\n| bench      | main    | previous | new      |\n| ---------- | ------- | -------- | -------- |\n| convnet    | 2.22 ms | 3.53 ms  | 245 µs   |\n| heat       | 158 µs  | 197 µs   | 23.5 µs  |\n| rosenbrock | 159 µs  | 194 µs   | 21.5 µs  |\n\nChanges:\n\n- Add `numba>=0.63.0` as a required dependency; ignore `*.nbi` / `*.nbc`.\n- `@njit(cache=True)` the hot kernels: `_build_edge_to_index_core` in\n  `_graph.py`; `_distance2_degrees` and `_partial_distance2_coloring`\n  in `_color_greedy.py`; `_star_coloring_core` (plus `_treat` and\n  `_update_stars`) in `_color_symmetric.py`.\n- Drop the `.tolist()` rebinding; numba reads int32 arrays directly.\n- Refactor for numba compatibility in `_color_symmetric.py`:\n  preallocated `hub_buf` + `hub_len` counter instead of `hub_list`;\n  three parallel `int32[n]` arrays (`fn_p`, `fn_q`, `fn_edge`) instead\n  of a `first_neighbor` tuple list; `InvalidColoringError` piped via\n  return sentinels so the jitted core never raises.\n\nCo-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>\n\n* test(benchmarks): warm up numba JIT before coloring timings\n\nCall `color_rows(sparsity)` once before `benchmark(...)` in the three\ncoloring benchmarks so the first-call compile pass is never folded into\nthe measured rounds. Previously the timings relied on pytest-benchmark's\ncalibration phase incidentally triggering the JIT — now the warmup is\nexplicit, matching the `# warmup` pattern used by the materialization\nand end-to-end benchmarks.\n\nCo-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>\n\n* feat(coloring)!: default `postprocess` to `False`, expose via API\n\nAlign `color_symmetric`'s default with SparseMatrixColorings.jl's\n`GreedyColoringAlgorithm` (`postprocessing=false`), and thread a\n`postprocess` kwarg through `jacobian_coloring`, `hessian_coloring`,\nand their `_from_sparsity` counterparts so callers can opt in.\n\nAdd tests exercising both paths on a 4-cycle without a diagonal\n(where postprocessing strictly reduces 3 colors to 2) and verifying\nthe no-op case on a banded pattern with full diagonal.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* test(coloring): reach 100% coverage and drop dead defensive branches\n\nAdd tests covering the previously unreached branches of\n`jacobian_coloring_from_sparsity`, `hessian_coloring_from_sparsity`,\n`color_symmetric(forced_colors=...)`, `StarSet.hub_vertex`, and both\nbranches of trivial-star postprocessing. Each new test makes concrete\nassertions (mode resolution, HVP roundtrips, forced-coloring violations,\nhub-flip identity) instead of merely exercising code paths.\n\nRemove guards that are unreachable under their public-API contracts:\nthe non-square check in `_empty_hessian_pattern`, the unused\n`nb_self_loops` counter in `_build_edge_to_index`, and the\n`num_colors == 0` / `ci < 0` / `s < 0` branches in\n`_postprocess_star_coloring`. Coverage (with `NUMBA_DISABLE_JIT=1`) is\nnow 100% across `src/asdex/coloring/`.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* chore: bump version to `0.2.0-DEV`\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-04-16T23:28:14+02:00",
+          "tree_id": "93c0e6b2726457fb3683b4da117e83ecc57649a8",
+          "url": "https://github.com/adrhill/asdex/commit/fd9241e4ed555394503e78488a61ea4a22ff35c7"
+        },
+        "date": 1776374932831,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 739.8572653987204,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004865715617966829",
+            "extra": "mean: 1.3516120564972554 msec\nrounds: 177"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 26721.14456113902,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004085139815989185",
+            "extra": "mean: 37.423546649057684 usec\nrounds: 8371"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 76688.71673180048,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002705751765836641",
+            "extra": "mean: 13.039727910655342 usec\nrounds: 21945"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 44875.97813569258,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004077232408786841",
+            "extra": "mean: 22.28363684856686 usec\nrounds: 12185"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 75483.69599841486,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004259256236939455",
+            "extra": "mean: 13.24789395608026 usec\nrounds: 9977"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 22.517179115902355,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0028261574764994516",
+            "extra": "mean: 44.4105362777777 msec\nrounds: 18"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2882.4577086942645,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011566816506686418",
+            "extra": "mean: 346.9261654676605 usec\nrounds: 2502"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1909.6549420669846,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000028902293059822085",
+            "extra": "mean: 523.6548121712573 usec\nrounds: 1331"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1917.2734940400505,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000026212286486559982",
+            "extra": "mean: 521.5739971936996 usec\nrounds: 1069"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4155.50667052297,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002369661782994947",
+            "extra": "mean: 240.64454211889165 usec\nrounds: 3870"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 114.14813322489044,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010835619903795094",
+            "extra": "mean: 8.76054624590169 msec\nrounds: 61"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26848.96231638439,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003943082337539176",
+            "extra": "mean: 37.245387297137995 usec\nrounds: 19476"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 45580.296425913504,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007632732955811793",
+            "extra": "mean: 21.939304445406716 usec\nrounds: 15589"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 40733.296451553004,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007456497290145844",
+            "extra": "mean: 24.54994039555259 usec\nrounds: 14311"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 45168.40239923045,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007506121768396159",
+            "extra": "mean: 22.139370597199544 usec\nrounds: 9795"
           }
         ]
       }
