@@ -14,6 +14,7 @@ See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 
 import warnings
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import assert_never
 
 import numpy as np
@@ -36,6 +37,56 @@ class DenseColoringWarning(UserWarning):
 
     Raised when sparse differentiation offers no speedup over dense differentiation.
     """
+
+
+class InvalidColoringError(ValueError):
+    """Raised when a user-supplied coloring violates a star-coloring constraint.
+
+    See [`color_symmetric`][asdex.color_symmetric] with ``forced_colors``.
+    """
+
+
+# Trivial-star hub encoding.
+# For a trivial star ``s`` (single edge with no resolved hub),
+# ``hub[s] = -(v + 1)`` where ``v`` is one of the edge's endpoints,
+# arbitrarily picked at construction time.
+# Decoding: ``v = -hub[s] - 1`` when ``hub[s] < 0``.
+
+
+@dataclass(frozen=True)
+class StarSet:
+    """Set of 2-colored stars produced by [`color_symmetric`][asdex.color_symmetric].
+
+    A star is a 2-colored subgraph with one *hub* vertex and one or more *spokes*.
+    All spokes share a single color; the hub has a different color.
+    For a Hessian entry ``H[i, j]``, the hub's HVP row contains the value
+    at the spoke's position — the spoke's own HVP is not needed.
+
+    Attributes:
+        star: Mapping from undirected edge index to star index, shape ``(num_edges,)``.
+        hub: Mapping from star index to hub vertex, shape ``(num_stars,)``.
+            ``hub[s] >= 0``: hub vertex (non-trivial star, or trivial star
+            whose hub was resolved by postprocessing).
+            ``hub[s] < 0``: trivial star with unresolved hub;
+            ``-hub[s] - 1`` is one of the two edge endpoints,
+            arbitrarily chosen at construction time.
+        edge_index: Mapping ``(min(i, j), max(i, j)) -> edge_idx`` for each
+            off-diagonal edge. Self-loops are not indexed.
+    """
+
+    star: NDArray[np.int32]
+    hub: NDArray[np.int32]
+    edge_index: dict[tuple[int, int], int] = field(default_factory=dict)
+
+    def hub_vertex(self, i: int, j: int) -> int:
+        """Hub vertex of the star containing off-diagonal edge ``(i, j)``.
+
+        For unresolved trivial stars, returns the decoded default endpoint.
+        """
+        a, b = (i, j) if i < j else (j, i)
+        s = int(self.star[self.edge_index[(a, b)]])
+        h = int(self.hub[s])
+        return h if h >= 0 else -h - 1
 
 
 # Public API: high-level convenience functions
@@ -249,13 +300,14 @@ def hessian_coloring_from_sparsity(
         return _empty_hessian_pattern(sparsity, symmetric=symmetric, mode=resolved_mode)
 
     if symmetric:
-        colors_arr, num = color_symmetric(sparsity)
+        colors_arr, num, star_set = color_symmetric(sparsity)
         result = ColoredPattern(
             sparsity,
             colors=colors_arr,
             num_colors=num,
             symmetric=True,
             mode=resolved_mode,
+            star_set=star_set,
         )
         _warn_if_dense(num, sparsity.n, "Hessian", sparsity.shape)
         return result
@@ -334,29 +386,46 @@ def color_cols(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     return _greedy_color(n, conflicts)
 
 
-def color_symmetric(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
+def color_symmetric(
+    sparsity: SparsityPattern,
+    *,
+    postprocess: bool = True,
+    forced_colors: NDArray[np.int32] | list[int] | None = None,
+) -> tuple[NDArray[np.int32], int, StarSet]:
     """Greedy symmetric coloring for sparse Hessian computation.
 
-    Uses star coloring (Gebremedhin et al., 2005):
-    a distance-1 coloring with the additional constraint
+    Implements SMC's ``star_coloring`` (Gebremedhin et al., 2007, Algorithm 4.1).
+    A star coloring is a distance-1 coloring with the additional constraint
     that every path on 4 vertices uses at least 3 colors.
-    This enables symmetric decompression using fewer colors than row coloring.
+    Returns a :class:`StarSet` alongside the colors so that
+    Hessian decompression can use hub-based extraction.
 
-    Requires a square sparsity pattern (Hessians are always square).
     Uses LargestFirst vertex ordering.
 
     Args:
-        sparsity: SparsityPattern of shape (n, n) representing the
-            symmetric Hessian sparsity pattern
+        sparsity: SparsityPattern of shape ``(n, n)`` representing the
+            symmetric Hessian sparsity pattern.
+        postprocess: If True, replace colors that are never used as a hub color
+            (and not forced by a diagonal entry) with ``-1`` (neutral),
+            then compact remaining colors down. This reduces the number of HVPs
+            needed during decompression. Defaults to True.
+        forced_colors: Optional pre-computed color assignment of shape ``(n,)``.
+            When provided, the algorithm verifies it satisfies the star-coloring
+            constraints and raises :class:`InvalidColoringError` otherwise.
 
     Returns:
-        Tuple of (colors, num_colors) where:
+        Tuple ``(colors, num_colors, star_set)`` where:
 
-            - colors: Array of shape (n,) with color assignment for each row/column
-            - num_colors: Total number of colors used
+            - colors: Array of shape ``(n,)`` with color assignment for each vertex.
+              Values are in ``[0, num_colors - 1]`` for active vertices.
+              After postprocessing, vertices whose color is pruned have value ``-1``
+              (neutral — no HVP needed for them).
+            - num_colors: Number of active colors (i.e. number of HVPs).
+            - star_set: :class:`StarSet` encoding the 2-colored star decomposition.
 
     Raises:
-        ValueError: If pattern is not square
+        ValueError: If pattern is not square.
+        InvalidColoringError: If ``forced_colors`` violates a star-coloring constraint.
     """
     if sparsity.m != sparsity.n:
         msg = (
@@ -367,73 +436,109 @@ def color_symmetric(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     n = sparsity.n
 
     if n == 0:
-        return np.array([], dtype=np.int32), 0
+        return (
+            np.array([], dtype=np.int32),
+            0,
+            StarSet(
+                star=np.array([], dtype=np.int32),
+                hub=np.array([], dtype=np.int32),
+                edge_index={},
+            ),
+        )
 
-    # Build adjacency graph (undirected, exclude diagonal)
-    adj: list[set[int]] = [set() for _ in range(n)]
-    for i, j in zip(sparsity.rows, sparsity.cols, strict=True):
-        i, j = int(i), int(j)
-        if i != j:
-            adj[i].add(j)
-            adj[j].add(i)
+    adj, edge_index, has_self_loop = _build_adjacency_with_edge_index(sparsity)
+    num_edges = len(edge_index)
+
+    if forced_colors is not None:
+        forced = np.asarray(forced_colors, dtype=np.int32)
+        if forced.shape != (n,):
+            msg = f"forced_colors must have shape ({n},), got {forced.shape}"
+            raise ValueError(msg)
+        if np.any(forced < 0):
+            msg = "forced_colors must contain non-negative integers"
+            raise ValueError(msg)
+    else:
+        forced = None
 
     # LargestFirst ordering
     order = sorted(range(n), key=lambda v: len(adj[v]), reverse=True)
 
     colors = np.full(n, -1, dtype=np.int32)
+
+    # SMC stamp trick: forbidden_colors[c] == v means color c is forbidden for v.
+    # treated[w] == v means w was treated (neighbors' colors forbidden) for v.
+    # Initialized to -1 since vertex indices start at 0.
+    forbidden_colors = np.full(n, -1, dtype=np.int64)
+    treated = np.full(n, -1, dtype=np.int64)
+
+    # first_neighbor[c] = (p, q, edge_pq): for vertex p, q is the first colored
+    # neighbor seen with color c, via edge index edge_pq.
+    first_neighbor: list[tuple[int, int, int]] = [(-1, -1, -1)] * n
+
+    star = np.full(num_edges, -1, dtype=np.int32)
+    hub_list: list[int] = []
+
     num_colors = 0
 
     for v in order:
-        # forbidden: colors that cannot be assigned to v.
-        # first_neighbor[c]: first colored neighbor of v seen with color c.
-        forbidden: set[int] = set()
-        first_neighbor: dict[int, int] = {}
-
-        for w in adj[v]:
+        for w, edge_vw in adj[v]:
             cw = int(colors[w])
             if cw < 0:
                 continue
-            forbidden.add(cw)  # distance-1 constraint
-
-            if cw in first_neighbor:
-                # Case 1 (v is internal): v has two neighbors q and w with the
-                # same color cw, forming paths q-v-w-x and w-v-q-y.
-                # Forbid colors of all colored neighbors of both q and w.
-                q = first_neighbor[cw]
-                for x in adj[q]:
-                    cx = int(colors[x])
-                    if cx >= 0:
-                        forbidden.add(cx)
-                for x in adj[w]:
-                    cx = int(colors[x])
-                    if cx >= 0:
-                        forbidden.add(cx)
+            forbidden_colors[cw] = v  # distance-1 constraint
+            p, q, _ = first_neighbor[cw]
+            if p == v:
+                # Case 1 (v internal): v already has a neighbor q with color cw,
+                # and now a second neighbor w also has color cw. Forbid every
+                # colored neighbor of q and w to prevent 2-colored P4s.
+                if treated[q] != v:
+                    _treat(treated, forbidden_colors, adj, v, q, colors)
+                _treat(treated, forbidden_colors, adj, v, w, colors)
             else:
-                # Case 2 (v is endpoint): first neighbor with color cw.
-                # For each other colored neighbor u of w, forbid colors[u]
-                # if u has a neighbor x != w with colors[x] == cw,
-                # since that would create a 2-colored path v-w-u-x.
-                first_neighbor[cw] = w
-                for u in adj[w]:
-                    if u == v or colors[u] < 0:
+                # Case 2 (v endpoint): w is the first colored neighbor of v with
+                # color cw. Forbid colors[x] when x is the hub of the star
+                # containing edge (w, x) — that certifies a 2-colored path
+                # v-w-x-y exists with color[y] == cw.
+                first_neighbor[cw] = (v, w, edge_vw)
+                for x, edge_wx in adj[w]:
+                    cx = int(colors[x])
+                    if x == v or cx < 0:
                         continue
-                    cu = int(colors[u])
-                    if cu in forbidden:
-                        continue
-                    for x in adj[u]:
-                        if x != w and colors[x] == cw:
-                            forbidden.add(cu)
-                            break
+                    s_wx = int(star[edge_wx])
+                    if s_wx >= 0 and hub_list[s_wx] == x:
+                        forbidden_colors[cx] = v
 
-        # Assign smallest non-forbidden color
-        color = 0
-        while color in forbidden:
-            color += 1
+        if forced is None:
+            color = 0
+            while color < n and forbidden_colors[color] == v:
+                color += 1
+        else:
+            color = int(forced[v])
+            if color < n and forbidden_colors[color] == v:
+                msg = (
+                    f"forced_colors[{v}] = {color} violates a star-coloring "
+                    f"constraint at vertex {v}"
+                )
+                raise InvalidColoringError(msg)
 
         colors[v] = color
         num_colors = max(num_colors, color + 1)
 
-    return colors, num_colors
+        _update_stars(star, hub_list, adj, v, colors, first_neighbor)
+
+    hub = (
+        np.asarray(hub_list, dtype=np.int32)
+        if hub_list
+        else np.array([], dtype=np.int32)
+    )
+    star_set = StarSet(star=star, hub=hub, edge_index=edge_index)
+
+    if postprocess:
+        num_colors = _postprocess_star_coloring(
+            colors, star_set, has_self_loop, num_colors
+        )
+
+    return colors, num_colors, star_set
 
 
 # Private helpers
@@ -460,13 +565,14 @@ def _color_jacobian_symmetric(
             symmetric=True,
             mode=mode,
         )
-    colors_arr, num = color_symmetric(sparsity)
+    colors_arr, num, star_set = color_symmetric(sparsity)
     result = ColoredPattern(
         sparsity,
         colors=colors_arr,
         num_colors=num,
         symmetric=True,
         mode=mode,
+        star_set=star_set,
     )
     _warn_if_dense(num, sparsity.n, "Jacobian", sparsity.shape)
     return result
@@ -648,67 +754,189 @@ def _build_col_conflict_sets(sparsity: SparsityPattern) -> list[set[int]]:
     return conflicts
 
 
-def _is_valid_row_coloring(
-    sparsity: SparsityPattern, colors: NDArray[np.int32]
-) -> bool:
-    """Check that no column has two rows with the same color."""
-    for rows_in_col in sparsity.col_to_rows.values():
-        colors_in_col = colors[rows_in_col]
-        if len(colors_in_col) != len(set(colors_in_col)):
-            return False
-    return True
+def _build_adjacency_with_edge_index(
+    sparsity: SparsityPattern,
+) -> tuple[
+    list[list[tuple[int, int]]],
+    dict[tuple[int, int], int],
+    NDArray[np.bool_],
+]:
+    """Build adjacency lists with stable edge indices for the symmetric graph.
 
+    Each off-diagonal nonzero contributes a single undirected edge,
+    regardless of whether ``(i, j)`` and ``(j, i)`` both appear in the pattern.
 
-def _is_valid_col_coloring(
-    sparsity: SparsityPattern, colors: NDArray[np.int32]
-) -> bool:
-    """Check that no row has two columns with the same color."""
-    for cols_in_row in sparsity.row_to_cols.values():
-        colors_in_row = colors[cols_in_row]
-        if len(colors_in_row) != len(set(colors_in_row)):
-            return False
-    return True
+    Returns:
+        Tuple ``(adj, edge_index, has_self_loop)`` where:
 
-
-def _is_valid_star_coloring(
-    sparsity: SparsityPattern, colors: NDArray[np.int32]
-) -> bool:
-    """Check distance-1 coloring + no 2-colored 4-vertex path.
-
-    A star coloring satisfies:
-    1. Adjacent vertices have different colors (distance-1).
-    2. Every path on 4 vertices uses at least 3 distinct colors.
+            - adj: ``adj[v]`` is a sorted list of ``(neighbor, edge_idx)`` tuples.
+            - edge_index: ``{(min(i, j), max(i, j)) -> edge_idx}``.
+            - has_self_loop: boolean array, ``has_self_loop[i]`` is True if
+              ``(i, i)`` is in the sparsity pattern.
     """
     n = sparsity.n
-
-    # Build adjacency (undirected, exclude diagonal)
-    adj: list[set[int]] = [set() for _ in range(n)]
+    adj: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+    edge_index: dict[tuple[int, int], int] = {}
+    has_self_loop = np.zeros(n, dtype=bool)
     for i, j in zip(sparsity.rows, sparsity.cols, strict=True):
-        i, j = int(i), int(j)
-        if i != j:
-            adj[i].add(j)
-            adj[j].add(i)
-
-    # Check distance-1: adjacent vertices must have different colors
+        i_int, j_int = int(i), int(j)
+        if i_int == j_int:
+            has_self_loop[i_int] = True
+            continue
+        a, b = (i_int, j_int) if i_int < j_int else (j_int, i_int)
+        if (a, b) in edge_index:
+            continue
+        idx = len(edge_index)
+        edge_index[(a, b)] = idx
+        adj[i_int].append((j_int, idx))
+        adj[j_int].append((i_int, idx))
     for v in range(n):
-        for w in adj[v]:
-            if colors[v] == colors[w]:
-                return False
+        adj[v].sort()
+    return adj, edge_index, has_self_loop
 
-    # Check no 2-colored 4-vertex path:
-    # For every path v0-v1-v2-v3, the set {colors[v0],...,colors[v3]} has size >= 3.
-    for v1 in range(n):
-        for v2 in adj[v1]:
-            if v2 <= v1:
-                continue  # avoid checking each edge twice
-            for v0 in adj[v1]:
-                if v0 == v2:
-                    continue
-                for v3 in adj[v2]:
-                    if v3 == v1:
-                        continue
-                    path_colors = {colors[v0], colors[v1], colors[v2], colors[v3]}
-                    if len(path_colors) < 3:
-                        return False
 
-    return True
+def _treat(
+    treated: NDArray[np.int64],
+    forbidden_colors: NDArray[np.int64],
+    adj: list[list[tuple[int, int]]],
+    v: int,
+    w: int,
+    colors: NDArray[np.int32],
+) -> None:
+    """Mark all colored neighbors of ``w`` as forbidden for ``v``.
+
+    Matches SMC's ``_treat!``.
+    """
+    for x, _ in adj[w]:
+        cx = int(colors[x])
+        if cx >= 0:
+            forbidden_colors[cx] = v
+    treated[w] = v
+
+
+def _update_stars(
+    star: NDArray[np.int32],
+    hub_list: list[int],
+    adj: list[list[tuple[int, int]]],
+    v: int,
+    colors: NDArray[np.int32],
+    first_neighbor: list[tuple[int, int, int]],
+) -> None:
+    """Update star/hub structures after vertex ``v`` has been colored.
+
+    Mirrors SMC's ``_update_stars!`` (Gebremedhin et al., 2007).
+    For each colored neighbor ``w`` of ``v``, either:
+
+    - An existing star through ``w`` absorbs edge ``(v, w)`` (promoting ``w`` to hub), or
+    - A prior star through ``v`` absorbs edge ``(v, w)`` (promoting ``v`` to hub), or
+    - A new trivial star is created for edge ``(v, w)``.
+    """
+    cv = int(colors[v])
+    for w, edge_vw in adj[v]:
+        cw = int(colors[w])
+        if cw < 0:
+            continue
+        x_exists = False
+        for x, edge_wx in adj[w]:
+            if x != v and int(colors[x]) == cv:
+                s = int(star[edge_wx])
+                hub_list[s] = w
+                star[edge_vw] = s
+                x_exists = True
+                break
+        if x_exists:
+            continue
+        p, q, edge_pq = first_neighbor[cw]
+        if p == v and q != w:
+            s = int(star[edge_pq])
+            hub_list[s] = v
+            star[edge_vw] = s
+        else:
+            # New trivial star: default "hub" encoded as -(max(v, w) + 1).
+            hub_list.append(-(max(v, w) + 1))
+            star[edge_vw] = len(hub_list) - 1
+
+
+def _postprocess_star_coloring(
+    colors: NDArray[np.int32],
+    star_set: StarSet,
+    has_self_loop: NDArray[np.bool_],
+    num_colors: int,
+) -> int:
+    """Compact colors that are never needed for decompression.
+
+    Mirrors SMC's ``postprocess!`` for star sets.
+    A color is "used" iff it is the color of a hub vertex in some star,
+    or the color of a vertex with a diagonal entry.
+    Unused colors' vertices become neutral (``-1``), and remaining colors
+    are re-indexed contiguously.
+    For trivial stars, flips the hub when doing so preserves a used color
+    and avoids marking a new one used.
+
+    Returns the new (reduced) number of active colors.
+    """
+    if num_colors == 0:
+        return 0
+
+    color_used = np.zeros(num_colors, dtype=bool)
+
+    # Diagonal entries force their color to be used.
+    for i in range(len(colors)):
+        if has_self_loop[i]:
+            ci = int(colors[i])
+            if ci >= 0:
+                color_used[ci] = True
+
+    hub = star_set.hub
+    star = star_set.star
+
+    # Non-trivial stars: hub's color is used.
+    for s in range(len(hub)):
+        h = int(hub[s])
+        if h >= 0:
+            color_used[int(colors[h])] = True
+
+    # Trivial stars: try to flip hub to avoid marking a new color used.
+    if len(hub) > 0 and (hub < 0).any():
+        inv_edges = {idx: (a, b) for (a, b), idx in star_set.edge_index.items()}
+        for e in range(len(star)):
+            s = int(star[e])
+            if s < 0:
+                continue  # edge not in any star (should not happen)
+            h_raw = int(hub[s])
+            if h_raw >= 0:
+                continue
+            default_hub = -h_raw - 1
+            i, j = inv_edges[e]
+            spoke = i if default_hub == j else j
+            cs = int(colors[spoke])
+            if color_used[cs]:
+                # Flip: spoke becomes the hub; default_hub's color can remain unused.
+                hub[s] = spoke
+            else:
+                color_used[int(colors[default_hub])] = True
+
+    if color_used.all():
+        return num_colors
+
+    # Compact colors: for each used color c, new = c - (number of unused colors < c).
+    offsets = np.zeros(num_colors, dtype=np.int32)
+    num_unused = 0
+    for c in range(num_colors):
+        offsets[c] = num_unused
+        if not color_used[c]:
+            num_unused += 1
+
+    for i in range(len(colors)):
+        ci = int(colors[i])
+        if ci < 0:
+            continue
+        if color_used[ci]:
+            colors[i] = ci - int(offsets[ci])
+        else:
+            colors[i] = -1
+
+    # Re-index hubs too: hub values are vertex indices, not colors, so they stay.
+    # But trivial-star default encodings use -(v + 1); the vertex index is unchanged.
+
+    return int(color_used.sum())
