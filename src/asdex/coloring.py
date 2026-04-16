@@ -646,3 +646,69 @@ def _build_col_conflict_sets(sparsity: SparsityPattern) -> list[set[int]]:
                 conflicts[col_j].add(col_i)
 
     return conflicts
+
+
+def _is_valid_row_coloring(
+    sparsity: SparsityPattern, colors: NDArray[np.int32]
+) -> bool:
+    """Check that no column has two rows with the same color."""
+    for rows_in_col in sparsity.col_to_rows.values():
+        colors_in_col = colors[rows_in_col]
+        if len(colors_in_col) != len(set(colors_in_col)):
+            return False
+    return True
+
+
+def _is_valid_col_coloring(
+    sparsity: SparsityPattern, colors: NDArray[np.int32]
+) -> bool:
+    """Check that no row has two columns with the same color."""
+    for cols_in_row in sparsity.row_to_cols.values():
+        colors_in_row = colors[cols_in_row]
+        if len(colors_in_row) != len(set(colors_in_row)):
+            return False
+    return True
+
+
+def _is_valid_star_coloring(
+    sparsity: SparsityPattern, colors: NDArray[np.int32]
+) -> bool:
+    """Check distance-1 coloring + no 2-colored 4-vertex path.
+
+    A star coloring satisfies:
+    1. Adjacent vertices have different colors (distance-1).
+    2. Every path on 4 vertices uses at least 3 distinct colors.
+    """
+    n = sparsity.n
+
+    # Build adjacency (undirected, exclude diagonal)
+    adj: list[set[int]] = [set() for _ in range(n)]
+    for i, j in zip(sparsity.rows, sparsity.cols, strict=True):
+        i, j = int(i), int(j)
+        if i != j:
+            adj[i].add(j)
+            adj[j].add(i)
+
+    # Check distance-1: adjacent vertices must have different colors
+    for v in range(n):
+        for w in adj[v]:
+            if colors[v] == colors[w]:
+                return False
+
+    # Check no 2-colored 4-vertex path:
+    # For every path v0-v1-v2-v3, the set {colors[v0],...,colors[v3]} has size >= 3.
+    for v1 in range(n):
+        for v2 in adj[v1]:
+            if v2 <= v1:
+                continue  # avoid checking each edge twice
+            for v0 in adj[v1]:
+                if v0 == v2:
+                    continue
+                for v3 in adj[v2]:
+                    if v3 == v1:
+                        continue
+                    path_colors = {colors[v0], colors[v1], colors[v2], colors[v3]}
+                    if len(path_colors) < 3:
+                        return False
+
+    return True
