@@ -11,13 +11,13 @@ import pytest
 from jax._src.core import Literal, Primitive
 
 from asdex import jacobian_sparsity
-from asdex._interpret import (
+from asdex.detection._interpret import (
     prop_closed_jaxpr,
     prop_dispatch,
     prop_jaxpr,
 )
-from asdex._interpret._commons import atom_shape, singleton_index_set
-from asdex._interpret._reshape import prop_reshape
+from asdex.detection._interpret._commons import atom_shape, singleton_index_set
+from asdex.detection._interpret._reshape import prop_reshape
 
 
 class FakeAval:

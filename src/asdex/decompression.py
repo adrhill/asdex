@@ -10,7 +10,7 @@ from numpy.typing import ArrayLike
 
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
-from asdex.detection import _ensure_scalar
+from asdex.detection._api import _ensure_scalar
 from asdex.modes import (
     HessianMode,
     JacobianMode,
