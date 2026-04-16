@@ -40,6 +40,7 @@ def jacobian_coloring(
     *,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
+    postprocess: bool = False,
 ) -> ColoredPattern:
     """Detect Jacobian sparsity and color in one step.
 
@@ -53,12 +54,18 @@ def jacobian_coloring(
             (unless ``symmetric`` is True, in which case defaults to ``"fwd"``).
         symmetric: Whether to use symmetric (star) coloring.
             Requires a square Jacobian.
+        postprocess: Only read when ``symmetric=True``.
+            Prune colors never used as hubs and compact the remaining ones
+            (reduces the number of VJPs/JVPs during decompression).
+            Defaults to ``False``, matching SparseMatrixColorings.jl.
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
     """
     sparsity = _detect_jacobian_sparsity(f, input_shape)
-    return jacobian_coloring_from_sparsity(sparsity, symmetric=symmetric, mode=mode)
+    return jacobian_coloring_from_sparsity(
+        sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
+    )
 
 
 def hessian_coloring(
@@ -67,6 +74,7 @@ def hessian_coloring(
     *,
     mode: HessianMode | None = None,
     symmetric: bool = True,
+    postprocess: bool = False,
 ) -> ColoredPattern:
     """Detect Hessian sparsity and color in one step.
 
@@ -80,12 +88,18 @@ def hessian_coloring(
             Defaults to ``"fwd_over_rev"``.
         symmetric: Whether to use symmetric (star) coloring.
             Defaults to True (exploits H = H^T for fewer colors).
+        postprocess: Only read when ``symmetric=True``.
+            Prune colors never used as hubs and compact the remaining ones
+            (reduces the number of HVPs during decompression).
+            Defaults to ``False``, matching SparseMatrixColorings.jl.
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
     """
     sparsity = _detect_hessian_sparsity(f, input_shape)
-    return hessian_coloring_from_sparsity(sparsity, symmetric=symmetric, mode=mode)
+    return hessian_coloring_from_sparsity(
+        sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
+    )
 
 
 def jacobian_coloring_from_sparsity(
@@ -93,6 +107,7 @@ def jacobian_coloring_from_sparsity(
     *,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
+    postprocess: bool = False,
 ) -> ColoredPattern:
     """Color a sparsity pattern for sparse Jacobian computation.
 
@@ -109,6 +124,10 @@ def jacobian_coloring_from_sparsity(
             (unless ``symmetric`` is True, in which case defaults to ``"fwd"``).
         symmetric: Whether to use symmetric (star) coloring.
             Requires a square pattern.
+        postprocess: Only read when ``symmetric=True``.
+            Prune colors never used as hubs and compact the remaining ones
+            (reduces the number of VJPs/JVPs during decompression).
+            Defaults to ``False``, matching SparseMatrixColorings.jl.
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
@@ -119,7 +138,11 @@ def jacobian_coloring_from_sparsity(
         _assert_jacobian_mode(mode)
 
     if symmetric:
-        return _color_jacobian_symmetric(sparsity, mode if mode is not None else "fwd")
+        return _color_jacobian_symmetric(
+            sparsity,
+            mode if mode is not None else "fwd",
+            postprocess=postprocess,
+        )
 
     # Nothing to compute when there are no nonzeros.
     if sparsity.nnz == 0:
@@ -185,6 +208,7 @@ def hessian_coloring_from_sparsity(
     *,
     mode: HessianMode | None = None,
     symmetric: bool = True,
+    postprocess: bool = False,
 ) -> ColoredPattern:
     """Color a sparsity pattern for sparse Hessian computation.
 
@@ -198,6 +222,12 @@ def hessian_coloring_from_sparsity(
             Defaults to ``"fwd_over_rev"``.
         symmetric: Whether to use symmetric (star) coloring.
             Defaults to True (exploits Hessian symmetry for fewer colors).
+        postprocess: Only read when ``symmetric=True``.
+            Prune colors never used as hubs and compact the remaining ones
+            (reduces the number of HVPs during decompression).
+            Pruned vertices get the neutral color ``-1`` in the output
+            (no HVP is computed for them).
+            Defaults to ``False``, matching SparseMatrixColorings.jl.
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
@@ -216,7 +246,7 @@ def hessian_coloring_from_sparsity(
         return _empty_hessian_pattern(sparsity, symmetric=symmetric, mode=resolved_mode)
 
     if symmetric:
-        colors_arr, num, star_set = color_symmetric(sparsity)
+        colors_arr, num, star_set = color_symmetric(sparsity, postprocess=postprocess)
         result = ColoredPattern(
             sparsity,
             colors=colors_arr,
@@ -267,12 +297,15 @@ def _coerce_sparsity(
 def _color_jacobian_symmetric(
     sparsity: SparsityPattern,
     mode: JacobianMode,
+    *,
+    postprocess: bool,
 ) -> ColoredPattern:
     """Color a Jacobian pattern using symmetric (star) coloring.
 
     Args:
         sparsity: Sparsity pattern (must be square).
         mode: The resolved AD mode.
+        postprocess: Whether to prune unused colors after star coloring.
     """
     if sparsity.nnz == 0:
         if sparsity.m != sparsity.n:
@@ -285,7 +318,7 @@ def _color_jacobian_symmetric(
             symmetric=True,
             mode=mode,
         )
-    colors_arr, num, star_set = color_symmetric(sparsity)
+    colors_arr, num, star_set = color_symmetric(sparsity, postprocess=postprocess)
     result = ColoredPattern(
         sparsity,
         colors=colors_arr,

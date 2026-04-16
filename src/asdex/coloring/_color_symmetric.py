@@ -25,7 +25,7 @@ from asdex.pattern import SparsityPattern
 def color_symmetric(
     sparsity: SparsityPattern,
     *,
-    postprocess: bool = True,
+    postprocess: bool = False,
     forced_colors: NDArray[np.int32] | list[int] | None = None,
 ) -> tuple[NDArray[np.int32], int, StarSet]:
     """Greedy symmetric coloring for sparse Hessian computation.
@@ -44,7 +44,8 @@ def color_symmetric(
         postprocess: If ``True``, replace colors that are never used as a hub color
             (and not forced by a diagonal entry) with ``-1`` (neutral),
             then compact remaining colors down. This reduces the number of HVPs
-            needed during decompression. Defaults to ``True``.
+            needed during decompression. Defaults to ``False``,
+            matching SparseMatrixColorings.jl's ``postprocessing=false`` default.
         forced_colors: Optional pre-computed color assignment of shape ``(n,)``.
             When provided, the algorithm verifies it satisfies the star-coloring
             constraints and raises :class:`InvalidColoringError` otherwise.

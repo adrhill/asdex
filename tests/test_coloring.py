@@ -770,6 +770,89 @@ def test_star_empty():
     assert len(colors) == 0
 
 
+# Postprocessing tests
+
+
+def _make_symmetric_graph_no_diagonal(
+    n: int, edges: list[tuple[int, int]]
+) -> SparsityPattern:
+    """Symmetric adjacency pattern with no self-loops (no diagonal entries).
+
+    Used to exercise star-coloring postprocessing, which can prune a color
+    only when it is not forced-used by a diagonal nonzero.
+    """
+    rows = [i for i, j in edges] + [j for i, j in edges]
+    cols = [j for i, j in edges] + [i for i, j in edges]
+    return SparsityPattern.from_coo(rows, cols, (n, n))
+
+
+@pytest.mark.coloring
+def test_star_postprocessing_reduces_colors_on_c4():
+    """Postprocessing on a 4-cycle (no diagonal) reduces 3 colors to 2.
+
+    C4 has star chromatic number 3, but with LargestFirst greedy + postprocessing,
+    the middle color is only assigned to vertices whose color is never used as
+    a hub, so it gets pruned.
+    """
+    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
+
+    colors_off, num_off, _ = color_symmetric(sparsity, postprocess=False)
+    colors_on, num_on, _ = color_symmetric(sparsity, postprocess=True)
+
+    check_coloring_symmetric(sparsity, colors_off)
+    check_coloring_symmetric(sparsity, colors_on)
+    assert num_off == 3
+    assert num_on == 2
+    assert num_on < num_off
+    # Postprocessing introduces the neutral sentinel.
+    assert (colors_on == -1).any()
+    assert not (colors_off == -1).any()
+
+
+@pytest.mark.coloring
+def test_star_postprocessing_noop_when_full_diagonal():
+    """With a full diagonal, every color is forced-used; postprocessing is a no-op."""
+    sparsity = _make_banded(20, 2)
+
+    colors_off, num_off, _ = color_symmetric(sparsity, postprocess=False)
+    colors_on, num_on, _ = color_symmetric(sparsity, postprocess=True)
+
+    check_coloring_symmetric(sparsity, colors_off)
+    check_coloring_symmetric(sparsity, colors_on)
+    assert num_on == num_off
+    assert not (colors_on == -1).any()
+
+
+@pytest.mark.coloring
+def test_hessian_coloring_postprocess_flag_threaded():
+    """The postprocess flag on hessian_coloring_from_sparsity reaches color_symmetric."""
+    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
+
+    result_off = hessian_coloring_from_sparsity(sparsity, postprocess=False)
+    result_on = hessian_coloring_from_sparsity(sparsity, postprocess=True)
+
+    assert result_off.num_colors == 3
+    assert result_on.num_colors == 2
+    assert result_on.num_colors < result_off.num_colors
+
+
+@pytest.mark.coloring
+def test_jacobian_coloring_symmetric_postprocess_flag_threaded():
+    """The postprocess flag on jacobian_coloring_from_sparsity reaches color_symmetric."""
+    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
+
+    result_off = jacobian_coloring_from_sparsity(
+        sparsity, symmetric=True, postprocess=False
+    )
+    result_on = jacobian_coloring_from_sparsity(
+        sparsity, symmetric=True, postprocess=True
+    )
+
+    assert result_off.num_colors == 3
+    assert result_on.num_colors == 2
+    assert result_on.num_colors < result_off.num_colors
+
+
 # Unified jacobian_coloring_from_sparsity() tests
 
 
