@@ -6,7 +6,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Any, assert_never
 
 import jax.numpy as jnp
 import numpy as np
@@ -14,6 +14,11 @@ from jax.experimental.sparse import BCOO
 from numpy.typing import NDArray
 
 from asdex._display import colored_repr, colored_str, sparsity_repr, sparsity_str
+from asdex._pytree_shapes import (
+    _is_shape_leaf,
+    flatten_shapes,
+    is_multi_positional,
+)
 from asdex.modes import ColoringMode, _assert_coloring_mode
 
 if TYPE_CHECKING:
@@ -32,13 +37,24 @@ class SparsityPattern:
         cols: Column indices of non-zero entries, shape ``(nnz,)``
         shape: Matrix dimensions ``(m, n)``
         input_shape: Shape of the function input that produced this pattern.
+            For single-input functions this is a plain shape tuple
+            (e.g. ``(3, 4)``).
+            For multi-input functions this is a pytree of shapes
+            (tuple of shapes for positional args, or a dict / custom pytree
+            for a single pytree-structured argument).
             Defaults to ``(n,)`` if not specified.
+        selected_mask: Per-leaf selection mask recording which leaves of
+            ``input_shape`` were differentiated w.r.t. via ``argnums``.
+            ``None`` means all leaves were selected (the default).
+            Only meaningful for multi-input patterns.
     """
 
     rows: NDArray[np.int32]
     cols: NDArray[np.int32]
     shape: tuple[int, int]
-    input_shape: tuple[int, ...] | None = None
+    input_shape: Any = None
+    selected_mask: tuple[bool, ...] | None = None
+    argnums: int | tuple[int, ...] | None = None
 
     def __post_init__(self) -> None:
         """Validate inputs and set defaults."""
@@ -47,6 +63,51 @@ class SparsityPattern:
             raise ValueError(msg)
         if self.input_shape is None:
             object.__setattr__(self, "input_shape", (self.n,))
+
+    # Multi-input helpers
+
+    @property
+    def is_multi_input(self) -> bool:
+        """Whether this pattern came from a multi-input (pytree) function."""
+        shape = self.input_shape
+        if shape is None:
+            return False
+        return not _is_shape_leaf(shape)
+
+    @property
+    def is_multi_positional(self) -> bool:
+        """Whether the multi-input function takes positional args (``f(*xs)``)."""
+        return is_multi_positional(self.input_shape)
+
+    @cached_property
+    def _input_leaves(self) -> tuple[list[tuple[int, ...]], Any, list[int]]:
+        """Flat leaf shapes, treedef, and sizes for the input spec."""
+        return flatten_shapes(self.input_shape)
+
+    @property
+    def leaf_shapes(self) -> list[tuple[int, ...]]:
+        """Per-leaf shapes after flattening ``input_shape``."""
+        leaves, _, _ = self._input_leaves
+        return leaves
+
+    @property
+    def leaf_sizes(self) -> list[int]:
+        """Per-leaf flat sizes (``prod(shape)``)."""
+        _, _, sizes = self._input_leaves
+        return sizes
+
+    @property
+    def input_treedef(self) -> Any:
+        """Pytree structure of the input spec."""
+        _, treedef, _ = self._input_leaves
+        return treedef
+
+    @property
+    def resolved_selected_mask(self) -> tuple[bool, ...]:
+        """``selected_mask`` defaulting to all-selected when ``None``."""
+        if self.selected_mask is not None:
+            return self.selected_mask
+        return tuple(True for _ in self.leaf_shapes)
 
     # Properties
 
@@ -102,7 +163,9 @@ class SparsityPattern:
         cols: NDArray[np.int32] | list[int],
         shape: tuple[int, int],
         *,
-        input_shape: tuple[int, ...] | None = None,
+        input_shape: Any = None,
+        selected_mask: tuple[bool, ...] | None = None,
+        argnums: int | tuple[int, ...] | None = None,
     ) -> SparsityPattern:
         """Create pattern from row and column index arrays.
 
@@ -112,12 +175,19 @@ class SparsityPattern:
             shape: Matrix dimensions ``(m, n)``.
             input_shape: Shape of the function input.
                 Defaults to ``(n,)`` if not specified.
+            selected_mask: Per-leaf selection mask for multi-input patterns
+                (``None`` means all leaves selected).
+            argnums: ``argnums`` value that produced this pattern, stored so
+                decompression can preserve the int-vs-tuple distinction from
+                ``jax.grad`` (``None`` means all positions).
         """
         return cls(
             rows=np.asarray(rows, dtype=np.int32),
             cols=np.asarray(cols, dtype=np.int32),
             shape=shape,
             input_shape=input_shape,
+            selected_mask=selected_mask,
+            argnums=argnums,
         )
 
     @classmethod
@@ -187,9 +257,17 @@ class SparsityPattern:
     def save(self, path: str | os.PathLike[str]) -> None:
         """Save sparsity pattern to an ``.npz`` file.
 
+        Multi-input patterns (pytree-structured ``input_shape``) are not yet
+        supported by this simple ``.npz`` layout.
+
         Args:
             path: Destination file path.
         """
+        if self.is_multi_input:
+            raise NotImplementedError(
+                "save()/load() does not yet support multi-input patterns. "
+                "Pickle the pattern or reconstruct it from source for now."
+            )
         np.savez(
             path,
             rows=self.rows,
@@ -427,9 +505,17 @@ class ColoredPattern:
     def save(self, path: str | os.PathLike[str]) -> None:
         """Save colored pattern to an ``.npz`` file.
 
+        Multi-input patterns (pytree-structured ``input_shape``) are not yet
+        supported by this simple ``.npz`` layout.
+
         Args:
             path: Destination file path.
         """
+        if self.sparsity.is_multi_input:
+            raise NotImplementedError(
+                "save()/load() does not yet support multi-input patterns. "
+                "Pickle the pattern or reconstruct it from source for now."
+            )
         np.savez(
             path,
             rows=self.sparsity.rows,

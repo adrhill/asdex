@@ -13,8 +13,8 @@ See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 """
 
 import warnings
-from collections.abc import Callable
-from typing import assert_never
+from collections.abc import Callable, Sequence
+from typing import Any, assert_never
 
 import numpy as np
 from jax.experimental.sparse import BCOO
@@ -36,8 +36,10 @@ from asdex.pattern import ColoredPattern, SparsityPattern
 
 def jacobian_coloring(
     f: Callable,
-    input_shape: int | tuple[int, ...],
+    input_shape: int | tuple[int, ...] | None = None,
     *,
+    input_shapes: Any = None,
+    argnums: int | Sequence[int] | None = None,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     postprocess: bool = False,
@@ -46,7 +48,13 @@ def jacobian_coloring(
 
     Args:
         f: Function taking an array and returning an array.
-        input_shape: Shape of the input array.
+        input_shape: Shape of the input array (single-input mode).
+            Mutually exclusive with ``input_shapes``.
+        input_shapes: Pytree of shapes (multi-input mode).
+            Mutually exclusive with ``input_shape``.
+        argnums: Which positional arguments to differentiate with respect to,
+            mirroring ``jax.grad``.
+            Only supported with multi-positional ``input_shapes``.
         mode: AD mode.
             ``"fwd"`` uses JVPs (forward-mode AD),
             ``"rev"`` uses VJPs (reverse-mode AD),
@@ -62,7 +70,9 @@ def jacobian_coloring(
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
     """
-    sparsity = _detect_jacobian_sparsity(f, input_shape)
+    sparsity = _detect_jacobian_sparsity(
+        f, input_shape, input_shapes=input_shapes, argnums=argnums
+    )
     return jacobian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )
@@ -70,8 +80,10 @@ def jacobian_coloring(
 
 def hessian_coloring(
     f: Callable,
-    input_shape: int | tuple[int, ...],
+    input_shape: int | tuple[int, ...] | None = None,
     *,
+    input_shapes: Any = None,
+    argnums: int | Sequence[int] | None = None,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     postprocess: bool = False,
@@ -80,7 +92,13 @@ def hessian_coloring(
 
     Args:
         f: Scalar-valued function taking an array.
-        input_shape: Shape of the input array.
+        input_shape: Shape of the input array (single-input mode).
+            Mutually exclusive with ``input_shapes``.
+        input_shapes: Pytree of shapes (multi-input mode).
+            Mutually exclusive with ``input_shape``.
+        argnums: Which positional arguments to differentiate with respect to,
+            mirroring ``jax.grad``.
+            Only supported with multi-positional ``input_shapes``.
         mode: AD composition strategy for Hessian-vector products.
             ``"fwd_over_rev"`` uses forward-over-reverse,
             ``"rev_over_fwd"`` uses reverse-over-forward,
@@ -96,7 +114,9 @@ def hessian_coloring(
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
     """
-    sparsity = _detect_hessian_sparsity(f, input_shape)
+    sparsity = _detect_hessian_sparsity(
+        f, input_shape, input_shapes=input_shapes, argnums=argnums
+    )
     return hessian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )
