@@ -3,6 +3,13 @@
 Mirrors the role of ``interface.jl`` in SparseMatrixColorings.jl: mode
 resolution, empty-pattern shortcuts, and dense-baseline warnings on top of
 the algorithm modules.
+
+Algorithms adapted from SparseMatrixColorings.jl (MIT license)
+Copyright (c) 2024 Guillaume Dalle, Alexis Montoison, and contributors
+https://github.com/gdalle/SparseMatrixColorings.jl
+See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
+
+- https://github.com/gdalle/SparseMatrixColorings.jl/blob/main/src/interface.jl
 """
 
 import warnings

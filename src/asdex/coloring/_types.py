@@ -1,7 +1,14 @@
 """Shared types for the coloring package.
 
-Mirrors the split in SparseMatrixColorings.jl, where ``StarSet`` lives in
-``forest.jl`` and ``InvalidColoringError`` lives at the top of ``coloring.jl``.
+In SparseMatrixColorings.jl, both ``StarSet`` and ``InvalidColoringError``
+are defined in ``coloring.jl``.
+
+Algorithms adapted from SparseMatrixColorings.jl (MIT license)
+Copyright (c) 2024 Guillaume Dalle, Alexis Montoison, and contributors
+https://github.com/gdalle/SparseMatrixColorings.jl
+See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
+
+- https://github.com/gdalle/SparseMatrixColorings.jl/blob/main/src/coloring.jl
 """
 
 from dataclasses import dataclass, field

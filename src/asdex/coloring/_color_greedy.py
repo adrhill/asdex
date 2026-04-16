@@ -3,6 +3,13 @@
 Mirrors the ``partial_distance2_coloring`` path in SparseMatrixColorings.jl's
 ``coloring.jl``, specialized to the two partitions we need (rows for VJPs,
 columns for JVPs).
+
+Algorithms adapted from SparseMatrixColorings.jl (MIT license)
+Copyright (c) 2024 Guillaume Dalle, Alexis Montoison, and contributors
+https://github.com/gdalle/SparseMatrixColorings.jl
+See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
+
+- https://github.com/gdalle/SparseMatrixColorings.jl/blob/main/src/coloring.jl
 """
 
 import numpy as np

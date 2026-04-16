@@ -1,6 +1,13 @@
 """Postprocessing for star colorings.
 
 Mirrors SparseMatrixColorings.jl's ``postprocessing.jl``.
+
+Algorithms adapted from SparseMatrixColorings.jl (MIT license)
+Copyright (c) 2024 Guillaume Dalle, Alexis Montoison, and contributors
+https://github.com/gdalle/SparseMatrixColorings.jl
+See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
+
+- https://github.com/gdalle/SparseMatrixColorings.jl/blob/main/src/postprocessing.jl
 """
 
 import numpy as np
