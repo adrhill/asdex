@@ -1,8 +1,8 @@
-"""Greedy distance-1 row and column colorings for sparse Jacobians.
+"""Greedy distance-2 row and column colorings for sparse Jacobians.
 
-Mirrors the ``partial_distance2_coloring`` path in SparseMatrixColorings.jl's
-``coloring.jl``, specialized to the two partitions we need (rows for VJPs,
-columns for JVPs).
+Mirrors SparseMatrixColorings.jl's ``partial_distance2_coloring`` from
+``coloring.jl``,
+specialized to the two partitions we need (rows for VJPs, columns for JVPs).
 
 Algorithms adapted from SparseMatrixColorings.jl (MIT license)
 Copyright (c) 2024 Guillaume Dalle, Alexis Montoison, and contributors
@@ -10,11 +10,13 @@ https://github.com/gdalle/SparseMatrixColorings.jl
 See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 
 - https://github.com/gdalle/SparseMatrixColorings.jl/blob/main/src/coloring.jl
+- https://github.com/gdalle/SparseMatrixColorings.jl/blob/main/src/order.jl
 """
 
 import numpy as np
 from numpy.typing import NDArray
 
+from asdex.coloring._graph import _build_csr
 from asdex.pattern import SparsityPattern
 
 
@@ -39,12 +41,16 @@ def color_rows(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
             - num_colors: Total number of colors used
     """
     m = sparsity.m
-
+    n = sparsity.n
     if m == 0:
         return np.array([], dtype=np.int32), 0
 
-    conflicts = _build_row_conflict_sets(sparsity)
-    return _greedy_color(m, conflicts)
+    row_indptr, row_nbrs = _build_csr(sparsity.rows, sparsity.cols, m)
+    col_indptr, col_nbrs = _build_csr(sparsity.cols, sparsity.rows, n)
+    order = _largest_first_order(m, row_indptr, row_nbrs, col_indptr, col_nbrs)
+    return _partial_distance2_coloring(
+        m, row_indptr, row_nbrs, col_indptr, col_nbrs, order
+    )
 
 
 def color_cols(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
@@ -67,113 +73,90 @@ def color_cols(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
             - colors: Array of shape (n,) with color assignment for each column
             - num_colors: Total number of colors used
     """
+    m = sparsity.m
     n = sparsity.n
-
     if n == 0:
         return np.array([], dtype=np.int32), 0
 
-    conflicts = _build_col_conflict_sets(sparsity)
-    return _greedy_color(n, conflicts)
+    col_indptr, col_nbrs = _build_csr(sparsity.cols, sparsity.rows, n)
+    row_indptr, row_nbrs = _build_csr(sparsity.rows, sparsity.cols, m)
+    order = _largest_first_order(n, col_indptr, col_nbrs, row_indptr, row_nbrs)
+    return _partial_distance2_coloring(
+        n, col_indptr, col_nbrs, row_indptr, row_nbrs, order
+    )
 
 
-def _greedy_color(
-    num_vertices: int,
-    conflicts: list[set[int]],
+# Internals
+
+
+def _largest_first_order(
+    nv: int,
+    side_indptr: NDArray[np.int32],
+    side_nbrs: NDArray[np.int32],
+    other_indptr: NDArray[np.int32],
+    other_nbrs: NDArray[np.int32],
+) -> NDArray[np.intp]:
+    """Order vertices by decreasing distance-2 degree.
+
+    Uses SMC's ``visited``-timestamp trick to count each distance-2 neighbor
+    exactly once without per-vertex set allocations.
+    Ties break by vertex index ascending via ``kind="stable"``,
+    giving a reproducible ordering.
+    """
+    visited = np.zeros(nv, dtype=np.int32)
+    deg2 = np.zeros(nv, dtype=np.int32)
+    for v in range(nv):
+        stamp = v + 1
+        for pos in range(int(side_indptr[v]), int(side_indptr[v + 1])):
+            w = int(side_nbrs[pos])
+            for pos2 in range(int(other_indptr[w]), int(other_indptr[w + 1])):
+                x = int(other_nbrs[pos2])
+                if x != v and int(visited[x]) != stamp:
+                    deg2[v] += 1
+                    visited[x] = stamp
+    return np.argsort(-deg2, kind="stable")
+
+
+def _partial_distance2_coloring(
+    nv: int,
+    side_indptr: NDArray[np.int32],
+    side_nbrs: NDArray[np.int32],
+    other_indptr: NDArray[np.int32],
+    other_nbrs: NDArray[np.int32],
+    order: NDArray[np.intp],
 ) -> tuple[NDArray[np.int32], int]:
-    """Greedy graph coloring with LargestFirst vertex ordering.
+    """Greedy distance-2 coloring on a bipartite graph.
 
-    Vertices are sorted by decreasing degree (number of conflicts)
-    before the greedy loop.
-    For each vertex in order,
-    assign the smallest color not used by any conflicting vertex.
+    For each vertex in ``order``,
+    walks the distance-2 neighborhood ``v -> w -> x`` to collect the colors
+    already used by distance-2 neighbors,
+    then assigns ``v`` the smallest color not among them.
 
-    Args:
-        num_vertices: Number of vertices to color
-        conflicts: List of sets where conflicts[v] contains
-            all vertices that conflict with vertex v
-
-    Returns:
-        Tuple of (colors, num_colors) where:
-
-            - colors: Array of shape (num_vertices,) with color assignments
-            - num_colors: Total number of colors used
+    ``forbidden_colors[c] == stamp`` marks color ``c`` as forbidden for the
+    current vertex;
+    advancing ``stamp`` each iteration resets the mask without clearing memory.
+    ``stamp = v + 1`` avoids clashing with the zero-initialized state.
     """
-    if num_vertices == 0:
-        return np.array([], dtype=np.int32), 0
-
-    # LargestFirst ordering: sort vertices by decreasing degree
-    order = sorted(range(num_vertices), key=lambda v: len(conflicts[v]), reverse=True)
-
-    colors = np.full(num_vertices, -1, dtype=np.int32)
+    colors = np.full(nv, -1, dtype=np.int32)
+    forbidden = np.zeros(nv + 1, dtype=np.int32)
     num_colors = 0
-
     for v in order:
-        # Find colors used by conflicting vertices
-        used_colors: set[int] = set()
-        for neighbor in conflicts[v]:
-            if colors[neighbor] >= 0:
-                used_colors.add(colors[neighbor])
-
-        # Assign smallest unused color
-        color = 0
-        while color in used_colors:
-            color += 1
-
-        colors[v] = color
-        num_colors = max(num_colors, color + 1)
-
+        v_int = int(v)
+        stamp = v_int + 1
+        for pos in range(int(side_indptr[v_int]), int(side_indptr[v_int + 1])):
+            w = int(side_nbrs[pos])
+            for pos2 in range(int(other_indptr[w]), int(other_indptr[w + 1])):
+                x = int(other_nbrs[pos2])
+                cx = int(colors[x])
+                if cx >= 0:
+                    forbidden[cx] = stamp
+        # Smallest color ``c`` with ``forbidden[c] != stamp``.
+        # Linear scan beats ``np.argmax`` here: num_colors is typically ≪ nv,
+        # and early break avoids the per-vertex bool-array allocation.
+        c = 0
+        while c < nv and int(forbidden[c]) == stamp:
+            c += 1
+        colors[v_int] = c
+        if c + 1 > num_colors:
+            num_colors = c + 1
     return colors, num_colors
-
-
-def _build_row_conflict_sets(sparsity: SparsityPattern) -> list[set[int]]:
-    """Build conflict graph: rows conflict if they share a non-zero column.
-
-    For each column, all rows with non-zeros in that column conflict with each other.
-
-    Args:
-        sparsity: SparsityPattern of shape (m, n)
-
-    Returns:
-        List of sets where conflicts[i] contains all rows that conflict with row i
-    """
-    m = sparsity.m
-    conflicts: list[set[int]] = [set() for _ in range(m)]
-
-    # Use cached col_to_rows mapping
-    col_to_rows = sparsity.col_to_rows
-
-    # For each column, mark all pairs of rows as conflicting
-    for rows_in_col in col_to_rows.values():
-        for i, row_i in enumerate(rows_in_col):
-            for row_j in rows_in_col[i + 1 :]:
-                conflicts[row_i].add(row_j)
-                conflicts[row_j].add(row_i)
-
-    return conflicts
-
-
-def _build_col_conflict_sets(sparsity: SparsityPattern) -> list[set[int]]:
-    """Build conflict graph: columns conflict if they share a non-zero row.
-
-    For each row, all columns with non-zeros in that row conflict with each other.
-
-    Args:
-        sparsity: SparsityPattern of shape (m, n)
-
-    Returns:
-        List of sets where conflicts[j] contains all columns that conflict with column j
-    """
-    n = sparsity.n
-    conflicts: list[set[int]] = [set() for _ in range(n)]
-
-    # Use cached row_to_cols mapping
-    row_to_cols = sparsity.row_to_cols
-
-    # For each row, mark all pairs of columns as conflicting
-    for cols_in_row in row_to_cols.values():
-        for i, col_i in enumerate(cols_in_row):
-            for col_j in cols_in_row[i + 1 :]:
-                conflicts[col_i].add(col_j)
-                conflicts[col_j].add(col_i)
-
-    return conflicts

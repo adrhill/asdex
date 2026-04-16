@@ -34,7 +34,6 @@ from asdex.coloring import (
     color_rows,
     color_symmetric,
 )
-from asdex.coloring._color_greedy import _greedy_color
 
 
 def _make_banded(n: int, half_bandwidth: int) -> SparsityPattern:
@@ -1321,12 +1320,3 @@ def test_color_zero_row_pattern():
     result_zero = jacobian_coloring_from_sparsity(sparsity_zero, mode="rev")
     assert result_zero.num_colors == 0
     assert len(result_zero.colors) == 0
-
-
-@pytest.mark.coloring
-def test_greedy_color_zero_vertices():
-    """_greedy_color with 0 vertices returns empty colors and 0 colors."""
-    colors, num_colors = _greedy_color(0, [])
-
-    assert num_colors == 0
-    assert len(colors) == 0

@@ -1,7 +1,7 @@
 """Greedy star coloring for symmetric (Hessian) sparsity patterns.
 
 Mirrors the ``star_coloring`` path in SparseMatrixColorings.jl's ``coloring.jl``,
-plus its adjacency-graph helpers from ``graph.jl``.
+built on top of the CSR helpers in :mod:`asdex.coloring._graph`.
 
 Algorithms adapted from SparseMatrixColorings.jl (MIT license)
 Copyright (c) 2024 Guillaume Dalle, Alexis Montoison, and contributors
@@ -15,6 +15,7 @@ See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 import numpy as np
 from numpy.typing import NDArray
 
+from asdex.coloring._graph import _build_edge_to_index, _build_symmetric_csr
 from asdex.coloring._postprocessing import _postprocess_star_coloring
 from asdex.coloring._types import InvalidColoringError, StarSet
 from asdex.pattern import SparsityPattern
@@ -80,8 +81,11 @@ def color_symmetric(
             ),
         )
 
-    adj, edge_index, has_self_loop = _build_adjacency_with_edge_index(sparsity)
-    num_edges = len(edge_index)
+    indptr, neighbors, has_self_loop = _build_symmetric_csr(
+        sparsity.rows, sparsity.cols, n
+    )
+    edge_to_index, _ = _build_edge_to_index(indptr, neighbors)
+    num_edges = len(neighbors) // 2
 
     if forced_colors is not None:
         forced = np.asarray(forced_colors, dtype=np.int32)
@@ -94,8 +98,9 @@ def color_symmetric(
     else:
         forced = None
 
-    # LargestFirst ordering
-    order = sorted(range(n), key=lambda v: len(adj[v]), reverse=True)
+    # LargestFirst ordering: CSR row length is the (self-loop-free) degree.
+    degrees = indptr[1:] - indptr[:-1]
+    order = np.argsort(-degrees, kind="stable")
 
     colors = np.full(n, -1, dtype=np.int32)
 
@@ -115,8 +120,11 @@ def color_symmetric(
 
     num_colors = 0
 
-    for v in order:
-        for w, edge_vw in adj[v]:
+    for v_raw in order:
+        v = int(v_raw)
+        for pos_vw in range(int(indptr[v]), int(indptr[v + 1])):
+            w = int(neighbors[pos_vw])
+            edge_vw = int(edge_to_index[pos_vw])
             cw = int(colors[w])
             if cw < 0:
                 continue
@@ -127,15 +135,17 @@ def color_symmetric(
                 # and now a second neighbor w also has color cw. Forbid every
                 # colored neighbor of q and w to prevent 2-colored P4s.
                 if treated[q] != v:
-                    _treat(treated, forbidden_colors, adj, v, q, colors)
-                _treat(treated, forbidden_colors, adj, v, w, colors)
+                    _treat(treated, forbidden_colors, indptr, neighbors, v, q, colors)
+                _treat(treated, forbidden_colors, indptr, neighbors, v, w, colors)
             else:
                 # Case 2 (v endpoint): w is the first colored neighbor of v with
                 # color cw. Forbid colors[x] when x is the hub of the star
                 # containing edge (w, x) — that certifies a 2-colored path
                 # v-w-x-y exists with color[y] == cw.
                 first_neighbor[cw] = (v, w, edge_vw)
-                for x, edge_wx in adj[w]:
+                for pos_wx in range(int(indptr[w]), int(indptr[w + 1])):
+                    x = int(neighbors[pos_wx])
+                    edge_wx = int(edge_to_index[pos_wx])
                     cx = int(colors[x])
                     if x == v or cx < 0:
                         continue
@@ -159,13 +169,16 @@ def color_symmetric(
         colors[v] = color
         num_colors = max(num_colors, color + 1)
 
-        _update_stars(star, hub_list, adj, v, colors, first_neighbor)
+        _update_stars(
+            star, hub_list, indptr, neighbors, edge_to_index, v, colors, first_neighbor
+        )
 
     hub = (
         np.asarray(hub_list, dtype=np.int32)
         if hub_list
         else np.array([], dtype=np.int32)
     )
+    edge_index = _build_edge_index_dict(indptr, neighbors, edge_to_index)
     star_set = StarSet(star=star, hub=hub, edge_index=edge_index)
 
     if postprocess:
@@ -176,51 +189,34 @@ def color_symmetric(
     return colors, num_colors, star_set
 
 
-def _build_adjacency_with_edge_index(
-    sparsity: SparsityPattern,
-) -> tuple[
-    list[list[tuple[int, int]]],
-    dict[tuple[int, int], int],
-    NDArray[np.bool_],
-]:
-    """Build adjacency lists with stable edge indices for the symmetric graph.
+# Internals
 
-    Each off-diagonal nonzero contributes a single undirected edge,
-    regardless of whether ``(i, j)`` and ``(j, i)`` both appear in the pattern.
 
-    Returns:
-        Tuple ``(adj, edge_index, has_self_loop)`` where:
+def _build_edge_index_dict(
+    indptr: NDArray[np.int32],
+    neighbors: NDArray[np.int32],
+    edge_to_index: NDArray[np.int32],
+) -> dict[tuple[int, int], int]:
+    """Materialize the ``(min, max) -> edge_idx`` dict consumed by :class:`StarSet`.
 
-            - adj: ``adj[v]`` is a sorted list of ``(neighbor, edge_idx)`` tuples.
-            - edge_index: ``{(min(i, j), max(i, j)) -> edge_idx}``.
-            - has_self_loop: boolean array, ``has_self_loop[i]`` is True if
-              ``(i, i)`` is in the sparsity pattern.
+    Walks each CSR entry once and keeps only the ``j < i`` direction so that
+    every undirected edge contributes exactly once.
     """
-    n = sparsity.n
-    adj: list[list[tuple[int, int]]] = [[] for _ in range(n)]
-    edge_index: dict[tuple[int, int], int] = {}
-    has_self_loop = np.zeros(n, dtype=bool)
-    for i, j in zip(sparsity.rows, sparsity.cols, strict=True):
-        i_int, j_int = int(i), int(j)
-        if i_int == j_int:
-            has_self_loop[i_int] = True
-            continue
-        a, b = (i_int, j_int) if i_int < j_int else (j_int, i_int)
-        if (a, b) in edge_index:
-            continue
-        idx = len(edge_index)
-        edge_index[(a, b)] = idx
-        adj[i_int].append((j_int, idx))
-        adj[j_int].append((i_int, idx))
-    for v in range(n):
-        adj[v].sort()
-    return adj, edge_index, has_self_loop
+    result: dict[tuple[int, int], int] = {}
+    n = len(indptr) - 1
+    for j in range(n):
+        for pos in range(int(indptr[j]), int(indptr[j + 1])):
+            i = int(neighbors[pos])
+            if i > j:
+                result[(j, i)] = int(edge_to_index[pos])
+    return result
 
 
 def _treat(
     treated: NDArray[np.int64],
     forbidden_colors: NDArray[np.int64],
-    adj: list[list[tuple[int, int]]],
+    indptr: NDArray[np.int32],
+    neighbors: NDArray[np.int32],
     v: int,
     w: int,
     colors: NDArray[np.int32],
@@ -229,7 +225,8 @@ def _treat(
 
     Matches SMC's ``_treat!``.
     """
-    for x, _ in adj[w]:
+    for pos in range(int(indptr[w]), int(indptr[w + 1])):
+        x = int(neighbors[pos])
         cx = int(colors[x])
         if cx >= 0:
             forbidden_colors[cx] = v
@@ -239,7 +236,9 @@ def _treat(
 def _update_stars(
     star: NDArray[np.int32],
     hub_list: list[int],
-    adj: list[list[tuple[int, int]]],
+    indptr: NDArray[np.int32],
+    neighbors: NDArray[np.int32],
+    edge_to_index: NDArray[np.int32],
     v: int,
     colors: NDArray[np.int32],
     first_neighbor: list[tuple[int, int, int]],
@@ -254,12 +253,16 @@ def _update_stars(
     - A new trivial star is created for edge ``(v, w)``.
     """
     cv = int(colors[v])
-    for w, edge_vw in adj[v]:
+    for pos_vw in range(int(indptr[v]), int(indptr[v + 1])):
+        w = int(neighbors[pos_vw])
+        edge_vw = int(edge_to_index[pos_vw])
         cw = int(colors[w])
         if cw < 0:
             continue
         x_exists = False
-        for x, edge_wx in adj[w]:
+        for pos_wx in range(int(indptr[w]), int(indptr[w + 1])):
+            x = int(neighbors[pos_wx])
+            edge_wx = int(edge_to_index[pos_wx])
             if x != v and int(colors[x]) == cv:
                 s = int(star[edge_wx])
                 hub_list[s] = w
