@@ -1,0 +1,61 @@
+"""Shared types for the coloring package.
+
+Mirrors the split in SparseMatrixColorings.jl, where ``StarSet`` lives in
+``forest.jl`` and ``InvalidColoringError`` lives at the top of ``coloring.jl``.
+"""
+
+from dataclasses import dataclass, field
+
+import numpy as np
+from numpy.typing import NDArray
+
+
+class DenseColoringWarning(UserWarning):
+    """Coloring uses as many colors as the dense baseline.
+
+    Raised when sparse differentiation offers no speedup over dense differentiation.
+    """
+
+
+class InvalidColoringError(ValueError):
+    """Raised when a user-supplied coloring violates a star-coloring constraint.
+
+    See [`color_symmetric`][asdex.color_symmetric] with ``forced_colors``.
+    """
+
+
+@dataclass(frozen=True)
+class StarSet:
+    """Set of 2-colored stars produced by [`color_symmetric`][asdex.color_symmetric].
+
+    A star is a 2-colored subgraph with one *hub* vertex and one or more *spokes*.
+    All spokes share a single color; the hub has a different color.
+    For a Hessian entry ``H[i, j]``, the hub's HVP row contains the value
+    at the spoke's position — the spoke's own HVP is not needed.
+
+    Attributes:
+        star: Mapping from undirected edge index to star index, shape ``(num_edges,)``.
+        hub: Mapping from star index to hub vertex, shape ``(num_stars,)``.
+            ``hub[s] >= 0``: hub vertex (non-trivial star, or trivial star
+            whose hub was resolved by postprocessing).
+            ``hub[s] < 0``: trivial star with unresolved hub, encoded as
+            ``hub[s] = -(v + 1)`` where ``v`` is one of the edge's endpoints
+            (arbitrarily picked at construction time);
+            decode with ``v = -hub[s] - 1``.
+        edge_index: Mapping ``(min(i, j), max(i, j)) -> edge_idx`` for each
+            off-diagonal edge. Self-loops are not indexed.
+    """
+
+    star: NDArray[np.int32]
+    hub: NDArray[np.int32]
+    edge_index: dict[tuple[int, int], int] = field(default_factory=dict)
+
+    def hub_vertex(self, i: int, j: int) -> int:
+        """Hub vertex of the star containing off-diagonal edge ``(i, j)``.
+
+        For unresolved trivial stars, returns the decoded default endpoint.
+        """
+        a, b = (i, j) if i < j else (j, i)
+        s = int(self.star[self.edge_index[(a, b)]])
+        h = int(self.hub[s])
+        return h if h >= 0 else -h - 1

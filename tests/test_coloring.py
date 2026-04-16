@@ -30,11 +30,11 @@ from asdex import (
 )
 from asdex._display import _compressed_pattern
 from asdex.coloring import (
-    _greedy_color,
     color_cols,
     color_rows,
     color_symmetric,
 )
+from asdex.coloring._color_greedy import _greedy_color
 
 
 def _make_banded(n: int, half_bandwidth: int) -> SparsityPattern:
