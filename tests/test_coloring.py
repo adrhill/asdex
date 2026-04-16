@@ -19,6 +19,9 @@ from asdex import (
     ColoredPattern,
     DenseColoringWarning,
     SparsityPattern,
+    check_coloring_cols,
+    check_coloring_rows,
+    check_coloring_symmetric,
     hessian_coloring,
     hessian_coloring_from_sparsity,
     hessian_from_coloring,
@@ -27,10 +30,8 @@ from asdex import (
 )
 from asdex._display import _compressed_pattern
 from asdex.coloring import (
-    _greedy_color,
-    _is_valid_col_coloring,
-    _is_valid_row_coloring,
-    _is_valid_star_coloring,
+    InvalidColoringError,
+    StarSet,
     color_cols,
     color_rows,
     color_symmetric,
@@ -92,7 +93,7 @@ def test_diagonal_one_color():
     assert num_colors == 1
     assert len(colors) == 4
     assert np.all(colors == 0)
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -110,7 +111,7 @@ def test_dense_m_colors():
     assert num_colors == 4
     assert len(colors) == 4
     assert len(set(colors)) == 4  # All different colors
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -124,7 +125,7 @@ def test_block_diagonal():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
     # Rows 0,1 conflict; rows 2,3 conflict; but 0,2 and 1,3 don't
     assert colors[0] != colors[1]
     assert colors[2] != colors[3]
@@ -142,7 +143,7 @@ def test_tridiagonal():
 
     # Tridiagonal needs at most 3 colors (greedy may use 2-3)
     assert 2 <= num_colors <= 3
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -166,7 +167,7 @@ def test_single_column():
 
     assert num_colors == 3
     assert len(set(colors)) == 3
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -206,7 +207,7 @@ def test_lower_triangular():
 
     colors, num_colors = color_rows(sparsity)
 
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
     # Lower triangular needs 4 colors (row 3 conflicts with all)
     assert num_colors == 4
 
@@ -226,7 +227,7 @@ def test_checkerboard():
 
     colors, num_colors = color_rows(sparsity)
 
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
     # Even rows share cols 0,2; odd rows share cols 1,3
     # So we need 2 colors
     assert num_colors == 2
@@ -248,7 +249,7 @@ def test_largest_first_improves_coloring():
 
     colors, num_colors = color_rows(sparsity)
 
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
     assert num_colors == 3
 
 
@@ -272,7 +273,7 @@ def test_row_anti_diagonal():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 1
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -294,7 +295,7 @@ def test_row_triangle():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 3
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -316,7 +317,7 @@ def test_row_smc_small():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -341,7 +342,7 @@ def test_row_bidiagonal():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 # Column coloring tests
@@ -357,7 +358,7 @@ def test_col_diagonal_one_color():
     assert num_colors == 1
     assert len(colors) == 4
     assert np.all(colors == 0)
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -374,7 +375,7 @@ def test_col_dense_n_colors():
 
     assert num_colors == 4
     assert len(set(colors)) == 4
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -386,7 +387,7 @@ def test_col_single_row():
 
     assert num_colors == 3
     assert len(set(colors)) == 3
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -411,7 +412,7 @@ def test_col_block_diagonal():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -435,7 +436,7 @@ def test_col_tridiagonal():
     colors, num_colors = color_cols(sparsity)
 
     assert 2 <= num_colors <= 3
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -458,7 +459,7 @@ def test_col_anti_diagonal():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 1
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -480,7 +481,7 @@ def test_col_triangle():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 3
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -502,7 +503,7 @@ def test_col_smc_small():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -527,7 +528,7 @@ def test_col_bidiagonal():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 # Star coloring tests
@@ -538,10 +539,10 @@ def test_star_diagonal():
     """Diagonal Hessian: no off-diagonal entries, 1 color suffices."""
     sparsity = SparsityPattern.from_coo([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
 
-    colors, num_colors = color_symmetric(sparsity)
+    colors, num_colors, _ = color_symmetric(sparsity)
 
     assert num_colors == 1
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -554,9 +555,9 @@ def test_star_dense():
             cols.append(j)
     sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
-    colors, num_colors = color_symmetric(sparsity)
+    colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     # Dense 4x4 needs at least 4 colors for distance-1
     assert num_colors >= 4
 
@@ -571,9 +572,9 @@ def test_star_tridiagonal():
     cols = [0, 1, 0, 1, 2, 1, 2, 3, 2, 3]
     sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
-    colors, num_colors = color_symmetric(sparsity)
+    colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors == 3
 
 
@@ -587,11 +588,11 @@ def test_star_arrow_matrix():
     """
     sparsity = _make_arrow(10)
 
-    star_colors, star_num = color_symmetric(sparsity)
+    star_colors, star_num, _ = color_symmetric(sparsity)
     row_colors, row_num = color_rows(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, star_colors)
-    assert _is_valid_row_coloring(sparsity, row_colors)
+    check_coloring_symmetric(sparsity, star_colors)
+    check_coloring_rows(sparsity, row_colors)
     assert star_num == 2
     assert row_num == 10
 
@@ -616,9 +617,9 @@ def test_star_what_fig_41():
         )
     )
 
-    colors, num_colors = color_symmetric(sparsity)
+    colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors <= 4
 
 
@@ -646,9 +647,9 @@ def test_star_what_fig_61():
         )
     )
 
-    colors, num_colors = color_symmetric(sparsity)
+    colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors <= 4
 
 
@@ -667,9 +668,9 @@ def test_star_banded(half_bw: int, expected_star: int):
     """
     sparsity = _make_banded(20, half_bw)
 
-    colors, num_colors = color_symmetric(sparsity)
+    colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors == expected_star
 
 
@@ -681,9 +682,9 @@ def test_star_pentadiagonal_8x8():
     """
     sparsity = _make_banded(8, 2)
 
-    colors, num_colors = color_symmetric(sparsity)
+    colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors == 5
 
 
@@ -722,9 +723,9 @@ def test_star_case_b_internal_vertex():
     ]
     sparsity = _make_symmetric_reflexive_graph(12, edges)
 
-    colors, _ = color_symmetric(sparsity)
+    colors, _, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -735,12 +736,8 @@ def test_star_random_graphs(_run: int):
     The original buggy implementation passed every hand-written test case but
     failed on ~45% of random graphs in this regime because it only checked
     one of the two 2-colored-P4 cases.
-
-    Uses fresh entropy per run; the seed is reported on failure so any
-    counterexample can be reproduced with ``np.random.default_rng(seed)``.
     """
-    seed_seq = np.random.SeedSequence()
-    rng = np.random.default_rng(seed_seq)
+    rng = np.random.default_rng()
     n = int(rng.integers(8, 18))
     p = float(rng.uniform(0.2, 0.6))
     edges: list[tuple[int, int]] = [
@@ -750,11 +747,9 @@ def test_star_random_graphs(_run: int):
         pytest.skip("empty random graph")
     sparsity = _make_symmetric_reflexive_graph(n, edges)
 
-    colors, _ = color_symmetric(sparsity)
+    colors, _, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors), (
-        f"invalid star coloring; reproduce with seed={seed_seq.entropy}"
-    )
+    check_coloring_symmetric(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -771,10 +766,93 @@ def test_star_empty():
     """Empty pattern."""
     sparsity = SparsityPattern.from_coo([], [], (0, 0))
 
-    colors, num_colors = color_symmetric(sparsity)
+    colors, num_colors, _ = color_symmetric(sparsity)
 
     assert num_colors == 0
     assert len(colors) == 0
+
+
+# Postprocessing tests
+
+
+def _make_symmetric_graph_no_diagonal(
+    n: int, edges: list[tuple[int, int]]
+) -> SparsityPattern:
+    """Symmetric adjacency pattern with no self-loops (no diagonal entries).
+
+    Used to exercise star-coloring postprocessing, which can prune a color
+    only when it is not forced-used by a diagonal nonzero.
+    """
+    rows = [i for i, j in edges] + [j for i, j in edges]
+    cols = [j for i, j in edges] + [i for i, j in edges]
+    return SparsityPattern.from_coo(rows, cols, (n, n))
+
+
+@pytest.mark.coloring
+def test_star_postprocessing_reduces_colors_on_c4():
+    """Postprocessing on a 4-cycle (no diagonal) reduces 3 colors to 2.
+
+    C4 has star chromatic number 3, but with LargestFirst greedy + postprocessing,
+    the middle color is only assigned to vertices whose color is never used as
+    a hub, so it gets pruned.
+    """
+    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
+
+    colors_off, num_off, _ = color_symmetric(sparsity, postprocess=False)
+    colors_on, num_on, _ = color_symmetric(sparsity, postprocess=True)
+
+    check_coloring_symmetric(sparsity, colors_off)
+    check_coloring_symmetric(sparsity, colors_on)
+    assert num_off == 3
+    assert num_on == 2
+    assert num_on < num_off
+    # Postprocessing introduces the neutral sentinel.
+    assert (colors_on == -1).any()
+    assert not (colors_off == -1).any()
+
+
+@pytest.mark.coloring
+def test_star_postprocessing_noop_when_full_diagonal():
+    """With a full diagonal, every color is forced-used; postprocessing is a no-op."""
+    sparsity = _make_banded(20, 2)
+
+    colors_off, num_off, _ = color_symmetric(sparsity, postprocess=False)
+    colors_on, num_on, _ = color_symmetric(sparsity, postprocess=True)
+
+    check_coloring_symmetric(sparsity, colors_off)
+    check_coloring_symmetric(sparsity, colors_on)
+    assert num_on == num_off
+    assert not (colors_on == -1).any()
+
+
+@pytest.mark.coloring
+def test_hessian_coloring_postprocess_flag_threaded():
+    """The postprocess flag on hessian_coloring_from_sparsity reaches color_symmetric."""
+    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
+
+    result_off = hessian_coloring_from_sparsity(sparsity, postprocess=False)
+    result_on = hessian_coloring_from_sparsity(sparsity, postprocess=True)
+
+    assert result_off.num_colors == 3
+    assert result_on.num_colors == 2
+    assert result_on.num_colors < result_off.num_colors
+
+
+@pytest.mark.coloring
+def test_jacobian_coloring_symmetric_postprocess_flag_threaded():
+    """The postprocess flag on jacobian_coloring_from_sparsity reaches color_symmetric."""
+    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
+
+    result_off = jacobian_coloring_from_sparsity(
+        sparsity, symmetric=True, postprocess=False
+    )
+    result_on = jacobian_coloring_from_sparsity(
+        sparsity, symmetric=True, postprocess=True
+    )
+
+    assert result_off.num_colors == 3
+    assert result_on.num_colors == 2
+    assert result_on.num_colors < result_off.num_colors
 
 
 # Unified jacobian_coloring_from_sparsity() tests
@@ -842,7 +920,7 @@ def test_color_force_rev():
 
     assert result.mode == "rev"
     assert len(result.colors) == 4  # m=4
-    assert _is_valid_row_coloring(sparsity, result.colors)
+    check_coloring_rows(sparsity, result.colors)
 
 
 @pytest.mark.coloring
@@ -854,7 +932,7 @@ def test_color_force_fwd():
 
     assert result.mode == "fwd"
     assert len(result.colors) == 4  # n=4
-    assert _is_valid_col_coloring(sparsity, result.colors)
+    check_coloring_cols(sparsity, result.colors)
 
 
 # jacobian_coloring / hessian_coloring tests
@@ -1112,7 +1190,7 @@ def test_hessian_star_decompression_non_unique_branch():
             rows.extend([i, i + 1])
             cols.extend([i + 1, i])
     sparsity = SparsityPattern.from_coo(rows, cols, (n, n))
-    colors_arr, num = color_symmetric(sparsity)
+    colors_arr, num, _ = color_symmetric(sparsity)
 
     # Verify star coloring reuses colors (needs only 3 for tridiagonal)
     assert num == 3
@@ -1187,7 +1265,7 @@ def test_color_jacobian_symmetric():
     result = jacobian_coloring_from_sparsity(sparsity, symmetric=True)
 
     assert result.symmetric is True
-    assert _is_valid_star_coloring(sparsity, result.colors)
+    check_coloring_symmetric(sparsity, result.colors)
 
 
 @pytest.mark.coloring
@@ -1329,10 +1407,223 @@ def test_color_zero_row_pattern():
     assert len(result_zero.colors) == 0
 
 
-@pytest.mark.coloring
-def test_greedy_color_zero_vertices():
-    """_greedy_color with 0 vertices returns empty colors and 0 colors."""
-    colors, num_colors = _greedy_color(0, [])
+# Mode-handling tests
 
-    assert num_colors == 0
-    assert len(colors) == 0
+
+@pytest.mark.coloring
+def test_empty_jacobian_default_mode_is_fwd():
+    """Empty non-square Jacobian with no mode defaults to ``fwd`` and sizes colors to n.
+
+    The fallback picks fwd (JVPs cheaper than VJPs) and allocates a length-n
+    sentinel color vector so downstream decompression can ``colors[col]`` lookup
+    without a mode-dependent branch.
+    """
+    sparsity = SparsityPattern.from_coo([], [], (3, 4))
+
+    result = jacobian_coloring_from_sparsity(sparsity)
+
+    assert result.mode == "fwd"
+    assert result.num_colors == 0
+    assert len(result.colors) == 4  # n=4, not m=3
+    assert np.all(result.colors == -1)
+
+
+@pytest.mark.coloring
+def test_hessian_coloring_explicit_mode_roundtrip():
+    """An explicit Hessian mode threads through coloring to a correct HVP decompression."""
+
+    def f(x):
+        return jnp.sum(x**2) + x[0] * x[1]
+
+    x = np.array([1.0, 2.0, 3.0])
+    coloring = hessian_coloring(f, x.shape, mode="rev_over_fwd")
+
+    assert coloring.mode == "rev_over_fwd"
+    result = hessian_from_coloring(f, coloring)(x).todense()
+    expected = jax.hessian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.coloring
+def test_hessian_coloring_invalid_mode_raises():
+    """hessian_coloring_from_sparsity rejects an unknown mode string."""
+    sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
+
+    with pytest.raises(ValueError, match="Unknown mode"):
+        hessian_coloring_from_sparsity(sparsity, mode="bogus")  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.coloring
+@pytest.mark.filterwarnings("ignore::asdex.DenseColoringWarning")
+def test_hessian_coloring_non_symmetric_column_roundtrip():
+    """symmetric=False falls back to column coloring and still recovers the Hessian."""
+
+    def f(x):
+        return x[0] * x[1] + x[1] * x[2] + jnp.sum(x**2)
+
+    x = np.array([1.0, 2.0, 3.0])
+    coloring = hessian_coloring(f, x.shape, symmetric=False)
+
+    assert coloring.symmetric is False
+    assert coloring.star_set is None
+    assert len(coloring.colors) == 3
+    check_coloring_cols(coloring.sparsity, coloring.colors)
+
+    result = hessian_from_coloring(f, coloring)(x).todense()
+    expected = jax.hessian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+# forced_colors tests
+
+
+@pytest.mark.coloring
+def test_color_symmetric_forced_colors_overrides_greedy_choice():
+    """A valid forced coloring overrides what greedy would pick on its own.
+
+    Greedy picks a 2-coloring on path 0-1-2 (star chromatic number is 2).
+    Forcing a 3-coloring returns that distinct assignment verbatim,
+    demonstrating that forced colors are used instead of recomputed, and
+    the companion star set is rebuilt around the forced colors.
+    """
+    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
+    _, greedy_num, _ = color_symmetric(sparsity)
+    assert greedy_num == 2  # sanity: baseline differs from forced
+
+    forced = np.array([0, 1, 2], dtype=np.int32)
+    colors, num, star_set = color_symmetric(sparsity, forced_colors=forced)
+
+    check_coloring_symmetric(sparsity, colors)
+    np.testing.assert_array_equal(colors, forced)
+    assert num == 3
+    # With 3 distinct colors every edge is a trivial star (no shared-color
+    # neighbor to absorb into). The star set must still cover both edges.
+    assert set(star_set.edge_index) == {(0, 1), (1, 2)}
+
+
+@pytest.mark.coloring
+def test_color_symmetric_forced_colors_accepts_list():
+    """color_symmetric accepts a plain Python list for forced_colors."""
+    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
+
+    colors, _, _ = color_symmetric(sparsity, forced_colors=[0, 1, 0])
+
+    check_coloring_symmetric(sparsity, colors)
+    np.testing.assert_array_equal(colors, np.array([0, 1, 0], dtype=np.int32))
+
+
+@pytest.mark.coloring
+def test_color_symmetric_forced_colors_wrong_shape_raises():
+    """forced_colors with wrong shape raises ValueError."""
+    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
+
+    with pytest.raises(ValueError, match=r"shape \(3,\)"):
+        color_symmetric(sparsity, forced_colors=np.array([0, 1], dtype=np.int32))
+
+
+@pytest.mark.coloring
+def test_color_symmetric_forced_colors_negative_raises():
+    """forced_colors with negative values raises ValueError."""
+    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
+
+    with pytest.raises(ValueError, match="non-negative"):
+        color_symmetric(sparsity, forced_colors=np.array([0, -1, 1], dtype=np.int32))
+
+
+@pytest.mark.coloring
+def test_color_symmetric_forced_colors_distance1_violation_raises():
+    """Adjacent vertices sharing a forced color violate the star constraint."""
+    sparsity = _make_symmetric_graph_no_diagonal(2, [(0, 1)])
+
+    with pytest.raises(InvalidColoringError, match="violates a star-coloring"):
+        color_symmetric(sparsity, forced_colors=np.array([0, 0], dtype=np.int32))
+
+
+# StarSet.hub_vertex tests
+
+
+@pytest.mark.coloring
+def test_star_set_hub_vertex_resolved():
+    """hub_vertex returns the shared endpoint as hub of a resolved 2-edge star.
+
+    On path 0-1-2 the greedy algorithm merges both edges into one star
+    whose hub is vertex 1 (the only vertex with >1 neighbor).
+    """
+    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
+
+    _, _, star_set = color_symmetric(sparsity)
+
+    assert star_set.hub_vertex(0, 1) == 1
+    assert star_set.hub_vertex(1, 2) == 1
+    # Argument order does not affect lookup.
+    assert star_set.hub_vertex(2, 1) == 1
+    assert star_set.hub_vertex(1, 0) == 1
+
+
+@pytest.mark.coloring
+def test_star_set_hub_vertex_unresolved_trivial_star():
+    """hub_vertex decodes the default endpoint for an unresolved trivial star.
+
+    Trivial stars store the default hub as ``-(v + 1)``;
+    ``hub_vertex`` must reverse that encoding regardless of argument order.
+    """
+    star_set = StarSet(
+        star=np.array([0], dtype=np.int32),
+        hub=np.array([-2], dtype=np.int32),  # encodes default endpoint v=1
+        edge_index={(0, 1): 0},
+    )
+
+    assert star_set.hub_vertex(0, 1) == 1
+    assert star_set.hub_vertex(1, 0) == 1
+
+
+# Postprocessing: trivial-star hub flip
+
+
+@pytest.mark.coloring
+def test_postprocess_trivial_star_marks_default_hub_color_used():
+    """Trivial stars with fresh spoke colors mark the default hub's color used.
+
+    Two disjoint edges with no diagonal entries form two trivial stars.
+    Greedy assigns color 0 to both spokes (0 and 2) and color 1 to both
+    default hubs (1 and 3). During postprocessing neither spoke color has
+    been marked used by a non-trivial star, so the default-hub branch
+    records color 1 as used; color 0 gets pruned, leaving the spokes with
+    the neutral ``-1`` sentinel and compacting color 1 down to 0.
+    """
+    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (2, 3)])
+
+    colors_on, num_on, _ = color_symmetric(sparsity, postprocess=True)
+
+    check_coloring_symmetric(sparsity, colors_on)
+    # Hubs keep an active color; spokes are pruned to the neutral sentinel.
+    assert num_on == 1
+    np.testing.assert_array_equal(colors_on, np.array([-1, 0, -1, 0], dtype=np.int32))
+
+
+@pytest.mark.coloring
+def test_postprocess_trivial_star_flips_hub_to_keep_used_color():
+    """A trivial star flips its hub when the spoke already carries a used color.
+
+    Graph: path 0-1-2 joined to a disjoint edge 3-4.
+    Star-coloring with LargestFirst visits vertex 1 first (highest degree),
+    colors it 0, then colors 0, 2, 3, 4 with color 1. Vertex 1 becomes
+    the hub of the path star, so color 0 is marked used. The trivial
+    star on edge (3, 4) defaults to hub=4 (the max endpoint, color 1),
+    but its spoke vertex 3 already has color 1 — so the flip branch
+    reassigns the hub to 3, and color 1 remains "used" exactly once.
+    """
+    sparsity = _make_symmetric_graph_no_diagonal(5, [(0, 1), (1, 2), (3, 4)])
+
+    colors_off, num_off, star_off = color_symmetric(sparsity, postprocess=False)
+    colors_on, num_on, star_on = color_symmetric(sparsity, postprocess=True)
+
+    check_coloring_symmetric(sparsity, colors_off)
+    check_coloring_symmetric(sparsity, colors_on)
+    # Without postprocess, the trivial-star edge (3, 4) has an unresolved hub.
+    assert star_off.hub_vertex(3, 4) == 4  # default = max endpoint
+    # Postprocess flips the hub to the spoke whose color is already used.
+    assert star_on.hub_vertex(3, 4) == 3
+    # Flipping collapses the color count from 2 down to 1.
+    assert num_off == 2
+    assert num_on == 1

@@ -16,15 +16,15 @@ ASD exploits sparsity to reduce the cost of computing sparse Jacobians and Hessi
 src/asdex/
 ├── __init__.py         # Public API
 ├── pattern.py          # SparsityPattern and ColoredPattern data structures
-├── detection.py        # Jacobian and Hessian sparsity detection via jaxpr analysis
-├── coloring.py         # Graph coloring (row, column, symmetric) and convenience functions
+├── detection/          # Jacobian and Hessian sparsity detection via jaxpr analysis
+│   └── _interpret/     # Custom jaxpr interpreter for index set propagation
+├── coloring/           # Graph coloring (row, column, symmetric) and convenience functions
 ├── decompression.py    # Sparse Jacobian (VJP/JVP) and Hessian (HVP) computation
 ├── verify.py           # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
-├── _display.py         # Display/formatting utilities
-└── _interpret/         # Custom jaxpr interpreter for index set propagation
+└── _display.py         # Display/formatting utilities
 ```
 
-The interpreter internals are described in `src/asdex/_interpret/CLAUDE.md`.
+The interpreter internals are described in `src/asdex/detection/_interpret/CLAUDE.md`.
 The structure of the test folder is described in `tests/CLAUDE.md`.
 
 ## Development

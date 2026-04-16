@@ -3,7 +3,7 @@
 ## Structure
 
 - Top-level test files (`test_*.py`) cover the public modules in `src/asdex/`.
-- `_interpret/` mirrors the handler modules: `_interpret/test_foo.py` tests `src/asdex/_interpret/_foo.py`.
+- `_interpret/` mirrors the handler modules: `_interpret/test_foo.py` tests `src/asdex/detection/_interpret/_foo.py`.
 - External-package handler tests live in subfolders (e.g., `_interpret/_equinox/`).
 
 ## Running Tests

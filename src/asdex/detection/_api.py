@@ -7,8 +7,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from asdex._interpret import prop_jaxpr
-from asdex._interpret._commons import identity_index_sets
+from asdex.detection._interpret import prop_jaxpr
+from asdex.detection._interpret._commons import identity_index_sets
 from asdex.pattern import SparsityPattern
 
 

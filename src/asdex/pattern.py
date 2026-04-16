@@ -6,7 +6,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
-from typing import assert_never
+from typing import TYPE_CHECKING, assert_never
 
 import jax.numpy as jnp
 import numpy as np
@@ -15,6 +15,9 @@ from numpy.typing import NDArray
 
 from asdex._display import colored_repr, colored_str, sparsity_repr, sparsity_str
 from asdex.modes import ColoringMode, _assert_coloring_mode
+
+if TYPE_CHECKING:
+    from asdex.coloring import StarSet
 
 
 @dataclass(frozen=True)
@@ -230,7 +233,9 @@ class ColoredPattern:
         colors: Color assignment array.
             Shape ``(m,)`` for ``"rev"`` mode,
             ``(n,)`` for all other modes.
-        num_colors: Total number of colors used.
+            A value of ``-1`` means "neutral": the vertex is not seeded
+            (used after star-coloring postprocessing).
+        num_colors: Total number of active colors (number of JVPs/VJPs/HVPs).
         symmetric: Whether symmetric (star) coloring was used.
         mode: The AD mode.
             Resolved, never ``"auto"``.
@@ -239,6 +244,10 @@ class ColoredPattern:
             ``"fwd_over_rev"`` uses forward-over-reverse HVPs,
             ``"rev_over_fwd"`` uses reverse-over-forward HVPs,
             ``"rev_over_rev"`` uses reverse-over-reverse HVPs.
+        star_set: Star-coloring structure (hub/spoke assignment per edge).
+            Present only for symmetric colorings produced by
+            [`color_symmetric`][asdex.color_symmetric];
+            ``None`` otherwise.
     """
 
     sparsity: SparsityPattern
@@ -246,6 +255,7 @@ class ColoredPattern:
     num_colors: int
     symmetric: bool
     mode: ColoringMode
+    star_set: StarSet | None = None
 
     @property
     def _compresses_columns(self) -> bool:
@@ -297,14 +307,21 @@ class ColoredPattern:
     def _star_extraction_indices(
         self,
     ) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
-        """Pre-compute HVP extraction indices with symmetric coloring direction choice.
+        """Pre-compute HVP extraction indices for symmetric coloring.
 
         For each nonzero ``(i, j)``:
-        - diagonal (``i == j``): use ``compressed[colors[i]][i]``
-        - off-diagonal: use ``compressed[colors[i]][j]`` if ``colors[i]``
-          is unique among column ``j``'s neighbors;
-          otherwise ``compressed[colors[j]][i]``.
+
+        - diagonal (``i == j``): use ``compressed[colors[i]][i]``.
+        - off-diagonal: use the star's hub as the seeding vertex.
+          ``H[i, j] = compressed[colors[hub]][spoke]`` where ``spoke`` is
+          whichever of ``i, j`` is not the hub.
+
+        When ``star_set`` is ``None`` (legacy path without hub tracking),
+        falls back to a uniqueness heuristic.
         """
+        if self.star_set is not None:
+            return self._hub_extraction_indices
+
         rows = self.sparsity.rows
         cols = self.sparsity.cols
         col_to_rows = self.sparsity.col_to_rows
@@ -330,6 +347,39 @@ class ColoredPattern:
                 else:
                     color_idx[k] = self.colors[j]
                     elem_idx[k] = i
+
+        return color_idx, elem_idx
+
+    @cached_property
+    def _hub_extraction_indices(
+        self,
+    ) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
+        """Hub-based extraction indices using the star set."""
+        assert self.star_set is not None
+        rows = self.sparsity.rows
+        cols = self.sparsity.cols
+        star = self.star_set.star
+        hub = self.star_set.hub
+        edge_index = self.star_set.edge_index
+
+        color_idx = np.empty(len(rows), dtype=np.intp)
+        elem_idx = np.empty(len(rows), dtype=np.intp)
+
+        for k, (i, j) in enumerate(zip(rows, cols, strict=True)):
+            i, j = int(i), int(j)
+            if i == j:
+                color_idx[k] = self.colors[i]
+                elem_idx[k] = i
+                continue
+            a, b = (i, j) if i < j else (j, i)
+            s = int(star[edge_index[(a, b)]])
+            h = int(hub[s])
+            if h < 0:
+                # Unresolved trivial star: decode default endpoint as hub.
+                h = -h - 1
+            spoke = i if h == j else j
+            color_idx[k] = self.colors[h]
+            elem_idx[k] = spoke
 
         return color_idx, elem_idx
 

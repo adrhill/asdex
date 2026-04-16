@@ -7,11 +7,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.experimental.sparse import BCOO
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
+from asdex.coloring import InvalidColoringError
 from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
 from asdex.modes import _assert_jacobian_mode
-from asdex.pattern import ColoredPattern
+from asdex.pattern import ColoredPattern, SparsityPattern
 
 
 class VerificationError(AssertionError):
@@ -24,6 +25,125 @@ class VerificationError(AssertionError):
     please help out asdex's development by reporting this at
     https://github.com/adrhill/asdex/issues.
     """
+
+
+# Coloring validators
+
+
+def check_coloring_rows(sparsity: SparsityPattern, colors: NDArray[np.int32]) -> None:
+    """Check a row coloring: no column contains two rows with the same color.
+
+    Args:
+        sparsity: Jacobian sparsity pattern of shape ``(m, n)``.
+        colors: Row color assignment, shape ``(m,)``.
+
+    Raises:
+        InvalidColoringError: If the coloring is invalid.
+    """
+    for j, rows_in_col in sparsity.col_to_rows.items():
+        colors_in_col = [int(colors[r]) for r in rows_in_col if colors[r] >= 0]
+        if len(colors_in_col) != len(set(colors_in_col)):
+            msg = (
+                f"Invalid row coloring: column {j} contains two rows with the "
+                f"same color (rows {rows_in_col}, colors {colors_in_col})"
+            )
+            raise InvalidColoringError(msg)
+
+
+def check_coloring_cols(sparsity: SparsityPattern, colors: NDArray[np.int32]) -> None:
+    """Check a column coloring: no row contains two columns with the same color.
+
+    Args:
+        sparsity: Jacobian sparsity pattern of shape ``(m, n)``.
+        colors: Column color assignment, shape ``(n,)``.
+
+    Raises:
+        InvalidColoringError: If the coloring is invalid.
+    """
+    for i, cols_in_row in sparsity.row_to_cols.items():
+        colors_in_row = [int(colors[c]) for c in cols_in_row if colors[c] >= 0]
+        if len(colors_in_row) != len(set(colors_in_row)):
+            msg = (
+                f"Invalid column coloring: row {i} contains two columns with the "
+                f"same color (cols {cols_in_row}, colors {colors_in_row})"
+            )
+            raise InvalidColoringError(msg)
+
+
+def check_coloring_symmetric(
+    sparsity: SparsityPattern, colors: NDArray[np.int32]
+) -> None:
+    """Check a star coloring: distance-1 coloring + no 2-colored path of 4 vertices.
+
+    A star coloring satisfies:
+
+    1. Adjacent vertices have different colors (distance-1).
+    2. Every path on 4 vertices uses at least 3 distinct colors
+       (no 2-colored P4).
+
+    Vertices with color ``-1`` (neutral, from postprocessing) are excluded
+    from the P4 check as they represent the absence of a color.
+
+    Args:
+        sparsity: Hessian sparsity pattern of shape ``(n, n)``.
+        colors: Vertex color assignment, shape ``(n,)``.
+
+    Raises:
+        ValueError: If pattern is not square.
+        InvalidColoringError: If the coloring is invalid.
+    """
+    if sparsity.m != sparsity.n:
+        msg = f"Star coloring requires a square pattern, got shape {sparsity.shape}"
+        raise ValueError(msg)
+
+    n = sparsity.n
+
+    adj: list[set[int]] = [set() for _ in range(n)]
+    for i, j in zip(sparsity.rows, sparsity.cols, strict=True):
+        i_int, j_int = int(i), int(j)
+        if i_int != j_int:
+            adj[i_int].add(j_int)
+            adj[j_int].add(i_int)
+
+    # Distance-1: adjacent vertices must have different colors (both active).
+    for v in range(n):
+        cv = int(colors[v])
+        if cv < 0:
+            continue
+        for w in adj[v]:
+            cw = int(colors[w])
+            if cw >= 0 and cw == cv:
+                msg = (
+                    f"Invalid star coloring: adjacent vertices {v} and {w} "
+                    f"share color {cv}"
+                )
+                raise InvalidColoringError(msg)
+
+    # No 2-colored P4: for every path v0-v1-v2-v3, |{colors}| >= 3.
+    for v1 in range(n):
+        for v2 in adj[v1]:
+            if v2 <= v1:
+                continue
+            for v0 in adj[v1]:
+                if v0 == v2:
+                    continue
+                for v3 in adj[v2]:
+                    if v3 == v1:
+                        continue
+                    path = (
+                        int(colors[v0]),
+                        int(colors[v1]),
+                        int(colors[v2]),
+                        int(colors[v3]),
+                    )
+                    if any(c < 0 for c in path):
+                        continue
+                    if len(set(path)) < 3:
+                        msg = (
+                            f"Invalid star coloring: 2-colored P4 at vertices "
+                            f"{v0}-{v1}-{v2}-{v3} with colors {path}"
+                        )
+                        raise InvalidColoringError(msg)
 
 
 def check_jacobian_correctness(

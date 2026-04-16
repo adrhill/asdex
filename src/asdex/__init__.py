@@ -7,6 +7,8 @@ structure without evaluating derivatives, so results are valid for all inputs.
 from asdex._plotting import spy
 from asdex.coloring import (
     DenseColoringWarning,
+    InvalidColoringError,
+    StarSet,
     color_cols,
     color_rows,
     color_symmetric,
@@ -30,6 +32,9 @@ from asdex.modes import HessianMode, JacobianMode, OutputFormat
 from asdex.pattern import ColoredPattern, SparsityPattern
 from asdex.verify import (
     VerificationError,
+    check_coloring_cols,
+    check_coloring_rows,
+    check_coloring_symmetric,
     check_hessian_correctness,
     check_jacobian_correctness,
 )
@@ -38,10 +43,15 @@ __all__ = [
     "ColoredPattern",
     "DenseColoringWarning",
     "HessianMode",
+    "InvalidColoringError",
     "JacobianMode",
     "OutputFormat",
     "SparsityPattern",
+    "StarSet",
     "VerificationError",
+    "check_coloring_cols",
+    "check_coloring_rows",
+    "check_coloring_symmetric",
     "check_hessian_correctness",
     "check_jacobian_correctness",
     "color_cols",

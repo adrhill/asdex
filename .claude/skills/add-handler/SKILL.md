@@ -18,11 +18,11 @@ Do all research in this step using extended **planning mode**.
 
 Before writing code:
 - Read the JAX docs for the primitive: fetch `https://docs.jax.dev/en/latest/_autosummary/jax.lax.$ARGUMENTS.html`
-- Read `src/asdex/_interpret/CLAUDE.md` for conventions (docstring style, semantic line breaks, handler structure)
-- Read `src/asdex/_interpret/_commons.py` to understand available utilities
+- Read `src/asdex/detection/_interpret/CLAUDE.md` for conventions (docstring style, semantic line breaks, handler structure)
+- Read `src/asdex/detection/_interpret/_commons.py` to understand available utilities
 - Read an existing handler with similar structure (e.g. `_pad.py`, `_transpose.py`, `_reduction.py`) as a reference
 - Read the existing test in `tests/_interpret/test_internals.py` for the primitive (search for `$ARGUMENTS`)
-- Read `src/asdex/_interpret/__init__.py` to see the current dispatch and fallback setup
+- Read `src/asdex/detection/_interpret/__init__.py` to see the current dispatch and fallback setup
 
 Understand the primitive's semantics:
 how do input and output element indices map to each other?
@@ -30,7 +30,7 @@ What is the Jacobian structure (permutation, selection, block-diagonal, etc.)?
 
 ### 2. Implement handler
 
-- Create `src/asdex/_interpret/_$ARGUMENTS.py` with `prop_$ARGUMENTS(eqn, deps)`.
+- Create `src/asdex/detection/_interpret/_$ARGUMENTS.py` with `prop_$ARGUMENTS(eqn, deps)`.
 - Follow the handler docstring style from `_interpret/CLAUDE.md`.
 - If the primitive preserves or predictably transforms input values,
   propagate `const_vals` so downstream handlers can stay precise.
@@ -40,7 +40,7 @@ What is the Jacobian structure (permutation, selection, block-diagonal, etc.)?
 
 ### 3. Wire up dispatch
 
-In `src/asdex/_interpret/__init__.py`:
+In `src/asdex/detection/_interpret/__init__.py`:
 - Import the new handler
 - Add a `case "$ARGUMENTS":` branch in `prop_dispatch` calling the handler
 - Remove `"$ARGUMENTS"` from the conservative fallback `case` group
@@ -66,7 +66,7 @@ Create `tests/_interpret/test_$ARGUMENTS.py` with thorough tests:
 
 Run in order:
 ```bash
-uv run ruff check src/asdex/_interpret/_$ARGUMENTS.py
+uv run ruff check src/asdex/detection/_interpret/_$ARGUMENTS.py
 uv run pytest tests/_interpret/test_$ARGUMENTS.py -v
 uv run pytest tests/_interpret/test_internals.py -v
 uv run pytest tests/ -x
@@ -109,4 +109,4 @@ After any change, re-run verification (step 6).
 ### 8. Update docs
 
 - `TODO.md`: check off the primitive and its test items
-- `src/asdex/_interpret/CLAUDE.md`: add the new module to the file listing
+- `src/asdex/detection/_interpret/CLAUDE.md`: add the new module to the file listing
