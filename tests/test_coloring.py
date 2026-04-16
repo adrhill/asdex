@@ -29,18 +29,6 @@ from asdex._display import _compressed_pattern
 from asdex.coloring import _greedy_color, color_cols, color_rows, color_symmetric
 
 
-def _make_pattern(
-    rows: list[int], cols: list[int], shape: tuple[int, int]
-) -> SparsityPattern:
-    """Helper to create SparsityPattern from row/col lists."""
-    return SparsityPattern.from_coo(rows, cols, shape)
-
-
-def _from_dense(matrix: list[list[int]]) -> SparsityPattern:
-    """Helper to create SparsityPattern from dense 0/1 matrix."""
-    return SparsityPattern.from_dense(np.array(matrix))
-
-
 def _make_banded(n: int, half_bandwidth: int) -> SparsityPattern:
     """Symmetric banded matrix with given half-bandwidth.
 
@@ -53,7 +41,7 @@ def _make_banded(n: int, half_bandwidth: int) -> SparsityPattern:
             if 0 <= j < n:
                 rows.append(i)
                 cols.append(j)
-    return _make_pattern(rows, cols, (n, n))
+    return SparsityPattern.from_coo(rows, cols, (n, n))
 
 
 def _make_symmetric_reflexive_graph(
@@ -66,7 +54,7 @@ def _make_symmetric_reflexive_graph(
     """
     rows = list(range(n)) + [i for i, j in edges] + [j for i, j in edges]
     cols = list(range(n)) + [j for i, j in edges] + [i for i, j in edges]
-    return _make_pattern(rows, cols, (n, n))
+    return SparsityPattern.from_coo(rows, cols, (n, n))
 
 
 def _make_arrow(n: int) -> SparsityPattern:
@@ -80,7 +68,7 @@ def _make_arrow(n: int) -> SparsityPattern:
             cols.append(i)  # first row
             rows.append(i)
             cols.append(0)  # first col
-    return _make_pattern(rows, cols, (n, n))
+    return SparsityPattern.from_coo(rows, cols, (n, n))
 
 
 def _is_valid_row_coloring(sparsity: SparsityPattern, colors: np.ndarray) -> bool:
@@ -151,7 +139,7 @@ def _is_valid_star_coloring(sparsity: SparsityPattern, colors: np.ndarray) -> bo
 @pytest.mark.coloring
 def test_diagonal_one_color():
     """Diagonal matrix: all rows are independent, should use 1 color."""
-    sparsity = _make_pattern([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
+    sparsity = SparsityPattern.from_coo([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -169,7 +157,7 @@ def test_dense_m_colors():
         for j in range(4):
             rows.append(i)
             cols.append(j)
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -185,7 +173,7 @@ def test_block_diagonal():
     # Two 2x2 blocks
     rows = [0, 0, 1, 1, 2, 2, 3, 3]
     cols = [0, 1, 0, 1, 2, 3, 2, 3]
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -202,7 +190,7 @@ def test_tridiagonal():
     # 4x4 tridiagonal
     rows = [0, 0, 1, 1, 1, 2, 2, 2, 3, 3]
     cols = [0, 1, 0, 1, 2, 1, 2, 3, 2, 3]
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -214,7 +202,7 @@ def test_tridiagonal():
 @pytest.mark.coloring
 def test_single_row():
     """Single row matrix."""
-    sparsity = _make_pattern([0, 0, 0], [0, 1, 2], (1, 3))
+    sparsity = SparsityPattern.from_coo([0, 0, 0], [0, 1, 2], (1, 3))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -226,7 +214,7 @@ def test_single_row():
 @pytest.mark.coloring
 def test_single_column():
     """Single column matrix: all rows conflict."""
-    sparsity = _make_pattern([0, 1, 2], [0, 0, 0], (3, 1))
+    sparsity = SparsityPattern.from_coo([0, 1, 2], [0, 0, 0], (3, 1))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -238,7 +226,7 @@ def test_single_column():
 @pytest.mark.coloring
 def test_empty_matrix():
     """Empty matrix (0 rows)."""
-    sparsity = _make_pattern([], [], (0, 3))
+    sparsity = SparsityPattern.from_coo([], [], (0, 3))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -249,7 +237,7 @@ def test_empty_matrix():
 @pytest.mark.coloring
 def test_zero_matrix():
     """Matrix with no non-zeros: all rows independent."""
-    sparsity = _make_pattern([], [], (3, 3))
+    sparsity = SparsityPattern.from_coo([], [], (3, 3))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -268,7 +256,7 @@ def test_lower_triangular():
         for j in range(i + 1):
             rows.append(i)
             cols.append(j)
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -288,7 +276,7 @@ def test_checkerboard():
             if (i + j) % 2 == 0:
                 rows.append(i)
                 cols.append(j)
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -310,7 +298,7 @@ def test_largest_first_improves_coloring():
     """
     rows = [0, 1, 2, 3, 4, 5, 0, 3]
     cols = [0, 0, 0, 1, 1, 1, 2, 2]
-    sparsity = _make_pattern(rows, cols, (6, 3))
+    sparsity = SparsityPattern.from_coo(rows, cols, (6, 3))
 
     colors, num_colors = color_rows(sparsity)
 
@@ -324,13 +312,15 @@ def test_row_anti_diagonal():
 
     From SMC small.jl.
     """
-    sparsity = _from_dense(
-        [
-            [0, 0, 0, 1],
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [1, 0, 0, 0],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [0, 0, 0, 1],
+                [0, 0, 1, 0],
+                [0, 1, 0, 0],
+                [1, 0, 0, 0],
+            ]
+        )
     )
 
     colors, num_colors = color_rows(sparsity)
@@ -345,12 +335,14 @@ def test_row_triangle():
 
     From SMC small.jl.
     """
-    sparsity = _from_dense(
-        [
-            [1, 1, 0],
-            [0, 1, 1],
-            [1, 0, 1],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 1, 0],
+                [0, 1, 1],
+                [1, 0, 1],
+            ]
+        )
     )
 
     colors, num_colors = color_rows(sparsity)
@@ -365,12 +357,14 @@ def test_row_smc_small():
 
     SMC gets 2 colors with LargestFirst.
     """
-    sparsity = _from_dense(
-        [
-            [1, 0, 1],
-            [0, 1, 0],
-            [1, 1, 0],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 0, 1],
+                [0, 1, 0],
+                [1, 1, 0],
+            ]
+        )
     )
 
     colors, num_colors = color_rows(sparsity)
@@ -385,15 +379,17 @@ def test_row_bidiagonal():
 
     From SMC structured.jl.
     """
-    sparsity = _from_dense(
-        [
-            [1, 1, 0, 0, 0, 0],
-            [0, 1, 1, 0, 0, 0],
-            [0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 1, 1, 0],
-            [0, 0, 0, 0, 1, 1],
-            [0, 0, 0, 0, 0, 1],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 1, 0, 0, 0, 0],
+                [0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0],
+                [0, 0, 0, 1, 1, 0],
+                [0, 0, 0, 0, 1, 1],
+                [0, 0, 0, 0, 0, 1],
+            ]
+        )
     )
 
     colors, num_colors = color_rows(sparsity)
@@ -408,7 +404,7 @@ def test_row_bidiagonal():
 @pytest.mark.coloring
 def test_col_diagonal_one_color():
     """Diagonal matrix: all columns are independent, should use 1 color."""
-    sparsity = _make_pattern([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
+    sparsity = SparsityPattern.from_coo([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
 
     colors, num_colors = color_cols(sparsity)
 
@@ -426,7 +422,7 @@ def test_col_dense_n_colors():
         for j in range(4):
             rows.append(i)
             cols.append(j)
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_cols(sparsity)
 
@@ -438,7 +434,7 @@ def test_col_dense_n_colors():
 @pytest.mark.coloring
 def test_col_single_row():
     """Single row: all columns conflict."""
-    sparsity = _make_pattern([0, 0, 0], [0, 1, 2], (1, 3))
+    sparsity = SparsityPattern.from_coo([0, 0, 0], [0, 1, 2], (1, 3))
 
     colors, num_colors = color_cols(sparsity)
 
@@ -450,7 +446,7 @@ def test_col_single_row():
 @pytest.mark.coloring
 def test_col_single_column():
     """Single column: only one column, needs 1 color."""
-    sparsity = _make_pattern([0, 1, 2], [0, 0, 0], (3, 1))
+    sparsity = SparsityPattern.from_coo([0, 1, 2], [0, 0, 0], (3, 1))
 
     colors, num_colors = color_cols(sparsity)
 
@@ -464,7 +460,7 @@ def test_col_block_diagonal():
     """Block diagonal: non-overlapping blocks can share colors."""
     rows = [0, 0, 1, 1, 2, 2, 3, 3]
     cols = [0, 1, 0, 1, 2, 3, 2, 3]
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_cols(sparsity)
 
@@ -475,7 +471,7 @@ def test_col_block_diagonal():
 @pytest.mark.coloring
 def test_col_empty():
     """Empty columns."""
-    sparsity = _make_pattern([], [], (3, 0))
+    sparsity = SparsityPattern.from_coo([], [], (3, 0))
 
     colors, num_colors = color_cols(sparsity)
 
@@ -488,7 +484,7 @@ def test_col_tridiagonal():
     """Tridiagonal: column coloring also needs 2-3 colors."""
     rows = [0, 0, 1, 1, 1, 2, 2, 2, 3, 3]
     cols = [0, 1, 0, 1, 2, 1, 2, 3, 2, 3]
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_cols(sparsity)
 
@@ -502,13 +498,15 @@ def test_col_anti_diagonal():
 
     From SMC small.jl.
     """
-    sparsity = _from_dense(
-        [
-            [0, 0, 0, 1],
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [1, 0, 0, 0],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [0, 0, 0, 1],
+                [0, 0, 1, 0],
+                [0, 1, 0, 0],
+                [1, 0, 0, 0],
+            ]
+        )
     )
 
     colors, num_colors = color_cols(sparsity)
@@ -523,12 +521,14 @@ def test_col_triangle():
 
     From SMC small.jl.
     """
-    sparsity = _from_dense(
-        [
-            [1, 1, 0],
-            [0, 1, 1],
-            [1, 0, 1],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 1, 0],
+                [0, 1, 1],
+                [1, 0, 1],
+            ]
+        )
     )
 
     colors, num_colors = color_cols(sparsity)
@@ -543,12 +543,14 @@ def test_col_smc_small():
 
     SMC gets 2 colors with LargestFirst.
     """
-    sparsity = _from_dense(
-        [
-            [1, 0, 1],
-            [0, 1, 1],
-            [1, 0, 0],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 0, 1],
+                [0, 1, 1],
+                [1, 0, 0],
+            ]
+        )
     )
 
     colors, num_colors = color_cols(sparsity)
@@ -563,15 +565,17 @@ def test_col_bidiagonal():
 
     From SMC structured.jl.
     """
-    sparsity = _from_dense(
-        [
-            [1, 1, 0, 0, 0, 0],
-            [0, 1, 1, 0, 0, 0],
-            [0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 1, 1, 0],
-            [0, 0, 0, 0, 1, 1],
-            [0, 0, 0, 0, 0, 1],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 1, 0, 0, 0, 0],
+                [0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0],
+                [0, 0, 0, 1, 1, 0],
+                [0, 0, 0, 0, 1, 1],
+                [0, 0, 0, 0, 0, 1],
+            ]
+        )
     )
 
     colors, num_colors = color_cols(sparsity)
@@ -586,7 +590,7 @@ def test_col_bidiagonal():
 @pytest.mark.coloring
 def test_star_diagonal():
     """Diagonal Hessian: no off-diagonal entries, 1 color suffices."""
-    sparsity = _make_pattern([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
+    sparsity = SparsityPattern.from_coo([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
 
     colors, num_colors = color_symmetric(sparsity)
 
@@ -602,7 +606,7 @@ def test_star_dense():
         for j in range(4):
             rows.append(i)
             cols.append(j)
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_symmetric(sparsity)
 
@@ -619,7 +623,7 @@ def test_star_tridiagonal():
     """
     rows = [0, 0, 1, 1, 1, 2, 2, 2, 3, 3]
     cols = [0, 1, 0, 1, 2, 1, 2, 3, 2, 3]
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     colors, num_colors = color_symmetric(sparsity)
 
@@ -653,15 +657,17 @@ def test_star_what_fig_41():
     6x6 symmetric matrix.
     SMC gets 4 colors with LargestFirst + direct decompression.
     """
-    sparsity = _from_dense(
-        [
-            [1, 1, 0, 0, 0, 0],
-            [1, 1, 1, 0, 1, 1],
-            [0, 1, 1, 1, 0, 0],
-            [0, 0, 1, 1, 0, 1],
-            [0, 1, 0, 0, 1, 0],
-            [0, 1, 0, 1, 0, 1],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 1, 0, 0, 0, 0],
+                [1, 1, 1, 0, 1, 1],
+                [0, 1, 1, 1, 0, 0],
+                [0, 0, 1, 1, 0, 1],
+                [0, 1, 0, 0, 1, 0],
+                [0, 1, 0, 1, 0, 1],
+            ]
+        )
     )
 
     colors, num_colors = color_symmetric(sparsity)
@@ -677,19 +683,21 @@ def test_star_what_fig_61():
     10x10 symmetric matrix.
     SMC gets 4 colors with LargestFirst + direct decompression.
     """
-    sparsity = _from_dense(
-        [
-            [1, 1, 0, 0, 0, 0, 1, 0, 0, 0],
-            [1, 1, 1, 0, 1, 0, 0, 0, 0, 0],
-            [0, 1, 1, 1, 0, 1, 0, 0, 0, 0],
-            [0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
-            [0, 1, 0, 0, 1, 1, 0, 1, 0, 0],
-            [0, 0, 1, 0, 1, 1, 0, 0, 1, 0],
-            [1, 0, 0, 0, 0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 1, 0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0, 1, 0, 1, 1, 1],
-            [0, 0, 0, 1, 0, 0, 0, 0, 1, 1],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+                [1, 1, 1, 0, 1, 0, 0, 0, 0, 0],
+                [0, 1, 1, 1, 0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+                [0, 1, 0, 0, 1, 1, 0, 1, 0, 0],
+                [0, 0, 1, 0, 1, 1, 0, 0, 1, 0],
+                [1, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0, 1, 1, 1, 0],
+                [0, 0, 0, 0, 0, 1, 0, 1, 1, 1],
+                [0, 0, 0, 1, 0, 0, 0, 0, 1, 1],
+            ]
+        )
     )
 
     colors, num_colors = color_symmetric(sparsity)
@@ -806,7 +814,7 @@ def test_star_random_graphs(_run: int):
 @pytest.mark.coloring
 def test_star_not_square_raises():
     """Star coloring requires a square pattern."""
-    sparsity = _make_pattern([0, 1], [0, 1], (3, 4))
+    sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (3, 4))
 
     with pytest.raises(ValueError, match="square"):
         color_symmetric(sparsity)
@@ -815,7 +823,7 @@ def test_star_not_square_raises():
 @pytest.mark.coloring
 def test_star_empty():
     """Empty pattern."""
-    sparsity = _make_pattern([], [], (0, 0))
+    sparsity = SparsityPattern.from_coo([], [], (0, 0))
 
     colors, num_colors = color_symmetric(sparsity)
 
@@ -829,7 +837,7 @@ def test_star_empty():
 @pytest.mark.coloring
 def test_color_returns_coloring_result():
     """jacobian_coloring_from_sparsity() returns a ColoredPattern with correct fields."""
-    sparsity = _make_pattern([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
+    sparsity = SparsityPattern.from_coo([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
 
     result = jacobian_coloring_from_sparsity(sparsity)
 
@@ -850,7 +858,7 @@ def test_color_auto_picks_fwd_for_tall():
     # 6 rows, 2 columns — each row has one entry in each column
     rows = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5]
     cols = [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
-    sparsity = _make_pattern(rows, cols, (6, 2))
+    sparsity = SparsityPattern.from_coo(rows, cols, (6, 2))
 
     result = jacobian_coloring_from_sparsity(sparsity)
 
@@ -870,7 +878,7 @@ def test_color_auto_picks_rev_for_wide():
     # 2 rows, 6 columns — each column has entries in both rows
     rows = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
     cols = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5]
-    sparsity = _make_pattern(rows, cols, (2, 6))
+    sparsity = SparsityPattern.from_coo(rows, cols, (2, 6))
 
     result = jacobian_coloring_from_sparsity(sparsity)
 
@@ -882,7 +890,7 @@ def test_color_auto_picks_rev_for_wide():
 @pytest.mark.coloring
 def test_color_force_rev():
     """jacobian_coloring_from_sparsity(sparsity, mode="rev") forces row coloring."""
-    sparsity = _make_pattern([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
+    sparsity = SparsityPattern.from_coo([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
 
     result = jacobian_coloring_from_sparsity(sparsity, mode="rev")
 
@@ -894,7 +902,7 @@ def test_color_force_rev():
 @pytest.mark.coloring
 def test_color_force_fwd():
     """jacobian_coloring_from_sparsity(sparsity, mode="fwd") forces column coloring."""
-    sparsity = _make_pattern([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
+    sparsity = SparsityPattern.from_coo([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
 
     result = jacobian_coloring_from_sparsity(sparsity, mode="fwd")
 
@@ -972,12 +980,14 @@ def test_hessian_coloring_coupled():
 @pytest.mark.coloring
 def test_compressed_pattern_column():
     """Column compressed pattern has shape (m, num_colors)."""
-    sparsity = _from_dense(
-        [
-            [1, 0, 1],
-            [0, 1, 1],
-            [1, 0, 0],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 0, 1],
+                [0, 1, 1],
+                [1, 0, 0],
+            ]
+        )
     )
     result = jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     compressed = _compressed_pattern(result)
@@ -995,12 +1005,14 @@ def test_compressed_pattern_column():
 @pytest.mark.coloring
 def test_compressed_pattern_row():
     """Row compressed pattern has shape (num_colors, n)."""
-    sparsity = _from_dense(
-        [
-            [1, 0, 1],
-            [0, 1, 1],
-            [1, 0, 0],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 0, 1],
+                [0, 1, 1],
+                [1, 0, 0],
+            ]
+        )
     )
     result = jacobian_coloring_from_sparsity(sparsity, mode="rev")
     compressed = _compressed_pattern(result)
@@ -1021,12 +1033,14 @@ def test_compressed_pattern_row():
 @pytest.mark.coloring
 def test_str_column_contains_arrow():
     """Forward mode __str__ contains → for side-by-side display."""
-    sparsity = _from_dense(
-        [
-            [1, 0, 1],
-            [0, 1, 1],
-            [1, 0, 0],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 0, 1],
+                [0, 1, 1],
+                [1, 0, 0],
+            ]
+        )
     )
     result = jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     s = str(result)
@@ -1038,12 +1052,14 @@ def test_str_column_contains_arrow():
 @pytest.mark.coloring
 def test_str_row_contains_downarrow():
     """Row mode __str__ contains ↓ for stacked display."""
-    sparsity = _from_dense(
-        [
-            [1, 0, 1],
-            [0, 1, 1],
-            [1, 0, 0],
-        ]
+    sparsity = SparsityPattern.from_dense(
+        np.array(
+            [
+                [1, 0, 1],
+                [0, 1, 1],
+                [1, 0, 0],
+            ]
+        )
     )
     result = jacobian_coloring_from_sparsity(sparsity, mode="rev")
     s = str(result)
@@ -1117,7 +1133,7 @@ def test_repr_coloring():
 @pytest.mark.coloring
 def test_color_empty_pattern():
     """Coloring an empty sparsity pattern returns 0 colors."""
-    sparsity = _make_pattern([], [], (0, 3))
+    sparsity = SparsityPattern.from_coo([], [], (0, 3))
     result = jacobian_coloring_from_sparsity(sparsity, mode="rev")
 
     assert result.num_colors == 0
@@ -1178,7 +1194,7 @@ def test_dense_jacobian_warns():
         for j in range(4):
             rows.append(i)
             cols.append(j)
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     with pytest.warns(DenseColoringWarning, match="same as the dense case"):
         jacobian_coloring_from_sparsity(sparsity)
@@ -1192,7 +1208,7 @@ def test_dense_hessian_warns():
         for j in range(4):
             rows.append(i)
             cols.append(j)
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     with pytest.warns(DenseColoringWarning, match="same as the dense case"):
         hessian_coloring_from_sparsity(sparsity)
@@ -1206,7 +1222,7 @@ def test_dense_warning_suppressible():
         for j in range(4):
             rows.append(i)
             cols.append(j)
-    sparsity = _make_pattern(rows, cols, (4, 4))
+    sparsity = SparsityPattern.from_coo(rows, cols, (4, 4))
 
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DenseColoringWarning)
@@ -1220,7 +1236,7 @@ def test_dense_warning_suppressible():
 @pytest.mark.coloring
 def test_color_jacobian_symmetric():
     """jacobian_coloring_from_sparsity with symmetric=True returns symmetric coloring."""
-    sparsity = _make_pattern([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
+    sparsity = SparsityPattern.from_coo([0, 1, 2, 3], [0, 1, 2, 3], (4, 4))
 
     result = jacobian_coloring_from_sparsity(sparsity, symmetric=True)
 
@@ -1231,7 +1247,7 @@ def test_color_jacobian_symmetric():
 @pytest.mark.coloring
 def test_color_jacobian_symmetric_non_square_raises():
     """jacobian_coloring_from_sparsity with symmetric=True on non-square raises ValueError."""
-    sparsity = _make_pattern([0, 1], [0, 1], (3, 4))
+    sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (3, 4))
 
     with pytest.raises(ValueError, match="square"):
         jacobian_coloring_from_sparsity(sparsity, symmetric=True)
@@ -1240,7 +1256,7 @@ def test_color_jacobian_symmetric_non_square_raises():
 @pytest.mark.coloring
 def test_color_jacobian_symmetric_empty_non_square_raises():
     """Empty non-square pattern with symmetric coloring raises ValueError."""
-    sparsity = _make_pattern([], [], (3, 4))
+    sparsity = SparsityPattern.from_coo([], [], (3, 4))
 
     with pytest.raises(ValueError, match="square"):
         jacobian_coloring_from_sparsity(sparsity, symmetric=True)
@@ -1249,7 +1265,7 @@ def test_color_jacobian_symmetric_empty_non_square_raises():
 @pytest.mark.coloring
 def test_color_jacobian_symmetric_empty_square():
     """Empty square pattern with symmetric=True returns 0 colors."""
-    sparsity = _make_pattern([], [], (3, 3))
+    sparsity = SparsityPattern.from_coo([], [], (3, 3))
 
     result = jacobian_coloring_from_sparsity(sparsity, symmetric=True)
 
@@ -1261,7 +1277,7 @@ def test_color_jacobian_symmetric_empty_square():
 @pytest.mark.coloring
 def test_empty_hessian_symmetric_non_square_raises():
     """Empty non-square pattern with symmetric Hessian coloring raises ValueError."""
-    sparsity = _make_pattern([], [], (3, 4))
+    sparsity = SparsityPattern.from_coo([], [], (3, 4))
 
     with pytest.raises(ValueError, match="square"):
         hessian_coloring_from_sparsity(sparsity, symmetric=True)
@@ -1335,7 +1351,7 @@ def test_hessian_coloring_from_sparsity_accepts_bcoo():
 @pytest.mark.coloring
 def test_hessian_coloring_from_sparsity_rejects_non_square():
     """hessian_coloring_from_sparsity raises ValueError for non-square pattern."""
-    sparsity = _make_pattern([0, 1], [0, 1], (2, 3))
+    sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (2, 3))
 
     with pytest.raises(ValueError, match="square"):
         hessian_coloring_from_sparsity(sparsity)
@@ -1354,14 +1370,14 @@ def test_hessian_coloring_from_sparsity_rejects_non_square_ndarray():
 @pytest.mark.filterwarnings("ignore::asdex.DenseColoringWarning")
 def test_color_zero_row_pattern():
     """Coloring a (0, n) pattern exercises _greedy_color with 0 vertices."""
-    sparsity = _make_pattern([0], [0], (1, 3))
+    sparsity = SparsityPattern.from_coo([0], [0], (1, 3))
 
     # Force row coloring on a pattern where m=1 → single vertex
     result = jacobian_coloring_from_sparsity(sparsity, mode="rev")
     assert result.num_colors == 1
 
     # Now test with m=0
-    sparsity_zero = _make_pattern([], [], (0, 3))
+    sparsity_zero = SparsityPattern.from_coo([], [], (0, 3))
     result_zero = jacobian_coloring_from_sparsity(sparsity_zero, mode="rev")
     assert result_zero.num_colors == 0
     assert len(result_zero.colors) == 0
