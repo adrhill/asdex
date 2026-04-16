@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775085221868,
+  "lastUpdate": 1776347754348,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -13182,6 +13182,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006455553728064844",
             "extra": "mean: 21.83868693690956 usec\nrounds: 15425"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "me@sirmarcel.com",
+            "name": "Marcel",
+            "username": "sirmarcel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "14d3a056c9b1801efdaf6b2fdbef2ca7f93a3fff",
+          "message": "fix(coloring): enforce star constraint for internal vertices (#102)\n\n* fix(coloring): forbid 2-colored P4s with the current vertex internal\n\n`color_symmetric` produced invalid star colorings on a large fraction of\ngraphs because the inner star-constraint check only covered one of the two\ncases of a 2-colored 4-vertex path involving the vertex being colored.\n\nA star coloring (Gebremedhin et al., 2005) is a distance-1 coloring with\nthe extra constraint that every path on 4 vertices uses >=3 distinct\ncolors. When assigning a color to vertex `v`, any 2-colored 4-path\ninvolving `v` must be forbidden. Such a path has the pattern `(a,b,a,b)`,\nand `v` can sit at any of the 4 positions. By symmetry of undirected paths\nthere are two distinct cases:\n\n- Case A (`v` is an endpoint): path `v-w-u-x`, violation when\n  `c(v) = c(u)` and `c(w) = c(x)`. Handled by the existing code: for each\n  colored neighbor `w` of `v`, and each colored neighbor `u` of `w`\n  (`u != v`), forbid `c(u)` if `u` has another colored neighbor `x != w`\n  with `c(x) = c(w)`.\n\n- Case B (`v` is internal): path `a-v-w-x`, violation when `c(a) = c(w)`\n  and `c(v) = c(x)`. Equivalently: `v` has two colored neighbors (`a` and\n  `w`) sharing color `c(w)`, and `w` has any colored neighbor `x != v`.\n  This case was not checked, so the algorithm happily assigned `c(x)` to\n  `v` and produced an invalid coloring.\n\nFix: maintain `neighbor_color_count[c]` for `v`, and when iterating\ncolored neighbors `w` of `v`, short-circuit-forbid every colored\nneighbor of `w` (other than `v`) whenever `neighbor_color_count[c(w)] >= 2`.\n\nEvidence: an Erdos-Renyi fuzz over ~3000 random graphs (n in [6,14],\np in [0.2,0.6]) showed the pre-fix implementation failed the star\nconstraint on ~46% of graphs. After the fix: 0 failures. The bug also\nsurfaced on a real MACE-MP-0 Hessian sparsity pattern for ZIF-8 2x2x2,\nwhere ~1.1% of colors contained seeds that violated the star constraint,\ncontaminating ~0.95% of extracted entries.\n\nTests added:\n- `test_star_case_b_internal_vertex`: minimal 12-vertex counterexample.\n- `test_star_random_graphs[seed=0..19]`: parametrized Erdos-Renyi fuzz.\n\nBoth use `_is_valid_star_coloring` (brute-force P4 enumeration) as the\nunambiguous spec.\n\n* fix(coloring): mirror SMC's Case 1 / Case 2 structure in `color_symmetric`\n\nReplace the `neighbor_color_count` approach with a `first_neighbor` dict,\nmirroring SparseMatrixColorings.jl's `star_coloring` algorithm structure.\n\nCase 1 (v internal): when a second neighbor with color `cw` is seen,\nforbid all colored neighbors of both that neighbor and the previously-recorded\nfirst neighbor.\nCase 2 (v endpoint): on first encounter of color `cw`, scan for 2-colored P4s\nvia the hub-equivalent neighbor check.\n\nThe distance-1 forbid is now folded into the single neighbor loop\ninstead of a separate pass.\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\n\n* test(coloring): simplify star-coloring tests and make fuzz actually fuzz\n\nExtract a `_make_symmetric_reflexive_graph` helper to deduplicate the\ndiagonal-plus-both-edge-directions construction shared by the two new\nstar tests, and convert `test_star_random_graphs` into a real fuzz test:\nit now draws fresh OS entropy via `np.random.SeedSequence()` per run and\nreports the seed on failure so any counterexample can be replayed with\n`np.random.default_rng(<entropy>)`. Replace the silent `return` on empty\nrandom graphs with `pytest.skip`.\n\nAlso record two follow-up items in `PLAN.md`: building SMC-style\nstar/hub data in `color_symmetric` (to unlock postprocessing and O(1)\nCase 2 checks in `decompression.py`) and exposing a public\n`check_star_coloring` in `verify.py`.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: adrhill <adrian.hill@mailbox.org>\nCo-authored-by: Claude Sonnet 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-04-16T15:55:18+02:00",
+          "tree_id": "731be3d228166d3aec9d444e7b958aeccf2f2ab6",
+          "url": "https://github.com/adrhill/asdex/commit/14d3a056c9b1801efdaf6b2fdbef2ca7f93a3fff"
+        },
+        "date": 1776347753821,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 746.8289385740733,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003971531988913668",
+            "extra": "mean: 1.3389947126437123 msec\nrounds: 174"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 3077.7633555588563,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000926935263412074",
+            "extra": "mean: 324.9112698004754 usec\nrounds: 1553"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 72415.1497739132,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000034829401548422717",
+            "extra": "mean: 13.809265093313932 usec\nrounds: 19661"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 42687.00834763106,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004710028089167122",
+            "extra": "mean: 23.42633130568157 usec\nrounds: 11672"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 76695.17137021874,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029332029338628992",
+            "extra": "mean: 13.038630491779653 usec\nrounds: 22511"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 19.98307034280565,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01920967345470824",
+            "extra": "mean: 50.04235999999981 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 179.75940874901525,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007535248806700082",
+            "extra": "mean: 5.562991149999975 msec\nrounds: 140"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1889.1925408229833,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027018769230041007",
+            "extra": "mean: 529.3266717877115 usec\nrounds: 1432"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1876.076366845533,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033447623224858365",
+            "extra": "mean: 533.0273424217891 usec\nrounds: 1247"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 3777.931806556929,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000019548078840775596",
+            "extra": "mean: 264.6950901189939 usec\nrounds: 3107"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 99.18529302911566,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011379143073972588",
+            "extra": "mean: 10.082139896551515 msec\nrounds: 58"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 2996.915437767556,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010362931966178872",
+            "extra": "mean: 333.67641522275113 usec\nrounds: 1616"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 41734.118788390595,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000877162805690451",
+            "extra": "mean: 23.961210372511218 usec\nrounds: 9583"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 38274.13091192315,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008702722328349018",
+            "extra": "mean: 26.1273078231668 usec\nrounds: 9996"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 42610.28238873886,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007430339498000066",
+            "extra": "mean: 23.468513793850903 usec\nrounds: 14173"
           }
         ]
       }
