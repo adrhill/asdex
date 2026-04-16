@@ -118,32 +118,29 @@ def _build_symmetric_csr(
 def _build_edge_to_index(
     indptr: NDArray[np.int32],
     neighbors: NDArray[np.int32],
-) -> tuple[NDArray[np.int32], int]:
+) -> NDArray[np.int32]:
     """Assign a unique undirected edge index to each CSR position.
 
     Both ``(i, j)`` and ``(j, i)`` CSR positions receive the same edge index.
-    Self-loops receive ``-1``;
-    they are counted separately in ``nb_self_loops``.
 
     Direct port of SMC's ``build_edge_to_index`` from ``graph.jl``,
-    adjusted to 0-based indexing and a ``-1`` self-loop sentinel.
+    adjusted to 0-based indexing.
     Correctness relies on neighbors being sorted within each row —
     see ``_build_csr``.
+    Callers must pre-strip self-loops (see ``_build_symmetric_csr``);
+    none are expected in the CSR input.
 
     Args:
         indptr: CSR row offsets, shape ``(n + 1,)``.
         neighbors: CSR neighbor indices, shape ``(nnz,)``.
 
     Returns:
-        Tuple ``(edge_to_index, nb_self_loops)`` where:
-
-            - edge_to_index: Shape ``(nnz,)``,
-              ``int32`` edge index per CSR position (``-1`` for self-loops).
-            - nb_self_loops: Count of diagonal entries encountered.
+        edge_to_index: Shape ``(nnz,)``,
+        ``int32`` edge index per CSR position.
     """
-    edge_to_index = np.full(len(neighbors), -1, dtype=np.int32)
-    nb_self_loops = _build_edge_to_index_core(indptr, neighbors, edge_to_index)
-    return edge_to_index, int(nb_self_loops)
+    edge_to_index = np.empty(len(neighbors), dtype=np.int32)
+    _build_edge_to_index_core(indptr, neighbors, edge_to_index)
+    return edge_to_index
 
 
 @njit(cache=True)
@@ -151,10 +148,9 @@ def _build_edge_to_index_core(
     indptr: NDArray[np.int32],
     neighbors: NDArray[np.int32],
     edge_to_index: NDArray[np.int32],
-) -> int:
+) -> None:
     n = len(indptr) - 1
     offsets = np.zeros(n, dtype=np.int32)
-    nb_self_loops = 0
     counter = 0
     for j in range(n):
         start = indptr[j]
@@ -171,6 +167,3 @@ def _build_edge_to_index_core(
                 edge_to_index[k2] = counter
                 offsets[i] += 1
                 counter += 1
-            elif i == j:
-                nb_self_loops += 1
-    return nb_self_loops

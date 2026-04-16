@@ -86,7 +86,7 @@ def color_symmetric(
     indptr, neighbors, has_self_loop = _build_symmetric_csr(
         sparsity.rows, sparsity.cols, n
     )
-    edge_to_index, _ = _build_edge_to_index(indptr, neighbors)
+    edge_to_index = _build_edge_to_index(indptr, neighbors)
     num_edges = len(neighbors) // 2
 
     if forced_colors is not None:

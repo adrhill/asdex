@@ -34,17 +34,12 @@ def _postprocess_star_coloring(
 
     Returns the new (reduced) number of active colors.
     """
-    if num_colors == 0:
-        return 0
-
     color_used = np.zeros(num_colors, dtype=bool)
 
     # Diagonal entries force their color to be used.
     for i in range(len(colors)):
         if has_self_loop[i]:
-            ci = int(colors[i])
-            if ci >= 0:
-                color_used[ci] = True
+            color_used[int(colors[i])] = True
 
     hub = star_set.hub
     star = star_set.star
@@ -56,12 +51,10 @@ def _postprocess_star_coloring(
             color_used[int(colors[h])] = True
 
     # Trivial stars: try to flip hub to avoid marking a new color used.
-    if len(hub) > 0 and (hub < 0).any():
+    if (hub < 0).any():
         inv_edges = {idx: (a, b) for (a, b), idx in star_set.edge_index.items()}
         for e in range(len(star)):
             s = int(star[e])
-            if s < 0:
-                continue  # edge not in any star (should not happen)
             h_raw = int(hub[s])
             if h_raw >= 0:
                 continue
@@ -88,8 +81,6 @@ def _postprocess_star_coloring(
 
     for i in range(len(colors)):
         ci = int(colors[i])
-        if ci < 0:
-            continue
         if color_used[ci]:
             colors[i] = ci - int(offsets[ci])
         else:

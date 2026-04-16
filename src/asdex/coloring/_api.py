@@ -369,11 +369,6 @@ def _empty_hessian_pattern(
     mode: HessianMode,
 ) -> ColoredPattern:
     """Build a ``ColoredPattern`` for an all-zero Hessian sparsity pattern."""
-    if symmetric and sparsity.m != sparsity.n:
-        msg = (
-            f"Symmetric coloring requires a square pattern, got shape {sparsity.shape}"
-        )
-        raise ValueError(msg)
     return ColoredPattern(
         sparsity,
         colors=np.full(sparsity.n, -1, dtype=np.int32),
