@@ -14,6 +14,7 @@ See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 """
 
 import numpy as np
+from numba import njit
 from numpy.typing import NDArray
 
 from asdex.coloring._graph import _build_csr
@@ -48,9 +49,10 @@ def color_rows(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     row_indptr, row_nbrs = _build_csr(sparsity.rows, sparsity.cols, m)
     col_indptr, col_nbrs = _build_csr(sparsity.cols, sparsity.rows, n)
     order = _largest_first_order(m, row_indptr, row_nbrs, col_indptr, col_nbrs)
-    return _partial_distance2_coloring(
+    colors, num_colors = _partial_distance2_coloring(
         m, row_indptr, row_nbrs, col_indptr, col_nbrs, order
     )
+    return colors, int(num_colors)
 
 
 def color_cols(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
@@ -81,9 +83,10 @@ def color_cols(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     col_indptr, col_nbrs = _build_csr(sparsity.cols, sparsity.rows, n)
     row_indptr, row_nbrs = _build_csr(sparsity.rows, sparsity.cols, m)
     order = _largest_first_order(n, col_indptr, col_nbrs, row_indptr, row_nbrs)
-    return _partial_distance2_coloring(
+    colors, num_colors = _partial_distance2_coloring(
         n, col_indptr, col_nbrs, row_indptr, row_nbrs, order
     )
+    return colors, int(num_colors)
 
 
 # Internals
@@ -98,21 +101,30 @@ def _largest_first_order(
 ) -> NDArray[np.intp]:
     """Order vertices by decreasing distance-2 degree.
 
-    Uses SMC's ``visited``-timestamp trick to count each distance-2 neighbor
-    exactly once without per-vertex set allocations.
     Ties break by vertex index ascending via ``kind="stable"``,
     giving a reproducible ordering.
-
-    Arrays are ``.tolist()``-ed up front so the triple-nested loop iterates
-    unboxed Python ints rather than numpy scalars — CPython's per-element
-    boxing dominates otherwise.
+    ``np.argsort`` is kept in the Python wrapper because numba's ``argsort``
+    lacks ``kind="stable"``.
     """
-    side_indptr = side_indptr.tolist()
-    side_nbrs = side_nbrs.tolist()
-    other_indptr = other_indptr.tolist()
-    other_nbrs = other_nbrs.tolist()
-    visited = [0] * nv
-    deg2 = [0] * nv
+    degrees = _distance2_degrees(nv, side_indptr, side_nbrs, other_indptr, other_nbrs)
+    return np.argsort(-degrees, kind="stable")
+
+
+@njit(cache=True)
+def _distance2_degrees(
+    nv: int,
+    side_indptr: NDArray[np.int32],
+    side_nbrs: NDArray[np.int32],
+    other_indptr: NDArray[np.int32],
+    other_nbrs: NDArray[np.int32],
+) -> NDArray[np.int32]:
+    """Count distance-2 neighbors for each vertex.
+
+    Uses SMC's ``visited``-timestamp trick to count each distance-2 neighbor
+    exactly once without per-vertex set allocations.
+    """
+    visited = np.zeros(nv, dtype=np.int32)
+    deg2 = np.zeros(nv, dtype=np.int32)
     for v in range(nv):
         stamp = v + 1
         for pos in range(side_indptr[v], side_indptr[v + 1]):
@@ -122,9 +134,10 @@ def _largest_first_order(
                 if x != v and visited[x] != stamp:
                     deg2[v] += 1
                     visited[x] = stamp
-    return np.argsort(-np.asarray(deg2, dtype=np.int32), kind="stable")
+    return deg2
 
 
+@njit(cache=True)
 def _partial_distance2_coloring(
     nv: int,
     side_indptr: NDArray[np.int32],
@@ -145,13 +158,8 @@ def _partial_distance2_coloring(
     advancing ``stamp`` each iteration resets the mask without clearing memory.
     ``stamp = v + 1`` avoids clashing with the zero-initialized state.
     """
-    side_indptr = side_indptr.tolist()
-    side_nbrs = side_nbrs.tolist()
-    other_indptr = other_indptr.tolist()
-    other_nbrs = other_nbrs.tolist()
-    order = order.tolist()
-    colors = [-1] * nv
-    forbidden = [0] * (nv + 1)
+    colors = np.full(nv, -1, dtype=np.int32)
+    forbidden = np.zeros(nv + 1, dtype=np.int32)
     num_colors = 0
     for v in order:
         stamp = v + 1
@@ -171,4 +179,4 @@ def _partial_distance2_coloring(
         colors[v] = c
         if c + 1 > num_colors:
             num_colors = c + 1
-    return np.asarray(colors, dtype=np.int32), num_colors
+    return colors, num_colors

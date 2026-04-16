@@ -1,6 +1,8 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+*.nbi
+*.nbc
 build/
 dist/
 wheels/

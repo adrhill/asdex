@@ -13,6 +13,7 @@ See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 """
 
 import numpy as np
+from numba import njit
 from numpy.typing import NDArray
 
 
@@ -140,27 +141,36 @@ def _build_edge_to_index(
               ``int32`` edge index per CSR position (``-1`` for self-loops).
             - nb_self_loops: Count of diagonal entries encountered.
     """
+    edge_to_index = np.full(len(neighbors), -1, dtype=np.int32)
+    nb_self_loops = _build_edge_to_index_core(indptr, neighbors, edge_to_index)
+    return edge_to_index, int(nb_self_loops)
+
+
+@njit(cache=True)
+def _build_edge_to_index_core(
+    indptr: NDArray[np.int32],
+    neighbors: NDArray[np.int32],
+    edge_to_index: NDArray[np.int32],
+) -> int:
     n = len(indptr) - 1
-    nnz = len(neighbors)
-    edge_to_index = np.full(nnz, -1, dtype=np.int32)
     offsets = np.zeros(n, dtype=np.int32)
     nb_self_loops = 0
     counter = 0
     for j in range(n):
-        start = int(indptr[j])
-        end = int(indptr[j + 1])
+        start = indptr[j]
+        end = indptr[j + 1]
         for k in range(start, end):
-            i = int(neighbors[k])
+            i = neighbors[k]
             if i > j:
                 # First time we see this edge (from the lower-indexed endpoint).
                 # Its symmetric position in column i lives at
                 # indptr[i] + offsets[i] because rows in column i are sorted
                 # and prior columns < i were processed in order.
                 edge_to_index[k] = counter
-                k2 = int(indptr[i]) + int(offsets[i])
+                k2 = indptr[i] + offsets[i]
                 edge_to_index[k2] = counter
                 offsets[i] += 1
                 counter += 1
             elif i == j:
                 nb_self_loops += 1
-    return edge_to_index, nb_self_loops
+    return nb_self_loops
