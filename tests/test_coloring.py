@@ -56,6 +56,19 @@ def _make_banded(n: int, half_bandwidth: int) -> SparsityPattern:
     return _make_pattern(rows, cols, (n, n))
 
 
+def _make_symmetric_reflexive_graph(
+    n: int, edges: list[tuple[int, int]]
+) -> SparsityPattern:
+    """Adjacency pattern of a reflexive undirected graph.
+
+    Includes a self-loop at every vertex (diagonal) and both directions of
+    each undirected edge.
+    """
+    rows = list(range(n)) + [i for i, j in edges] + [j for i, j in edges]
+    cols = list(range(n)) + [j for i, j in edges] + [i for i, j in edges]
+    return _make_pattern(rows, cols, (n, n))
+
+
 def _make_arrow(n: int) -> SparsityPattern:
     """Arrow matrix: diagonal + dense first row/column."""
     rows, cols = [], []
@@ -718,6 +731,76 @@ def test_star_pentadiagonal_8x8():
 
     assert _is_valid_star_coloring(sparsity, colors)
     assert num_colors == 5
+
+
+@pytest.mark.coloring
+def test_star_case_b_internal_vertex():
+    """Regression: star coloring must forbid internal-vertex 2-colored P4s.
+
+    Minimal counterexample (12 vertices): with LargestFirst ordering the buggy
+    algorithm produces colors such that the path 0-1-4-11 has colors
+    [3,0,3,0] - a 2-colored P4.  The bug was that the inner star-constraint
+    check only verified ``ncc[u, cw] > 1`` (``v`` is an endpoint of the P4)
+    and missed ``ncc[v, cw] > 1`` (``v`` is internal: has two neighbors
+    sharing color ``cw``).
+    """
+    edges = [
+        (0, 1),
+        (0, 2),
+        (0, 10),
+        (1, 2),
+        (1, 4),
+        (1, 7),
+        (1, 9),
+        (1, 10),
+        (3, 4),
+        (4, 11),
+        (5, 7),
+        (5, 10),
+        (6, 7),
+        (6, 9),
+        (7, 8),
+        (7, 9),
+        (7, 11),
+        (8, 9),
+        (8, 11),
+        (9, 11),
+    ]
+    sparsity = _make_symmetric_reflexive_graph(12, edges)
+
+    colors, _ = color_symmetric(sparsity)
+
+    assert _is_valid_star_coloring(sparsity, colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("_run", range(20))
+def test_star_random_graphs(_run: int):
+    """Fuzz: star coloring must be valid on random Erdos-Renyi graphs.
+
+    The original buggy implementation passed every hand-written test case but
+    failed on ~45% of random graphs in this regime because it only checked
+    one of the two 2-colored-P4 cases.
+
+    Uses fresh entropy per run; the seed is reported on failure so any
+    counterexample can be reproduced with ``np.random.default_rng(seed)``.
+    """
+    seed_seq = np.random.SeedSequence()
+    rng = np.random.default_rng(seed_seq)
+    n = int(rng.integers(8, 18))
+    p = float(rng.uniform(0.2, 0.6))
+    edges: list[tuple[int, int]] = [
+        (i, j) for i in range(n) for j in range(i + 1, n) if rng.random() < p
+    ]
+    if not edges:
+        pytest.skip("empty random graph")
+    sparsity = _make_symmetric_reflexive_graph(n, edges)
+
+    colors, _ = color_symmetric(sparsity)
+
+    assert _is_valid_star_coloring(sparsity, colors), (
+        f"invalid star coloring; reproduce with seed={seed_seq.entropy}"
+    )
 
 
 @pytest.mark.coloring

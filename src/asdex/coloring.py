@@ -384,35 +384,46 @@ def color_symmetric(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     num_colors = 0
 
     for v in order:
-        # Forbidden colors from distance-1 constraint
+        # forbidden: colors that cannot be assigned to v.
+        # first_neighbor[c]: first colored neighbor of v seen with color c.
         forbidden: set[int] = set()
-        for w in adj[v]:
-            if colors[w] >= 0:
-                forbidden.add(colors[w])
+        first_neighbor: dict[int, int] = {}
 
-        # Star constraint: for each colored neighbor w of v,
-        # check w's other colored neighbors u.
-        # If colors[w] == colors[u] would create a 2-colored path v-w-u-?,
-        # we need to forbid the color of any neighbor of u that has color[w]'s color.
-        # More precisely: for neighbor w (colored), for neighbor u of w (u != v, colored),
-        # if colors[u] is not in forbidden yet, check if u has a neighbor x (x != w)
-        # with colors[x] == colors[w]. If so, colors[u] is forbidden for v because
-        # x-u-w-v would be a 4-path with only 2 colors.
         for w in adj[v]:
-            if colors[w] < 0:
+            cw = int(colors[w])
+            if cw < 0:
                 continue
-            for u in adj[w]:
-                if u == v or colors[u] < 0:
-                    continue
-                if colors[u] in forbidden:
-                    continue
-                # Check if u has a neighbor x != w with colors[x] == colors[w]
-                for x in adj[u]:
-                    if x != w and colors[x] == colors[w]:
-                        # Path x-u-w-v would use only colors[w] and colors[u]
-                        # if we assign colors[u] to v. Forbid colors[u].
-                        forbidden.add(colors[u])
-                        break
+            forbidden.add(cw)  # distance-1 constraint
+
+            if cw in first_neighbor:
+                # Case 1 (v is internal): v has two neighbors q and w with the
+                # same color cw, forming paths q-v-w-x and w-v-q-y.
+                # Forbid colors of all colored neighbors of both q and w.
+                q = first_neighbor[cw]
+                for x in adj[q]:
+                    cx = int(colors[x])
+                    if cx >= 0:
+                        forbidden.add(cx)
+                for x in adj[w]:
+                    cx = int(colors[x])
+                    if cx >= 0:
+                        forbidden.add(cx)
+            else:
+                # Case 2 (v is endpoint): first neighbor with color cw.
+                # For each other colored neighbor u of w, forbid colors[u]
+                # if u has a neighbor x != w with colors[x] == cw,
+                # since that would create a 2-colored path v-w-u-x.
+                first_neighbor[cw] = w
+                for u in adj[w]:
+                    if u == v or colors[u] < 0:
+                        continue
+                    cu = int(colors[u])
+                    if cu in forbidden:
+                        continue
+                    for x in adj[u]:
+                        if x != w and colors[x] == cw:
+                            forbidden.add(cu)
+                            break
 
         # Assign smallest non-forbidden color
         color = 0
