@@ -46,13 +46,6 @@ class InvalidColoringError(ValueError):
     """
 
 
-# Trivial-star hub encoding.
-# For a trivial star ``s`` (single edge with no resolved hub),
-# ``hub[s] = -(v + 1)`` where ``v`` is one of the edge's endpoints,
-# arbitrarily picked at construction time.
-# Decoding: ``v = -hub[s] - 1`` when ``hub[s] < 0``.
-
-
 @dataclass(frozen=True)
 class StarSet:
     """Set of 2-colored stars produced by [`color_symmetric`][asdex.color_symmetric].
@@ -67,9 +60,10 @@ class StarSet:
         hub: Mapping from star index to hub vertex, shape ``(num_stars,)``.
             ``hub[s] >= 0``: hub vertex (non-trivial star, or trivial star
             whose hub was resolved by postprocessing).
-            ``hub[s] < 0``: trivial star with unresolved hub;
-            ``-hub[s] - 1`` is one of the two edge endpoints,
-            arbitrarily chosen at construction time.
+            ``hub[s] < 0``: trivial star with unresolved hub, encoded as
+            ``hub[s] = -(v + 1)`` where ``v`` is one of the edge's endpoints
+            (arbitrarily picked at construction time);
+            decode with ``v = -hub[s] - 1``.
         edge_index: Mapping ``(min(i, j), max(i, j)) -> edge_idx`` for each
             off-diagonal edge. Self-loops are not indexed.
     """
@@ -825,7 +819,7 @@ def _update_stars(
 ) -> None:
     """Update star/hub structures after vertex ``v`` has been colored.
 
-    Mirrors SMC's ``_update_stars!`` (Gebremedhin et al., 2007).
+    Mirrors SMC's ``_update_stars!``.
     For each colored neighbor ``w`` of ``v``, either:
 
     - An existing star through ``w`` absorbs edge ``(v, w)`` (promoting ``w`` to hub), or
