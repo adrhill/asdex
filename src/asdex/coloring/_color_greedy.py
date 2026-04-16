@@ -102,19 +102,27 @@ def _largest_first_order(
     exactly once without per-vertex set allocations.
     Ties break by vertex index ascending via ``kind="stable"``,
     giving a reproducible ordering.
+
+    Arrays are ``.tolist()``-ed up front so the triple-nested loop iterates
+    unboxed Python ints rather than numpy scalars — CPython's per-element
+    boxing dominates otherwise.
     """
-    visited = np.zeros(nv, dtype=np.int32)
-    deg2 = np.zeros(nv, dtype=np.int32)
+    side_indptr = side_indptr.tolist()
+    side_nbrs = side_nbrs.tolist()
+    other_indptr = other_indptr.tolist()
+    other_nbrs = other_nbrs.tolist()
+    visited = [0] * nv
+    deg2 = [0] * nv
     for v in range(nv):
         stamp = v + 1
-        for pos in range(int(side_indptr[v]), int(side_indptr[v + 1])):
-            w = int(side_nbrs[pos])
-            for pos2 in range(int(other_indptr[w]), int(other_indptr[w + 1])):
-                x = int(other_nbrs[pos2])
-                if x != v and int(visited[x]) != stamp:
+        for pos in range(side_indptr[v], side_indptr[v + 1]):
+            w = side_nbrs[pos]
+            for pos2 in range(other_indptr[w], other_indptr[w + 1]):
+                x = other_nbrs[pos2]
+                if x != v and visited[x] != stamp:
                     deg2[v] += 1
                     visited[x] = stamp
-    return np.argsort(-deg2, kind="stable")
+    return np.argsort(-np.asarray(deg2, dtype=np.int32), kind="stable")
 
 
 def _partial_distance2_coloring(
@@ -137,26 +145,30 @@ def _partial_distance2_coloring(
     advancing ``stamp`` each iteration resets the mask without clearing memory.
     ``stamp = v + 1`` avoids clashing with the zero-initialized state.
     """
-    colors = np.full(nv, -1, dtype=np.int32)
-    forbidden = np.zeros(nv + 1, dtype=np.int32)
+    side_indptr = side_indptr.tolist()
+    side_nbrs = side_nbrs.tolist()
+    other_indptr = other_indptr.tolist()
+    other_nbrs = other_nbrs.tolist()
+    order = order.tolist()
+    colors = [-1] * nv
+    forbidden = [0] * (nv + 1)
     num_colors = 0
     for v in order:
-        v_int = int(v)
-        stamp = v_int + 1
-        for pos in range(int(side_indptr[v_int]), int(side_indptr[v_int + 1])):
-            w = int(side_nbrs[pos])
-            for pos2 in range(int(other_indptr[w]), int(other_indptr[w + 1])):
-                x = int(other_nbrs[pos2])
-                cx = int(colors[x])
+        stamp = v + 1
+        for pos in range(side_indptr[v], side_indptr[v + 1]):
+            w = side_nbrs[pos]
+            for pos2 in range(other_indptr[w], other_indptr[w + 1]):
+                x = other_nbrs[pos2]
+                cx = colors[x]
                 if cx >= 0:
                     forbidden[cx] = stamp
         # Smallest color ``c`` with ``forbidden[c] != stamp``.
         # Linear scan beats ``np.argmax`` here: num_colors is typically ≪ nv,
         # and early break avoids the per-vertex bool-array allocation.
         c = 0
-        while c < nv and int(forbidden[c]) == stamp:
+        while c < nv and forbidden[c] == stamp:
             c += 1
-        colors[v_int] = c
+        colors[v] = c
         if c + 1 > num_colors:
             num_colors = c + 1
-    return colors, num_colors
+    return np.asarray(colors, dtype=np.int32), num_colors

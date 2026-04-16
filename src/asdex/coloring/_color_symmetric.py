@@ -81,51 +81,57 @@ def color_symmetric(
             ),
         )
 
-    indptr, neighbors, has_self_loop = _build_symmetric_csr(
+    indptr_arr, neighbors_arr, has_self_loop = _build_symmetric_csr(
         sparsity.rows, sparsity.cols, n
     )
-    edge_to_index, _ = _build_edge_to_index(indptr, neighbors)
-    num_edges = len(neighbors) // 2
+    edge_to_index_arr, _ = _build_edge_to_index(indptr_arr, neighbors_arr)
+    num_edges = len(neighbors_arr) // 2
 
     if forced_colors is not None:
-        forced = np.asarray(forced_colors, dtype=np.int32)
-        if forced.shape != (n,):
-            msg = f"forced_colors must have shape ({n},), got {forced.shape}"
+        forced_arr = np.asarray(forced_colors, dtype=np.int32)
+        if forced_arr.shape != (n,):
+            msg = f"forced_colors must have shape ({n},), got {forced_arr.shape}"
             raise ValueError(msg)
-        if np.any(forced < 0):
+        if np.any(forced_arr < 0):
             msg = "forced_colors must contain non-negative integers"
             raise ValueError(msg)
+        forced: list[int] | None = forced_arr.tolist()
     else:
         forced = None
 
     # LargestFirst ordering: CSR row length is the (self-loop-free) degree.
-    degrees = indptr[1:] - indptr[:-1]
-    order = np.argsort(-degrees, kind="stable")
+    degrees = indptr_arr[1:] - indptr_arr[:-1]
+    order = np.argsort(-degrees, kind="stable").tolist()
 
-    colors = np.full(n, -1, dtype=np.int32)
+    # Convert CSR and stamp arrays to Python lists so the hot loop reads
+    # unboxed ints; CPython's numpy-scalar boxing dominates otherwise.
+    # Re-wrapped as numpy at the end for the public return types.
+    indptr = indptr_arr.tolist()
+    neighbors = neighbors_arr.tolist()
+    edge_to_index = edge_to_index_arr.tolist()
+    colors = [-1] * n
 
     # SMC stamp trick (https://github.com/JuliaDiff/SparseMatrixColorings.jl/blob/5d1ae0abe0a56d331909d89ceae1c9b83522c005/src/coloring.jl#L119):
     # forbidden_colors[c] == v means color c is forbidden for v.
     # treated[w] == v means w was treated (neighbors' colors forbidden) for v.
     # Initialized to -1 since vertex indices start at 0.
-    forbidden_colors = np.full(n, -1, dtype=np.int64)
-    treated = np.full(n, -1, dtype=np.int64)
+    forbidden_colors = [-1] * n
+    treated = [-1] * n
 
     # first_neighbor[c] = (p, q, edge_pq): for vertex p, q is the first colored
     # neighbor seen with color c, via edge index edge_pq.
     first_neighbor: list[tuple[int, int, int]] = [(-1, -1, -1)] * n
 
-    star = np.full(num_edges, -1, dtype=np.int32)
+    star = [-1] * num_edges
     hub_list: list[int] = []
 
     num_colors = 0
 
-    for v_raw in order:
-        v = int(v_raw)
-        for pos_vw in range(int(indptr[v]), int(indptr[v + 1])):
-            w = int(neighbors[pos_vw])
-            edge_vw = int(edge_to_index[pos_vw])
-            cw = int(colors[w])
+    for v in order:
+        for pos_vw in range(indptr[v], indptr[v + 1]):
+            w = neighbors[pos_vw]
+            edge_vw = edge_to_index[pos_vw]
+            cw = colors[w]
             if cw < 0:
                 continue
             forbidden_colors[cw] = v  # distance-1 constraint
@@ -143,13 +149,13 @@ def color_symmetric(
                 # containing edge (w, x) — that certifies a 2-colored path
                 # v-w-x-y exists with color[y] == cw.
                 first_neighbor[cw] = (v, w, edge_vw)
-                for pos_wx in range(int(indptr[w]), int(indptr[w + 1])):
-                    x = int(neighbors[pos_wx])
-                    edge_wx = int(edge_to_index[pos_wx])
-                    cx = int(colors[x])
+                for pos_wx in range(indptr[w], indptr[w + 1]):
+                    x = neighbors[pos_wx]
+                    edge_wx = edge_to_index[pos_wx]
+                    cx = colors[x]
                     if x == v or cx < 0:
                         continue
-                    s_wx = int(star[edge_wx])
+                    s_wx = star[edge_wx]
                     if s_wx >= 0 and hub_list[s_wx] == x:
                         forbidden_colors[cx] = v
 
@@ -158,7 +164,7 @@ def color_symmetric(
             while color < n and forbidden_colors[color] == v:
                 color += 1
         else:
-            color = int(forced[v])
+            color = forced[v]
             if color < n and forbidden_colors[color] == v:
                 msg = (
                     f"forced_colors[{v}] = {color} violates a star-coloring "
@@ -167,18 +173,21 @@ def color_symmetric(
                 raise InvalidColoringError(msg)
 
         colors[v] = color
-        num_colors = max(num_colors, color + 1)
+        if color + 1 > num_colors:
+            num_colors = color + 1
 
         _update_stars(
             star, hub_list, indptr, neighbors, edge_to_index, v, colors, first_neighbor
         )
 
+    colors = np.asarray(colors, dtype=np.int32)
+    star = np.asarray(star, dtype=np.int32)
     hub = (
         np.asarray(hub_list, dtype=np.int32)
         if hub_list
         else np.array([], dtype=np.int32)
     )
-    edge_index = _build_edge_index_dict(indptr, neighbors, edge_to_index)
+    edge_index = _build_edge_index_dict(indptr_arr, neighbors_arr, edge_to_index_arr)
     star_set = StarSet(star=star, hub=hub, edge_index=edge_index)
 
     if postprocess:
@@ -213,34 +222,34 @@ def _build_edge_index_dict(
 
 
 def _treat(
-    treated: NDArray[np.int64],
-    forbidden_colors: NDArray[np.int64],
-    indptr: NDArray[np.int32],
-    neighbors: NDArray[np.int32],
+    treated: list[int],
+    forbidden_colors: list[int],
+    indptr: list[int],
+    neighbors: list[int],
     v: int,
     w: int,
-    colors: NDArray[np.int32],
+    colors: list[int],
 ) -> None:
     """Mark all colored neighbors of ``w`` as forbidden for ``v``.
 
     Matches SMC's ``_treat!``.
     """
-    for pos in range(int(indptr[w]), int(indptr[w + 1])):
-        x = int(neighbors[pos])
-        cx = int(colors[x])
+    for pos in range(indptr[w], indptr[w + 1]):
+        x = neighbors[pos]
+        cx = colors[x]
         if cx >= 0:
             forbidden_colors[cx] = v
     treated[w] = v
 
 
 def _update_stars(
-    star: NDArray[np.int32],
+    star: list[int],
     hub_list: list[int],
-    indptr: NDArray[np.int32],
-    neighbors: NDArray[np.int32],
-    edge_to_index: NDArray[np.int32],
+    indptr: list[int],
+    neighbors: list[int],
+    edge_to_index: list[int],
     v: int,
-    colors: NDArray[np.int32],
+    colors: list[int],
     first_neighbor: list[tuple[int, int, int]],
 ) -> None:
     """Update star/hub structures after vertex ``v`` has been colored.
@@ -252,19 +261,19 @@ def _update_stars(
     - A prior star through ``v`` absorbs edge ``(v, w)`` (promoting ``v`` to hub), or
     - A new trivial star is created for edge ``(v, w)``.
     """
-    cv = int(colors[v])
-    for pos_vw in range(int(indptr[v]), int(indptr[v + 1])):
-        w = int(neighbors[pos_vw])
-        edge_vw = int(edge_to_index[pos_vw])
-        cw = int(colors[w])
+    cv = colors[v]
+    for pos_vw in range(indptr[v], indptr[v + 1]):
+        w = neighbors[pos_vw]
+        edge_vw = edge_to_index[pos_vw]
+        cw = colors[w]
         if cw < 0:
             continue
         x_exists = False
-        for pos_wx in range(int(indptr[w]), int(indptr[w + 1])):
-            x = int(neighbors[pos_wx])
-            edge_wx = int(edge_to_index[pos_wx])
-            if x != v and int(colors[x]) == cv:
-                s = int(star[edge_wx])
+        for pos_wx in range(indptr[w], indptr[w + 1]):
+            x = neighbors[pos_wx]
+            edge_wx = edge_to_index[pos_wx]
+            if x != v and colors[x] == cv:
+                s = star[edge_wx]
                 hub_list[s] = w
                 star[edge_vw] = s
                 x_exists = True
@@ -273,7 +282,7 @@ def _update_stars(
             continue
         p, q, edge_pq = first_neighbor[cw]
         if p == v and q != w:
-            s = int(star[edge_pq])
+            s = star[edge_pq]
             hub_list[s] = v
             star[edge_vw] = s
         else:
