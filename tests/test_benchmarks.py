@@ -85,6 +85,7 @@ def test_heat_detection(benchmark):
 def test_heat_coloring(benchmark):
     """Heat equation: graph coloring."""
     sparsity = jacobian_sparsity(heat_equation_rhs, N)
+    color_rows(sparsity)  # warmup: trigger numba JIT compile
     benchmark(color_rows, sparsity)
 
 
@@ -139,6 +140,7 @@ def test_convnet_detection(benchmark):
 def test_convnet_coloring(benchmark):
     """ConvNet: graph coloring."""
     sparsity = jacobian_sparsity(convnet, N)
+    color_rows(sparsity)  # warmup: trigger numba JIT compile
     benchmark(color_rows, sparsity)
 
 
@@ -193,6 +195,7 @@ def test_rosenbrock_detection(benchmark):
 def test_rosenbrock_coloring(benchmark):
     """Rosenbrock: graph coloring."""
     sparsity = hessian_sparsity(rosenbrock, N)
+    color_rows(sparsity)  # warmup: trigger numba JIT compile
     benchmark(color_rows, sparsity)
 
 
