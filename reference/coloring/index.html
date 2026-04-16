@@ -1398,7 +1398,7 @@
 <h2 id="sparsity-detection-and-coloring">Sparsity Detection and Coloring<a class="headerlink" href="#sparsity-detection-and-coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Jacobian sparsity and color in one step.</p>
@@ -1486,6 +1486,25 @@ Requires a square Jacobian.</p>
 <code>False</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of VJPs/JVPs during decompression).
+Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -1523,7 +1542,7 @@ Requires a square Jacobian.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Hessian sparsity and color in one step.</p>
@@ -1611,6 +1630,25 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 <code>True</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of HVPs during decompression).
+Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -1648,7 +1686,7 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 </div><h2 id="coloring-known-sparsity-patterns">Coloring Known Sparsity Patterns<a class="headerlink" href="#coloring-known-sparsity-patterns" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring_from_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Color a sparsity pattern for sparse Jacobian computation.</p>
@@ -1733,6 +1771,25 @@ Requires a square pattern.</p>
 <code>False</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of VJPs/JVPs during decompression).
+Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -1770,7 +1827,7 @@ Requires a square pattern.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_coloring_from_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Color a sparsity pattern for sparse Hessian computation.</p>
@@ -1851,6 +1908,27 @@ Defaults to True (exploits Hessian symmetry for fewer colors).</p>
 </td>
 <td>
 <code>True</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of HVPs during decompression).
+Pruned vertices get the neutral color <code>-1</code> in the output
+(no HVP is computed for them).
+Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+</div>
+</td>
+<td>
+<code>False</code>
 </td>
 </tr>
 </tbody>
@@ -2036,16 +2114,16 @@ Jacobian sparsity pattern</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.color_symmetric">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_symmetric</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_symmetric</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">forced_colors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.color_symmetric" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Greedy symmetric coloring for sparse Hessian computation.</p>
-<p>Uses star coloring (Gebremedhin et al., 2005):
-a distance-1 coloring with the additional constraint
+<p>Implements Algorithm 4.1 from Gebremedhin et al. (2007).
+A star coloring is a distance-1 coloring with the additional constraint
 that every path on 4 vertices uses at least 3 colors.
-This enables symmetric decompression using fewer colors than row coloring.</p>
-<p>Requires a square sparsity pattern (Hessians are always square).
-Uses LargestFirst vertex ordering.</p>
+Returns a :class:<code>StarSet</code> alongside the colors so that
+Hessian decompression can use hub-based extraction.</p>
+<p>Uses LargestFirst vertex ordering.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
 <thead>
@@ -2071,12 +2149,50 @@ Uses LargestFirst vertex ordering.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>SparsityPattern of shape (n, n) representing the
-symmetric Hessian sparsity pattern</p>
+<p>SparsityPattern of shape <code>(n, n)</code> representing the
+symmetric Hessian sparsity pattern.</p>
 </div>
 </td>
 <td>
 <em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>If <code>True</code>, replace colors that are never used as a hub color
+(and not forced by a diagonal entry) with <code>-1</code> (neutral),
+then compact remaining colors down. This reduces the number of HVPs
+needed during decompression. Defaults to <code>False</code>,
+matching SparseMatrixColorings.jl's <code>postprocessing=false</code> default.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>forced_colors</code>
+</td>
+<td>
+<code><span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>] | <span title="list">list</span>[<span title="int">int</span>] | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Optional pre-computed color assignment of shape <code>(n,)</code>.
+When provided, the algorithm verifies it satisfies the star-coloring
+constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
+</div>
+</td>
+<td>
+<code>None</code>
 </td>
 </tr>
 </tbody>
@@ -2092,14 +2208,18 @@ symmetric Hessian sparsity pattern</p>
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>]</code>
+<code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>, <span title="asdex.coloring._types.StarSet">StarSet</span>]</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Tuple of (colors, num_colors) where:</p>
+<p>Tuple <code>(colors, num_colors, star_set)</code> where:</p>
 <ul>
-<li>colors: Array of shape (n,) with color assignment for each row/column</li>
-<li>num_colors: Total number of colors used</li>
+<li>colors: Array of shape <code>(n,)</code> with color assignment for each vertex.
+  Values are in <code>[0, num_colors - 1]</code> for active vertices.
+  After postprocessing, vertices whose color is pruned have value <code>-1</code>
+  (neutral — no HVP needed for them).</li>
+<li>num_colors: Number of active colors (i.e. number of HVPs).</li>
+<li>star_set: :class:<code>StarSet</code> encoding the 2-colored star decomposition.</li>
 </ul>
 </div>
 </td>
@@ -2121,7 +2241,17 @@ symmetric Hessian sparsity pattern</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>If pattern is not square</p>
+<p>If pattern is not square.</p>
+</div>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code><span title="asdex.coloring._types.InvalidColoringError">InvalidColoringError</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>If <code>forced_colors</code> violates a star-coloring constraint.</p>
 </div>
 </td>
 </tr>

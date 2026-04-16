@@ -1725,7 +1725,9 @@
 <div class="doc-md-description">
 <p>Color assignment array.
 Shape <code>(m,)</code> for <code>"rev"</code> mode,
-<code>(n,)</code> for all other modes.</p>
+<code>(n,)</code> for all other modes.
+A value of <code>-1</code> means "neutral": the vertex is not seeded
+(used after star-coloring postprocessing).</p>
 </div>
 </td>
 </tr>
@@ -1736,7 +1738,7 @@ Shape <code>(m,)</code> for <code>"rev"</code> mode,
 </td>
 <td>
 <div class="doc-md-description">
-<p>Total number of colors used.</p>
+<p>Total number of active colors (number of JVPs/VJPs/HVPs).</p>
 </div>
 </td>
 </tr>
@@ -1765,6 +1767,20 @@ Resolved, never <code>"auto"</code>.
 <code>"fwd_over_rev"</code> uses forward-over-reverse HVPs,
 <code>"rev_over_fwd"</code> uses reverse-over-forward HVPs,
 <code>"rev_over_rev"</code> uses reverse-over-reverse HVPs.</p>
+</div>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td><code><span title="asdex.ColoredPattern.star_set">star_set</span></code></td>
+<td>
+<code><span title="asdex.coloring.StarSet">StarSet</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Star-coloring structure (hub/spoke assignment per edge).
+Present only for symmetric colorings produced by
+<a class="autorefs autorefs-internal" title="asdex.color_symmetric(sparsity, *, postprocess=False, forced_colors=None)" href="../#asdex.color_symmetric"><code>color_symmetric</code></a>;
+<code>None</code> otherwise.</p>
 </div>
 </td>
 </tr>

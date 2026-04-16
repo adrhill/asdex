@@ -1508,7 +1508,7 @@
 </code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing sparse Jacobians.</p>
-<p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
+<p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False, postprocess=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
 and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
 in one call.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1871,7 +1871,7 @@ Input and output may be multi-dimensional.</p>
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a>
-from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>.</p>
+from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False, postprocess=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>.</p>
 </div>
 </td>
 <td>
@@ -1994,7 +1994,7 @@ Input and output may be multi-dimensional.</p>
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a>
-from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>.</p>
+from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, input_shape, *, mode=None, symmetric=False, postprocess=False)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>.</p>
 </div>
 </td>
 <td>
@@ -2052,7 +2052,7 @@ or a dense <code>jax.Array</code>.</p>
 </div><h2 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Jacobian sparsity and color in one step.</p>
@@ -2140,6 +2140,25 @@ Requires a square Jacobian.</p>
 <code>False</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of VJPs/JVPs during decompression).
+Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2177,7 +2196,7 @@ Requires a square Jacobian.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring_from_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Color a sparsity pattern for sparse Jacobian computation.</p>
@@ -2256,6 +2275,25 @@ or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
 <div class="doc-md-description">
 <p>Whether to use symmetric (star) coloring.
 Requires a square pattern.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of VJPs/JVPs during decompression).
+Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </div>
 </td>
 <td>

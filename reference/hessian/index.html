@@ -1508,7 +1508,7 @@
 </code></pre></div> </div>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing sparse Hessians.</p>
-<p>Combines <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, input_shape, *, mode=None, symmetric=True)" href="#asdex.hessian_coloring"><code>hessian_coloring</code></a>
+<p>Combines <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, input_shape, *, mode=None, symmetric=True, postprocess=False)" href="#asdex.hessian_coloring"><code>hessian_coloring</code></a>
 and <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo')" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>
 in one call.</p>
 <p>If <code>f</code> returns a squeezable shape like <code>(1,)</code> or <code>(1, 1)</code>,
@@ -1878,7 +1878,7 @@ Input may be multi-dimensional.</p>
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a>
-from <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, input_shape, *, mode=None, symmetric=True)" href="#asdex.hessian_coloring"><code>hessian_coloring</code></a>.</p>
+from <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, input_shape, *, mode=None, symmetric=True, postprocess=False)" href="#asdex.hessian_coloring"><code>hessian_coloring</code></a>.</p>
 </div>
 </td>
 <td>
@@ -2003,7 +2003,7 @@ Input may be multi-dimensional.</p>
   
       dataclass
   " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a>
-from <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, input_shape, *, mode=None, symmetric=True)" href="#asdex.hessian_coloring"><code>hessian_coloring</code></a>.</p>
+from <a class="autorefs autorefs-internal" title="asdex.hessian_coloring(f, input_shape, *, mode=None, symmetric=True, postprocess=False)" href="#asdex.hessian_coloring"><code>hessian_coloring</code></a>.</p>
 </div>
 </td>
 <td>
@@ -2061,7 +2061,7 @@ or a dense <code>jax.Array</code>.</p>
 </div><h2 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Hessian sparsity and color in one step.</p>
@@ -2149,6 +2149,25 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 <code>True</code>
 </td>
 </tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of HVPs during decompression).
+Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2186,7 +2205,7 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_coloring_from_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Color a sparsity pattern for sparse Hessian computation.</p>
@@ -2267,6 +2286,27 @@ Defaults to True (exploits Hessian symmetry for fewer colors).</p>
 </td>
 <td>
 <code>True</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>postprocess</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of HVPs during decompression).
+Pruned vertices get the neutral color <code>-1</code> in the output
+(no HVP is computed for them).
+Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+</div>
+</td>
+<td>
+<code>False</code>
 </td>
 </tr>
 </tbody>
