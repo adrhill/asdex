@@ -18,7 +18,6 @@ from numpy.testing import assert_allclose
 from asdex import (
     ColoredPattern,
     DenseColoringWarning,
-    InvalidColoringError,
     SparsityPattern,
     check_coloring_cols,
     check_coloring_rows,
@@ -36,30 +35,6 @@ from asdex.coloring import (
     color_rows,
     color_symmetric,
 )
-
-
-def _is_valid_row_coloring(sparsity, colors) -> bool:
-    try:
-        check_coloring_rows(sparsity, colors)
-    except InvalidColoringError:
-        return False
-    return True
-
-
-def _is_valid_col_coloring(sparsity, colors) -> bool:
-    try:
-        check_coloring_cols(sparsity, colors)
-    except InvalidColoringError:
-        return False
-    return True
-
-
-def _is_valid_star_coloring(sparsity, colors) -> bool:
-    try:
-        check_coloring_symmetric(sparsity, colors)
-    except InvalidColoringError:
-        return False
-    return True
 
 
 def _make_banded(n: int, half_bandwidth: int) -> SparsityPattern:
@@ -117,7 +92,7 @@ def test_diagonal_one_color():
     assert num_colors == 1
     assert len(colors) == 4
     assert np.all(colors == 0)
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -135,7 +110,7 @@ def test_dense_m_colors():
     assert num_colors == 4
     assert len(colors) == 4
     assert len(set(colors)) == 4  # All different colors
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -149,7 +124,7 @@ def test_block_diagonal():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
     # Rows 0,1 conflict; rows 2,3 conflict; but 0,2 and 1,3 don't
     assert colors[0] != colors[1]
     assert colors[2] != colors[3]
@@ -167,7 +142,7 @@ def test_tridiagonal():
 
     # Tridiagonal needs at most 3 colors (greedy may use 2-3)
     assert 2 <= num_colors <= 3
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -191,7 +166,7 @@ def test_single_column():
 
     assert num_colors == 3
     assert len(set(colors)) == 3
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -231,7 +206,7 @@ def test_lower_triangular():
 
     colors, num_colors = color_rows(sparsity)
 
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
     # Lower triangular needs 4 colors (row 3 conflicts with all)
     assert num_colors == 4
 
@@ -251,7 +226,7 @@ def test_checkerboard():
 
     colors, num_colors = color_rows(sparsity)
 
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
     # Even rows share cols 0,2; odd rows share cols 1,3
     # So we need 2 colors
     assert num_colors == 2
@@ -273,7 +248,7 @@ def test_largest_first_improves_coloring():
 
     colors, num_colors = color_rows(sparsity)
 
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
     assert num_colors == 3
 
 
@@ -297,7 +272,7 @@ def test_row_anti_diagonal():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 1
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -319,7 +294,7 @@ def test_row_triangle():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 3
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -341,7 +316,7 @@ def test_row_smc_small():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -366,7 +341,7 @@ def test_row_bidiagonal():
     colors, num_colors = color_rows(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_row_coloring(sparsity, colors)
+    check_coloring_rows(sparsity, colors)
 
 
 # Column coloring tests
@@ -382,7 +357,7 @@ def test_col_diagonal_one_color():
     assert num_colors == 1
     assert len(colors) == 4
     assert np.all(colors == 0)
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -399,7 +374,7 @@ def test_col_dense_n_colors():
 
     assert num_colors == 4
     assert len(set(colors)) == 4
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -411,7 +386,7 @@ def test_col_single_row():
 
     assert num_colors == 3
     assert len(set(colors)) == 3
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -436,7 +411,7 @@ def test_col_block_diagonal():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -460,7 +435,7 @@ def test_col_tridiagonal():
     colors, num_colors = color_cols(sparsity)
 
     assert 2 <= num_colors <= 3
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -483,7 +458,7 @@ def test_col_anti_diagonal():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 1
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -505,7 +480,7 @@ def test_col_triangle():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 3
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -527,7 +502,7 @@ def test_col_smc_small():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -552,7 +527,7 @@ def test_col_bidiagonal():
     colors, num_colors = color_cols(sparsity)
 
     assert num_colors == 2
-    assert _is_valid_col_coloring(sparsity, colors)
+    check_coloring_cols(sparsity, colors)
 
 
 # Star coloring tests
@@ -566,7 +541,7 @@ def test_star_diagonal():
     colors, num_colors, _ = color_symmetric(sparsity)
 
     assert num_colors == 1
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -581,7 +556,7 @@ def test_star_dense():
 
     colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     # Dense 4x4 needs at least 4 colors for distance-1
     assert num_colors >= 4
 
@@ -598,7 +573,7 @@ def test_star_tridiagonal():
 
     colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors == 3
 
 
@@ -615,8 +590,8 @@ def test_star_arrow_matrix():
     star_colors, star_num, _ = color_symmetric(sparsity)
     row_colors, row_num = color_rows(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, star_colors)
-    assert _is_valid_row_coloring(sparsity, row_colors)
+    check_coloring_symmetric(sparsity, star_colors)
+    check_coloring_rows(sparsity, row_colors)
     assert star_num == 2
     assert row_num == 10
 
@@ -643,7 +618,7 @@ def test_star_what_fig_41():
 
     colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors <= 4
 
 
@@ -673,7 +648,7 @@ def test_star_what_fig_61():
 
     colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors <= 4
 
 
@@ -694,7 +669,7 @@ def test_star_banded(half_bw: int, expected_star: int):
 
     colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors == expected_star
 
 
@@ -708,7 +683,7 @@ def test_star_pentadiagonal_8x8():
 
     colors, num_colors, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
     assert num_colors == 5
 
 
@@ -749,7 +724,7 @@ def test_star_case_b_internal_vertex():
 
     colors, _, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors)
+    check_coloring_symmetric(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -760,12 +735,8 @@ def test_star_random_graphs(_run: int):
     The original buggy implementation passed every hand-written test case but
     failed on ~45% of random graphs in this regime because it only checked
     one of the two 2-colored-P4 cases.
-
-    Uses fresh entropy per run; the seed is reported on failure so any
-    counterexample can be reproduced with ``np.random.default_rng(seed)``.
     """
-    seed_seq = np.random.SeedSequence()
-    rng = np.random.default_rng(seed_seq)
+    rng = np.random.default_rng()
     n = int(rng.integers(8, 18))
     p = float(rng.uniform(0.2, 0.6))
     edges: list[tuple[int, int]] = [
@@ -777,9 +748,7 @@ def test_star_random_graphs(_run: int):
 
     colors, _, _ = color_symmetric(sparsity)
 
-    assert _is_valid_star_coloring(sparsity, colors), (
-        f"invalid star coloring; reproduce with seed={seed_seq.entropy}"
-    )
+    check_coloring_symmetric(sparsity, colors)
 
 
 @pytest.mark.coloring
@@ -867,7 +836,7 @@ def test_color_force_rev():
 
     assert result.mode == "rev"
     assert len(result.colors) == 4  # m=4
-    assert _is_valid_row_coloring(sparsity, result.colors)
+    check_coloring_rows(sparsity, result.colors)
 
 
 @pytest.mark.coloring
@@ -879,7 +848,7 @@ def test_color_force_fwd():
 
     assert result.mode == "fwd"
     assert len(result.colors) == 4  # n=4
-    assert _is_valid_col_coloring(sparsity, result.colors)
+    check_coloring_cols(sparsity, result.colors)
 
 
 # jacobian_coloring / hessian_coloring tests
@@ -1212,7 +1181,7 @@ def test_color_jacobian_symmetric():
     result = jacobian_coloring_from_sparsity(sparsity, symmetric=True)
 
     assert result.symmetric is True
-    assert _is_valid_star_coloring(sparsity, result.colors)
+    check_coloring_symmetric(sparsity, result.colors)
 
 
 @pytest.mark.coloring

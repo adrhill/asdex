@@ -89,7 +89,7 @@ class StarSet:
         return h if h >= 0 else -h - 1
 
 
-# Public API: high-level convenience functions
+# High-level convenience functions
 
 
 def jacobian_coloring(
@@ -169,7 +169,7 @@ def _coerce_sparsity(
     raise TypeError(msg)
 
 
-# Public API: pattern coloring
+# Pattern coloring
 
 
 def jacobian_coloring_from_sparsity(
@@ -325,7 +325,7 @@ def hessian_coloring_from_sparsity(
     return result
 
 
-# Public API: low-level coloring algorithms
+# Low-level coloring algorithms
 
 
 def color_rows(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
@@ -394,7 +394,7 @@ def color_symmetric(
 ) -> tuple[NDArray[np.int32], int, StarSet]:
     """Greedy symmetric coloring for sparse Hessian computation.
 
-    Implements SMC's ``star_coloring`` (Gebremedhin et al., 2007, Algorithm 4.1).
+    Implements Algorithm 4.1 from Gebremedhin et al. (2007).
     A star coloring is a distance-1 coloring with the additional constraint
     that every path on 4 vertices uses at least 3 colors.
     Returns a :class:`StarSet` alongside the colors so that
@@ -405,10 +405,10 @@ def color_symmetric(
     Args:
         sparsity: SparsityPattern of shape ``(n, n)`` representing the
             symmetric Hessian sparsity pattern.
-        postprocess: If True, replace colors that are never used as a hub color
+        postprocess: If ``True``, replace colors that are never used as a hub color
             (and not forced by a diagonal entry) with ``-1`` (neutral),
             then compact remaining colors down. This reduces the number of HVPs
-            needed during decompression. Defaults to True.
+            needed during decompression. Defaults to ``True``.
         forced_colors: Optional pre-computed color assignment of shape ``(n,)``.
             When provided, the algorithm verifies it satisfies the star-coloring
             constraints and raises :class:`InvalidColoringError` otherwise.
@@ -465,7 +465,8 @@ def color_symmetric(
 
     colors = np.full(n, -1, dtype=np.int32)
 
-    # SMC stamp trick: forbidden_colors[c] == v means color c is forbidden for v.
+    # SMC stamp trick (https://github.com/JuliaDiff/SparseMatrixColorings.jl/blob/5d1ae0abe0a56d331909d89ceae1c9b83522c005/src/coloring.jl#L119):
+    # forbidden_colors[c] == v means color c is forbidden for v.
     # treated[w] == v means w was treated (neighbors' colors forbidden) for v.
     # Initialized to -1 since vertex indices start at 0.
     forbidden_colors = np.full(n, -1, dtype=np.int64)
