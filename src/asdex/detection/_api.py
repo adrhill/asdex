@@ -30,6 +30,7 @@ def jacobian_sparsity(
     *,
     input_shapes: Any = None,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = False,
 ) -> SparsityPattern:
     """Detect global Jacobian sparsity pattern for ``f``.
 
@@ -53,6 +54,9 @@ def jacobian_sparsity(
             mirroring ``jax.grad(fun, argnums=...)``.
             Defaults to ``None`` (all positional args).
             Only supported for multi-positional ``input_shapes``.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+            When True, only ``output`` is analyzed for sparsity;
+            the auxiliary branch of the computation is not traced.
 
     Returns:
         SparsityPattern of shape ``(m, n_selected)``
@@ -68,9 +72,10 @@ def jacobian_sparsity(
         n = shape if isinstance(shape, int) else math.prod(shape)
         shape_tuple = (shape,) if isinstance(shape, int) else tuple(shape)
 
+        f_out = _strip_aux_single(f) if has_aux else f
         dummy_input = jnp.zeros(shape_tuple)
-        closed_jaxpr = jax.make_jaxpr(f)(dummy_input)
-        m = int(jax.eval_shape(f, dummy_input).size)
+        closed_jaxpr = jax.make_jaxpr(f_out)(dummy_input)
+        m = int(jax.eval_shape(f_out, dummy_input).size)
 
         input_indices = [identity_index_sets(n)]
         out_indices = _run_prop(closed_jaxpr, input_indices)
@@ -91,12 +96,13 @@ def jacobian_sparsity(
     n_selected = sum(s for s, sel in zip(leaf_sizes, selected_mask, strict=True) if sel)
 
     dummy_pytree = _dummy_from_shapes(input_shapes, leaf_shapes)
+    f_out = _strip_aux_multi(f, multi_positional) if has_aux else f
     if multi_positional:
-        closed_jaxpr = jax.make_jaxpr(f)(*dummy_pytree)
-        out_aval = jax.eval_shape(f, *dummy_pytree)
+        closed_jaxpr = jax.make_jaxpr(f_out)(*dummy_pytree)
+        out_aval = jax.eval_shape(f_out, *dummy_pytree)
     else:
-        closed_jaxpr = jax.make_jaxpr(f)(dummy_pytree)
-        out_aval = jax.eval_shape(f, dummy_pytree)
+        closed_jaxpr = jax.make_jaxpr(f_out)(dummy_pytree)
+        out_aval = jax.eval_shape(f_out, dummy_pytree)
     m = sum(int(leaf.size) for leaf in jax.tree_util.tree_leaves(out_aval))
 
     out_indices = _run_prop(closed_jaxpr, input_indices)
@@ -126,6 +132,7 @@ def hessian_sparsity(
     *,
     input_shapes: Any = None,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = False,
 ) -> SparsityPattern:
     """Detect global Hessian sparsity pattern for a scalar-valued ``f``.
 
@@ -145,6 +152,8 @@ def hessian_sparsity(
         argnums: Which positional arguments to differentiate with respect to,
             mirroring ``jax.grad(fun, argnums=...)``.
             Only supported for multi-positional ``input_shapes``.
+        has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``.
+            When True, aux is stripped before detection.
 
     Returns:
         Square SparsityPattern over the combined, selected input space.
@@ -153,8 +162,9 @@ def hessian_sparsity(
 
     if input_shapes is None:
         assert input_shape is not None
-        f = _ensure_scalar(f, input_shape)
-        return jacobian_sparsity(jax.grad(f), input_shape)
+        f_out = _strip_aux_single(f) if has_aux else f
+        f_out = _ensure_scalar(f_out, input_shape)
+        return jacobian_sparsity(jax.grad(f_out), input_shape)
 
     # Multi-input Hessian: grad w.r.t. selected argnums, then Jacobian of that.
     multi_positional = is_multi_positional(input_shapes)
@@ -175,7 +185,8 @@ def hessian_sparsity(
     else:
         grad_argnums = 0  # single pytree argument
 
-    f_scalar = _ensure_scalar_multi(f, input_shapes, multi_positional)
+    f_out = _strip_aux_multi(f, multi_positional) if has_aux else f
+    f_scalar = _ensure_scalar_multi(f_out, input_shapes, multi_positional)
     grad_fn = jax.grad(f_scalar, argnums=grad_argnums)
 
     # The gradient returns a pytree matching the selected inputs.
@@ -189,6 +200,18 @@ def hessian_sparsity(
 
 
 # Internal helpers
+
+
+def _strip_aux_single(f: Callable) -> Callable:
+    """Return a function that drops the aux output of a ``has_aux=True`` function."""
+    return lambda x: f(x)[0]
+
+
+def _strip_aux_multi(f: Callable, multi_positional: bool) -> Callable:
+    """Return a function that drops aux output of a multi-input ``has_aux=True`` function."""
+    if multi_positional:
+        return lambda *xs: f(*xs)[0]
+    return lambda pt: f(pt)[0]
 
 
 def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
