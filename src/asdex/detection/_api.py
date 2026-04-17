@@ -81,9 +81,8 @@ def jacobian_sparsity(
     # Multi-input path.
     multi_positional = is_multi_positional(input_shapes)
     leaf_shapes, _, leaf_sizes = flatten_shapes(input_shapes)
-    num_leaves = len(leaf_shapes)
     selected_mask = compute_argnums_mask(
-        argnums, num_leaves, multi_positional=multi_positional
+        argnums, input_shapes, multi_positional=multi_positional
     )
     if not any(selected_mask):
         raise ValueError("`argnums` selects no inputs; nothing to differentiate.")
@@ -159,19 +158,19 @@ def hessian_sparsity(
 
     # Multi-input Hessian: grad w.r.t. selected argnums, then Jacobian of that.
     multi_positional = is_multi_positional(input_shapes)
-    leaf_shapes, _, _ = flatten_shapes(input_shapes)
-    selected_mask = compute_argnums_mask(
-        argnums, len(leaf_shapes), multi_positional=multi_positional
-    )
+    _ = compute_argnums_mask(argnums, input_shapes, multi_positional=multi_positional)
 
     # Resolve argnums for jax.grad: it accepts a tuple of ints (multi-positional)
     # or a single int, same as this API.
     if multi_positional:
-        selected_positions = tuple(i for i, sel in enumerate(selected_mask) if sel)
+        if argnums is None:
+            positions = tuple(range(len(input_shapes)))
+        elif isinstance(argnums, int):
+            positions = (argnums,)
+        else:
+            positions = tuple(argnums)
         grad_argnums: int | tuple[int, ...] = (
-            selected_positions[0]
-            if len(selected_positions) == 1
-            else selected_positions
+            positions[0] if len(positions) == 1 else positions
         )
     else:
         grad_argnums = 0  # single pytree argument

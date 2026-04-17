@@ -456,3 +456,114 @@ def test_hessian_argnums_int_returns_single_block():
     assert not isinstance(H, tuple)
     H_jax = jax.hessian(f, argnums=1)(x, y, z)
     np.testing.assert_allclose(H, H_jax)
+
+
+# Multiple pytree arguments
+
+
+@pytest.mark.jacobian
+def test_jacobian_two_dict_args_preserves_per_arg_pytree():
+    """Top-level tuple of dicts yields a tuple of dicts of Jacobian blocks."""
+
+    def f(p, q):
+        return p["a"] * q["b"][:3] + q["c"]
+
+    shapes = ({"a": (3,)}, {"b": (4,), "c": (3,)})
+    p = {"a": jnp.array([1.0, 2.0, 3.0])}
+    q = {"b": jnp.array([4.0, 5.0, 6.0, 7.0]), "c": jnp.array([8.0, 9.0, 10.0])}
+
+    J = asdex.jacobian(f, input_shapes=shapes, output_format="dense")(p, q)
+
+    assert isinstance(J, tuple)
+    assert len(J) == 2
+    assert set(J[0].keys()) == {"a"}
+    assert set(J[1].keys()) == {"b", "c"}
+    assert J[0]["a"].shape == (3, 3)
+    assert J[1]["b"].shape == (3, 4)
+    assert J[1]["c"].shape == (3, 3)
+
+    J_jax = jax.jacobian(f, argnums=(0, 1))(p, q)
+    np.testing.assert_allclose(J[0]["a"], J_jax[0]["a"])
+    np.testing.assert_allclose(J[1]["b"], J_jax[1]["b"])
+    np.testing.assert_allclose(J[1]["c"], J_jax[1]["c"])
+
+
+@pytest.mark.jacobian
+def test_jacobian_argnums_selects_whole_pytree_position():
+    """argnums=0 with pytree positions returns the full first-arg pytree."""
+
+    def f(p, q):
+        return p["a"] + q["b"][:2]
+
+    shapes = ({"a": (2,)}, {"b": (3,)})
+    p = {"a": jnp.array([1.0, 2.0])}
+    q = {"b": jnp.array([3.0, 4.0, 5.0])}
+
+    J0 = asdex.jacobian(f, input_shapes=shapes, argnums=0, output_format="dense")(p, q)
+
+    assert not isinstance(J0, tuple)
+    assert set(J0.keys()) == {"a"}
+    J_jax = jax.jacobian(f, argnums=0)(p, q)
+    np.testing.assert_allclose(J0["a"], J_jax["a"])
+
+
+@pytest.mark.jacobian
+def test_jacobian_argnums_out_of_bounds_refers_to_positions():
+    """Argnums indexes top-level positions, not leaves — position 2 is invalid here."""
+
+    def f(p, q):
+        return p["a"] + q["b"] + q["c"]
+
+    shapes = ({"a": (2,)}, {"b": (2,), "c": (2,)})
+    with pytest.raises(ValueError, match="out of bounds for 2 positional inputs"):
+        asdex.jacobian_sparsity(f, input_shapes=shapes, argnums=2)
+
+
+@pytest.mark.hessian
+def test_hessian_two_dict_args_matches_jax_block_for_block():
+    """Hessian over tuple of dicts indexes as H[i][key_i][j][key_j]."""
+
+    def f(p, q):
+        return jnp.sum(p["a"] ** 2) + jnp.dot(p["a"], q["b"]) + jnp.sum(q["c"] ** 3)
+
+    shapes = ({"a": (2,)}, {"b": (2,), "c": (3,)})
+    p = {"a": jnp.array([1.0, 2.0])}
+    q = {"b": jnp.array([3.0, 4.0]), "c": jnp.array([5.0, 6.0, 7.0])}
+
+    H = asdex.hessian(f, input_shapes=shapes, output_format="dense")(p, q)
+    H_jax = jax.hessian(f, argnums=(0, 1))(p, q)
+
+    assert isinstance(H, tuple)
+    assert len(H) == 2
+    for outer_key in ("a",):
+        for inner_pos_idx, inner_keys in ((0, ("a",)), (1, ("b", "c"))):
+            for inner_key in inner_keys:
+                np.testing.assert_allclose(
+                    H[0][outer_key][inner_pos_idx][inner_key],
+                    H_jax[0][outer_key][inner_pos_idx][inner_key],
+                )
+    for outer_key in ("b", "c"):
+        for inner_pos_idx, inner_keys in ((0, ("a",)), (1, ("b", "c"))):
+            for inner_key in inner_keys:
+                np.testing.assert_allclose(
+                    H[1][outer_key][inner_pos_idx][inner_key],
+                    H_jax[1][outer_key][inner_pos_idx][inner_key],
+                )
+
+
+@pytest.mark.hessian
+def test_hessian_argnums_int_with_pytree_position_returns_pytree_of_pytrees():
+    """argnums=int on a pytree position returns a single dict-of-dicts block."""
+
+    def f(p, q):
+        return jnp.sum(p["a"] ** 2) + jnp.dot(p["a"], q["b"])
+
+    shapes = ({"a": (2,)}, {"b": (2,)})
+    p = {"a": jnp.array([1.0, 2.0])}
+    q = {"b": jnp.array([3.0, 4.0])}
+
+    H = asdex.hessian(f, input_shapes=shapes, argnums=0, output_format="dense")(p, q)
+
+    assert not isinstance(H, tuple)
+    H_jax = jax.hessian(f, argnums=0)(p, q)
+    np.testing.assert_allclose(H["a"]["a"], H_jax["a"]["a"])

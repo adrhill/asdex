@@ -18,6 +18,7 @@ from asdex._pytree_shapes import (
     _is_shape_leaf,
     flatten_shapes,
     is_multi_positional,
+    top_level_subtreedefs,
 )
 from asdex.modes import ColoringMode, _assert_coloring_mode
 
@@ -101,6 +102,15 @@ class SparsityPattern:
         """Pytree structure of the input spec."""
         _, treedef, _ = self._input_leaves
         return treedef
+
+    @cached_property
+    def top_level_subs(self) -> list[tuple[Any, int]]:
+        """Per-top-level-position ``(sub_treedef, leaf_count)``.
+
+        For multi-positional specs, one entry per positional argument.
+        For single-pytree specs, one entry covering the whole spec.
+        """
+        return top_level_subtreedefs(self.input_shape)
 
     @property
     def resolved_selected_mask(self) -> tuple[bool, ...]:

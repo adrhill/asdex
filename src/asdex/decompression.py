@@ -1434,13 +1434,23 @@ def _linearize(
 
 
 def _grad_argnums_for_sparsity(sparsity: SparsityPattern) -> int | tuple[int, ...]:
-    """`argnums` to pass to ``jax.grad`` for Hessian HVPs."""
+    """`argnums` to pass to ``jax.grad`` for Hessian HVPs.
+
+    Returns indices of top-level positional arguments (not leaf indices),
+    matching ``jax.grad``'s positional-argument semantics.
+    """
     if not sparsity.is_multi_positional:
         return 0
-    selected = tuple(i for i, sel in enumerate(sparsity.resolved_selected_mask) if sel)
-    if len(selected) == 1:
-        return selected[0]
-    return selected
+    selected_mask = sparsity.resolved_selected_mask
+    selected_positions: list[int] = []
+    offset = 0
+    for pos_idx, (_, count) in enumerate(sparsity.top_level_subs):
+        if any(selected_mask[offset : offset + count]):
+            selected_positions.append(pos_idx)
+        offset += count
+    if len(selected_positions) == 1:
+        return selected_positions[0]
+    return tuple(selected_positions)
 
 
 def _build_tangents_from_seed(
@@ -1607,10 +1617,16 @@ def _pack_hessian_blocks(
     sparsity: SparsityPattern,
     output_format: OutputFormat,
 ) -> Any:
-    """Split a ``(n_sel, n_sel)`` dense matrix into a ``k x k`` block grid."""
+    """Split a ``(n_sel, n_sel)`` dense matrix into a nested block grid.
+
+    For each outer leaf, pack the inner axis into the full input-structured
+    pytree using the same rules as Jacobian packing, then pack those rows
+    again on the outer axis. The result mirrors what
+    ``jax.hessian(f, argnums=...)`` returns.
+    """
     selected = _selected_block_info(sparsity)
 
-    rows: list[list[jax.Array | BCOO]] = []
+    leaf_blocks: list[list[jax.Array | BCOO]] = []
     row_offset = 0
     for _, row_shape, row_size in selected:
         col_offset = 0
@@ -1625,29 +1641,30 @@ def _pack_hessian_blocks(
                 block = BCOO.fromdense(block)
             row_blocks.append(block)
             col_offset += col_size
-        rows.append(row_blocks)
+        leaf_blocks.append(row_blocks)
         row_offset += row_size
 
-    def pack_single(inner_leaves: list[Any]) -> Any:
-        # Outer pytree wraps each already-packed row.
-        return jax.tree_util.tree_unflatten(sparsity.input_treedef, inner_leaves)
+    inner_packed = [_pack_by_argnums(row, sparsity) for row in leaf_blocks]
+    return _pack_by_argnums(inner_packed, sparsity)
 
-    if sparsity.is_multi_positional:
-        argnums = sparsity.argnums
-        selected_mask = sparsity.resolved_selected_mask
-        if argnums is None:
-            all_selected = all(selected_mask)
-            if all_selected and sum(selected_mask) == 1:
-                return rows[0][0]
-        if isinstance(argnums, int):
-            assert len(rows) == 1
-            assert len(rows[0]) == 1
-            return rows[0][0]
-        return tuple(tuple(row) for row in rows)
 
-    # Single-pytree: build a pytree of pytrees (inner axis nested under outer).
-    inner_pytrees = [pack_single(row) for row in rows]
-    return jax.tree_util.tree_unflatten(sparsity.input_treedef, inner_pytrees)
+def _selected_top_level_positions(
+    sparsity: SparsityPattern,
+) -> list[tuple[Any, int]]:
+    """``(sub_treedef, leaf_count)`` for each *selected* top-level position.
+
+    ``compute_argnums_mask`` guarantees a top-level position's leaves are
+    either all selected or all deselected, so we can walk the mask in chunks
+    to filter ``sparsity.top_level_subs``.
+    """
+    selected_mask = sparsity.resolved_selected_mask
+    result = []
+    offset = 0
+    for sub_treedef, count in sparsity.top_level_subs:
+        if any(selected_mask[offset : offset + count]):
+            result.append((sub_treedef, count))
+        offset += count
+    return result
 
 
 def _pack_by_argnums(
@@ -1656,9 +1673,16 @@ def _pack_by_argnums(
 ) -> Any:
     """Pack Jacobian blocks according to ``argnums`` / pytree structure."""
     if sparsity.is_multi_positional:
+        positions = _selected_top_level_positions(sparsity)
+        grouped: list[Any] = []
+        offset = 0
+        for sub_treedef, count in positions:
+            group = list(blocks[offset : offset + count])
+            grouped.append(jax.tree_util.tree_unflatten(sub_treedef, group))
+            offset += count
         argnums = sparsity.argnums
         if isinstance(argnums, int):
-            assert len(blocks) == 1
-            return blocks[0]
-        return tuple(blocks)
+            assert len(grouped) == 1
+            return grouped[0]
+        return tuple(grouped)
     return jax.tree_util.tree_unflatten(sparsity.input_treedef, list(blocks))

@@ -83,9 +83,31 @@ def total_size(shapes_spec: ShapeSpec) -> int:
     return sum(sizes)
 
 
+def top_level_subtreedefs(
+    shapes_spec: ShapeSpec,
+) -> list[tuple[PyTreeDef, int]]:
+    """Per-top-level-position ``(sub_treedef, leaf_count)``.
+
+    For multi-positional specs, returns one entry per top-level tuple position,
+    each describing that position's own pytree structure and leaf count.
+    For single-pytree specs, returns a single entry covering the whole spec.
+    This makes it possible to interpret ``argnums`` as top-level positional
+    indices even when those positions are themselves pytrees.
+    """
+    if is_multi_positional(shapes_spec):
+        result = []
+        for pos in shapes_spec:
+            leaves, treedef = jax.tree_util.tree_flatten(pos, is_leaf=_is_shape_leaf)
+            result.append((treedef, len(leaves)))
+        return result
+    _, treedef = jax.tree_util.tree_flatten(shapes_spec, is_leaf=_is_shape_leaf)
+    _, _, sizes = flatten_shapes(shapes_spec)
+    return [(treedef, len(sizes))]
+
+
 def compute_argnums_mask(
     argnums: int | Sequence[int] | None,
-    num_leaves: int,
+    shapes_spec: ShapeSpec,
     *,
     multi_positional: bool,
 ) -> list[bool]:
@@ -93,12 +115,16 @@ def compute_argnums_mask(
 
     ``argnums=None`` selects everything.
     For multi-positional specs, ``argnums`` is an int or tuple of ints indexing
-    into the top-level tuple positions, matching ``jax.grad``'s convention.
+    into the *top-level* tuple positions (matching ``jax.grad``'s convention),
+    and every leaf belonging to a selected position is marked selected.
     For single-pytree specs, ``argnums`` is not supported in this release
     (non-trivial key-path resolution is deferred).
     """
+    subs = top_level_subtreedefs(shapes_spec)
+    total_leaves = sum(n for _, n in subs)
+
     if argnums is None:
-        return [True] * num_leaves
+        return [True] * total_leaves
 
     if not multi_positional:
         msg = (
@@ -108,6 +134,7 @@ def compute_argnums_mask(
         )
         raise NotImplementedError(msg)
 
+    num_positions = len(subs)
     indices = (argnums,) if isinstance(argnums, int) else tuple(argnums)
 
     for i in indices:
@@ -115,14 +142,15 @@ def compute_argnums_mask(
             raise TypeError(
                 f"argnums entries must be ints for multi-positional input_shapes, got {i!r}"
             )
-        if i < 0 or i >= num_leaves:
+        if i < 0 or i >= num_positions:
             raise ValueError(
-                f"argnums={argnums} out of bounds for {num_leaves} positional inputs"
+                f"argnums={argnums} out of bounds for {num_positions} positional inputs"
             )
 
-    mask = [False] * num_leaves
-    for i in indices:
-        mask[i] = True
+    mask: list[bool] = []
+    for pos_idx, (_, count) in enumerate(subs):
+        selected = pos_idx in indices
+        mask.extend([selected] * count)
     return mask
 
 
