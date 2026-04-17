@@ -40,6 +40,7 @@ def jacobian_coloring(
     *,
     input_shapes: Any = None,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = False,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     postprocess: bool = False,
@@ -55,6 +56,8 @@ def jacobian_coloring(
         argnums: Which positional arguments to differentiate with respect to,
             mirroring ``jax.grad``.
             Only supported with multi-positional ``input_shapes``.
+        has_aux: If ``True``, ``f`` is assumed to return ``(output, aux)``
+            where ``aux`` is auxiliary data ignored by sparsity detection.
         mode: AD mode.
             ``"fwd"`` uses JVPs (forward-mode AD),
             ``"rev"`` uses VJPs (reverse-mode AD),
@@ -71,7 +74,7 @@ def jacobian_coloring(
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
     """
     sparsity = _detect_jacobian_sparsity(
-        f, input_shape, input_shapes=input_shapes, argnums=argnums
+        f, input_shape, input_shapes=input_shapes, argnums=argnums, has_aux=has_aux
     )
     return jacobian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
@@ -84,6 +87,7 @@ def hessian_coloring(
     *,
     input_shapes: Any = None,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = False,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     postprocess: bool = False,
@@ -99,6 +103,8 @@ def hessian_coloring(
         argnums: Which positional arguments to differentiate with respect to,
             mirroring ``jax.grad``.
             Only supported with multi-positional ``input_shapes``.
+        has_aux: If ``True``, ``f`` is assumed to return ``(output, aux)``
+            where ``aux`` is auxiliary data ignored by sparsity detection.
         mode: AD composition strategy for Hessian-vector products.
             ``"fwd_over_rev"`` uses forward-over-reverse,
             ``"rev_over_fwd"`` uses reverse-over-forward,
@@ -115,7 +121,7 @@ def hessian_coloring(
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
     """
     sparsity = _detect_hessian_sparsity(
-        f, input_shape, input_shapes=input_shapes, argnums=argnums
+        f, input_shape, input_shapes=input_shapes, argnums=argnums, has_aux=has_aux
     )
     return hessian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess

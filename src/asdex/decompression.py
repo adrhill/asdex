@@ -5,12 +5,19 @@ from typing import Any, Literal, assert_never, overload
 
 import jax
 import jax.numpy as jnp
+import numpy as np
+from jax import dtypes
 from jax.experimental.sparse import BCOO
 from numpy.typing import ArrayLike
 
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
-from asdex.detection._api import _ensure_scalar, _ensure_scalar_multi
+from asdex.detection._api import (
+    _ensure_scalar,
+    _ensure_scalar_multi,
+    _strip_aux_multi,
+    _strip_aux_single,
+)
 from asdex.modes import (
     HessianMode,
     JacobianMode,
@@ -21,6 +28,118 @@ from asdex.modes import (
 )
 from asdex.pattern import ColoredPattern, SparsityPattern
 
+# Dtype validators mirroring jax._src.api._check_{input,output}_dtype_{jacrev,jacfwd}.
+# Reimplemented inline to avoid coupling to jax's private API.
+
+
+def _check_input_dtype_rev(holomorphic: bool, allow_int: bool, x: Any) -> None:
+    """Mirror ``jax._src.api._check_input_dtype_revderiv`` for reverse-mode inputs."""
+    aval = jax.typeof(x)
+    if holomorphic and not dtypes.issubdtype(aval.dtype, np.complexfloating):
+        raise TypeError(
+            "jacrev with holomorphic=True requires inputs with complex dtype, "
+            f"but got {aval.dtype.name}."
+        )
+    if (
+        dtypes.issubdtype(aval.dtype, dtypes.extended)
+        or dtypes.issubdtype(aval.dtype, np.integer)
+        or dtypes.issubdtype(aval.dtype, np.bool_)
+    ):
+        if not allow_int:
+            raise TypeError(
+                "jacrev requires real- or complex-valued inputs "
+                f"(input dtype that is a sub-dtype of np.inexact), but got {aval.dtype.name}. "
+                "If you want to use Boolean- or integer-valued inputs, use vjp "
+                "or set allow_int to True."
+            )
+    elif not dtypes.issubdtype(aval.dtype, np.inexact):
+        raise TypeError(
+            "jacrev requires numerical-valued inputs "
+            f"(input dtype that is a sub-dtype of np.bool_ or np.number), but got {aval.dtype.name}."
+        )
+
+
+def _check_output_dtype_rev(holomorphic: bool, y: Any) -> None:
+    """Mirror ``jax._src.api._check_output_dtype_revderiv`` for reverse-mode outputs."""
+    aval = jax.typeof(y)
+    if dtypes.issubdtype(aval.dtype, dtypes.extended):
+        raise TypeError(f"jacrev with output element type {aval.dtype.name}")
+    if holomorphic:
+        if not dtypes.issubdtype(aval.dtype, np.complexfloating):
+            raise TypeError(
+                "jacrev with holomorphic=True requires outputs with complex dtype, "
+                f"but got {aval.dtype.name}."
+            )
+    elif dtypes.issubdtype(aval.dtype, np.complexfloating):
+        raise TypeError(
+            "jacrev requires real-valued outputs "
+            f"(output dtype that is a sub-dtype of np.floating), but got {aval.dtype.name}. "
+            "For holomorphic differentiation, pass holomorphic=True. "
+            "For differentiation of non-holomorphic functions involving complex "
+            "outputs, use jax.vjp directly."
+        )
+    elif not dtypes.issubdtype(aval.dtype, np.floating):
+        raise TypeError(
+            "jacrev requires real-valued outputs "
+            f"(output dtype that is a sub-dtype of np.floating), but got {aval.dtype.name}. "
+            "For differentiation of functions with integer outputs, use jax.vjp directly."
+        )
+
+
+def _check_input_dtype_fwd(holomorphic: bool, x: Any) -> None:
+    """Mirror ``jax._src.api._check_input_dtype_jacfwd`` for forward-mode inputs."""
+    aval = jax.typeof(x)
+    if dtypes.issubdtype(aval.dtype, dtypes.extended):
+        raise TypeError(f"jacfwd with input element type {aval.dtype.name}")
+    if holomorphic:
+        if not dtypes.issubdtype(aval.dtype, np.complexfloating):
+            raise TypeError(
+                "jacfwd with holomorphic=True requires inputs with complex dtype, "
+                f"but got {aval.dtype.name}."
+            )
+    elif not dtypes.issubdtype(aval.dtype, np.floating):
+        raise TypeError(
+            "jacfwd requires real-valued inputs "
+            f"(input dtype that is a sub-dtype of np.floating), but got {aval.dtype.name}. "
+            "For holomorphic differentiation, pass holomorphic=True. "
+            "For differentiation of non-holomorphic functions involving "
+            "complex inputs or integer inputs, use jax.jvp directly."
+        )
+
+
+def _check_output_dtype_fwd(holomorphic: bool, y: Any) -> None:
+    """Mirror ``jax._src.api._check_output_dtype_jacfwd`` for forward-mode outputs."""
+    aval = jax.typeof(y)
+    if holomorphic and not dtypes.issubdtype(aval.dtype, np.complexfloating):
+        raise TypeError(
+            "jacfwd with holomorphic=True requires outputs with complex dtype, "
+            f"but got {aval.dtype.name}."
+        )
+
+
+def _validate_input_dtypes(
+    args: Any, mode: str, holomorphic: bool, allow_int: bool
+) -> None:
+    """Run input-dtype validation over every leaf of ``args`` for the given ``mode``."""
+    if mode == "fwd":
+        check = lambda a: _check_input_dtype_fwd(holomorphic, a)  # noqa: E731
+    else:
+        # "rev" and all Hessian modes use the reverse-mode / grad-style check.
+        check = lambda a: _check_input_dtype_rev(holomorphic, allow_int, a)  # noqa: E731
+    for leaf in jax.tree_util.tree_leaves(args):
+        check(leaf)
+
+
+def _validate_output_dtypes(y: Any, mode: str, holomorphic: bool) -> None:
+    """Run output-dtype validation over every leaf of ``y`` for the given ``mode``."""
+    if mode == "fwd":
+        check = lambda a: _check_output_dtype_fwd(holomorphic, a)  # noqa: E731
+    else:
+        check = lambda a: _check_output_dtype_rev(holomorphic, a)  # noqa: E731
+    for leaf in jax.tree_util.tree_leaves(y):
+        check(leaf)
+
+
 # Public API
 
 
@@ -29,6 +148,9 @@ def jacobian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: Literal["bcoo"] = ...,
@@ -38,6 +160,9 @@ def jacobian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: Literal["dense"],
@@ -48,6 +173,9 @@ def jacobian(
     *,
     input_shapes: Any,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = ...,
@@ -58,6 +186,9 @@ def jacobian(
     *,
     input_shapes: Any = None,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = "bcoo",
@@ -78,6 +209,14 @@ def jacobian(
         argnums: Positional arguments to differentiate with respect to,
             mirroring ``jax.grad``.
             Only supported with multi-positional ``input_shapes``.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
+            mirroring ``jax.jacrev``.
+            When True, the returned function yields ``(jac, aux)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic,
+            mirroring ``jax.jacrev``.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs, mirroring ``jax.jacrev``.
         mode: AD mode.
             ``"fwd"`` uses JVPs (forward-mode AD),
             ``"rev"`` uses VJPs (reverse-mode AD).
@@ -103,10 +242,18 @@ def jacobian(
         input_shape,
         input_shapes=input_shapes,
         argnums=argnums,
+        has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
-    return jacobian_from_coloring(f, coloring, output_format=output_format)
+    return jacobian_from_coloring(
+        f,
+        coloring,
+        output_format=output_format,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+    )
 
 
 @overload
@@ -114,6 +261,9 @@ def value_and_jacobian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: Literal["bcoo"] = ...,
@@ -123,6 +273,9 @@ def value_and_jacobian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: Literal["dense"],
@@ -133,6 +286,9 @@ def value_and_jacobian(
     *,
     input_shapes: Any,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = ...,
@@ -143,10 +299,13 @@ def value_and_jacobian(
     *,
     input_shapes: Any = None,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = "bcoo",
-) -> Callable[..., tuple[Any, Any]]:
+) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Jacobian.
 
     Like [`jacobian`][asdex.jacobian],
@@ -163,6 +322,14 @@ def value_and_jacobian(
         argnums: Positional arguments to differentiate with respect to,
             mirroring ``jax.grad``.
             Only supported with multi-positional ``input_shapes``.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
+            mirroring ``jax.jacrev``.
+            When True, the returned function yields ``(jac, aux)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic,
+            mirroring ``jax.jacrev``.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs, mirroring ``jax.jacrev``.
         mode: AD mode.
             ``"fwd"`` uses JVPs (forward-mode AD),
             ``"rev"`` uses VJPs (reverse-mode AD).
@@ -187,10 +354,18 @@ def value_and_jacobian(
         input_shape,
         input_shapes=input_shapes,
         argnums=argnums,
+        has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
-    return value_and_jacobian_from_coloring(f, coloring, output_format=output_format)
+    return value_and_jacobian_from_coloring(
+        f,
+        coloring,
+        output_format=output_format,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+    )
 
 
 @overload
@@ -198,6 +373,9 @@ def hessian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: Literal["bcoo"] = ...,
@@ -207,6 +385,9 @@ def hessian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: Literal["dense"],
@@ -217,6 +398,9 @@ def hessian(
     *,
     input_shapes: Any,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = ...,
@@ -227,6 +411,9 @@ def hessian(
     *,
     input_shapes: Any = None,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = "bcoo",
@@ -250,6 +437,13 @@ def hessian(
         argnums: Positional arguments to differentiate with respect to,
             mirroring ``jax.grad``.
             Only supported with multi-positional ``input_shapes``.
+        has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``,
+            mirroring ``jax.hessian``.
+            When True, the returned function yields ``(hess, aux)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs.
         mode: AD composition strategy for Hessian-vector products.
             ``"fwd_over_rev"`` uses forward-over-reverse,
             ``"rev_over_fwd"`` uses reverse-over-forward,
@@ -274,10 +468,18 @@ def hessian(
         input_shape,
         input_shapes=input_shapes,
         argnums=argnums,
+        has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
-    return hessian_from_coloring(f, coloring, output_format=output_format)
+    return hessian_from_coloring(
+        f,
+        coloring,
+        output_format=output_format,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+    )
 
 
 @overload
@@ -285,6 +487,9 @@ def value_and_hessian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: Literal["bcoo"] = ...,
@@ -294,6 +499,9 @@ def value_and_hessian(
     f: Callable[[ArrayLike], ArrayLike],
     input_shape: int | tuple[int, ...],
     *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: Literal["dense"],
@@ -304,6 +512,9 @@ def value_and_hessian(
     *,
     input_shapes: Any,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = ...,
@@ -314,10 +525,13 @@ def value_and_hessian(
     *,
     input_shapes: Any = None,
     argnums: int | Sequence[int] | None = None,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = "bcoo",
-) -> Callable[..., tuple[Any, Any]]:
+) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Hessian.
 
     Like [`hessian`][asdex.hessian],
@@ -337,6 +551,13 @@ def value_and_hessian(
         argnums: Positional arguments to differentiate with respect to,
             mirroring ``jax.grad``.
             Only supported with multi-positional ``input_shapes``.
+        has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``,
+            mirroring ``jax.hessian``.
+            When True, the returned function yields ``(hess, aux)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs.
         mode: AD composition strategy for Hessian-vector products.
             ``"fwd_over_rev"`` uses forward-over-reverse,
             ``"rev_over_fwd"`` uses reverse-over-forward,
@@ -362,10 +583,18 @@ def value_and_hessian(
         input_shape,
         input_shapes=input_shapes,
         argnums=argnums,
+        has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
-    return value_and_hessian_from_coloring(f, coloring, output_format=output_format)
+    return value_and_hessian_from_coloring(
+        f,
+        coloring,
+        output_format=output_format,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+    )
 
 
 @overload
@@ -373,23 +602,39 @@ def jacobian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
     output_format: Literal["bcoo"] = ...,
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[[ArrayLike], BCOO]: ...
 @overload
 def jacobian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
     output_format: Literal["dense"],
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[[ArrayLike], jax.Array]: ...
 @overload
 def jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     output_format: OutputFormat = ...,
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[..., Any]: ...
 def jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
 ) -> Callable[..., Any]:
     """Build a sparse Jacobian function from a pre-computed coloring.
 
@@ -404,6 +649,14 @@ def jacobian_from_coloring(
         output_format: Type of the output matrix.
             ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
             ``"dense"`` returns a dense matrix of type ``jax.Array``.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
+            mirroring ``jax.jacrev``.
+            When True, the returned function yields ``(jac, aux)``
+            (or ``((value, aux), jac)`` for the ``value_and_*`` variant).
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs.
 
     Returns:
         A function that takes an input array and returns
@@ -418,12 +671,28 @@ def jacobian_from_coloring(
     if coloring.sparsity.is_multi_input:
 
         def jac_fn_multi(*args: Any) -> Any:
-            return _eval_jacobian_multi(f, args, coloring, output_format)
+            return _eval_jacobian_multi(
+                f,
+                args,
+                coloring,
+                output_format,
+                has_aux=has_aux,
+                holomorphic=holomorphic,
+                allow_int=allow_int,
+            )
 
         return jac_fn_multi
 
-    def jac_fn(x: ArrayLike) -> BCOO | jax.Array:
-        return _eval_jacobian(f, jnp.asarray(x), coloring, output_format)
+    def jac_fn(x: ArrayLike) -> Any:
+        return _eval_jacobian(
+            f,
+            jnp.asarray(x),
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+        )
 
     return jac_fn
 
@@ -433,23 +702,39 @@ def hessian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
     output_format: Literal["bcoo"] = ...,
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[[ArrayLike], BCOO]: ...
 @overload
 def hessian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
     output_format: Literal["dense"],
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[[ArrayLike], jax.Array]: ...
 @overload
 def hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     output_format: OutputFormat = ...,
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[..., Any]: ...
 def hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
 ) -> Callable[..., Any]:
     """Build a sparse Hessian function from a pre-computed coloring.
 
@@ -466,6 +751,14 @@ def hessian_from_coloring(
         output_format: Type of the output matrix.
             ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
             ``"dense"`` returns a dense matrix of type ``jax.Array``.
+        has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``,
+            mirroring ``jax.hessian``.
+            When True, the returned function yields ``(hess, aux)``
+            (or ``((value, aux), hess)`` for the ``value_and_*`` variant).
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs.
 
     Returns:
         A function that takes an input array and returns
@@ -480,12 +773,28 @@ def hessian_from_coloring(
     if coloring.sparsity.is_multi_input:
 
         def hess_fn_multi(*args: Any) -> Any:
-            return _eval_hessian_multi(f, args, coloring, output_format)
+            return _eval_hessian_multi(
+                f,
+                args,
+                coloring,
+                output_format,
+                has_aux=has_aux,
+                holomorphic=holomorphic,
+                allow_int=allow_int,
+            )
 
         return hess_fn_multi
 
-    def hess_fn(x: ArrayLike) -> BCOO | jax.Array:
-        return _eval_hessian(f, jnp.asarray(x), coloring, output_format)
+    def hess_fn(x: ArrayLike) -> Any:
+        return _eval_hessian(
+            f,
+            jnp.asarray(x),
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+        )
 
     return hess_fn
 
@@ -495,24 +804,40 @@ def value_and_jacobian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
     output_format: Literal["bcoo"] = ...,
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]: ...
 @overload
 def value_and_jacobian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
     output_format: Literal["dense"],
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[[ArrayLike], tuple[jax.Array, jax.Array]]: ...
 @overload
 def value_and_jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     output_format: OutputFormat = ...,
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[..., tuple[Any, Any]]: ...
 def value_and_jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
-) -> Callable[..., tuple[Any, Any]]:
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+) -> Callable[..., Any]:
     """Build a function computing value and sparse Jacobian from a pre-computed coloring.
 
     Like [`jacobian_from_coloring`][asdex.jacobian_from_coloring],
@@ -526,6 +851,14 @@ def value_and_jacobian_from_coloring(
         output_format: Type of the output matrix.
             ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
             ``"dense"`` returns a dense matrix of type ``jax.Array``.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
+            mirroring ``jax.jacrev``.
+            When True, the returned function yields ``(jac, aux)``
+            (or ``((value, aux), jac)`` for the ``value_and_*`` variant).
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs.
 
     Returns:
         A function that takes an input array and returns
@@ -540,13 +873,29 @@ def value_and_jacobian_from_coloring(
 
     if coloring.sparsity.is_multi_input:
 
-        def val_jac_fn_multi(*args: Any) -> tuple[Any, Any]:
-            return _eval_value_and_jacobian_multi(f, args, coloring, output_format)
+        def val_jac_fn_multi(*args: Any) -> Any:
+            return _eval_value_and_jacobian_multi(
+                f,
+                args,
+                coloring,
+                output_format,
+                has_aux=has_aux,
+                holomorphic=holomorphic,
+                allow_int=allow_int,
+            )
 
         return val_jac_fn_multi
 
-    def val_jac_fn(x: ArrayLike) -> tuple[jax.Array, BCOO | jax.Array]:
-        return _eval_value_and_jacobian(f, jnp.asarray(x), coloring, output_format)
+    def val_jac_fn(x: ArrayLike) -> Any:
+        return _eval_value_and_jacobian(
+            f,
+            jnp.asarray(x),
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+        )
 
     return val_jac_fn
 
@@ -556,24 +905,40 @@ def value_and_hessian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
     output_format: Literal["bcoo"] = ...,
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[[ArrayLike], tuple[jax.Array, BCOO]]: ...
 @overload
 def value_and_hessian_from_coloring(
     f: Callable[[ArrayLike], ArrayLike],
     coloring: ColoredPattern,
     output_format: Literal["dense"],
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[[ArrayLike], tuple[jax.Array, jax.Array]]: ...
 @overload
 def value_and_hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     output_format: OutputFormat = ...,
+    *,
+    has_aux: bool = ...,
+    holomorphic: bool = ...,
+    allow_int: bool = ...,
 ) -> Callable[..., tuple[Any, Any]]: ...
 def value_and_hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
-) -> Callable[..., tuple[Any, Any]]:
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+) -> Callable[..., Any]:
     """Build a function computing value and sparse Hessian from a pre-computed coloring.
 
     Like [`hessian_from_coloring`][asdex.hessian_from_coloring],
@@ -590,6 +955,14 @@ def value_and_hessian_from_coloring(
         output_format: Type of the output matrix.
             ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
             ``"dense"`` returns a dense matrix of type ``jax.Array``.
+        has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``,
+            mirroring ``jax.hessian``.
+            When True, the returned function yields ``(hess, aux)``
+            (or ``((value, aux), hess)`` for the ``value_and_*`` variant).
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs.
 
     Returns:
         A function that takes an input array and returns
@@ -604,13 +977,29 @@ def value_and_hessian_from_coloring(
 
     if coloring.sparsity.is_multi_input:
 
-        def val_hess_fn_multi(*args: Any) -> tuple[Any, Any]:
-            return _eval_value_and_hessian_multi(f, args, coloring, output_format)
+        def val_hess_fn_multi(*args: Any) -> Any:
+            return _eval_value_and_hessian_multi(
+                f,
+                args,
+                coloring,
+                output_format,
+                has_aux=has_aux,
+                holomorphic=holomorphic,
+                allow_int=allow_int,
+            )
 
         return val_hess_fn_multi
 
-    def val_hess_fn(x: ArrayLike) -> tuple[jax.Array, BCOO | jax.Array]:
-        return _eval_value_and_hessian(f, jnp.asarray(x), coloring, output_format)
+    def val_hess_fn(x: ArrayLike) -> Any:
+        return _eval_value_and_hessian(
+            f,
+            jnp.asarray(x),
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+        )
 
     return val_hess_fn
 
@@ -619,12 +1008,19 @@ def value_and_hessian_from_coloring(
 
 
 def _eval_jacobian(
-    f: Callable[[ArrayLike], ArrayLike],
+    f: Callable[..., Any],
     x: jax.Array,
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
-) -> BCOO | jax.Array:
-    """Evaluate the sparse Jacobian of f at x."""
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+) -> Any:
+    """Evaluate the sparse Jacobian of f at x.
+
+    Returns ``jac`` by default; ``(jac, aux)`` when ``has_aux=True``.
+    """
     n = x.size
 
     expected = coloring.sparsity.input_shape
@@ -634,40 +1030,55 @@ def _eval_jacobian(
             f"which expects shape {expected}."
         )
 
+    _validate_input_dtypes(x, coloring.mode, holomorphic, allow_int)
+
     sparsity = coloring.sparsity
     m = sparsity.m
-    out_shape = jax.eval_shape(f, jnp.zeros_like(x)).shape
+    f_out = _strip_aux_single(f) if has_aux else f
+    out_shape = jax.eval_shape(f_out, jnp.zeros_like(x)).shape
 
-    # Handle edge case: no outputs
-    if m == 0:
-        return _empty_result((0, n), output_format)
-
-    # Handle edge case: all-zero Jacobian
-    if sparsity.nnz == 0:
-        return _empty_result((m, n), output_format)
+    # Handle edge cases: no outputs or all-zero Jacobian.
+    if m == 0 or sparsity.nnz == 0:
+        empty = _empty_result((m, n), output_format)
+        if has_aux:
+            _, aux = f(x)
+            return empty, aux
+        return empty
 
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
         case "rev":
-            return _jacobian_rows(f, x, coloring, out_shape, output_format)
+            jac, y, aux = _jacobian_rows(
+                f, x, coloring, out_shape, output_format, has_aux=has_aux
+            )
         case "fwd":
-            return _jacobian_cols(f, x, coloring, output_format)
+            jac, y, aux = _jacobian_cols(f, x, coloring, output_format, has_aux=has_aux)
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
+    _validate_output_dtypes(y, coloring.mode, holomorphic)
+    if has_aux:
+        return jac, aux
+    return jac
+
 
 def _eval_hessian(
-    f: Callable[[ArrayLike], ArrayLike],
+    f: Callable[..., Any],
     x: jax.Array,
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
-) -> BCOO | jax.Array:
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+) -> Any:
     """Evaluate the sparse Hessian of f at x.
+
+    Returns ``hess`` by default; ``(hess, aux)`` when ``has_aux=True``.
 
     If ``f`` returns a squeezable shape like ``(1,)``,
     it is automatically squeezed to scalar.
     """
-    f = _ensure_scalar(f, x.shape)
     n = x.size
 
     expected = coloring.sparsity.input_shape
@@ -676,24 +1087,48 @@ def _eval_hessian(
             f"Input shape {x.shape} does not match the colored pattern, "
             f"which expects shape {expected}."
         )
+
+    _validate_input_dtypes(x, coloring.mode, holomorphic, allow_int)
+
+    f_scalar = _strip_aux_single(f) if has_aux else f
+    f_scalar = _ensure_scalar(f_scalar, x.shape)
+
+    _validate_output_dtypes(
+        jax.eval_shape(f_scalar, jnp.zeros_like(x)), coloring.mode, holomorphic
+    )
 
     sparsity = coloring.sparsity
 
     # Handle edge case: all-zero Hessian
     if sparsity.nnz == 0:
-        return _empty_result((n, n), output_format)
+        empty = _empty_result((n, n), output_format)
+        if has_aux:
+            _, aux = f(x)
+            return empty, aux
+        return empty
 
-    grads = _compute_hvps(f, x, coloring)
-    return _decompress(grads, coloring, output_format)
+    grads = _compute_hvps(f_scalar, x, coloring)
+    hess = _decompress(grads, coloring, output_format)
+    if has_aux:
+        _, aux = f(x)
+        return hess, aux
+    return hess
 
 
 def _eval_value_and_jacobian(
-    f: Callable[[ArrayLike], ArrayLike],
+    f: Callable[..., Any],
     x: jax.Array,
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
-) -> tuple[jax.Array, BCOO | jax.Array]:
-    """Evaluate f(x) and the sparse Jacobian of f at x."""
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+) -> Any:
+    """Evaluate f(x) and the sparse Jacobian of f at x.
+
+    Returns ``(value, jac)`` by default; ``((value, aux), jac)`` when ``has_aux=True``.
+    """
     n = x.size
 
     expected = coloring.sparsity.input_shape
@@ -703,42 +1138,56 @@ def _eval_value_and_jacobian(
             f"which expects shape {expected}."
         )
 
+    _validate_input_dtypes(x, coloring.mode, holomorphic, allow_int)
+
     sparsity = coloring.sparsity
     m = sparsity.m
-    out_shape = jax.eval_shape(f, jnp.zeros_like(x)).shape
+    f_out = _strip_aux_single(f) if has_aux else f
+    out_shape = jax.eval_shape(f_out, jnp.zeros_like(x)).shape
 
-    # Handle edge case: no outputs
-    if m == 0:
-        y = jnp.asarray(f(x))
-        return y, _empty_result((0, n), output_format)
-
-    # Handle edge case: all-zero Jacobian
-    if sparsity.nnz == 0:
+    # Handle edge cases: no outputs or all-zero Jacobian.
+    if m == 0 or sparsity.nnz == 0:
+        if has_aux:
+            y, aux = f(x)
+            y = jnp.asarray(y)
+            return (y, aux), _empty_result((m, n), output_format)
         y = jnp.asarray(f(x))
         return y, _empty_result((m, n), output_format)
 
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
         case "rev":
-            return _value_and_jacobian_rows(f, x, coloring, out_shape, output_format)
+            jac, y, aux = _jacobian_rows(
+                f, x, coloring, out_shape, output_format, has_aux=has_aux
+            )
         case "fwd":
-            return _value_and_jacobian_cols(f, x, coloring, output_format)
+            jac, y, aux = _jacobian_cols(f, x, coloring, output_format, has_aux=has_aux)
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
+    _validate_output_dtypes(y, coloring.mode, holomorphic)
+    if has_aux:
+        return (y, aux), jac
+    return y, jac
+
 
 def _eval_value_and_hessian(
-    f: Callable[[ArrayLike], ArrayLike],
+    f: Callable[..., Any],
     x: jax.Array,
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
-) -> tuple[jax.Array, BCOO | jax.Array]:
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+) -> Any:
     """Evaluate f(x) and the sparse Hessian of f at x.
+
+    Returns ``(value, hess)`` by default; ``((value, aux), hess)`` when ``has_aux=True``.
 
     If ``f`` returns a squeezable shape like ``(1,)``,
     it is automatically squeezed to scalar.
     """
-    f = _ensure_scalar(f, x.shape)
     n = x.size
 
     expected = coloring.sparsity.input_shape
@@ -748,15 +1197,32 @@ def _eval_value_and_hessian(
             f"which expects shape {expected}."
         )
 
+    _validate_input_dtypes(x, coloring.mode, holomorphic, allow_int)
+
+    f_scalar = _strip_aux_single(f) if has_aux else f
+    f_scalar = _ensure_scalar(f_scalar, x.shape)
+
+    _validate_output_dtypes(
+        jax.eval_shape(f_scalar, jnp.zeros_like(x)), coloring.mode, holomorphic
+    )
+
     sparsity = coloring.sparsity
 
     # Handle edge case: all-zero Hessian
     if sparsity.nnz == 0:
-        y = jnp.asarray(f(x))
-        return y, _empty_result((n, n), output_format)
+        if has_aux:
+            value, aux = f(x)
+            value = jnp.asarray(value)
+            return (value, aux), _empty_result((n, n), output_format)
+        value = jnp.asarray(f(x))
+        return value, _empty_result((n, n), output_format)
 
-    value, grads = _value_and_compute_hvps(f, x, coloring)
-    return value, _decompress(grads, coloring, output_format)
+    value, grads = _value_and_compute_hvps(f_scalar, x, coloring)
+    hess = _decompress(grads, coloring, output_format)
+    if has_aux:
+        _, aux = f(x)
+        return (value, aux), hess
+    return value, hess
 
 
 # Private helpers: Jacobian
@@ -768,39 +1234,26 @@ def _jacobian_rows(
     coloring: ColoredPattern,
     out_shape: tuple[int, ...],
     output_format: OutputFormat = "bcoo",
-) -> BCOO | jax.Array:
-    """Compute sparse Jacobian via row coloring + VJPs."""
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=x.dtype)
-    _, vjp_fn = jax.vjp(f, x)
+    *,
+    has_aux: bool = False,
+) -> tuple[BCOO | jax.Array, jax.Array, Any]:
+    """Compute sparse Jacobian via row coloring + VJPs.
 
-    def single_vjp(seed: jax.Array) -> jax.Array:
-        (grad,) = vjp_fn(seed.reshape(out_shape))
-        return grad.ravel()
-
-    compressed_jacobian = jax.vmap(single_vjp)(seeds)
-    return _decompress(compressed_jacobian, coloring, output_format)
-
-
-def _value_and_jacobian_rows(
-    f: Callable[[ArrayLike], ArrayLike],
-    x: jax.Array,
-    coloring: ColoredPattern,
-    out_shape: tuple[int, ...],
-    output_format: OutputFormat = "bcoo",
-) -> tuple[jax.Array, BCOO | jax.Array]:
-    """Compute value and sparse Jacobian via row coloring + VJPs.
-
-    The primal is free from the VJP forward pass.
+    Returns ``(jac, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
     """
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=x.dtype)
-    y, vjp_fn = jax.vjp(f, x)
+    if has_aux:
+        y, vjp_fn, aux = jax.vjp(f, x, has_aux=True)
+    else:
+        y, vjp_fn = jax.vjp(f, x)
+        aux = None
+    seeds = jnp.asarray(coloring._seed_matrix, dtype=y.dtype)
 
     def single_vjp(seed: jax.Array) -> jax.Array:
         (grad,) = vjp_fn(seed.reshape(out_shape))
         return grad.ravel()
 
     compressed_jacobian = jax.vmap(single_vjp)(seeds)
-    return y, _decompress(compressed_jacobian, coloring, output_format)
+    return _decompress(compressed_jacobian, coloring, output_format), y, aux
 
 
 def _jacobian_cols(
@@ -808,38 +1261,26 @@ def _jacobian_cols(
     x: jax.Array,
     coloring: ColoredPattern,
     output_format: OutputFormat = "bcoo",
-) -> BCOO | jax.Array:
-    """Compute sparse Jacobian via column coloring + JVPs."""
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=x.dtype)
+    *,
+    has_aux: bool = False,
+) -> tuple[BCOO | jax.Array, jax.Array, Any]:
+    """Compute sparse Jacobian via column coloring + JVPs.
 
-    _, jvp_fn = jax.linearize(f, x)
-
-    def single_jvp(seed: jax.Array) -> jax.Array:
-        return jvp_fn(seed.reshape(x.shape)).ravel()
-
-    compressed_jacobian = jax.vmap(single_jvp)(seeds)
-    return _decompress(compressed_jacobian, coloring, output_format)
-
-
-def _value_and_jacobian_cols(
-    f: Callable[[ArrayLike], ArrayLike],
-    x: jax.Array,
-    coloring: ColoredPattern,
-    output_format: OutputFormat = "bcoo",
-) -> tuple[jax.Array, BCOO | jax.Array]:
-    """Compute value and sparse Jacobian via column coloring + JVPs.
-
-    Uses ``jax.linearize`` so the nonlinear forward pass runs only once.
+    Returns ``(jac, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
     """
     seeds = jnp.asarray(coloring._seed_matrix, dtype=x.dtype)
 
-    y, jvp_fn = jax.linearize(f, x)
+    if has_aux:
+        y, jvp_fn, aux = jax.linearize(f, x, has_aux=True)
+    else:
+        y, jvp_fn = jax.linearize(f, x)
+        aux = None
 
     def single_jvp(seed: jax.Array) -> jax.Array:
         return jvp_fn(seed.reshape(x.shape)).ravel()
 
     compressed_jacobian = jax.vmap(single_jvp)(seeds)
-    return y, _decompress(compressed_jacobian, coloring, output_format)
+    return _decompress(compressed_jacobian, coloring, output_format), y, aux
 
 
 # Private helpers: Hessian
@@ -1038,31 +1479,52 @@ def _eval_jacobian_multi(
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     output_format: OutputFormat,
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
 ) -> Any:
-    """Evaluate a sparse Jacobian for a multi-input function at ``args``."""
+    """Evaluate a sparse Jacobian for a multi-input function at ``args``.
+
+    Returns the block pytree by default; ``(jac, aux)`` when ``has_aux=True``.
+    """
     sparsity = coloring.sparsity
     _validate_multi_input_args(args, sparsity)
+    _validate_input_dtypes(args, coloring.mode, holomorphic, allow_int)
 
     m = sparsity.m
     n_selected = sparsity.n
-    out_shape = _eval_out_shape_multi(f, args, sparsity)
+    f_out = _strip_aux_multi_any(f, sparsity) if has_aux else f
+    out_shape = _eval_out_shape_multi(f_out, args, sparsity)
 
     if m == 0 or sparsity.nnz == 0:
         dense = jnp.zeros((m, n_selected))
-        return _pack_jacobian_blocks(dense, sparsity, output_format)
+        jac = _pack_jacobian_blocks(dense, sparsity, output_format)
+        if has_aux:
+            _, aux = _call_f_with_aux(f, args, sparsity)
+            return jac, aux
+        return jac
 
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
         case "rev":
-            compressed = _jacobian_rows_multi(f, args, coloring, out_shape)
+            compressed, y, aux = _jacobian_rows_multi(
+                f, args, coloring, out_shape, has_aux=has_aux
+            )
         case "fwd":
-            compressed = _jacobian_cols_multi(f, args, coloring)
+            compressed, y, aux = _jacobian_cols_multi(
+                f, args, coloring, has_aux=has_aux
+            )
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
+    _validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    return _pack_jacobian_blocks(dense, sparsity, output_format)
+    jac = _pack_jacobian_blocks(dense, sparsity, output_format)
+    if has_aux:
+        return jac, aux
+    return jac
 
 
 def _eval_value_and_jacobian_multi(
@@ -1070,34 +1532,53 @@ def _eval_value_and_jacobian_multi(
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     output_format: OutputFormat,
-) -> tuple[Any, Any]:
-    """Evaluate ``f(*args)`` and its sparse Jacobian in one pass."""
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+) -> Any:
+    """Evaluate ``f(*args)`` and its sparse Jacobian in one pass.
+
+    Returns ``(value, jac)`` by default; ``((value, aux), jac)`` when ``has_aux=True``.
+    """
     sparsity = coloring.sparsity
     _validate_multi_input_args(args, sparsity)
+    _validate_input_dtypes(args, coloring.mode, holomorphic, allow_int)
 
     m = sparsity.m
     n_selected = sparsity.n
+    f_out = _strip_aux_multi_any(f, sparsity) if has_aux else f
 
     if m == 0 or sparsity.nnz == 0:
-        value = _call_f(f, args, sparsity)
         dense = jnp.zeros((m, n_selected))
-        return value, _pack_jacobian_blocks(dense, sparsity, output_format)
+        empty = _pack_jacobian_blocks(dense, sparsity, output_format)
+        if has_aux:
+            value, aux = _call_f_with_aux(f, args, sparsity)
+            return (value, aux), empty
+        value = _call_f(f, args, sparsity)
+        return value, empty
 
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
         case "rev":
-            out_shape = _eval_out_shape_multi(f, args, sparsity)
-            value, compressed = _value_and_jacobian_rows_multi(
-                f, args, coloring, out_shape
+            out_shape = _eval_out_shape_multi(f_out, args, sparsity)
+            compressed, value, aux = _jacobian_rows_multi(
+                f, args, coloring, out_shape, has_aux=has_aux
             )
         case "fwd":
-            value, compressed = _value_and_jacobian_cols_multi(f, args, coloring)
+            compressed, value, aux = _jacobian_cols_multi(
+                f, args, coloring, has_aux=has_aux
+            )
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
+    _validate_output_dtypes(value, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    return value, _pack_jacobian_blocks(dense, sparsity, output_format)
+    jac = _pack_jacobian_blocks(dense, sparsity, output_format)
+    if has_aux:
+        return (value, aux), jac
+    return value, jac
 
 
 def _eval_hessian_multi(
@@ -1105,23 +1586,42 @@ def _eval_hessian_multi(
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     output_format: OutputFormat,
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
 ) -> Any:
-    """Evaluate a sparse Hessian for a multi-input scalar function at ``args``."""
+    """Evaluate a sparse Hessian for a multi-input scalar function at ``args``.
+
+    Returns ``hess`` by default; ``(hess, aux)`` when ``has_aux=True``.
+    """
     sparsity = coloring.sparsity
     _validate_multi_input_args(args, sparsity)
+    _validate_input_dtypes(args, coloring.mode, holomorphic, allow_int)
 
     multi_positional = sparsity.is_multi_positional
-    f_scalar = _ensure_scalar_multi(f, sparsity.input_shape, multi_positional)
+    f_scalar_raw = _strip_aux_multi_any(f, sparsity) if has_aux else f
+    f_scalar = _ensure_scalar_multi(
+        f_scalar_raw, sparsity.input_shape, multi_positional
+    )
     n_selected = sparsity.n
 
     if sparsity.nnz == 0:
         dense = jnp.zeros((n_selected, n_selected))
-        return _pack_hessian_blocks(dense, sparsity, output_format)
+        hess = _pack_hessian_blocks(dense, sparsity, output_format)
+        if has_aux:
+            _, aux = _call_f_with_aux(f, args, sparsity)
+            return hess, aux
+        return hess
 
     compressed = _compute_hvps_multi(f_scalar, args, coloring)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    return _pack_hessian_blocks(dense, sparsity, output_format)
+    hess = _pack_hessian_blocks(dense, sparsity, output_format)
+    if has_aux:
+        _, aux = _call_f_with_aux(f, args, sparsity)
+        return hess, aux
+    return hess
 
 
 def _eval_value_and_hessian_multi(
@@ -1129,24 +1629,43 @@ def _eval_value_and_hessian_multi(
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     output_format: OutputFormat,
-) -> tuple[Any, Any]:
-    """Evaluate ``f(*args)`` and its sparse Hessian in one pass."""
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+) -> Any:
+    """Evaluate ``f(*args)`` and its sparse Hessian in one pass.
+
+    Returns ``(value, hess)`` by default; ``((value, aux), hess)`` when ``has_aux=True``.
+    """
     sparsity = coloring.sparsity
     _validate_multi_input_args(args, sparsity)
+    _validate_input_dtypes(args, coloring.mode, holomorphic, allow_int)
 
     multi_positional = sparsity.is_multi_positional
-    f_scalar = _ensure_scalar_multi(f, sparsity.input_shape, multi_positional)
+    f_scalar_raw = _strip_aux_multi_any(f, sparsity) if has_aux else f
+    f_scalar = _ensure_scalar_multi(
+        f_scalar_raw, sparsity.input_shape, multi_positional
+    )
     n_selected = sparsity.n
 
     if sparsity.nnz == 0:
-        value = _call_f(f_scalar, args, sparsity)
         dense = jnp.zeros((n_selected, n_selected))
-        return value, _pack_hessian_blocks(dense, sparsity, output_format)
+        empty = _pack_hessian_blocks(dense, sparsity, output_format)
+        if has_aux:
+            value, aux = _call_f_with_aux(f, args, sparsity)
+            return (value, aux), empty
+        value = _call_f(f_scalar, args, sparsity)
+        return value, empty
 
     value, compressed = _value_and_compute_hvps_multi(f_scalar, args, coloring)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    return value, _pack_hessian_blocks(dense, sparsity, output_format)
+    hess = _pack_hessian_blocks(dense, sparsity, output_format)
+    if has_aux:
+        _, aux = _call_f_with_aux(f, args, sparsity)
+        return (value, aux), hess
+    return value, hess
 
 
 # Multi-input: Jacobian rows / cols
@@ -1157,48 +1676,47 @@ def _jacobian_rows_multi(
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     out_shape: tuple[int, ...],
-) -> jax.Array:
-    """Row-coloring VJPs over the combined selected input space."""
+    *,
+    has_aux: bool = False,
+) -> tuple[jax.Array, jax.Array, Any]:
+    """Row-coloring VJPs over the combined selected input space.
+
+    Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
+    """
     sparsity = coloring.sparsity
     dtype = _args_dtype(args)
-    _, vjp_fn = _vjp(f, args, sparsity)
+    if has_aux:
+        y, vjp_fn, aux = _vjp(f, args, sparsity, has_aux=True)
+    else:
+        y, vjp_fn = _vjp(f, args, sparsity)
+        aux = None
     seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
 
     def single_vjp(seed: jax.Array) -> jax.Array:
         cotangents = vjp_fn(seed.reshape(out_shape))
         return _flatten_selected_cotangents(cotangents, sparsity)
 
-    return jax.vmap(single_vjp)(seeds)
-
-
-def _value_and_jacobian_rows_multi(
-    f: Callable[..., Any],
-    args: tuple[Any, ...],
-    coloring: ColoredPattern,
-    out_shape: tuple[int, ...],
-) -> tuple[jax.Array, jax.Array]:
-    """Row-coloring VJPs, reusing the forward primal value."""
-    sparsity = coloring.sparsity
-    dtype = _args_dtype(args)
-    value, vjp_fn = _vjp(f, args, sparsity)
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
-
-    def single_vjp(seed: jax.Array) -> jax.Array:
-        cotangents = vjp_fn(seed.reshape(out_shape))
-        return _flatten_selected_cotangents(cotangents, sparsity)
-
-    return value, jax.vmap(single_vjp)(seeds)
+    return jax.vmap(single_vjp)(seeds), y, aux
 
 
 def _jacobian_cols_multi(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
-) -> jax.Array:
-    """Column-coloring JVPs over the combined selected input space."""
+    *,
+    has_aux: bool = False,
+) -> tuple[jax.Array, jax.Array, Any]:
+    """Column-coloring JVPs over the combined selected input space.
+
+    Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
+    """
     sparsity = coloring.sparsity
     dtype = _args_dtype(args)
-    _, jvp_fn = _linearize(f, args, sparsity)
+    if has_aux:
+        y, jvp_fn, aux = _linearize(f, args, sparsity, has_aux=True)
+    else:
+        y, jvp_fn = _linearize(f, args, sparsity)
+        aux = None
     seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
 
     def single_jvp(seed: jax.Array) -> jax.Array:
@@ -1207,27 +1725,7 @@ def _jacobian_cols_multi(
             return jvp_fn(*tangents).ravel()
         return jvp_fn(tangents[0]).ravel()
 
-    return jax.vmap(single_jvp)(seeds)
-
-
-def _value_and_jacobian_cols_multi(
-    f: Callable[..., Any],
-    args: tuple[Any, ...],
-    coloring: ColoredPattern,
-) -> tuple[jax.Array, jax.Array]:
-    """Column-coloring JVPs, reusing the forward primal value."""
-    sparsity = coloring.sparsity
-    dtype = _args_dtype(args)
-    value, jvp_fn = _linearize(f, args, sparsity)
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
-
-    def single_jvp(seed: jax.Array) -> jax.Array:
-        tangents = _build_tangents_from_seed(seed, args, sparsity)
-        if sparsity.is_multi_positional:
-            return jvp_fn(*tangents).ravel()
-        return jvp_fn(tangents[0]).ravel()
-
-    return value, jax.vmap(single_jvp)(seeds)
+    return jax.vmap(single_jvp)(seeds), y, aux
 
 
 # Multi-input: Hessian HVPs
@@ -1391,6 +1889,24 @@ def _args_dtype(args: tuple[Any, ...]) -> Any:
     return jnp.float32
 
 
+def _strip_aux_multi_any(
+    f: Callable[..., Any], sparsity: SparsityPattern
+) -> Callable[..., Any]:
+    """Return a wrapper that drops aux of a multi-input ``has_aux=True`` function."""
+    return _strip_aux_multi(f, sparsity.is_multi_positional)
+
+
+def _call_f_with_aux(
+    f: Callable[..., Any], args: tuple[Any, ...], sparsity: SparsityPattern
+) -> tuple[jax.Array, Any]:
+    """Call a ``has_aux=True`` multi-input ``f`` and return ``(value, aux)``."""
+    if sparsity.is_multi_positional:
+        value, aux = f(*args)
+    else:
+        value, aux = f(args[0])
+    return jnp.asarray(value), aux
+
+
 def _call_f(
     f: Callable[..., Any], args: tuple[Any, ...], sparsity: SparsityPattern
 ) -> jax.Array:
@@ -1415,22 +1931,33 @@ def _vjp(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     sparsity: SparsityPattern,
-) -> tuple[Any, Callable[..., Any]]:
-    """``jax.vjp`` with the right calling convention for ``sparsity``."""
+    *,
+    has_aux: bool = False,
+) -> tuple[Any, ...]:
+    """``jax.vjp`` with the right calling convention for ``sparsity``.
+
+    Returns the native ``jax.vjp`` tuple: ``(y, vjp_fn)`` when ``has_aux=False``,
+    or ``(y, vjp_fn, aux)`` when ``has_aux=True``.
+    """
     if sparsity.is_multi_positional:
-        return jax.vjp(f, *args)
-    return jax.vjp(f, args[0])
+        return jax.vjp(f, *args, has_aux=has_aux)
+    return jax.vjp(f, args[0], has_aux=has_aux)
 
 
 def _linearize(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     sparsity: SparsityPattern,
-) -> tuple[Any, Callable[..., Any]]:
-    """``jax.linearize`` with the right calling convention for ``sparsity``."""
+    *,
+    has_aux: bool = False,
+) -> tuple[Any, ...]:
+    """``jax.linearize`` with the right calling convention for ``sparsity``.
+
+    Returns ``(y, jvp_fn)`` when ``has_aux=False``, or ``(y, jvp_fn, aux)`` when ``has_aux=True``.
+    """
     if sparsity.is_multi_positional:
-        return jax.linearize(f, *args)
-    return jax.linearize(f, args[0])
+        return jax.linearize(f, *args, has_aux=has_aux)
+    return jax.linearize(f, args[0], has_aux=has_aux)
 
 
 def _grad_argnums_for_sparsity(sparsity: SparsityPattern) -> int | tuple[int, ...]:
