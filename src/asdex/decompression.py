@@ -7,10 +7,10 @@ from typing import Any, assert_never
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
+from asdex._input import validate_input_dtypes, validate_output_dtypes
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.detection._api import _ensure_scalar, _strip_aux
@@ -24,124 +24,12 @@ from asdex.modes import (
 )
 from asdex.pattern import ColoredPattern, SparsityPattern
 
-# Dtype validators mirroring jax._src.api._check_{input,output}_dtype_{jacrev,jacfwd}.
-# Reimplemented inline to avoid coupling to jax's private API.
-
-
-def _check_input_dtype_rev(holomorphic: bool, allow_int: bool, x: Any) -> None:
-    """Mirror ``jax._src.api._check_input_dtype_revderiv`` for reverse-mode inputs."""
-    aval = jax.typeof(x)
-    if holomorphic and not dtypes.issubdtype(aval.dtype, np.complexfloating):
-        raise TypeError(
-            "jacrev with holomorphic=True requires inputs with complex dtype, "
-            f"but got {aval.dtype.name}."
-        )
-    if (
-        dtypes.issubdtype(aval.dtype, dtypes.extended)
-        or dtypes.issubdtype(aval.dtype, np.integer)
-        or dtypes.issubdtype(aval.dtype, np.bool_)
-    ):
-        if not allow_int:
-            raise TypeError(
-                "jacrev requires real- or complex-valued inputs "
-                f"(input dtype that is a sub-dtype of np.inexact), but got {aval.dtype.name}. "
-                "If you want to use Boolean- or integer-valued inputs, use vjp "
-                "or set allow_int to True."
-            )
-    elif not dtypes.issubdtype(aval.dtype, np.inexact):
-        raise TypeError(
-            "jacrev requires numerical-valued inputs "
-            f"(input dtype that is a sub-dtype of np.bool_ or np.number), but got {aval.dtype.name}."
-        )
-
-
-def _check_output_dtype_rev(holomorphic: bool, y: Any) -> None:
-    """Mirror ``jax._src.api._check_output_dtype_revderiv`` for reverse-mode outputs."""
-    aval = jax.typeof(y)
-    if dtypes.issubdtype(aval.dtype, dtypes.extended):
-        raise TypeError(f"jacrev with output element type {aval.dtype.name}")
-    if holomorphic:
-        if not dtypes.issubdtype(aval.dtype, np.complexfloating):
-            raise TypeError(
-                "jacrev with holomorphic=True requires outputs with complex dtype, "
-                f"but got {aval.dtype.name}."
-            )
-    elif dtypes.issubdtype(aval.dtype, np.complexfloating):
-        raise TypeError(
-            "jacrev requires real-valued outputs "
-            f"(output dtype that is a sub-dtype of np.floating), but got {aval.dtype.name}. "
-            "For holomorphic differentiation, pass holomorphic=True. "
-            "For differentiation of non-holomorphic functions involving complex "
-            "outputs, use jax.vjp directly."
-        )
-    elif not dtypes.issubdtype(aval.dtype, np.floating):
-        raise TypeError(
-            "jacrev requires real-valued outputs "
-            f"(output dtype that is a sub-dtype of np.floating), but got {aval.dtype.name}. "
-            "For differentiation of functions with integer outputs, use jax.vjp directly."
-        )
-
-
-def _check_input_dtype_fwd(holomorphic: bool, x: Any) -> None:
-    """Mirror ``jax._src.api._check_input_dtype_jacfwd`` for forward-mode inputs."""
-    aval = jax.typeof(x)
-    if dtypes.issubdtype(aval.dtype, dtypes.extended):
-        raise TypeError(f"jacfwd with input element type {aval.dtype.name}")
-    if holomorphic:
-        if not dtypes.issubdtype(aval.dtype, np.complexfloating):
-            raise TypeError(
-                "jacfwd with holomorphic=True requires inputs with complex dtype, "
-                f"but got {aval.dtype.name}."
-            )
-    elif not dtypes.issubdtype(aval.dtype, np.floating):
-        raise TypeError(
-            "jacfwd requires real-valued inputs "
-            f"(input dtype that is a sub-dtype of np.floating), but got {aval.dtype.name}. "
-            "For holomorphic differentiation, pass holomorphic=True. "
-            "For differentiation of non-holomorphic functions involving "
-            "complex inputs or integer inputs, use jax.jvp directly."
-        )
-
-
-def _check_output_dtype_fwd(holomorphic: bool, y: Any) -> None:
-    """Mirror ``jax._src.api._check_output_dtype_jacfwd`` for forward-mode outputs."""
-    aval = jax.typeof(y)
-    if holomorphic and not dtypes.issubdtype(aval.dtype, np.complexfloating):
-        raise TypeError(
-            "jacfwd with holomorphic=True requires outputs with complex dtype, "
-            f"but got {aval.dtype.name}."
-        )
-
-
-def _validate_input_dtypes(
-    selected: tuple[Any, ...], mode: str, holomorphic: bool, allow_int: bool
-) -> None:
-    """Run input-dtype validation over every leaf of the selected args."""
-    if mode == "fwd":
-        check = lambda a: _check_input_dtype_fwd(holomorphic, a)  # noqa: E731
-    else:
-        # "rev" and all Hessian modes use the reverse-mode / grad-style check.
-        check = lambda a: _check_input_dtype_rev(holomorphic, allow_int, a)  # noqa: E731
-    for leaf in jax.tree_util.tree_leaves(selected):
-        check(leaf)
-
-
-def _validate_output_dtypes(y: Any, mode: str, holomorphic: bool) -> None:
-    """Run output-dtype validation over every leaf of ``y`` for the given ``mode``."""
-    if mode == "fwd":
-        check = lambda a: _check_output_dtype_fwd(holomorphic, a)  # noqa: E731
-    else:
-        check = lambda a: _check_output_dtype_rev(holomorphic, a)  # noqa: E731
-    for leaf in jax.tree_util.tree_leaves(y):
-        check(leaf)
-
-
 # Public API: one-shot entry points
 
 
 def jacobian(
     f: Callable[..., Any],
-    *in_avals: Any,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -158,9 +46,10 @@ def jacobian(
 
     Args:
         f: Function taking one or more positional arrays and returning an array.
-        *in_avals: One positional ``in_aval`` per positional argument of ``f``
+        *args: One entry per positional argument of ``f``,
+            specifying the shape and dtype of that argument
             (see [`jacobian_sparsity`][asdex.jacobian_sparsity]).
-        argnums: Positions of ``in_avals`` to differentiate with respect to,
+        argnums: Positions of ``args`` to differentiate with respect to,
             mirroring ``jax.jacfwd`` / ``jax.jacrev``.
             Defaults to ``0``.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
@@ -191,7 +80,7 @@ def jacobian(
     """
     coloring = _jacobian_coloring(
         f,
-        *in_avals,
+        *args,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
@@ -209,7 +98,7 @@ def jacobian(
 
 def value_and_jacobian(
     f: Callable[..., Any],
-    *in_avals: Any,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -231,7 +120,7 @@ def value_and_jacobian(
     """
     coloring = _jacobian_coloring(
         f,
-        *in_avals,
+        *args,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
@@ -249,7 +138,7 @@ def value_and_jacobian(
 
 def hessian(
     f: Callable[..., Any],
-    *in_avals: Any,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -265,7 +154,7 @@ def hessian(
     """
     coloring = _hessian_coloring(
         f,
-        *in_avals,
+        *args,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
@@ -283,7 +172,7 @@ def hessian(
 
 def value_and_hessian(
     f: Callable[..., Any],
-    *in_avals: Any,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -299,7 +188,7 @@ def value_and_hessian(
     """
     coloring = _hessian_coloring(
         f,
-        *in_avals,
+        *args,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
@@ -466,7 +355,7 @@ def _eval_jacobian(
     sparsity = coloring.sparsity
     _validate_args(args, sparsity)
     selected = _selected_args(args, sparsity)
-    _validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
+    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     m = sparsity.m
     n_selected = sparsity.n
@@ -492,7 +381,7 @@ def _eval_jacobian(
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
-    _validate_output_dtypes(y, coloring.mode, holomorphic)
+    validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
     jac = _pack_jacobian_blocks(dense, sparsity, output_format, out_shape)
@@ -519,7 +408,7 @@ def _eval_value_and_jacobian(
     sparsity = coloring.sparsity
     _validate_args(args, sparsity)
     selected = _selected_args(args, sparsity)
-    _validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
+    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     m = sparsity.m
     n_selected = sparsity.n
@@ -546,7 +435,7 @@ def _eval_value_and_jacobian(
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
-    _validate_output_dtypes(y, coloring.mode, holomorphic)
+    validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
     jac = _pack_jacobian_blocks(dense, sparsity, output_format, out_shape)
@@ -569,11 +458,11 @@ def _eval_hessian(
     sparsity = coloring.sparsity
     _validate_args(args, sparsity)
     selected = _selected_args(args, sparsity)
-    _validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
+    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
     f_scalar = _ensure_scalar(f_scalar_raw, sparsity.input_avals)
-    _validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
+    validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
 
     n_selected = sparsity.n
 
@@ -609,11 +498,11 @@ def _eval_value_and_hessian(
     sparsity = coloring.sparsity
     _validate_args(args, sparsity)
     selected = _selected_args(args, sparsity)
-    _validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
+    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
     f_scalar = _ensure_scalar(f_scalar_raw, sparsity.input_avals)
-    _validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
+    validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
 
     n_selected = sparsity.n
 

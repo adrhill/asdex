@@ -9,7 +9,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from asdex._input_avals import normalize_argnums, normalize_avals
+from asdex._input import normalize_argnums, normalize_avals
 from asdex.detection._interpret import prop_jaxpr
 from asdex.detection._interpret._commons import empty_index_sets
 from asdex.pattern import SparsityPattern
@@ -17,7 +17,7 @@ from asdex.pattern import SparsityPattern
 
 def jacobian_sparsity(
     f: Callable,
-    *in_avals: Any,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
 ) -> SparsityPattern:
@@ -30,15 +30,16 @@ def jacobian_sparsity(
     Args:
         f: Function taking one or more positional arrays and returning an array.
             Each positional argument may itself be a pytree.
-        *in_avals: One positional ``in_aval`` per positional argument of ``f``.
+        *args: One entry per positional argument of ``f``,
+            specifying the shape and dtype of that argument.
             Each entry is a pytree whose leaves are
             ``jax.ShapeDtypeStruct``, a shape tuple (e.g. ``(3, 4)``), or a
             bare ``int``.
             The shape-tuple and bare-int forms are asdex sugar that default
             to ``jnp.float_``.
-        argnums: Positions of ``in_avals`` to differentiate with respect to,
+        argnums: Positions of ``args`` to differentiate with respect to,
             mirroring ``jax.grad`` / ``jax.jacfwd``.
-            Negative indices are resolved via ``i % len(in_avals)``.
+            Negative indices are resolved via ``i % len(args)``.
             Defaults to ``0``.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
             When True, only ``output`` is analyzed for sparsity;
@@ -49,7 +50,7 @@ def jacobian_sparsity(
             where ``m = prod(output_shape)`` and ``n_selected`` is the total
             flat size of the selected inputs.
     """
-    avals = normalize_avals(in_avals)
+    avals = normalize_avals(args)
     argnums = normalize_argnums(argnums, len(avals))
     selected = _as_tuple(argnums)
 
@@ -74,7 +75,7 @@ def jacobian_sparsity(
 
 def hessian_sparsity(
     f: Callable,
-    *in_avals: Any,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
 ) -> SparsityPattern:
@@ -89,9 +90,10 @@ def hessian_sparsity(
 
     Args:
         f: Scalar-valued function taking one or more positional arrays.
-        *in_avals: One positional ``in_aval`` per positional argument of ``f``
+        *args: One entry per positional argument of ``f``,
+            specifying the shape and dtype of that argument
             (see :func:`jacobian_sparsity`).
-        argnums: Positions of ``in_avals`` to differentiate with respect to,
+        argnums: Positions of ``args`` to differentiate with respect to,
             mirroring ``jax.grad``.
         has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``.
             When True, aux is stripped before detection.
@@ -99,7 +101,7 @@ def hessian_sparsity(
     Returns:
         Square SparsityPattern over the combined, selected input space.
     """
-    avals = normalize_avals(in_avals)
+    avals = normalize_avals(args)
     argnums = normalize_argnums(argnums, len(avals))
 
     f_out = _strip_aux(f) if has_aux else f
