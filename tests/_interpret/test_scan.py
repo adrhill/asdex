@@ -26,7 +26,7 @@ def test_scan_cumulative_sum():
         _, ys = jax.lax.scan(body, 0.0, x)
         return ys
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0, 0],  # ys[0] = x[0]
@@ -56,7 +56,7 @@ def test_scan_2d_carry_and_xs():
         _, ys = jax.lax.scan(body, jnp.zeros(2), x_2d)
         return ys.ravel()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0, 0, 0, 0],  # ys[0] = xs[0]
@@ -89,7 +89,7 @@ def test_scan_multiple_carries():
         (arr_out, _), _ = jax.lax.scan(body, (jnp.zeros(3), 0.0), x.reshape(2, 3))
         return arr_out
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # arr_out depends on all xs slices elementwise
     expected = np.array(
         [
@@ -117,7 +117,7 @@ def test_scan_carry_only():
         carry_out, _ = jax.lax.scan(body, x, None, length=5)
         return carry_out
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -138,7 +138,7 @@ def test_scan_with_closure_const():
         _, ys = jax.lax.scan(body, x, None, length=3)
         return ys.ravel()
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     # Each output element depends only on the corresponding input element
     expected = np.array(
         [
@@ -169,7 +169,7 @@ def test_scan_reverse():
         _, ys = jax.lax.scan(body, 0.0, x, reverse=True)
         return ys
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.array(
         [
             [1, 1, 1],  # ys[0] = x[0] + x[1] + x[2]
@@ -198,7 +198,7 @@ def test_scan_reverse_multi_carry():
         carry_out, _ = jax.lax.scan(body, jnp.zeros(3), x_2d, reverse=True)
         return carry_out
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0, 1, 0, 0],
@@ -224,7 +224,7 @@ def test_scan_identity_body():
         _, ys = jax.lax.scan(body, x, None, length=4)
         return ys.ravel()
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     expected = np.array(
         [
             [1, 0],
@@ -263,7 +263,7 @@ def test_scan_composition():
         _, ys = jax.lax.scan(outer_body, jnp.zeros(2), x_4d)
         return ys.ravel()
 
-    result = jacobian_sparsity(f, 8).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(8,)).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 1, 0, 0, 0, 0, 0],  # ys[0] = inner_scan(zeros, xs[0:4])
@@ -292,7 +292,7 @@ def test_scan_noncontiguous_input():
         _, ys = jax.lax.scan(body, 0.0, xs)
         return ys
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.array(
         [
             [0, 1, 0, 0, 0, 0],  # ys[0] = x[1]
@@ -319,7 +319,7 @@ def test_scan_vs_jax_jacobian():
         return jnp.concatenate([carry_out, ys.ravel()])
 
     x = jnp.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-    detected = jacobian_sparsity(f, 6).todense().astype(bool)
+    detected = jacobian_sparsity(f, input_shape=(6,)).todense().astype(bool)
     dense_jac = jax.jacobian(f)(x)
     true_nonzero = np.abs(np.array(dense_jac)) > 0
 
@@ -364,7 +364,7 @@ def test_scan_pytree_xs():
         carry_out, _ = jax.lax.scan(body, 0.0, (a, b))
         return jnp.array([carry_out])
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.ones((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -384,7 +384,7 @@ def test_scan_pytree_ys():
         _, (sums, doubled) = jax.lax.scan(body, 0.0, x)
         return jnp.concatenate([sums, doubled])
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0],  # sums[0] = x[0]
@@ -410,7 +410,7 @@ def test_scan_length_one():
         carry_out, ys = jax.lax.scan(body, jnp.zeros(2), x.reshape(1, 2))
         return jnp.concatenate([carry_out, ys.ravel()])
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     expected = np.array(
         [
             [1, 0],  # carry_out[0] = 0 + x[0]
@@ -434,7 +434,7 @@ def test_scan_scalar_carry_scalar_xs():
         carry_out, ys = jax.lax.scan(body, 0.0, x)
         return jnp.concatenate([jnp.array([carry_out]), ys])
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.array(
         [
             [1, 1, 1],  # carry_out = x[0] + x[1] + x[2]
@@ -468,8 +468,8 @@ def test_scan_unroll():
         _, ys = jax.lax.scan(body, 0.0, x)
         return ys
 
-    sp_unrolled = jacobian_sparsity(f_unrolled, 4).todense().astype(int)
-    sp_default = jacobian_sparsity(f_default, 4).todense().astype(int)
+    sp_unrolled = jacobian_sparsity(f_unrolled, input_shape=(4,)).todense().astype(int)
+    sp_default = jacobian_sparsity(f_default, input_shape=(4,)).todense().astype(int)
     np.testing.assert_array_equal(sp_unrolled, sp_default)
 
 
@@ -491,7 +491,7 @@ def test_scan_ys_independent_of_carry():
         _, ys = jax.lax.scan(body, carry_init, xs)
         return ys.ravel()
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.array(
         [
             [0, 1, 0, 0],  # ys[0] = 2 * x[1]
@@ -519,7 +519,7 @@ def test_scan_carry_only_with_mixing():
         carry_out, _ = jax.lax.scan(body, x, None, length=3)
         return carry_out
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     # carry[0] depends on both inputs after mixing, carry[1] only on itself
     expected = np.array(
         [
@@ -548,7 +548,7 @@ def test_scan_carry_interaction_across_tuple():
         (a_out, b_out), _ = jax.lax.scan(body, (x[:2], x[2:4]), None, length=3)
         return jnp.concatenate([a_out, b_out])
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     # a_out depends on both a_init and b_init (elementwise)
     # b_out depends only on b_init
     expected = np.array(
@@ -584,7 +584,7 @@ def test_scan_with_cond_inside():
         _, ys = jax.lax.scan(body, 0.0, x)
         return ys
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0],  # ys[0] = x[0]

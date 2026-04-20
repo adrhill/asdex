@@ -15,7 +15,7 @@ def test_vmap_elementwise():
     def f(x):
         return jax.vmap(lambda xi: xi**2)(x.reshape(3, 2)).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # Element-wise squaring: each output depends on exactly one input
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -31,7 +31,7 @@ def test_vmap_block_diagonal():
     def f(x):
         return jax.vmap(g)(x.reshape(2, 2)).flatten()
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     # Two 2x2 dense blocks on the diagonal
     expected = np.array(
         [
@@ -55,7 +55,7 @@ def test_vmap_larger_batch():
     def f(x):
         return jax.vmap(g)(x.reshape(4, 3)).flatten()
 
-    result = jacobian_sparsity(f, 12).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(12,)).todense().astype(int)
     # Each output depends on 3 consecutive inputs (one batch)
     expected = np.array(
         [

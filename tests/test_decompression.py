@@ -123,7 +123,7 @@ def test_precomputed_sparsity():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0])
-    sparsity = jacobian_sparsity(f, 3)
+    sparsity = jacobian_sparsity(f, input_shape=(3,))
 
     result1 = jacobian_from_coloring(f, jacobian_coloring_from_sparsity(sparsity))(
         x
@@ -141,7 +141,7 @@ def test_precomputed_colors():
         return (x[1:] - x[:-1]) ** 2
 
     x = np.array([1.0, 2.0, 4.0, 3.0, 5.0])
-    sparsity = jacobian_sparsity(f, 5)
+    sparsity = jacobian_sparsity(f, input_shape=(5,))
     coloring = jacobian_coloring_from_sparsity(sparsity, mode="rev")
 
     result1 = jacobian_from_coloring(f, coloring)(x).todense()
@@ -159,7 +159,7 @@ def test_different_input_points():
     def f(x):
         return jnp.array([x[0] * x[1], x[1] ** 2, jnp.exp(x[2])])
 
-    sparsity = jacobian_sparsity(f, 3)
+    sparsity = jacobian_sparsity(f, input_shape=(3,))
     jac_fn = jacobian_from_coloring(f, jacobian_coloring_from_sparsity(sparsity))
 
     for x in [
@@ -331,7 +331,7 @@ def test_column_partition_diagonal():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    sparsity = jacobian_sparsity(f, x.shape)
+    sparsity = jacobian_sparsity(f, input_shape=x.shape)
     result = jacobian_from_coloring(
         f, jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     )(x).todense()
@@ -348,7 +348,7 @@ def test_column_partition_mixed():
         return jnp.array([x[0] ** 2, 2 * x[0] * x[1] ** 2, jnp.sin(x[2])])
 
     x = np.array([1.0, 2.0, 0.5])
-    sparsity = jacobian_sparsity(f, x.shape)
+    sparsity = jacobian_sparsity(f, input_shape=x.shape)
     result = jacobian_from_coloring(
         f, jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     )(x).todense()
@@ -374,7 +374,7 @@ def test_column_partition_tridiagonal():
         return jnp.array(out)
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    sparsity = jacobian_sparsity(f, x.shape)
+    sparsity = jacobian_sparsity(f, input_shape=x.shape)
     result = jacobian_from_coloring(
         f, jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     )(x).todense()
@@ -391,7 +391,9 @@ def test_precomputed_col_colors():
         return (x[1:] - x[:-1]) ** 2
 
     x = np.array([1.0, 2.0, 4.0, 3.0, 5.0])
-    coloring = jacobian_coloring_from_sparsity(jacobian_sparsity(f, 5), mode="fwd")
+    coloring = jacobian_coloring_from_sparsity(
+        jacobian_sparsity(f, input_shape=(5,)), mode="fwd"
+    )
 
     result = jacobian_from_coloring(f, coloring)(x).todense()
     expected = jax.jacobian(f)(x)
@@ -413,7 +415,7 @@ def test_auto_picks_column_for_tall():
         return jnp.array([x[0], x[1], x[0] + x[1], x[0] * x[1], x[0] - x[1]])
 
     x = np.array([2.0, 3.0])
-    sparsity = jacobian_sparsity(f, x.shape)
+    sparsity = jacobian_sparsity(f, input_shape=x.shape)
 
     # Auto should give same result as explicit column
     result_auto = jacobian(f, x.shape)(x).todense()
@@ -440,7 +442,7 @@ def test_auto_picks_row_for_wide():
         return jnp.array([jnp.sum(x[:3]), jnp.sum(x[2:])])
 
     x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    sparsity = jacobian_sparsity(f, x.shape)
+    sparsity = jacobian_sparsity(f, input_shape=x.shape)
 
     # Auto and row should give same result
     result_auto = jacobian(f, x.shape)(x).todense()
@@ -461,7 +463,7 @@ def test_precomputed_auto_coloring():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = jacobian_coloring_from_sparsity(jacobian_sparsity(f, 3))
+    coloring = jacobian_coloring_from_sparsity(jacobian_sparsity(f, input_shape=(3,)))
 
     result = jacobian_from_coloring(f, coloring)(x).todense()
     expected = jax.jacobian(f)(x)
@@ -479,7 +481,7 @@ def test_jacobian_shape_mismatch_raises():
     def f(x):
         return x**2
 
-    coloring = jacobian_sparsity(f, (2, 3))
+    coloring = jacobian_sparsity(f, input_shape=((2, 3),))
     colored = jacobian_coloring_from_sparsity(coloring)
 
     with pytest.raises(ValueError, match=r"shape .* does not match expected"):
@@ -493,7 +495,7 @@ def test_value_and_jacobian_shape_mismatch_raises():
     def f(x):
         return x**2
 
-    coloring = jacobian_sparsity(f, (2, 3))
+    coloring = jacobian_sparsity(f, input_shape=((2, 3),))
     colored = jacobian_coloring_from_sparsity(coloring)
 
     with pytest.raises(ValueError, match=r"shape .* does not match expected"):
@@ -507,7 +509,7 @@ def test_hessian_shape_mismatch_raises():
     def f(x):
         return jnp.sum(x**2)
 
-    coloring = hessian_sparsity(f, (2, 3))
+    coloring = hessian_sparsity(f, input_shape=((2, 3),))
     colored = hessian_coloring_from_sparsity(coloring)
 
     with pytest.raises(ValueError, match=r"shape .* does not match expected"):
@@ -521,7 +523,7 @@ def test_value_and_hessian_shape_mismatch_raises():
     def f(x):
         return jnp.sum(x**2)
 
-    coloring = hessian_sparsity(f, (2, 3))
+    coloring = hessian_sparsity(f, input_shape=((2, 3),))
     colored = hessian_coloring_from_sparsity(coloring)
 
     with pytest.raises(ValueError, match=r"shape .* does not match expected"):
@@ -568,7 +570,7 @@ def test_hessian_precomputed_sparsity():
         return jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    sparsity = hessian_sparsity(f, 3)
+    sparsity = hessian_sparsity(f, input_shape=(3,))
 
     result1 = hessian_from_coloring(f, hessian_coloring_from_sparsity(sparsity))(
         x
@@ -645,8 +647,8 @@ def test_hessian_sparsity_squeeze_1d_output():
     def f(x):
         return jnp.sum(x**2, keepdims=True)
 
-    pattern = hessian_sparsity(f, 3)
-    expected = hessian_sparsity(lambda x: jnp.sum(x**2), 3)
+    pattern = hessian_sparsity(f, input_shape=(3,))
+    expected = hessian_sparsity(lambda x: jnp.sum(x**2), input_shape=(3,))
 
     assert pattern.shape == expected.shape
     assert pattern.nnz == expected.nnz
@@ -660,7 +662,7 @@ def test_hessian_squeeze_non_scalar_raises():
         return x**2
 
     with pytest.raises(ValueError, match="output shape"):
-        hessian_coloring(f, 3)
+        hessian_coloring(f, input_shape=(3,))
 
 
 @pytest.mark.hessian
@@ -777,7 +779,7 @@ def test_jacobian_from_coloring_rejects_hessian_coloring():
         return jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape)
+    coloring = hessian_coloring(f, input_shape=x.shape)
     with pytest.raises(ValueError, match="Expected 'fwd' or 'rev'"):
         jacobian_from_coloring(jax.grad(f), coloring)(x)
 
@@ -790,7 +792,7 @@ def test_hessian_from_coloring_rejects_jacobian_coloring():
         return jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = jacobian_coloring(jax.grad(f), x.shape)
+    coloring = jacobian_coloring(jax.grad(f), input_shape=x.shape)
     with pytest.raises(ValueError, match="Expected 'fwd_over_rev'"):
         hessian_from_coloring(f, coloring)(x)
 
@@ -837,7 +839,9 @@ def test_value_and_jacobian_from_coloring(mode):
         return (x[1:] - x[:-1]) ** 2
 
     x = np.array([1.0, 2.0, 4.0, 3.0, 5.0])
-    coloring = jacobian_coloring_from_sparsity(jacobian_sparsity(f, 5), mode=mode)
+    coloring = jacobian_coloring_from_sparsity(
+        jacobian_sparsity(f, input_shape=(5,)), mode=mode
+    )
     value, jac = value_and_jacobian_from_coloring(f, coloring)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
@@ -916,7 +920,9 @@ def test_value_and_hessian_from_coloring(mode):
         return x[0] ** 2 * x[1] + jnp.sin(x[1]) * x[2] + x[2] ** 3
 
     x = np.array([1.0, 2.0, 0.5])
-    coloring = hessian_coloring_from_sparsity(hessian_sparsity(f, 3), mode=mode)
+    coloring = hessian_coloring_from_sparsity(
+        hessian_sparsity(f, input_shape=(3,)), mode=mode
+    )
     value, hess = value_and_hessian_from_coloring(f, coloring)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)

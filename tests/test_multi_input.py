@@ -23,12 +23,16 @@ def test_jacobian_wrt_x_y_and_both_agree():
         return jnp.array([x[0] * y[0], x[1] + y[1], x[0] * x[1]])
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J_x_ref = asdex.jacobian(lambda x: f(x, y), (2,), output_format="dense")(x)
-    J_y_ref = asdex.jacobian(lambda y: f(x, y), (2,), output_format="dense")(y)
+    J_x_ref = asdex.jacobian(
+        lambda x: f(x, y), input_shape=(2,), output_format="dense"
+    )(x)
+    J_y_ref = asdex.jacobian(
+        lambda y: f(x, y), input_shape=(2,), output_format="dense"
+    )(y)
 
-    J_x, J_y = asdex.jacobian(f, (2,), (2,), argnums=(0, 1), output_format="dense")(
-        x, y
-    )
+    J_x, J_y = asdex.jacobian(
+        f, input_shape=((2,), (2,)), argnums=(0, 1), output_format="dense"
+    )(x, y)
     np.testing.assert_allclose(J_x, J_x_ref)
     np.testing.assert_allclose(J_y, J_y_ref)
 
@@ -40,9 +44,9 @@ def test_jacobian_asymmetric_block_shapes():
     def f(x, y):
         return jnp.array([x[0] + y[2], x[2] * y[1]])
 
-    J_x, J_y = asdex.jacobian(f, (3,), (4,), argnums=(0, 1), output_format="dense")(
-        jnp.ones(3), jnp.ones(4)
-    )
+    J_x, J_y = asdex.jacobian(
+        f, input_shape=((3,), (4,)), argnums=(0, 1), output_format="dense"
+    )(jnp.ones(3), jnp.ones(4))
     assert J_x.shape == (2, 3)
     assert J_y.shape == (2, 4)
 
@@ -56,9 +60,7 @@ def test_jacobian_three_inputs_ordering():
 
     Jx, Jy, Jz = asdex.jacobian(
         f,
-        (3,),
-        (3,),
-        (3,),
+        input_shape=((3,), (3,), (3,)),
         argnums=(0, 1, 2),
         output_format="dense",
     )(jnp.full(3, 2.0), jnp.full(3, 3.0), jnp.ones(3))
@@ -81,7 +83,7 @@ def test_jacobian_dict_input_preserves_pytree():
         "b": jnp.zeros(3),
     }
 
-    J = asdex.jacobian(f, shapes, output_format="dense")(inputs)
+    J = asdex.jacobian(f, input_shape=(shapes,), output_format="dense")(inputs)
     assert set(J.keys()) == {"w", "x", "b"}
     assert J["w"].shape == (3, 3, 2)
     assert J["x"].shape == (3, 2)
@@ -97,10 +99,10 @@ def test_jacobian_fwd_and_rev_modes_agree():
 
     xs = (jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0, 6.0]))
     Jx_fwd, Jy_fwd = asdex.jacobian(
-        f, (3,), (3,), argnums=(0, 1), mode="fwd", output_format="dense"
+        f, input_shape=((3,), (3,)), argnums=(0, 1), mode="fwd", output_format="dense"
     )(*xs)
     Jx_rev, Jy_rev = asdex.jacobian(
-        f, (3,), (3,), argnums=(0, 1), mode="rev", output_format="dense"
+        f, input_shape=((3,), (3,)), argnums=(0, 1), mode="rev", output_format="dense"
     )(*xs)
     np.testing.assert_allclose(Jx_fwd, Jx_rev)
     np.testing.assert_allclose(Jy_fwd, Jy_rev)
@@ -115,7 +117,7 @@ def test_value_and_jacobian_multi_input():
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     val, (J_x, J_y) = asdex.value_and_jacobian(
-        f, (2,), (2,), argnums=(0, 1), output_format="dense"
+        f, input_shape=((2,), (2,)), argnums=(0, 1), output_format="dense"
     )(x, y)
     np.testing.assert_allclose(val, f(x, y))
     J_x_jax, J_y_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
@@ -134,10 +136,16 @@ def test_hessian_diagonal_blocks_match_single_input_closures():
         return jnp.sum(x**3) + jnp.dot(x[:2], y) + jnp.sum(y**2)
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0])
-    H_xx_ref = asdex.hessian(lambda x: f(x, y), (3,), output_format="dense")(x)
-    H_yy_ref = asdex.hessian(lambda y: f(x, y), (2,), output_format="dense")(y)
+    H_xx_ref = asdex.hessian(
+        lambda x: f(x, y), input_shape=(3,), output_format="dense"
+    )(x)
+    H_yy_ref = asdex.hessian(
+        lambda y: f(x, y), input_shape=(2,), output_format="dense"
+    )(y)
 
-    H = asdex.hessian(f, (3,), (2,), argnums=(0, 1), output_format="dense")(x, y)
+    H = asdex.hessian(
+        f, input_shape=((3,), (2,)), argnums=(0, 1), output_format="dense"
+    )(x, y)
     np.testing.assert_allclose(H[0][0], H_xx_ref)
     np.testing.assert_allclose(H[1][1], H_yy_ref)
 
@@ -149,9 +157,9 @@ def test_hessian_separable_has_zero_cross_blocks():
     def f(x, y):
         return jnp.sum(x**2) + jnp.sum(y**2)
 
-    H = asdex.hessian(f, (3,), (2,), argnums=(0, 1), output_format="dense")(
-        jnp.ones(3), jnp.ones(2)
-    )
+    H = asdex.hessian(
+        f, input_shape=((3,), (2,)), argnums=(0, 1), output_format="dense"
+    )(jnp.ones(3), jnp.ones(2))
     np.testing.assert_allclose(H[0][0], 2 * np.eye(3))
     np.testing.assert_allclose(H[1][1], 2 * np.eye(2))
     np.testing.assert_allclose(H[0][1], np.zeros((3, 2)))
@@ -165,9 +173,9 @@ def test_hessian_bilinear_has_dense_cross_blocks():
     def f(x, y):
         return jnp.sum(x) * jnp.sum(y)
 
-    H = asdex.hessian(f, (3,), (2,), argnums=(0, 1), output_format="dense")(
-        jnp.ones(3), jnp.ones(2)
-    )
+    H = asdex.hessian(
+        f, input_shape=((3,), (2,)), argnums=(0, 1), output_format="dense"
+    )(jnp.ones(3), jnp.ones(2))
     np.testing.assert_allclose(H[0][1], np.ones((3, 2)))
     np.testing.assert_allclose(H[1][0], np.ones((2, 3)))
 
@@ -179,9 +187,9 @@ def test_hessian_asymmetric_block_shapes():
     def f(x, y):
         return jnp.sum(x**2) + jnp.dot(x, y[:3]) + jnp.sum(y**3)
 
-    H = asdex.hessian(f, (3,), (4,), argnums=(0, 1), output_format="dense")(
-        jnp.ones(3), jnp.ones(4)
-    )
+    H = asdex.hessian(
+        f, input_shape=((3,), (4,)), argnums=(0, 1), output_format="dense"
+    )(jnp.ones(3), jnp.ones(4))
     (H_xx, H_xy), (H_yx, H_yy) = H
     assert H_xx.shape == (3, 3)
     assert H_xy.shape == (3, 4)
@@ -200,9 +208,7 @@ def test_hessian_three_inputs_block_grid():
     H_jax = jax.hessian(f, argnums=(0, 1, 2))(x, y, z)
     H = asdex.hessian(
         f,
-        (3,),
-        (3,),
-        (3,),
+        input_shape=((3,), (3,), (3,)),
         argnums=(0, 1, 2),
         output_format="dense",
     )(x, y, z)
@@ -219,7 +225,7 @@ def test_hessian_dict_input_preserves_pytree_on_both_axes():
         return jnp.sum(p["a"] ** 2) + jnp.dot(p["a"], p["b"][:2])
 
     shapes = {"a": (2,), "b": (3,)}
-    H = asdex.hessian(f, shapes, output_format="dense")(
+    H = asdex.hessian(f, input_shape=(shapes,), output_format="dense")(
         {"a": jnp.ones(2), "b": jnp.ones(3)}
     )
     assert set(H.keys()) == {"a", "b"}
@@ -239,7 +245,9 @@ def test_hessian_mixed_matches_jax_block_for_block():
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0, 6.0])
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
-    H = asdex.hessian(f, (3,), (3,), argnums=(0, 1), output_format="dense")(x, y)
+    H = asdex.hessian(
+        f, input_shape=((3,), (3,)), argnums=(0, 1), output_format="dense"
+    )(x, y)
     for i in range(2):
         for j in range(2):
             np.testing.assert_allclose(H[i][j], H_jax[i][j])
@@ -255,9 +263,9 @@ def test_hessian_all_modes_match_jax(mode):
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
-    H = asdex.hessian(f, (2,), (2,), argnums=(0, 1), mode=mode, output_format="dense")(
-        x, y
-    )
+    H = asdex.hessian(
+        f, input_shape=((2,), (2,)), argnums=(0, 1), mode=mode, output_format="dense"
+    )(x, y)
     for i in range(2):
         for j in range(2):
             np.testing.assert_allclose(H[i][j], H_jax[i][j], atol=1e-6)
@@ -272,7 +280,7 @@ def test_value_and_hessian_multi_input():
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0, 6.0])
     val, H = asdex.value_and_hessian(
-        f, (3,), (3,), argnums=(0, 1), output_format="dense"
+        f, input_shape=((3,), (3,)), argnums=(0, 1), output_format="dense"
     )(x, y)
     np.testing.assert_allclose(val, f(x, y))
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
@@ -291,7 +299,7 @@ def test_jacobian_single_input_path_unchanged():
     def f(x):
         return x[1:] - x[:-1]
 
-    J = asdex.jacobian(f, (5,), output_format="dense")(jnp.arange(5.0))
+    J = asdex.jacobian(f, input_shape=(5,), output_format="dense")(jnp.arange(5.0))
     np.testing.assert_allclose(J, np.eye(5)[1:] - np.eye(5)[:-1])
 
 
@@ -302,7 +310,7 @@ def test_hessian_single_input_path_unchanged():
     def f(x):
         return jnp.sum(x**2)
 
-    H = asdex.hessian(f, (4,), output_format="dense")(jnp.ones(4))
+    H = asdex.hessian(f, input_shape=(4,), output_format="dense")(jnp.ones(4))
     np.testing.assert_allclose(H, 2 * np.eye(4))
 
 
@@ -320,7 +328,7 @@ def test_combined_coloring_reverse_mode_disjoint_rows():
     def f(x, y):
         return x * y
 
-    c = asdex.jacobian_coloring(f, (3,), (3,), argnums=(0, 1), mode="rev")
+    c = asdex.jacobian_coloring(f, input_shape=((3,), (3,)), argnums=(0, 1), mode="rev")
     assert c.num_colors == 1
 
 
@@ -334,7 +342,7 @@ def test_combined_coloring_forward_mode_couples_inputs():
     def f(x, y):
         return x * y
 
-    c = asdex.jacobian_coloring(f, (3,), (3,), argnums=(0, 1), mode="fwd")
+    c = asdex.jacobian_coloring(f, input_shape=((3,), (3,)), argnums=(0, 1), mode="fwd")
     assert c.num_colors == 2
 
 
@@ -351,8 +359,7 @@ def test_jacobian_argnums_int_returns_single_block():
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     J = asdex.jacobian(
         f,
-        (2,),
-        (2,),
+        input_shape=((2,), (2,)),
         argnums=0,
         output_format="dense",
     )(x, y)
@@ -371,9 +378,7 @@ def test_jacobian_argnums_subset_returns_only_selected_blocks():
 
     Jx, Jz = asdex.jacobian(
         f,
-        (3,),
-        (3,),
-        (3,),
+        input_shape=((3,), (3,), (3,)),
         argnums=(0, 2),
         output_format="dense",
     )(jnp.full(3, 2.0), jnp.full(3, 3.0), jnp.ones(3))
@@ -389,7 +394,7 @@ def test_jacobian_argnums_excludes_non_selected_from_pattern():
     def f(x, y):
         return x * y
 
-    pat = asdex.jacobian_sparsity(f, (3,), (3,), argnums=0)
+    pat = asdex.jacobian_sparsity(f, input_shape=((3,), (3,)), argnums=0)
     assert pat.shape == (3, 3)
 
 
@@ -402,9 +407,7 @@ def test_jacobian_argnums_amortizes_across_changing_non_diff_args():
 
     coloring = asdex.jacobian_coloring(
         loss,
-        (3,),
-        (3,),
-        (3,),
+        ((3,), (3,), (3,)),
         argnums=0,
     )
     jac = asdex.jacobian_from_coloring(loss, coloring, output_format="dense")
@@ -430,9 +433,7 @@ def test_hessian_argnums_subset_returns_smaller_block_grid():
     x, y, z = jnp.ones(3), jnp.ones(3), jnp.ones(3)
     H = asdex.hessian(
         f,
-        (3,),
-        (3,),
-        (3,),
+        input_shape=((3,), (3,), (3,)),
         argnums=(0, 2),
         output_format="dense",
     )(x, y, z)
@@ -455,9 +456,7 @@ def test_hessian_argnums_int_returns_single_block():
     x, y, z = jnp.ones(3), jnp.ones(3), jnp.ones(3)
     H = asdex.hessian(
         f,
-        (3,),
-        (3,),
-        (3,),
+        input_shape=((3,), (3,), (3,)),
         argnums=1,
         output_format="dense",
     )(x, y, z)
@@ -481,7 +480,9 @@ def test_jacobian_two_dict_args_preserves_per_arg_pytree():
     p = {"a": jnp.array([1.0, 2.0, 3.0])}
     q = {"b": jnp.array([4.0, 5.0, 6.0, 7.0]), "c": jnp.array([8.0, 9.0, 10.0])}
 
-    J = asdex.jacobian(f, *shapes, argnums=(0, 1), output_format="dense")(p, q)
+    J = asdex.jacobian(f, input_shape=shapes, argnums=(0, 1), output_format="dense")(
+        p, q
+    )
 
     assert isinstance(J, tuple)
     assert len(J) == 2
@@ -508,7 +509,7 @@ def test_jacobian_argnums_selects_whole_pytree_position():
     p = {"a": jnp.array([1.0, 2.0])}
     q = {"b": jnp.array([3.0, 4.0, 5.0])}
 
-    J0 = asdex.jacobian(f, *shapes, argnums=0, output_format="dense")(p, q)
+    J0 = asdex.jacobian(f, input_shape=shapes, argnums=0, output_format="dense")(p, q)
 
     assert not isinstance(J0, tuple)
     assert set(J0.keys()) == {"a"}
@@ -525,7 +526,7 @@ def test_jacobian_argnums_out_of_bounds_refers_to_positions():
 
     shapes = ({"a": (2,)}, {"b": (2,), "c": (2,)})
     with pytest.raises(ValueError, match=r"len\(args\) == 2"):
-        asdex.jacobian_sparsity(f, *shapes, argnums=2)
+        asdex.jacobian_sparsity(f, input_shape=shapes, argnums=2)
 
 
 @pytest.mark.hessian
@@ -539,7 +540,9 @@ def test_hessian_two_dict_args_matches_jax_block_for_block():
     p = {"a": jnp.array([1.0, 2.0])}
     q = {"b": jnp.array([3.0, 4.0]), "c": jnp.array([5.0, 6.0, 7.0])}
 
-    H = asdex.hessian(f, *shapes, argnums=(0, 1), output_format="dense")(p, q)
+    H = asdex.hessian(f, input_shape=shapes, argnums=(0, 1), output_format="dense")(
+        p, q
+    )
     H_jax = jax.hessian(f, argnums=(0, 1))(p, q)
 
     assert isinstance(H, tuple)
@@ -571,7 +574,7 @@ def test_hessian_argnums_int_with_pytree_position_returns_pytree_of_pytrees():
     p = {"a": jnp.array([1.0, 2.0])}
     q = {"b": jnp.array([3.0, 4.0])}
 
-    H = asdex.hessian(f, *shapes, argnums=0, output_format="dense")(p, q)
+    H = asdex.hessian(f, input_shape=shapes, argnums=0, output_format="dense")(p, q)
 
     assert not isinstance(H, tuple)
     H_jax = jax.hessian(f, argnums=0)(p, q)

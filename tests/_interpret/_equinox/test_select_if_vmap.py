@@ -24,7 +24,7 @@ def test_select_if_vmap_both_branches():
         on_false = x[2] * x[3]
         return jnp.array([select_if_vmap_p.bind(pred, on_true, on_false)])
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.array([[1, 1, 1, 1]])
     np.testing.assert_array_equal(result, expected)
 
@@ -39,7 +39,7 @@ def test_select_if_vmap_one_branch_constant():
         on_false = 1.0
         return jnp.array([select_if_vmap_p.bind(pred, on_true, on_false)])
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.array([[1, 1, 0, 0]])
     np.testing.assert_array_equal(result, expected)
 
@@ -52,7 +52,7 @@ def test_select_if_vmap_elementwise():
         pred = x > 0
         return select_if_vmap_p.bind(pred, x, -x)
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -73,7 +73,7 @@ def test_select_if_vmap_all_const_propagation():
         indices = select_if_vmap_p.bind(pred, true_idx, false_idx)
         return x[indices]
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # pred=True selects true_idx=[2, 0, 1], so output is x[[2, 0, 1]].
     expected = np.array(
         [

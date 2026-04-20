@@ -15,7 +15,7 @@ def test_pad_1d_constant():
     def f(x):
         return jnp.pad(x, (1, 1), constant_values=0)
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     expected = np.array([[0, 0], [1, 0], [0, 1], [0, 0]])
     np.testing.assert_array_equal(result, expected)
 
@@ -27,7 +27,7 @@ def test_pad_1d_asymmetric():
     def f(x):
         return jnp.pad(x, (2, 1), constant_values=0)
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # 2 pad + 3 original + 1 pad = 6 output elements
     expected = np.array(
         [
@@ -53,7 +53,7 @@ def test_pad_2d():
         mat = x.reshape(2, 3)
         return jnp.pad(mat, ((1, 0), (0, 1)), constant_values=0).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # Input: [[x0, x1, x2], [x3, x4, x5]]
     # Padded: [[0, 0, 0, 0], [x0, x1, x2, 0], [x3, x4, x5, 0]]  (3x4 = 12 outputs)
     expected = np.array(
@@ -83,7 +83,7 @@ def test_pad_negative():
         # Negative padding = trimming: removes first and last element
         return jax.lax.pad(x, 0.0, [(-1, -1, 0)])
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     # Removes first and last: output = [x1, x2]
     expected = np.array(
         [
@@ -101,7 +101,7 @@ def test_pad_interior():
     def f(x):
         return jax.lax.pad(x, 0.0, [(0, 0, 1)])
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # x = [a, b, c] -> [a, 0, b, 0, c] (5 elements)
     expected = np.array(
         [
@@ -122,7 +122,7 @@ def test_pad_interior_with_border():
     def f(x):
         return jax.lax.pad(x, 0.0, [(1, 1, 2)])
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     # x = [a, b] -> [0, a, 0, 0, b, 0] (6 elements)
     # low=1, then a, then 2 interior pads, then b, then high=1
     expected = np.array(
@@ -145,7 +145,7 @@ def test_pad_noop():
     def f(x):
         return jax.lax.pad(x, 0.0, [(0, 0, 0)])
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -162,7 +162,7 @@ def test_pad_negative_with_interior():
         # Dilate [a, b, c] -> [a, 0, b, 0, c], then trim first element
         return jax.lax.pad(x, 0.0, [(-1, 0, 1)])
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # Dilated: [a, 0, b, 0, c] (5 elements), trim first -> [0, b, 0, c] (4 elements)
     expected = np.array(
         [
@@ -183,7 +183,7 @@ def test_pad_value_with_deps():
         # Pad with x[0] as the padding value — padding positions depend on x[0]
         return jax.lax.pad(x, x[0], [(1, 1, 0)])
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # Output: [x[0], x[0], x[1], x[2], x[0]]
     # Padding positions inherit x[0]'s dependency
     expected = np.array(
@@ -210,7 +210,7 @@ def test_pad_2d_interior():
         # Interior padding of 1 in both dims
         return jax.lax.pad(mat, 0.0, [(0, 0, 1), (0, 0, 1)]).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # Input: [[a, b, c], [d, e, f]]
     # Dilated (3x5):
     # [[a, 0, b, 0, c],
@@ -249,7 +249,7 @@ def test_pad_1d_precision():
         return jax.lax.pad(x, 0.0, [(1, 2, 1)])
 
     input_size = 5
-    detected = jacobian_sparsity(f, input_size).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(input_size,)).todense().astype(int)
 
     x_test = jax.random.normal(jax.random.key(0), (input_size,))
     actual_jac = jax.jacobian(f)(x_test)
@@ -269,7 +269,7 @@ def test_pad_2d_nonsquare_precision():
         return jax.lax.pad(mat, 0.0, [(1, 0, 0), (0, 2, 1)]).flatten()
 
     input_size = 6
-    detected = jacobian_sparsity(f, input_size).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(input_size,)).todense().astype(int)
 
     x_test = jax.random.normal(jax.random.key(1), (input_size,))
     actual_jac = jax.jacobian(f)(x_test)
@@ -289,7 +289,7 @@ def test_pad_3d_precision():
         return jax.lax.pad(arr, 0.0, [(0, 1, 0), (1, 0, 1), (0, 0, 0)]).flatten()
 
     input_size = 12
-    detected = jacobian_sparsity(f, input_size).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(input_size,)).todense().astype(int)
 
     x_test = jax.random.normal(jax.random.key(2), (input_size,))
     actual_jac = jax.jacobian(f)(x_test)
@@ -316,7 +316,7 @@ def test_pad_conservative_audit():
         return jnp.pad(mat, ((1, 1), (1, 1)), constant_values=0).flatten()
 
     n_inputs = 6
-    result = jacobian_sparsity(f, n_inputs).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(n_inputs,)).todense().astype(int)
     n_outputs = result.shape[0]
 
     assert result.sum() < n_outputs * n_inputs
@@ -342,7 +342,7 @@ def test_pad_3d_mixed():
         return jax.lax.pad(arr, 0.0, [(1, 0, 0), (0, 0, 1), (0, 1, 1)]).flatten()
 
     input_size = 24
-    detected = jacobian_sparsity(f, input_size).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(input_size,)).todense().astype(int)
 
     # Verify against actual Jacobian
     x_test = jax.random.normal(jax.random.key(3), (input_size,))
@@ -371,7 +371,7 @@ def test_pad_size_one_dim():
         return jax.lax.pad(mat, 0.0, [(1, 1, 1), (0, 0, 1)]).flatten()
 
     input_size = 3
-    detected = jacobian_sparsity(f, input_size).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(input_size,)).todense().astype(int)
 
     x_test = jax.random.normal(jax.random.key(4), (input_size,))
     actual_jac = jax.jacobian(f)(x_test)
@@ -393,7 +393,7 @@ def test_pad_in_hessian():
     def f(x):
         return ((x[1:] - x[:-1]) ** 2).sum()
 
-    H = hessian_sparsity(f, 4).todense().astype(int)
+    H = hessian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.array(
         [
             [1, 1, 0, 0],
@@ -415,7 +415,7 @@ def test_pad_zero_size_input():
     def f(x):
         return jnp.pad(x[:0], (1, 1))
 
-    result = jacobian_sparsity(f, 3)
+    result = jacobian_sparsity(f, input_shape=(3,))
     # Output has 2 elements (low pad + high pad), none depend on input.
     assert result.shape == (2, 3)
     assert result.nnz == 0

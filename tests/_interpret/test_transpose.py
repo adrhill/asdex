@@ -43,7 +43,7 @@ def test_transpose_1d():
     def f(x):
         return jnp.transpose(x, (0,))
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.eye(4, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -56,7 +56,7 @@ def test_transpose_identity_2d():
         mat = x.reshape(2, 3)
         return jnp.transpose(mat, (0, 1)).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -70,7 +70,7 @@ def test_transpose_3d_swap_last_two():
         arr = x.reshape(in_shape)
         return jnp.transpose(arr, (0, 2, 1)).flatten()
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     expected = _transpose_jacobian(in_shape, (0, 2, 1))
     np.testing.assert_array_equal(result, expected)
 
@@ -87,7 +87,7 @@ def test_transpose_3d_cyclic():
         arr = x.reshape(in_shape)
         return jnp.transpose(arr, (1, 2, 0)).flatten()
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     expected = _transpose_jacobian(in_shape, (1, 2, 0))
     np.testing.assert_array_equal(result, expected)
 
@@ -101,7 +101,7 @@ def test_transpose_3d_reverse():
         arr = x.reshape(in_shape)
         return jnp.transpose(arr, (2, 1, 0)).flatten()
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     expected = _transpose_jacobian(in_shape, (2, 1, 0))
     np.testing.assert_array_equal(result, expected)
 
@@ -115,7 +115,7 @@ def test_transpose_size_one_dims():
         arr = x.reshape(in_shape)
         return jnp.transpose(arr, (2, 1, 0)).flatten()
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # All dimensions except dim 1 have size 1, so this is effectively identity.
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -131,7 +131,7 @@ def test_transpose_4d_nhwc_to_nchw():
         arr = x.reshape(in_shape)
         return jnp.transpose(arr, perm).flatten()
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     expected = _transpose_jacobian(in_shape, perm)
     np.testing.assert_array_equal(result, expected)
 
@@ -144,7 +144,7 @@ def test_transpose_square_involution():
         mat = x.reshape(3, 3)
         return mat.T.T.flatten()
 
-    result = jacobian_sparsity(f, 9).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(9,)).todense().astype(int)
     expected = np.eye(9, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -158,7 +158,7 @@ def test_moveaxis():
         arr = x.reshape(in_shape)
         return jnp.moveaxis(arr, 0, -1).flatten()  # (3, 4, 2)
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     # moveaxis(arr, 0, -1) is equivalent to transpose(arr, (1, 2, 0)).
     expected = _transpose_jacobian(in_shape, (1, 2, 0))
     np.testing.assert_array_equal(result, expected)
@@ -177,7 +177,7 @@ def test_transpose_2d_vs_jacobian():
     def f(x):
         return jnp.transpose(x.reshape(in_shape), perm).flatten()
 
-    detected = jacobian_sparsity(f, 12).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(12,)).todense().astype(int)
     x_test = jax.random.normal(jax.random.key(0), (12,))
     actual = (np.abs(jax.jacobian(f)(x_test)) > 1e-10).astype(int)
     np.testing.assert_array_equal(detected, actual)
@@ -192,7 +192,7 @@ def test_transpose_3d_vs_jacobian():
     def f(x):
         return jnp.transpose(x.reshape(in_shape), perm).flatten()
 
-    detected = jacobian_sparsity(f, 24).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     x_test = jax.random.normal(jax.random.key(1), (24,))
     actual = (np.abs(jax.jacobian(f)(x_test)) > 1e-10).astype(int)
     np.testing.assert_array_equal(detected, actual)
@@ -207,7 +207,7 @@ def test_transpose_4d_vs_jacobian():
     def f(x):
         return jnp.transpose(x.reshape(in_shape), perm).flatten()
 
-    detected = jacobian_sparsity(f, 24).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     x_test = jax.random.normal(jax.random.key(2), (24,))
     actual = (np.abs(jax.jacobian(f)(x_test)) > 1e-10).astype(int)
     np.testing.assert_array_equal(detected, actual)
@@ -225,7 +225,7 @@ def test_transpose_5d():
     def f(x):
         return jnp.transpose(x.reshape(in_shape), perm).flatten()
 
-    detected = jacobian_sparsity(f, 24).todense().astype(int)
+    detected = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     expected = _transpose_jacobian(in_shape, perm)
     np.testing.assert_array_equal(detected, expected)
 
@@ -241,7 +241,7 @@ def test_transpose_nonsquare_involution():
         mat = x.reshape(3, 5)
         return jnp.transpose(jnp.transpose(mat, (1, 0)), (1, 0)).flatten()
 
-    result = jacobian_sparsity(f, 15).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(15,)).todense().astype(int)
     expected = np.eye(15, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -262,7 +262,7 @@ def test_transpose_after_broadcast():
         arr = jnp.broadcast_to(x, (2, 3))
         return jnp.transpose(arr, (1, 0)).flatten()
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # After broadcast: each column shares one input.
     # Transpose (1,0): output (3,2), out[i,j] = broadcast[j,i] = x[i].
     # So every output element depends on the input element matching its row.
@@ -297,7 +297,7 @@ def test_transpose_const_chain():
         # Transpose then index: equivalent to selecting specific elements.
         return mat[:, 0] + mat[:, 2]
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # mat[:,0] = [x[0], x[3]], mat[:,2] = [x[2], x[5]]
     # out[0] = x[0] + x[2], out[1] = x[3] + x[5]
     expected = np.array(
@@ -333,7 +333,7 @@ def test_transpose_conservative_audit(desc, in_shape, perm):
     def f(x):
         return jnp.transpose(x.reshape(in_shape), perm).flatten()
 
-    sparsity = jacobian_sparsity(f, n)
+    sparsity = jacobian_sparsity(f, input_shape=(n,))
     # Permutation matrix: exactly n nonzeros.
     assert sparsity.nnz == n, f"{desc}: expected {n} nnz, got {sparsity.nnz}"
     # Strictly sparser than conservative (n*n).
@@ -352,7 +352,7 @@ def test_swapaxes():
         arr = x.reshape(in_shape)
         return jnp.swapaxes(arr, 0, 2).flatten()  # equivalent to perm (2, 1, 0)
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     expected = _transpose_jacobian(in_shape, (2, 1, 0))
     np.testing.assert_array_equal(result, expected)
 
@@ -369,6 +369,6 @@ def test_transpose_size_zero_dim():
         arr = lax.reshape(x, in_shape)
         return jnp.transpose(arr, (1, 0)).flatten()
 
-    result = jacobian_sparsity(f, 0).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(0,)).todense().astype(int)
     expected = np.zeros((0, 0), dtype=int)
     np.testing.assert_array_equal(result, expected)

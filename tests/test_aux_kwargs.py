@@ -28,7 +28,9 @@ def test_jacobian_has_aux_returns_tuple():
         return y, aux
 
     x = jnp.array([2.0, 3.0])
-    jac, aux = asdex.jacobian(f, (2,), has_aux=True, output_format="dense")(x)
+    jac, aux = asdex.jacobian(f, input_shape=(2,), has_aux=True, output_format="dense")(
+        x
+    )
 
     expected = np.array([[x[1], x[0]], [1.0, 1.0]])
     np.testing.assert_allclose(jac, expected)
@@ -46,7 +48,7 @@ def test_value_and_jacobian_has_aux_returns_nested_tuple():
 
     x = jnp.array([2.0, 3.0])
     (value, aux), jac = asdex.value_and_jacobian(
-        f, (2,), has_aux=True, output_format="dense"
+        f, input_shape=(2,), has_aux=True, output_format="dense"
     )(x)
 
     np.testing.assert_allclose(value, jnp.array([4.0, 9.0]))
@@ -66,7 +68,7 @@ def test_jacobian_from_coloring_has_aux():
         return f_no_aux(x), jnp.sum(x)
 
     x = jnp.array([2.0, 3.0])
-    coloring = asdex.jacobian_coloring(f, (2,), has_aux=True)
+    coloring = asdex.jacobian_coloring(f, input_shape=(2,), has_aux=True)
     jac, aux = asdex.jacobian_from_coloring(
         f, coloring, output_format="dense", has_aux=True
     )(x)
@@ -87,7 +89,7 @@ def test_jacobian_has_aux_multi_input():
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     (Jx, Jy), aux = asdex.jacobian(
-        f, (2,), (2,), argnums=(0, 1), has_aux=True, output_format="dense"
+        f, input_shape=((2,), (2,)), argnums=(0, 1), has_aux=True, output_format="dense"
     )(x, y)
 
     np.testing.assert_allclose(Jx, np.array([[y[0], 0.0], [0.0, 1.0]]))
@@ -108,7 +110,9 @@ def test_hessian_has_aux_returns_tuple():
         return y, aux
 
     x = jnp.array([2.0, 3.0])
-    hess, aux = asdex.hessian(f, (2,), has_aux=True, output_format="dense")(x)
+    hess, aux = asdex.hessian(f, input_shape=(2,), has_aux=True, output_format="dense")(
+        x
+    )
 
     expected = np.array([[2.0, 1.0], [1.0, 2.0]])
     np.testing.assert_allclose(hess, expected)
@@ -125,7 +129,7 @@ def test_value_and_hessian_has_aux_returns_nested_tuple():
 
     x = jnp.array([2.0, 3.0])
     (value, aux), hess = asdex.value_and_hessian(
-        f, (2,), has_aux=True, output_format="dense"
+        f, input_shape=(2,), has_aux=True, output_format="dense"
     )(x)
 
     np.testing.assert_allclose(value, 13.0)
@@ -144,7 +148,7 @@ def test_hessian_has_aux_multi_input():
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     hess, aux = asdex.hessian(
-        f, (2,), (2,), argnums=(0, 1), has_aux=True, output_format="dense"
+        f, input_shape=((2,), (2,)), argnums=(0, 1), has_aux=True, output_format="dense"
     )(x, y)
 
     # Block-structured Hessian: H[i][j] = d^2 f / d arg_i d arg_j.
@@ -166,7 +170,9 @@ def test_holomorphic_allows_complex_input():
         return jnp.array([z[0] ** 2, z[0] * z[1]])
 
     z = jnp.array([1.0 + 2.0j, 3.0 + 0.5j])
-    jac = asdex.jacobian(f, (2,), holomorphic=True, output_format="dense")(z)
+    jac = asdex.jacobian(f, input_shape=(2,), holomorphic=True, output_format="dense")(
+        z
+    )
     expected = np.array([[2 * z[0], 0.0], [z[1], z[0]]])
     np.testing.assert_allclose(jac, expected)
 
@@ -180,7 +186,7 @@ def test_holomorphic_false_rejects_complex_input():
 
     z = jnp.array([1.0 + 2.0j, 3.0 + 0.5j])
     with pytest.raises(TypeError):
-        asdex.jacobian(f, (2,), output_format="dense")(z)
+        asdex.jacobian(f, input_shape=(2,), output_format="dense")(z)
 
 
 # allow_int
@@ -198,7 +204,7 @@ def test_allow_int_permits_int_input():
     # yield a ``float0`` cotangent for integer inputs, which is expected.
     jac = asdex.jacobian(
         f,
-        (2,),
+        input_shape=(2,),
         mode="rev",
         allow_int=True,
     )(x)
@@ -214,4 +220,4 @@ def test_allow_int_false_rejects_int_input():
 
     x = jnp.array([1, 2], dtype=jnp.int32)
     with pytest.raises(TypeError):
-        asdex.jacobian(f, (2,), mode="rev", output_format="dense")(x)
+        asdex.jacobian(f, input_shape=(2,), mode="rev", output_format="dense")(x)

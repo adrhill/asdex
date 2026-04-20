@@ -29,7 +29,8 @@ from asdex.pattern import ColoredPattern, SparsityPattern
 
 def jacobian(
     f: Callable[..., Any],
-    *args: Any,
+    input_shape: Any,
+    *,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -46,11 +47,11 @@ def jacobian(
 
     Args:
         f: Function taking one or more positional arrays and returning an array.
-        *args: One entry per positional argument of ``f``,
+        input_shape: A sequence with one entry per positional argument of ``f``,
             specifying the shape and dtype of that argument
             (see [`jacobian_sparsity`][asdex.jacobian_sparsity]).
-        argnums: Positions of ``args`` to differentiate with respect to,
-            mirroring ``jax.jacfwd`` / ``jax.jacrev``.
+        argnums: Positions of the positional arguments to differentiate with
+            respect to, mirroring ``jax.jacfwd`` / ``jax.jacrev``.
             Defaults to ``0``.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
             mirroring ``jax.jacrev``.
@@ -80,7 +81,7 @@ def jacobian(
     """
     coloring = _jacobian_coloring(
         f,
-        *args,
+        input_shape,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
@@ -98,7 +99,8 @@ def jacobian(
 
 def value_and_jacobian(
     f: Callable[..., Any],
-    *args: Any,
+    input_shape: Any,
+    *,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -120,7 +122,7 @@ def value_and_jacobian(
     """
     coloring = _jacobian_coloring(
         f,
-        *args,
+        input_shape,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
@@ -138,7 +140,8 @@ def value_and_jacobian(
 
 def hessian(
     f: Callable[..., Any],
-    *args: Any,
+    input_shape: Any,
+    *,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -154,7 +157,7 @@ def hessian(
     """
     coloring = _hessian_coloring(
         f,
-        *args,
+        input_shape,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
@@ -172,7 +175,8 @@ def hessian(
 
 def value_and_hessian(
     f: Callable[..., Any],
-    *args: Any,
+    input_shape: Any,
+    *,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -188,7 +192,7 @@ def value_and_hessian(
     """
     coloring = _hessian_coloring(
         f,
-        *args,
+        input_shape,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,

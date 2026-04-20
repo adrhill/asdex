@@ -74,6 +74,17 @@ def _to_aval(x: Any) -> ShapeDtypeStruct:
     return ShapeDtypeStruct(tuple(x), jnp.float_)
 
 
+def normalize_input_shape(input_shape: Any) -> tuple[Any, ...]:
+    """Normalize the ``input_shape`` parameter into a tuple of aval pytrees.
+
+    ``input_shape`` must be a sequence (tuple or list) with one element per
+    positional argument of ``f``.
+    Each element is a pytree whose leaves are ``jax.ShapeDtypeStruct``,
+    a shape tuple (e.g. ``(3, 4)``), or a bare ``int``.
+    """
+    return normalize_avals(tuple(input_shape))
+
+
 def normalize_avals(in_avals: tuple[Any, ...]) -> tuple[Any, ...]:
     """Normalize ``*in_avals`` into a tuple of pytrees of ``ShapeDtypeStruct``.
 

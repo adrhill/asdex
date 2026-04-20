@@ -20,7 +20,7 @@ def test_reshape_1d_to_2d():
     def f(x):
         return x.reshape(2, 3).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -32,7 +32,7 @@ def test_reshape_2d_to_1d():
     def f(x):
         return x.reshape(3, 2).reshape(6)
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -44,7 +44,7 @@ def test_reshape_2d_to_3d():
     def f(x):
         return x.reshape(3, 4).reshape(2, 2, 3).flatten()
 
-    result = jacobian_sparsity(f, 12).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(12,)).todense().astype(int)
     expected = np.eye(12, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -56,7 +56,7 @@ def test_reshape_same_shape():
     def f(x):
         return lax.reshape(x, (4,))
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.eye(4, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -68,7 +68,7 @@ def test_reshape_size_one_dims():
     def f(x):
         return x.reshape(1, 3, 1).flatten()
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -80,7 +80,7 @@ def test_reshape_scalar_to_1d():
     def f(x):
         return x.reshape(1)
 
-    result = jacobian_sparsity(f, 1).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(1,)).todense().astype(int)
     expected = np.eye(1, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -92,7 +92,7 @@ def test_reshape_4d():
     def f(x):
         return x.reshape(2, 3, 2, 2).flatten()
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     expected = np.eye(24, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -110,7 +110,7 @@ def test_reshape_with_dimensions_2d():
         mat = x.reshape(2, 3)
         return mat.ravel(order="F")  # column-major: [a, d, b, e, c, f]
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # Input flat: [a=0, b=1, c=2, d=3, e=4, f=5] in (2,3)
     # F-order ravel: [a, d, b, e, c, f] = [0, 3, 1, 4, 2, 5]
     expected = np.zeros((6, 6), dtype=int)
@@ -135,7 +135,7 @@ def test_reshape_with_dimensions_3d():
         tensor = x.reshape(2, 3, 4)
         return tensor.ravel(order="F")
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     x_test = jax.random.normal(jax.random.key(42), (24,))
     actual_jac = jax.jacobian(f)(x_test)
     actual_nonzero = (np.abs(actual_jac) > 1e-10).astype(int)
@@ -149,7 +149,7 @@ def test_reshape_with_dimensions_identity_perm():
     def f(x):
         return lax.reshape(x.reshape(2, 3), (6,), dimensions=(0, 1))
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -164,7 +164,7 @@ def test_reshape_with_dimensions_3d_partial_perm():
     def f(x):
         return lax.reshape(x.reshape(2, 3, 4), (24,), dimensions=(0, 2, 1))
 
-    result = jacobian_sparsity(f, 24).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(24,)).todense().astype(int)
     # Build expected via numpy: transpose then ravel
     perm = np.arange(24).reshape(2, 3, 4).transpose(0, 2, 1).ravel()
     expected = np.zeros((24, 24), dtype=int)
@@ -182,7 +182,7 @@ def test_reshape_constant():
         const = jnp.array([1.0, 2.0, 3.0, 4.0])
         return const.reshape(2, 2).flatten()
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     expected = np.zeros((4, 2), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -196,7 +196,7 @@ def test_reshape_then_slice_constant():
         mat = const.reshape(2, 3)
         return mat[0, :]  # First row
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     expected = np.zeros((3, 2), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -209,7 +209,7 @@ def test_reshape_roundtrip():
     def f(x):
         return x.reshape(2, 3).reshape(6)
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -221,7 +221,7 @@ def test_reshape_chain_different_shapes():
     def f(x):
         return x.reshape(2, 6).reshape(3, 4).reshape(12)
 
-    result = jacobian_sparsity(f, 12).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(12,)).todense().astype(int)
     expected = np.eye(12, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -239,7 +239,7 @@ def test_reshape_after_broadcast():
         broadcasted = jnp.broadcast_to(x, (2, 3))
         return broadcasted.reshape(6)
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # out[0],out[1] -> broadcast row 0 and row 1 of col 0 -> in[0]
     # But broadcast flattens as row-major: [row0, row1] = [(0,1,2), (0,1,2)]
     expected = np.array(
@@ -263,7 +263,7 @@ def test_reshape_after_slice():
         sliced = x[1:5]  # 4 elements from indices 1..4
         return sliced.reshape(2, 2).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # out[i] depends on in[i+1] for i in 0..3
     expected = np.zeros((4, 6), dtype=int)
     expected[0, 1] = 1
@@ -281,7 +281,7 @@ def test_jnp_reshape():
     def f(x):
         return jnp.reshape(x, (3, 2)).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -293,7 +293,7 @@ def test_jnp_ravel():
     def f(x):
         return jnp.ravel(x.reshape(2, 3))
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -305,7 +305,7 @@ def test_jnp_flatten():
     def f(x):
         return x.reshape(2, 2, 3).flatten()
 
-    result = jacobian_sparsity(f, 12).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(12,)).todense().astype(int)
     expected = np.eye(12, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -318,7 +318,7 @@ def test_reshape_size_one_input():
     def f(x):
         return x.reshape(1, 1, 1).flatten()
 
-    result = jacobian_sparsity(f, 1).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(1,)).todense().astype(int)
     expected = np.eye(1, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -330,7 +330,7 @@ def test_reshape_all_size_one_dims():
     def f(x):
         return x.reshape(1, 2, 1, 3, 1).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -342,7 +342,7 @@ def test_reshape_with_dimensions_size_one():
     def f(x):
         return lax.reshape(x.reshape(1, 4), (4,), dimensions=(1, 0))
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     # Transpose of (1, 4) with dims=(1, 0) -> (4, 1), then flatten = identity
     expected = np.eye(4, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -357,7 +357,7 @@ def test_reshape_then_transpose():
         mat = x.reshape(2, 3)
         return mat.T.flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # Transpose of (2,3) -> (3,2): flat mapping [0,3,1,4,2,5]
     expected = np.zeros((6, 6), dtype=int)
     for out_idx, in_idx in enumerate([0, 3, 1, 4, 2, 5]):
@@ -373,7 +373,7 @@ def test_reshape_then_rev():
         mat = x.reshape(2, 3)
         return jnp.flip(mat, axis=0).flatten()
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # flip axis 0 of (2,3): row 0 and row 1 swap
     # flat: [3,4,5,0,1,2]
     expected = np.zeros((6, 6), dtype=int)
@@ -399,7 +399,7 @@ def test_reshape_with_dimensions_const_propagation():
         # flat_indices = [2, 1, 0, 2]
         return x[flat_indices]
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 1],  # out[0] = x[2]
@@ -422,6 +422,6 @@ def test_reshape_zero_size():
     def f(x):
         return lax.reshape(x[:0], (0,))
 
-    result = jacobian_sparsity(f, 3)
+    result = jacobian_sparsity(f, input_shape=(3,))
     assert result.shape == (0, 3)
     assert result.nnz == 0

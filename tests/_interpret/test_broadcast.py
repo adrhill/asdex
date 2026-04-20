@@ -23,7 +23,7 @@ def test_array_broadcast():
         broadcasted = jnp.broadcast_to(col, (3, 2))
         return broadcasted.flatten()
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # Output (3x2) flattened: [0,0], [0,1], [1,0], [1,1], [2,0], [2,1]
     # Each row comes from one input: out[0,1] <- in[0], out[2,3] <- in[1], etc.
     expected = np.array(
@@ -48,7 +48,7 @@ def test_scalar_broadcast():
         # Each element broadcast independently
         return jnp.array([jnp.broadcast_to(x[0], (2,)).sum(), x[1] * 2])
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     expected = np.array([[1, 0], [0, 1]])
     np.testing.assert_array_equal(result, expected)
 
@@ -61,7 +61,7 @@ def test_broadcast_constant():
         const = jnp.array([1.0, 2.0])  # Shape (2,)
         return jnp.broadcast_to(const, (3, 2)).flatten()  # Shape (6,)
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     expected = np.zeros((6, 2), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -76,7 +76,7 @@ def test_broadcast_input_add_constant():
         broadcasted = jnp.broadcast_to(x_col, (2, 3))  # Shape (2, 3)
         return (broadcasted + const).flatten()
 
-    result = jacobian_sparsity(f, 2).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
     # Each row of output depends on corresponding input element
     # Output shape (2, 3) flattened: rows 0-2 from x[0], rows 3-5 from x[1]
     expected = np.array(
@@ -106,7 +106,7 @@ def test_broadcast_size_zero_dim():
     def f(x):
         return jnp.broadcast_to(x[:0].reshape(0, 1), (0, 3)).flatten()
 
-    result = jacobian_sparsity(f, 3)
+    result = jacobian_sparsity(f, input_shape=(3,))
     assert result.shape == (0, 3)
     assert result.nnz == 0
 
@@ -121,6 +121,6 @@ def test_broadcast_expand_dims_zero():
     def f(x):
         return jnp.expand_dims(x[:0], axis=1).flatten()
 
-    result = jacobian_sparsity(f, 3)
+    result = jacobian_sparsity(f, input_shape=(3,))
     assert result.shape == (0, 3)
     assert result.nnz == 0

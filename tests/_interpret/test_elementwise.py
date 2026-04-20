@@ -20,7 +20,7 @@ def test_constant_in_elementwise_op():
         const = jnp.array([1.0, 2.0, 3.0])
         return x + const
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # Each output depends only on corresponding input (identity)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -35,7 +35,7 @@ def test_zero_size_binary_elementwise():
         a = x[:0]
         return a + a
 
-    result = jacobian_sparsity(f, 3)
+    result = jacobian_sparsity(f, input_shape=(3,))
     assert result.shape == (0, 3)
     assert result.nnz == 0
 
@@ -55,7 +55,7 @@ def test_binary_broadcast_size1_dim():
         mat = x.reshape(3, 4)
         return (mat * weights).reshape(-1)
 
-    result = jacobian_sparsity(f, 12).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(12,)).todense().astype(int)
     # Each output depends only on its own input (weights are constant).
     expected = np.eye(12, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -74,7 +74,7 @@ def test_binary_broadcast_leading_dim():
         mat = x.reshape(4, 3)
         return (mat * scale).reshape(-1)
 
-    result = jacobian_sparsity(f, 12).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(12,)).todense().astype(int)
     expected = np.eye(12, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -93,7 +93,7 @@ def test_binary_broadcast_dependent_operands():
         row_sums = mat.sum(axis=1, keepdims=True)  # (2,1), depends on x
         return (mat * row_sums).reshape(-1)
 
-    result = jacobian_sparsity(f, 6).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
     # Each output in row i depends on all 3 inputs in row i.
     # fmt: off
     expected = np.array([
@@ -115,7 +115,7 @@ def test_erf():
     def f(x):
         return jax.lax.erf(x)
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.eye(4, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -132,7 +132,7 @@ def test_convert_element_type_propagates_const():
     def f(x):
         return x[indices]
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # out[0] <- x[2], out[1] <- x[0], out[2] <- x[1]
     expected = np.array(
         [
@@ -160,7 +160,7 @@ def test_div_zero_numerator():
     def f(x):
         return numerator / x
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # Only out[1] depends on x[1]; out[0] and out[2] are zero.
     expected = np.array(
         [
@@ -184,7 +184,7 @@ def test_div_zero_numerator_broadcast():
     def f(x):
         return jnp.float32(0.0) / x
 
-    result = jacobian_sparsity(f, 4).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
     expected = np.zeros((4, 4), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -204,7 +204,7 @@ def test_integer_pow_zero_base():
     def f(_x):
         return jax.lax.integer_pow(base, 2)
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # All outputs are constants (no dependency on input).
     expected = np.zeros((3, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -220,7 +220,7 @@ def test_integer_pow_zero_base_exp_zero():
     def f(x):
         return jax.lax.integer_pow(x, 0)
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     expected = np.zeros((3, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -242,7 +242,7 @@ def test_mul_bounds_propagate_to_dynamic_slice():
         scaled = idx * 2  # bounds: [0, 2] via mul
         return lax.dynamic_slice(x, (scaled,), (2,))
 
-    result = jacobian_sparsity(f, 5).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(5,)).todense().astype(int)
     # Interval [0,2] means windows at start=0, 1, 2.
     # out[0] = x[0] ∪ x[1] ∪ x[2], out[1] = x[1] ∪ x[2] ∪ x[3].
     expected = np.array(
@@ -270,7 +270,7 @@ def test_div_bounds_propagate_to_dynamic_slice():
         start = lax.div(idx, jnp.asarray(2, dtype=idx.dtype))  # bounds: [0, 1] via div
         return lax.dynamic_slice(x, (start,), (3,))
 
-    result = jacobian_sparsity(f, 5).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(5,)).todense().astype(int)
     # Interval [0,1] means windows at start=0, 1.
     # out[0] = x[0] ∪ x[1], out[1] = x[1] ∪ x[2], out[2] = x[2] ∪ x[3].
     expected = np.array(
@@ -298,7 +298,7 @@ def test_integer_pow_even_bounds_propagate_to_dynamic_slice():
         start = jax.lax.integer_pow(idx, 2)  # bounds: [0, 1]
         return lax.dynamic_slice(x, (start,), (3,))
 
-    result = jacobian_sparsity(f, 5).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(5,)).todense().astype(int)
     # Windows at start=0 and start=1.
     # out[0] = x[0] ∪ x[1], out[1] = x[1] ∪ x[2], out[2] = x[2] ∪ x[3].
     expected = np.array(
@@ -325,7 +325,7 @@ def test_integer_pow_odd_bounds_propagate_to_dynamic_slice():
         start = jax.lax.integer_pow(idx, 3)  # bounds: [0, 1]
         return lax.dynamic_slice(x, (start,), (3,))
 
-    result = jacobian_sparsity(f, 5).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(5,)).todense().astype(int)
     # Same as even power: windows at 0 and 1.
     expected = np.array(
         [
@@ -355,7 +355,7 @@ def test_div_bounds_skip_zero_crossing_divisor():
         start = lax.div(jnp.asarray(6, dtype=divisor.dtype), divisor)  # bounds dropped
         return lax.dynamic_slice(x, (start,), (2,))
 
-    result = jacobian_sparsity(f, 5).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(5,)).todense().astype(int)
     # All 1s: conservative fallback since div bounds span zero.
     expected = np.ones((2, 5), dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -373,7 +373,7 @@ def test_mul_zero_second_operand():
     def f(x):
         return x * mask
 
-    result = jacobian_sparsity(f, 3).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
     # out[1] has no deps because mask[1] == 0.
     expected = np.array(
         [
@@ -402,7 +402,7 @@ def test_integer_pow_zero_bounds():
         start = one - jnp.int32(1)  # bounds: [0, 0] — constant 0
         return lax.dynamic_slice(x, (start,), (2,))
 
-    result = jacobian_sparsity(f, 5).todense().astype(int)
+    result = jacobian_sparsity(f, input_shape=(5,)).todense().astype(int)
     # Start is always 0, so out = [x[0], x[1]].
     expected = np.array(
         [

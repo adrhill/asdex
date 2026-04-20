@@ -945,7 +945,7 @@ def test_jacobian_coloring_basic():
     def f(x):
         return x**2
 
-    result = jacobian_coloring(f, (4,))
+    result = jacobian_coloring(f, input_shape=(4,))
 
     assert isinstance(result, ColoredPattern)
     assert result.sparsity.shape == (4, 4)
@@ -959,8 +959,8 @@ def test_jacobian_coloring_mode():
     def f(x):
         return x**2
 
-    result_rev = jacobian_coloring(f, (3,), mode="rev")
-    result_fwd = jacobian_coloring(f, (3,), mode="fwd")
+    result_rev = jacobian_coloring(f, input_shape=(3,), mode="rev")
+    result_fwd = jacobian_coloring(f, input_shape=(3,), mode="fwd")
 
     assert result_rev.mode == "rev"
     assert result_fwd.mode == "fwd"
@@ -973,7 +973,7 @@ def test_hessian_coloring_basic():
     def f(x):
         return jnp.sum(x**2)
 
-    result = hessian_coloring(f, (4,))
+    result = hessian_coloring(f, input_shape=(4,))
 
     assert isinstance(result, ColoredPattern)
     assert result.symmetric is True
@@ -990,7 +990,7 @@ def test_hessian_coloring_coupled():
     def f(x):
         return x[0] * x[1] + x[1] * x[2] + jnp.sum(x**2)
 
-    result = hessian_coloring(f, (3,))
+    result = hessian_coloring(f, input_shape=(3,))
 
     assert isinstance(result, ColoredPattern)
     assert result.symmetric is True
@@ -1104,7 +1104,7 @@ def test_hessian_with_coloring():
         return jnp.sum(x**2) + x[0] * x[1]
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape)
+    coloring = hessian_coloring(f, input_shape=x.shape)
     result = hessian_from_coloring(f, coloring)(x).todense()
     expected = jax.hessian(f)(x)
 
@@ -1119,7 +1119,7 @@ def test_hessian_coloring_zero_hessian():
         return jnp.sum(x)
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape)
+    coloring = hessian_coloring(f, input_shape=x.shape)
     result = hessian_from_coloring(f, coloring)(x)
 
     assert result.shape == (3, 3)
@@ -1133,7 +1133,7 @@ def test_str_hvp_display():
     def f(x):
         return jnp.sum(x**2)
 
-    coloring = hessian_coloring(f, (3,))
+    coloring = hessian_coloring(f, input_shape=(3,))
     s = str(coloring)
 
     assert "HVP" in s
@@ -1148,7 +1148,7 @@ def test_repr_coloring():
     def f(x):
         return x**2
 
-    coloring = jacobian_coloring(f, (3,))
+    coloring = jacobian_coloring(f, input_shape=(3,))
     r = repr(coloring)
 
     assert "ColoredPattern" in r
@@ -1436,7 +1436,7 @@ def test_hessian_coloring_explicit_mode_roundtrip():
         return jnp.sum(x**2) + x[0] * x[1]
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape, mode="rev_over_fwd")
+    coloring = hessian_coloring(f, input_shape=x.shape, mode="rev_over_fwd")
 
     assert coloring.mode == "rev_over_fwd"
     result = hessian_from_coloring(f, coloring)(x).todense()
@@ -1462,7 +1462,7 @@ def test_hessian_coloring_non_symmetric_column_roundtrip():
         return x[0] * x[1] + x[1] * x[2] + jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape, symmetric=False)
+    coloring = hessian_coloring(f, input_shape=x.shape, symmetric=False)
 
     assert coloring.symmetric is False
     assert coloring.star_set is None

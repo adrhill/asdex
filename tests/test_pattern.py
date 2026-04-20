@@ -287,7 +287,7 @@ class TestIntegration:
         def f(x):
             return jnp.array([x[0] * x[1], x[1] + x[2], x[2]])
 
-        result = jacobian_sparsity(f, 3)
+        result = jacobian_sparsity(f, input_shape=(3,))
 
         assert isinstance(result, SparsityPattern)
         assert result.shape == (3, 3)
@@ -302,7 +302,7 @@ class TestIntegration:
         def f(x):
             return x**2
 
-        result = jacobian_sparsity(f, 3).todense().astype(int)
+        result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
         expected = np.eye(3, dtype=int)
         np.testing.assert_array_equal(result, expected)
 
@@ -312,7 +312,7 @@ class TestIntegration:
         def f(x):
             return jnp.array([x[0] * x[1], x[1] + x[2], x[2]])
 
-        sparsity = jacobian_sparsity(f, 3)
+        sparsity = jacobian_sparsity(f, input_shape=(3,))
         # This should print nicely with braille
         output = str(sparsity)
         assert len(output) > 0
