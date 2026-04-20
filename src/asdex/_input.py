@@ -33,7 +33,7 @@ That int-vs-tuple distinction is load-bearing downstream — it selects whether
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import jax
@@ -46,7 +46,7 @@ from jax.tree_util import tree_map
 
 
 def _is_aval_leaf(x: Any) -> bool:
-    """Return True iff ``x`` is a leaf that ``normalize_avals`` should coerce.
+    """Return ``True`` iff ``x`` is a leaf that ``normalize_avals`` should coerce.
 
     A leaf is a bare ``int``, a ``tuple[int, ...]``, or a ``ShapeDtypeStruct``.
     Used as the ``is_leaf`` predicate so shape tuples like ``(3, 4)`` are not
@@ -237,3 +237,16 @@ def validate_output_dtypes(y: Any, mode: str, holomorphic: bool) -> None:
         check = lambda a: _check_output_dtype_rev(holomorphic, a)  # noqa: E731
     for leaf in jax.tree_util.tree_leaves(y):
         check(leaf)
+
+
+# Kwargs binding
+
+
+def bind_kwargs(f: Callable[..., Any], kwargs: dict[str, Any]) -> Callable[..., Any]:
+    """Close over runtime ``**kwargs`` so downstream AD only sees positional args.
+
+    Matches ``jax/_src/api.py:731`` (``f = lu.wrap_init(fun, kwargs, ...)``).
+    """
+    if not kwargs:
+        return f
+    return lambda *xs: f(*xs, **kwargs)

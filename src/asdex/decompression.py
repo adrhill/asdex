@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
-from asdex._input import validate_input_dtypes, validate_output_dtypes
+from asdex._input import bind_kwargs, validate_input_dtypes, validate_output_dtypes
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.detection._api import _ensure_scalar, _strip_aux
@@ -227,7 +227,7 @@ def jacobian_from_coloring(
     _assert_output_format(output_format)
 
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = _bind_kwargs(f, kwargs)
+        f_bound = bind_kwargs(f, kwargs)
         return _eval_jacobian(
             f_bound,
             args,
@@ -257,7 +257,7 @@ def hessian_from_coloring(
     _assert_output_format(output_format)
 
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = _bind_kwargs(f, kwargs)
+        f_bound = bind_kwargs(f, kwargs)
         return _eval_hessian(
             f_bound,
             args,
@@ -284,7 +284,7 @@ def value_and_jacobian_from_coloring(
     _assert_output_format(output_format)
 
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = _bind_kwargs(f, kwargs)
+        f_bound = bind_kwargs(f, kwargs)
         return _eval_value_and_jacobian(
             f_bound,
             args,
@@ -311,7 +311,7 @@ def value_and_hessian_from_coloring(
     _assert_output_format(output_format)
 
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = _bind_kwargs(f, kwargs)
+        f_bound = bind_kwargs(f, kwargs)
         return _eval_value_and_hessian(
             f_bound,
             args,
@@ -323,16 +323,6 @@ def value_and_hessian_from_coloring(
         )
 
     return val_hess_fn
-
-
-def _bind_kwargs(f: Callable[..., Any], kwargs: dict[str, Any]) -> Callable[..., Any]:
-    """Close over runtime ``**kwargs`` so downstream AD only sees positional args.
-
-    Matches ``jax/_src/api.py:731`` (``f = lu.wrap_init(fun, kwargs, ...)``).
-    """
-    if not kwargs:
-        return f
-    return lambda *xs: f(*xs, **kwargs)
 
 
 # Unified evaluation
@@ -364,7 +354,7 @@ def _eval_jacobian(
 
     if m == 0 or sparsity.nnz == 0:
         dense = jnp.zeros((m, n_selected))
-        jac = _pack_jacobian_blocks(dense, sparsity, output_format, out_shape)
+        jac = _assemble_jacobian(dense, sparsity, output_format, out_shape)
         if has_aux:
             _, aux = f(*args)
             return jac, aux
@@ -384,7 +374,7 @@ def _eval_jacobian(
     validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    jac = _pack_jacobian_blocks(dense, sparsity, output_format, out_shape)
+    jac = _assemble_jacobian(dense, sparsity, output_format, out_shape)
     if has_aux:
         return jac, aux
     return jac
@@ -417,7 +407,7 @@ def _eval_value_and_jacobian(
 
     if m == 0 or sparsity.nnz == 0:
         dense = jnp.zeros((m, n_selected))
-        empty = _pack_jacobian_blocks(dense, sparsity, output_format, out_shape)
+        empty = _assemble_jacobian(dense, sparsity, output_format, out_shape)
         if has_aux:
             value, aux = f(*args)
             return (jnp.asarray(value), aux), empty
@@ -438,7 +428,7 @@ def _eval_value_and_jacobian(
     validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    jac = _pack_jacobian_blocks(dense, sparsity, output_format, out_shape)
+    jac = _assemble_jacobian(dense, sparsity, output_format, out_shape)
     if has_aux:
         return (y, aux), jac
     return y, jac
@@ -468,7 +458,7 @@ def _eval_hessian(
 
     if sparsity.nnz == 0:
         dense = jnp.zeros((n_selected, n_selected))
-        hess = _pack_hessian_blocks(dense, sparsity, output_format)
+        hess = _assemble_hessian(dense, sparsity, output_format)
         if has_aux:
             _, aux = f(*args)
             return hess, aux
@@ -477,7 +467,7 @@ def _eval_hessian(
     compressed = _compute_hvps(f_scalar, args, coloring)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    hess = _pack_hessian_blocks(dense, sparsity, output_format)
+    hess = _assemble_hessian(dense, sparsity, output_format)
     if has_aux:
         _, aux = f(*args)
         return hess, aux
@@ -508,7 +498,7 @@ def _eval_value_and_hessian(
 
     if sparsity.nnz == 0:
         dense = jnp.zeros((n_selected, n_selected))
-        empty = _pack_hessian_blocks(dense, sparsity, output_format)
+        empty = _assemble_hessian(dense, sparsity, output_format)
         if has_aux:
             value, aux = f(*args)
             return (jnp.asarray(value), aux), empty
@@ -518,7 +508,7 @@ def _eval_value_and_hessian(
     value, compressed = _value_and_compute_hvps(f_scalar, args, coloring)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    hess = _pack_hessian_blocks(dense, sparsity, output_format)
+    hess = _assemble_hessian(dense, sparsity, output_format)
     if has_aux:
         _, aux = f(*args)
         return (value, aux), hess
@@ -897,7 +887,7 @@ def _build_grad_output_from_seed(
 # Block packing
 
 
-def _pack_jacobian_blocks(
+def _assemble_jacobian(
     dense: jax.Array,
     sparsity: SparsityPattern,
     output_format: OutputFormat,
@@ -926,7 +916,7 @@ def _pack_jacobian_blocks(
     return _group_blocks_by_argnums(blocks, sparsity)
 
 
-def _pack_hessian_blocks(
+def _assemble_hessian(
     dense: jax.Array,
     sparsity: SparsityPattern,
     output_format: OutputFormat,

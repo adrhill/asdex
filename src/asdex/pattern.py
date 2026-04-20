@@ -526,9 +526,11 @@ class ColoredPattern:
         """
         if not self.sparsity._is_simple():
             raise NotImplementedError(
-                "save()/load() does not yet support multi-input or pytree-"
-                "structured patterns. Pickle the pattern or reconstruct it "
-                "from source for now."
+                "save()/load() only supports single-input, single-leaf patterns. "
+                "For multi-input or pytree-structured patterns, re-run "
+                "`asdex.jacobian_coloring(f, *args, ...)` (or "
+                "`asdex.hessian_coloring`) at load time instead of persisting "
+                "the ColoredPattern."
             )
         leaf = self.sparsity._dyn_flat[0][0]
         np.savez(
