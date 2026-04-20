@@ -46,7 +46,7 @@ def test_sort_1d():
     def f(x):
         return jnp.sort(x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.ones((3, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -58,7 +58,7 @@ def test_sort_1d_size_one():
     def f(x):
         return jnp.sort(x)
 
-    result = jacobian_sparsity(f, input_shape=1).todense().astype(int)
+    result = jacobian_sparsity(f, 1).todense().astype(int)
     expected = np.ones((1, 1), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -71,7 +71,7 @@ def test_sort_2d_axis1():
     def f(x):
         return lax.sort(x.reshape(2, 3), dimension=1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     expected = _sort_jacobian((2, 3), dimension=1)
     np.testing.assert_array_equal(result, expected)
 
@@ -83,7 +83,7 @@ def test_sort_2d_axis0():
     def f(x):
         return lax.sort(x.reshape(2, 3), dimension=0).flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     expected = _sort_jacobian((2, 3), dimension=0)
     np.testing.assert_array_equal(result, expected)
 
@@ -95,7 +95,7 @@ def test_sort_2d_negative_axis():
     def f(x):
         return jnp.sort(x.reshape(2, 3), axis=-1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     expected = _sort_jacobian((2, 3), dimension=-1)
     np.testing.assert_array_equal(result, expected)
 
@@ -107,7 +107,7 @@ def test_sort_2d_size_one_sort_dim():
     def f(x):
         return lax.sort(x.reshape(3, 1), dimension=1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -123,7 +123,7 @@ def test_sort_3d(dimension):
     def f(x):
         return lax.sort(x.reshape(in_shape), dimension=dimension).flatten()
 
-    result = jacobian_sparsity(f, input_shape=n).todense().astype(int)
+    result = jacobian_sparsity(f, n).todense().astype(int)
     expected = _sort_jacobian(in_shape, dimension)
     np.testing.assert_array_equal(result, expected)
 
@@ -145,7 +145,7 @@ def test_sort_multi_operand():
         sorted_keys, sorted_vals = lax.sort((keys, vals), dimension=1, num_keys=1)
         return jnp.concatenate([sorted_keys.flatten(), sorted_vals.flatten()])
 
-    result = jacobian_sparsity(f, input_shape=2 * n).todense().astype(int)
+    result = jacobian_sparsity(f, 2 * n).todense().astype(int)
 
     # Both outputs have block-diagonal patterns,
     # but each block depends on inputs from both operands.
@@ -180,7 +180,7 @@ def test_argsort():
     def f(x):
         return jnp.argsort(x).astype(float)
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, 4).todense().astype(int)
     # Precise: zero matrix (piecewise constant function)
     # Detected: dense (structural state_indices from sort permutation)
     expected = np.ones((4, 4), dtype=int)
@@ -196,7 +196,7 @@ def test_sort_then_reduce():
         sorted_x = jnp.sort(x.reshape(2, 3), axis=1)
         return jnp.sum(sorted_x, axis=1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     # Sum along axis=1 after sort: each output depends on its row
     expected = np.zeros((2, 6), dtype=int)
     expected[0, 0:3] = 1
@@ -213,7 +213,7 @@ def test_sort_non_contiguous_input():
         broadcasted = jnp.broadcast_to(x, (2, 3))
         return jnp.sort(broadcasted, axis=1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # Both rows share the same 3 inputs after broadcast.
     # Sort within each row: all 3 outputs per row depend on all 3 inputs.
     expected = np.ones((6, 3), dtype=int)
@@ -230,6 +230,6 @@ def test_sort_zero_size():
     def f(x):
         return jnp.sort(x[:0])
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, 3)
     assert result.shape == (0, 3)
     assert result.nnz == 0

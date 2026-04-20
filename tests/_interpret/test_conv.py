@@ -41,7 +41,7 @@ def check_conv_sparsity(
         y = conv(x)
         return y.flatten()
 
-    sparsity = jacobian_sparsity(f, input_shape=input_size)
+    sparsity = jacobian_sparsity(f, input_size)
 
     # Expected output shape with VALID padding
     out_h = H - kernel_size[0] + 1
@@ -100,7 +100,7 @@ def test_conv_with_padding():
         y = conv(x)
         return y.flatten()
 
-    sparsity = jacobian_sparsity(f, input_shape=input_size)
+    sparsity = jacobian_sparsity(f, input_size)
 
     # With SAME padding, output size equals input size
     expected_out_size = H * W * C_out
@@ -133,7 +133,7 @@ def test_conv_with_strides():
         y = conv(x)
         return y.flatten()
 
-    sparsity = jacobian_sparsity(f, input_shape=input_size)
+    sparsity = jacobian_sparsity(f, input_size)
 
     # Output size with stride 2 and VALID padding
     out_h = (H - 3) // 2 + 1  # 2
@@ -170,7 +170,7 @@ def test_conv_transpose():
         y = conv_t(x)
         return y.flatten()
 
-    sparsity = jacobian_sparsity(f, input_shape=input_size)
+    sparsity = jacobian_sparsity(f, input_size)
 
     assert sparsity.nnz > 0
 
@@ -236,7 +236,7 @@ def _check_conv1d_sparsity(
         )
         return y.flatten()
 
-    sparsity = jacobian_sparsity(f, input_shape=input_size)
+    sparsity = jacobian_sparsity(f, input_size)
 
     assert sparsity.nnz > 0
     out_size = sparsity.shape[0]
@@ -305,7 +305,7 @@ def _check_grouped_conv_sparsity(
         )
         return y.flatten()
 
-    sparsity = jacobian_sparsity(f, input_shape=input_size)
+    sparsity = jacobian_sparsity(f, input_size)
 
     assert sparsity.nnz > 0
     out_size = sparsity.shape[0]
@@ -369,7 +369,7 @@ def test_depthwise_conv():
         )
         return y.flatten()
 
-    sparsity = jacobian_sparsity(f, input_shape=input_size)
+    sparsity = jacobian_sparsity(f, input_size)
 
     assert sparsity.nnz > 0
     out_size = sparsity.shape[0]
@@ -432,7 +432,7 @@ def test_rhs_dilation():
         )
         return y.flatten()
 
-    sparsity = jacobian_sparsity(f, input_shape=input_size)
+    sparsity = jacobian_sparsity(f, input_size)
 
     assert sparsity.nnz > 0
     out_size = sparsity.shape[0]
@@ -479,8 +479,8 @@ def test_conv_batch_group_count_one_is_identity():
             dimension_numbers=("NCHW", "OIHW", "NCHW"),
         ).flatten()
 
-    sp_with = jacobian_sparsity(with_bgc, input_shape=input_size)
-    sp_without = jacobian_sparsity(without_bgc, input_shape=input_size)
+    sp_with = jacobian_sparsity(with_bgc, input_size)
+    sp_without = jacobian_sparsity(without_bgc, input_size)
     np.testing.assert_array_equal(sp_with.todense(), sp_without.todense())
 
 
@@ -504,7 +504,7 @@ def test_conv_batch_group_count():
             batch_group_count=2,
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=input_size).todense().astype(int)
+    result = jacobian_sparsity(f, input_size).todense().astype(int)
     expected = np.abs(jax.jacobian(f)(jnp.ones(input_size))) > 1e-10
     np.testing.assert_array_equal(result, expected)
 
@@ -550,7 +550,7 @@ def test_conv_batch_group_count_multi_channel():
                 spatial_block
             )
 
-    result = jacobian_sparsity(f, input_shape=input_size).todense().astype(int)
+    result = jacobian_sparsity(f, input_size).todense().astype(int)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -585,7 +585,7 @@ def test_conv_batch_group_count_equals_n():
     for c in range(6):
         expected[c * 4 : (c + 1) * 4, c * 9 : (c + 1) * 9] = block
 
-    result = jacobian_sparsity(f, input_shape=input_size).todense().astype(int)
+    result = jacobian_sparsity(f, input_size).todense().astype(int)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -609,4 +609,4 @@ def test_conv_input_dependent_kernel_raises():
         ).flatten()
 
     with pytest.raises(ValueError, match="non-empty index sets"):
-        jacobian_sparsity(f, input_shape=13)
+        jacobian_sparsity(f, 13)

@@ -4,22 +4,18 @@ from __future__ import annotations
 
 import os
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, assert_never
 
 import jax.numpy as jnp
 import numpy as np
+from jax import ShapeDtypeStruct
 from jax.experimental.sparse import BCOO
+from jax.tree_util import tree_flatten
 from numpy.typing import NDArray
 
 from asdex._display import colored_repr, colored_str, sparsity_repr, sparsity_str
-from asdex._pytree_shapes import (
-    _is_shape_leaf,
-    flatten_shapes,
-    is_multi_positional,
-    top_level_subtreedefs,
-)
 from asdex.modes import ColoringMode, _assert_coloring_mode
 
 if TYPE_CHECKING:
@@ -34,90 +30,90 @@ class SparsityPattern:
     by the coloring and decompression stages.
 
     Attributes:
-        rows: Row indices of non-zero entries, shape ``(nnz,)``
-        cols: Column indices of non-zero entries, shape ``(nnz,)``
-        shape: Matrix dimensions ``(m, n)``
-        input_shape: Shape of the function input that produced this pattern.
-            For single-input functions this is a plain shape tuple
-            (e.g. ``(3, 4)``).
-            For multi-input functions this is a pytree of shapes
-            (tuple of shapes for positional args, or a dict / custom pytree
-            for a single pytree-structured argument).
-            Defaults to ``(n,)`` if not specified.
-        selected_mask: Per-leaf selection mask recording which leaves of
-            ``input_shape`` were differentiated w.r.t. via ``argnums``.
-            ``None`` means all leaves were selected (the default).
-            Only meaningful for multi-input patterns.
+        rows: Row indices of non-zero entries, shape ``(nnz,)``.
+        cols: Column indices of non-zero entries, shape ``(nnz,)``.
+        shape: Matrix dimensions ``(m, n)``.
+        input_avals: One pytree of ``jax.ShapeDtypeStruct`` per positional
+            argument of the traced function, in the same order
+            ``jax.eval_shape(fun, *args)`` expects.
+            Positions not in ``argnums`` are still stored (so the full input
+            structure is preserved), but they do not contribute columns to
+            the Jacobian / rows to the Hessian.
+        argnums: Positions of ``input_avals`` that were differentiated,
+            mirroring ``jax.grad`` / ``jax.jacfwd``.
+            An ``int`` stays ``int`` and a sequence becomes ``tuple[int, ...]``
+            — that distinction drives whether
+            [`example_input`][asdex.SparsityPattern.example_input]
+            is a single aval or a tuple of avals.
     """
 
     rows: NDArray[np.int32]
     cols: NDArray[np.int32]
     shape: tuple[int, int]
-    input_shape: Any = None
-    selected_mask: tuple[bool, ...] | None = None
-    argnums: int | tuple[int, ...] | None = None
+    input_avals: tuple[Any, ...] = field(default=())
+    argnums: int | tuple[int, ...] = 0
 
     def __post_init__(self) -> None:
-        """Validate inputs and set defaults."""
+        """Validate inputs and fill in the default single-leaf aval."""
         if len(self.rows) != len(self.cols):
-            msg = f"rows and cols must have same length, got {len(self.rows)} and {len(self.cols)}"
+            msg = (
+                f"rows and cols must have same length, "
+                f"got {len(self.rows)} and {len(self.cols)}"
+            )
             raise ValueError(msg)
-        if self.input_shape is None:
-            object.__setattr__(self, "input_shape", (self.n,))
+        if not self.input_avals:
+            default = (ShapeDtypeStruct((self.n,), jnp.float_),)
+            object.__setattr__(self, "input_avals", default)
 
-    # Multi-input helpers
-
-    @property
-    def is_multi_input(self) -> bool:
-        """Whether this pattern came from a multi-input (pytree) function."""
-        shape = self.input_shape
-        if shape is None:
-            return False
-        return not _is_shape_leaf(shape)
+    # Derived input structure
 
     @property
-    def is_multi_positional(self) -> bool:
-        """Whether the multi-input function takes positional args (``f(*xs)``)."""
-        return is_multi_positional(self.input_shape)
+    def _argnums_tuple(self) -> tuple[int, ...]:
+        """``argnums`` always as a tuple, for indexing into ``input_avals``."""
+        if isinstance(self.argnums, int):
+            return (self.argnums,)
+        return self.argnums
+
+    @property
+    def dyn_avals(self) -> tuple[Any, ...]:
+        """Sub-tuple of ``input_avals`` selected by ``argnums``."""
+        return tuple(self.input_avals[i] for i in self._argnums_tuple)
+
+    @property
+    def example_input(self) -> Any:
+        """The aval structure the returned Jacobian / Hessian mirrors.
+
+        When ``argnums`` is an ``int`` this is the single selected aval;
+        when ``argnums`` is a tuple this is the tuple of selected avals.
+        Matches ``jax/_src/api.py:746`` (``jacfwd``) and line 840 (``jacrev``).
+        """
+        if isinstance(self.argnums, int):
+            return self.dyn_avals[0]
+        return self.dyn_avals
 
     @cached_property
-    def _input_leaves(self) -> tuple[list[tuple[int, ...]], Any, list[int]]:
-        """Flat leaf shapes, treedef, and sizes for the input spec."""
-        return flatten_shapes(self.input_shape)
+    def _dyn_flat(self) -> tuple[list[Any], Any]:
+        """``tree_flatten`` of ``dyn_avals``, cached for reuse."""
+        leaves, treedef = tree_flatten(self.dyn_avals)
+        return leaves, treedef
 
     @property
     def leaf_shapes(self) -> list[tuple[int, ...]]:
-        """Per-leaf shapes after flattening ``input_shape``."""
-        leaves, _, _ = self._input_leaves
-        return leaves
+        """Per-leaf shapes of the selected (differentiated) inputs."""
+        leaves, _ = self._dyn_flat
+        return [tuple(leaf.shape) for leaf in leaves]
 
     @property
     def leaf_sizes(self) -> list[int]:
-        """Per-leaf flat sizes (``prod(shape)``)."""
-        _, _, sizes = self._input_leaves
-        return sizes
+        """Per-leaf flat sizes (``prod(shape)``) of the selected inputs."""
+        leaves, _ = self._dyn_flat
+        return [int(leaf.size) for leaf in leaves]
 
     @property
     def input_treedef(self) -> Any:
-        """Pytree structure of the input spec."""
-        _, treedef, _ = self._input_leaves
+        """Pytree structure of ``dyn_avals``."""
+        _, treedef = self._dyn_flat
         return treedef
-
-    @cached_property
-    def top_level_subs(self) -> list[tuple[Any, int]]:
-        """Per-top-level-position ``(sub_treedef, leaf_count)``.
-
-        For multi-positional specs, one entry per positional argument.
-        For single-pytree specs, one entry covering the whole spec.
-        """
-        return top_level_subtreedefs(self.input_shape)
-
-    @property
-    def resolved_selected_mask(self) -> tuple[bool, ...]:
-        """``selected_mask`` defaulting to all-selected when ``None``."""
-        if self.selected_mask is not None:
-            return self.selected_mask
-        return tuple(True for _ in self.leaf_shapes)
 
     # Properties
 
@@ -173,9 +169,8 @@ class SparsityPattern:
         cols: NDArray[np.int32] | list[int],
         shape: tuple[int, int],
         *,
-        input_shape: Any = None,
-        selected_mask: tuple[bool, ...] | None = None,
-        argnums: int | tuple[int, ...] | None = None,
+        input_avals: tuple[Any, ...] = (),
+        argnums: int | tuple[int, ...] = 0,
     ) -> SparsityPattern:
         """Create pattern from row and column index arrays.
 
@@ -183,20 +178,17 @@ class SparsityPattern:
             rows: Row indices of non-zero entries.
             cols: Column indices of non-zero entries.
             shape: Matrix dimensions ``(m, n)``.
-            input_shape: Shape of the function input.
-                Defaults to ``(n,)`` if not specified.
-            selected_mask: Per-leaf selection mask for multi-input patterns
-                (``None`` means all leaves selected).
-            argnums: ``argnums`` value that produced this pattern, stored so
-                decompression can preserve the int-vs-tuple distinction from
-                ``jax.grad`` (``None`` means all positions).
+            input_avals: One pytree of ``ShapeDtypeStruct`` per positional
+                argument of the traced function.
+                Defaults to a single 1-D aval of size ``n``.
+            argnums: Positions of ``input_avals`` that were differentiated,
+                mirroring ``jax.grad`` / ``jax.jacfwd``.
         """
         return cls(
             rows=np.asarray(rows, dtype=np.int32),
             cols=np.asarray(cols, dtype=np.int32),
             shape=shape,
-            input_shape=input_shape,
-            selected_mask=selected_mask,
+            input_avals=input_avals,
             argnums=argnums,
         )
 
@@ -264,26 +256,35 @@ class SparsityPattern:
 
     # Persistence
 
+    def _is_simple(self) -> bool:
+        """Whether the pattern came from a single 1-positional, 1-leaf function."""
+        if len(self.input_avals) != 1 or self.argnums != 0:
+            return False
+        leaves, _ = self._dyn_flat
+        return len(leaves) == 1
+
     def save(self, path: str | os.PathLike[str]) -> None:
         """Save sparsity pattern to an ``.npz`` file.
 
-        Multi-input patterns (pytree-structured ``input_shape``) are not yet
-        supported by this simple ``.npz`` layout.
+        Pytree-structured or multi-positional patterns are not yet supported
+        by this simple ``.npz`` layout.
 
         Args:
             path: Destination file path.
         """
-        if self.is_multi_input:
+        if not self._is_simple():
             raise NotImplementedError(
-                "save()/load() does not yet support multi-input patterns. "
-                "Pickle the pattern or reconstruct it from source for now."
+                "save()/load() does not yet support multi-input or pytree-"
+                "structured patterns. Pickle the pattern or reconstruct it "
+                "from source for now."
             )
+        leaf = self._dyn_flat[0][0]
         np.savez(
             path,
             rows=self.rows,
             cols=self.cols,
             shape=np.array(self.shape),
-            input_shape=np.array(self.input_shape),
+            input_shape=np.array(leaf.shape),
         )
 
     @classmethod
@@ -294,11 +295,13 @@ class SparsityPattern:
             path: Source file path.
         """
         data = np.load(path)
+        shape = tuple(int(s) for s in data["input_shape"])
+        input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
         return cls.from_coo(
             rows=data["rows"],
             cols=data["cols"],
             shape=tuple(data["shape"]),
-            input_shape=tuple(data["input_shape"]),
+            input_avals=input_avals,
         )
 
     # Display
@@ -515,23 +518,25 @@ class ColoredPattern:
     def save(self, path: str | os.PathLike[str]) -> None:
         """Save colored pattern to an ``.npz`` file.
 
-        Multi-input patterns (pytree-structured ``input_shape``) are not yet
-        supported by this simple ``.npz`` layout.
+        Pytree-structured or multi-positional patterns are not yet supported
+        by this simple ``.npz`` layout.
 
         Args:
             path: Destination file path.
         """
-        if self.sparsity.is_multi_input:
+        if not self.sparsity._is_simple():
             raise NotImplementedError(
-                "save()/load() does not yet support multi-input patterns. "
-                "Pickle the pattern or reconstruct it from source for now."
+                "save()/load() does not yet support multi-input or pytree-"
+                "structured patterns. Pickle the pattern or reconstruct it "
+                "from source for now."
             )
+        leaf = self.sparsity._dyn_flat[0][0]
         np.savez(
             path,
             rows=self.sparsity.rows,
             cols=self.sparsity.cols,
             shape=np.array(self.sparsity.shape),
-            input_shape=np.array(self.sparsity.input_shape),
+            input_shape=np.array(leaf.shape),
             colors=self.colors,
             num_colors=np.array(self.num_colors),
             symmetric=np.array(self.symmetric),
@@ -546,11 +551,13 @@ class ColoredPattern:
             path: Source file path.
         """
         data = np.load(path, allow_pickle=False)
+        shape = tuple(int(s) for s in data["input_shape"])
+        input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
         sparsity = SparsityPattern.from_coo(
             rows=data["rows"],
             cols=data["cols"],
             shape=tuple(data["shape"]),
-            input_shape=tuple(data["input_shape"]),
+            input_avals=input_avals,
         )
         mode = str(data["mode"])
         _assert_coloring_mode(mode)

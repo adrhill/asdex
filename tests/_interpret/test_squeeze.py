@@ -18,7 +18,7 @@ def test_squeeze_constant():
         const = jnp.array([[1.0, 2.0, 3.0]])  # Shape (1, 3)
         return jnp.squeeze(const, axis=0)  # Shape (3,)
 
-    result = jacobian_sparsity(f, input_shape=2).todense().astype(int)
+    result = jacobian_sparsity(f, 2).todense().astype(int)
     expected = np.zeros((3, 2), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -39,7 +39,7 @@ def test_squeeze_propagates_consts_to_gather():
         col = index_table[:, 0]  # lowers to slice + squeeze
         return x[col]
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, 5).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0, 0, 0],  # out[0] <- x[0]
@@ -69,7 +69,7 @@ def test_squeeze_const_chain_with_select_n():
         dst = index_array[:, 1]  # slice + squeeze → [3, 2]
         return x[src] * x[dst]
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, 5).todense().astype(int)
     expected = np.array(
         [
             [0, 1, 0, 1, 0],  # out[0] <- x[1] * x[3]
@@ -90,6 +90,6 @@ def test_squeeze_zero_size():
     def f(x):
         return jnp.squeeze(x[:0].reshape(0, 1), axis=1)
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, 3)
     assert result.shape == (0, 3)
     assert result.nnz == 0

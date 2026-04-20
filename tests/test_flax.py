@@ -365,7 +365,7 @@ def test_resnet_sparsity_detection():
     input_shape = (8, 8, 3)
 
     with pytest.raises(NotImplementedError, match="reduce_window_max"):
-        jacobian_sparsity(resnet_fn, input_shape=input_shape)
+        jacobian_sparsity(resnet_fn, input_shape)
 
 
 @pytest.mark.slow
@@ -375,7 +375,7 @@ def test_vit_sparsity_detection():
     vit_fn = _make_vit_fn()
     input_shape = (8, 8, 3)
 
-    sparsity = jacobian_sparsity(vit_fn, input_shape=input_shape)
+    sparsity = jacobian_sparsity(vit_fn, input_shape)
 
     n_in = 8 * 8 * 3
     assert sparsity.n == n_in

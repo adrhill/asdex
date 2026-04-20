@@ -1,5 +1,15 @@
 # asdex
 
+## Version `v0.2.0`
+* ![BREAKING][badge-breaking] Replace `input_shape` / `input_shapes` kwargs with positional `*in_avals` varargs, matching `jax.jacfwd` / `jax.jacrev` / `jax.eval_shape` conventions ([#105])
+* ![BREAKING][badge-breaking] `argnums` now defaults to `0` (was `None` meaning "all positions"), matching `jax.grad` / `jax.jacfwd` ([#105])
+* ![BREAKING][badge-breaking] Jacobian output layout is now `(*out_shape, *in_shape)` per leaf, matching `jax.jacfwd` / `jax.jacrev` ([#105])
+* ![BREAKING][badge-breaking] `SparsityPattern` stores `input_avals` and `argnums` instead of `input_shape` ([#105])
+* ![Feature][badge-feature] Accept `ShapeDtypeStruct`, shape tuples, and bare ints as input avals ([#105])
+* ![Feature][badge-feature] Support multi-argument functions via `argnums: int | Sequence[int]` ([#105])
+* ![Feature][badge-feature] Add `has_aux`, `holomorphic`, and `allow_int` kwargs on `jacobian`, `value_and_jacobian`, `hessian`, `value_and_hessian`, and `*_from_coloring` variants ([#105])
+* ![Feature][badge-feature] Support `has_aux` in `jacobian_sparsity`, `hessian_sparsity`, `jacobian_coloring`, and `hessian_coloring` ([#105])
+
 ## Version `v0.1.8`
 * ![Feature][badge-feature] Add `output_format` kwarg for optional dense decompression ([#100])
 * ![Enhancement][badge-enhancement] Smaller decompression jaxpr by using `lax.gather` ([#99])
@@ -50,6 +60,7 @@
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#105]: https://github.com/adrhill/asdex/pull/105
 [#101]: https://github.com/adrhill/asdex/pull/101
 [#100]: https://github.com/adrhill/asdex/pull/100
 [#99]: https://github.com/adrhill/asdex/pull/99

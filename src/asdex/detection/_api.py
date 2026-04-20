@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -10,26 +9,16 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from asdex._pytree_shapes import (
-    _is_shape_leaf,
-    compute_argnums_mask,
-    flatten_shapes,
-    is_multi_positional,
-)
+from asdex._input_avals import normalize_argnums, normalize_avals
 from asdex.detection._interpret import prop_jaxpr
-from asdex.detection._interpret._commons import (
-    empty_index_sets,
-    identity_index_sets,
-)
+from asdex.detection._interpret._commons import empty_index_sets
 from asdex.pattern import SparsityPattern
 
 
 def jacobian_sparsity(
     f: Callable,
-    input_shape: int | tuple[int, ...] | None = None,
-    *,
-    input_shapes: Any = None,
-    argnums: int | Sequence[int] | None = None,
+    *in_avals: Any,
+    argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
 ) -> SparsityPattern:
     """Detect global Jacobian sparsity pattern for ``f``.
@@ -39,21 +28,18 @@ def jacobian_sparsity(
     The result is valid for all inputs.
 
     Args:
-        f: Function taking one or more arrays and returning an array.
-            In the single-input case, ``f(x)`` takes a single array.
-            In the multi-input case, ``f(*xs)`` takes multiple positional
-            arrays when ``input_shapes`` is a top-level tuple, or ``f(pytree)``
-            takes a single pytree when ``input_shapes`` is itself a pytree
-            (e.g. a dict).
-        input_shape: Shape of the single input array (single-input mode).
-            Mutually exclusive with ``input_shapes``.
-            An integer is treated as a 1D length.
-        input_shapes: Pytree of shapes, one per input leaf (multi-input mode).
-            Mutually exclusive with ``input_shape``.
-        argnums: Which positional arguments to differentiate with respect to,
-            mirroring ``jax.grad(fun, argnums=...)``.
-            Defaults to ``None`` (all positional args).
-            Only supported for multi-positional ``input_shapes``.
+        f: Function taking one or more positional arrays and returning an array.
+            Each positional argument may itself be a pytree.
+        *in_avals: One positional ``in_aval`` per positional argument of ``f``.
+            Each entry is a pytree whose leaves are
+            ``jax.ShapeDtypeStruct``, a shape tuple (e.g. ``(3, 4)``), or a
+            bare ``int``.
+            The shape-tuple and bare-int forms are asdex sugar that default
+            to ``jnp.float_``.
+        argnums: Positions of ``in_avals`` to differentiate with respect to,
+            mirroring ``jax.grad`` / ``jax.jacfwd``.
+            Negative indices are resolved via ``i % len(in_avals)``.
+            Defaults to ``0``.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
             When True, only ``output`` is analyzed for sparsity;
             the auxiliary branch of the computation is not traced.
@@ -63,75 +49,33 @@ def jacobian_sparsity(
             where ``m = prod(output_shape)`` and ``n_selected`` is the total
             flat size of the selected inputs.
     """
-    _assert_single_or_multi(input_shape, input_shapes)
+    avals = normalize_avals(in_avals)
+    argnums = normalize_argnums(argnums, len(avals))
+    selected = _as_tuple(argnums)
 
-    if input_shapes is None:
-        # Single-input path.
-        shape = input_shape
-        assert shape is not None
-        n = shape if isinstance(shape, int) else math.prod(shape)
-        shape_tuple = (shape,) if isinstance(shape, int) else tuple(shape)
+    f_out = _strip_aux(f) if has_aux else f
+    dummy_args = tuple(_dummy_from_avals(pos) for pos in avals)
 
-        f_out = _strip_aux_single(f) if has_aux else f
-        dummy_input = jnp.zeros(shape_tuple)
-        closed_jaxpr = jax.make_jaxpr(f_out)(dummy_input)
-        m = int(jax.eval_shape(f_out, dummy_input).size)
-
-        input_indices = [identity_index_sets(n)]
-        out_indices = _run_prop(closed_jaxpr, input_indices)
-
-        rows, cols = _coo_from_index_sets(out_indices)
-        return SparsityPattern.from_coo(rows, cols, (m, n), input_shape=shape_tuple)
-
-    # Multi-input path.
-    multi_positional = is_multi_positional(input_shapes)
-    leaf_shapes, _, leaf_sizes = flatten_shapes(input_shapes)
-    selected_mask = compute_argnums_mask(
-        argnums, input_shapes, multi_positional=multi_positional
-    )
-    if not any(selected_mask):
-        raise ValueError("`argnums` selects no inputs; nothing to differentiate.")
-
-    input_indices = _build_multi_input_indices(leaf_sizes, selected_mask)
-    n_selected = sum(s for s, sel in zip(leaf_sizes, selected_mask, strict=True) if sel)
-
-    dummy_pytree = _dummy_from_shapes(input_shapes, leaf_shapes)
-    f_out = _strip_aux_multi(f, multi_positional) if has_aux else f
-    if multi_positional:
-        closed_jaxpr = jax.make_jaxpr(f_out)(*dummy_pytree)
-        out_aval = jax.eval_shape(f_out, *dummy_pytree)
-    else:
-        closed_jaxpr = jax.make_jaxpr(f_out)(dummy_pytree)
-        out_aval = jax.eval_shape(f_out, dummy_pytree)
+    closed_jaxpr = jax.make_jaxpr(f_out)(*dummy_args)
+    out_aval = jax.eval_shape(f_out, *dummy_args)
     m = sum(int(leaf.size) for leaf in jax.tree_util.tree_leaves(out_aval))
 
+    input_indices, n_selected = _build_input_indices(avals, selected)
     out_indices = _run_prop(closed_jaxpr, input_indices)
     rows, cols = _coo_from_index_sets(out_indices)
     return SparsityPattern.from_coo(
         rows,
         cols,
         (m, n_selected),
-        input_shape=_canonicalize_shapes(input_shapes, leaf_shapes),
-        selected_mask=tuple(selected_mask),
-        argnums=_canonicalize_argnums(argnums),
+        input_avals=avals,
+        argnums=argnums,
     )
-
-
-def _canonicalize_argnums(
-    argnums: int | Sequence[int] | None,
-) -> int | tuple[int, ...] | None:
-    """Normalize argnums for storage (preserving int vs tuple distinction)."""
-    if argnums is None or isinstance(argnums, int):
-        return argnums
-    return tuple(argnums)
 
 
 def hessian_sparsity(
     f: Callable,
-    input_shape: int | tuple[int, ...] | None = None,
-    *,
-    input_shapes: Any = None,
-    argnums: int | Sequence[int] | None = None,
+    *in_avals: Any,
+    argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
 ) -> SparsityPattern:
     """Detect global Hessian sparsity pattern for a scalar-valued ``f``.
@@ -144,74 +88,69 @@ def hessian_sparsity(
     it is automatically squeezed to scalar.
 
     Args:
-        f: Scalar-valued function taking one or more arrays.
-        input_shape: Shape of the single input array (single-input mode).
-            Mutually exclusive with ``input_shapes``.
-        input_shapes: Pytree of shapes (multi-input mode).
-            Mutually exclusive with ``input_shape``.
-        argnums: Which positional arguments to differentiate with respect to,
-            mirroring ``jax.grad(fun, argnums=...)``.
-            Only supported for multi-positional ``input_shapes``.
+        f: Scalar-valued function taking one or more positional arrays.
+        *in_avals: One positional ``in_aval`` per positional argument of ``f``
+            (see :func:`jacobian_sparsity`).
+        argnums: Positions of ``in_avals`` to differentiate with respect to,
+            mirroring ``jax.grad``.
         has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``.
             When True, aux is stripped before detection.
 
     Returns:
         Square SparsityPattern over the combined, selected input space.
     """
-    _assert_single_or_multi(input_shape, input_shapes)
+    avals = normalize_avals(in_avals)
+    argnums = normalize_argnums(argnums, len(avals))
 
-    if input_shapes is None:
-        assert input_shape is not None
-        f_out = _strip_aux_single(f) if has_aux else f
-        f_out = _ensure_scalar(f_out, input_shape)
-        return jacobian_sparsity(jax.grad(f_out), input_shape)
-
-    # Multi-input Hessian: grad w.r.t. selected argnums, then Jacobian of that.
-    multi_positional = is_multi_positional(input_shapes)
-    _ = compute_argnums_mask(argnums, input_shapes, multi_positional=multi_positional)
-
-    # Resolve argnums for jax.grad: it accepts a tuple of ints (multi-positional)
-    # or a single int, same as this API.
-    if multi_positional:
-        if argnums is None:
-            positions = tuple(range(len(input_shapes)))
-        elif isinstance(argnums, int):
-            positions = (argnums,)
-        else:
-            positions = tuple(argnums)
-        grad_argnums: int | tuple[int, ...] = (
-            positions[0] if len(positions) == 1 else positions
-        )
-    else:
-        grad_argnums = 0  # single pytree argument
-
-    f_out = _strip_aux_multi(f, multi_positional) if has_aux else f
-    f_scalar = _ensure_scalar_multi(f_out, input_shapes, multi_positional)
-    grad_fn = jax.grad(f_scalar, argnums=grad_argnums)
-
-    # The gradient returns a pytree matching the selected inputs.
-    # Re-run jacobian_sparsity on this gradient, restricting input_shapes/argnums
-    # to the same selected subset so both axes match.
-    return jacobian_sparsity(
-        grad_fn,
-        input_shapes=input_shapes,
-        argnums=argnums,
-    )
+    f_out = _strip_aux(f) if has_aux else f
+    f_scalar = _ensure_scalar(f_out, avals)
+    grad_fn = jax.grad(f_scalar, argnums=argnums)
+    return jacobian_sparsity(grad_fn, *avals, argnums=argnums)
 
 
 # Internal helpers
 
 
-def _strip_aux_single(f: Callable) -> Callable:
-    """Return a function that drops the aux output of a ``has_aux=True`` function."""
-    return lambda x: f(x)[0]
+def _as_tuple(argnums: int | tuple[int, ...]) -> tuple[int, ...]:
+    """``argnums`` as a tuple for indexing."""
+    if isinstance(argnums, int):
+        return (argnums,)
+    return argnums
 
 
-def _strip_aux_multi(f: Callable, multi_positional: bool) -> Callable:
-    """Return a function that drops aux output of a multi-input ``has_aux=True`` function."""
-    if multi_positional:
-        return lambda *xs: f(*xs)[0]
-    return lambda pt: f(pt)[0]
+def _strip_aux(f: Callable) -> Callable:
+    """Drop the aux output of a ``has_aux=True`` function."""
+    return lambda *xs: f(*xs)[0]
+
+
+def _dummy_from_avals(aval_tree: Any) -> Any:
+    """Build a pytree of ``jnp.zeros`` matching a pytree of ``ShapeDtypeStruct``."""
+    return jax.tree_util.tree_map(lambda s: jnp.zeros(s.shape, s.dtype), aval_tree)
+
+
+def _build_input_indices(
+    avals: tuple[Any, ...], selected: tuple[int, ...]
+) -> tuple[list[list], int]:
+    """Seed per-leaf index sets in ``jax.make_jaxpr`` leaf order.
+
+    Selected positions get identity index sets over a contiguous column
+    space; non-selected positions get empty index sets so dependencies
+    flowing through them do not appear in the pattern.
+    Returns ``(input_indices, n_selected)``.
+    """
+    input_indices: list[list] = []
+    offset = 0
+    for pos_idx, pos_aval in enumerate(avals):
+        leaves = jax.tree_util.tree_leaves(pos_aval)
+        if pos_idx in selected:
+            for leaf in leaves:
+                size = int(leaf.size)
+                input_indices.append([{offset + j} for j in range(size)])
+                offset += size
+        else:
+            for leaf in leaves:
+                input_indices.append(empty_index_sets(int(leaf.size)))  # noqa: PERF401
+    return input_indices, offset
 
 
 def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
@@ -245,68 +184,7 @@ def _coo_from_index_sets(
     return rows, cols
 
 
-def _build_multi_input_indices(
-    leaf_sizes: Sequence[int], selected_mask: Sequence[bool]
-) -> list[list]:
-    """Seed index sets per leaf: identity over selected leaves, empty otherwise.
-
-    The selected leaves share a contiguous column space in the order they
-    appear in the flat leaf list; non-selected leaves get empty sets so any
-    dependency that flows through them never shows up in the pattern.
-    """
-    input_indices: list[list] = []
-    offset = 0
-    for size, selected in zip(leaf_sizes, selected_mask, strict=True):
-        if selected:
-            input_indices.append([{offset + j} for j in range(size)])
-            offset += size
-        else:
-            input_indices.append(empty_index_sets(size))
-    return input_indices
-
-
-def _dummy_from_shapes(
-    input_shapes: Any, leaf_shapes: Sequence[tuple[int, ...]]
-) -> Any:
-    """Build a pytree of zero arrays matching ``input_shapes``."""
-    del leaf_shapes
-    return jax.tree_util.tree_map(
-        lambda s: jnp.zeros(tuple(s) if isinstance(s, tuple) else (int(s),)),
-        input_shapes,
-        is_leaf=_is_shape_leaf,
-    )
-
-
-def _canonicalize_shapes(
-    input_shapes: Any, leaf_shapes: Sequence[tuple[int, ...]]
-) -> Any:
-    """Normalize ints in the spec to 1-tuples so leaves are always shape tuples."""
-    del leaf_shapes
-    return jax.tree_util.tree_map(
-        lambda s: tuple(s) if isinstance(s, tuple) else (int(s),),
-        input_shapes,
-        is_leaf=_is_shape_leaf,
-    )
-
-
-def _assert_single_or_multi(
-    input_shape: int | tuple[int, ...] | None,
-    input_shapes: Any,
-) -> None:
-    """Ensure exactly one of ``input_shape`` / ``input_shapes`` is given."""
-    if input_shape is None and input_shapes is None:
-        raise TypeError(
-            "Must pass either `input_shape` (single-input) "
-            "or `input_shapes` (multi-input)."
-        )
-    if input_shape is not None and input_shapes is not None:
-        raise TypeError(
-            "`input_shape` (singular) and `input_shapes` (plural) are mutually "
-            "exclusive; pass one or the other."
-        )
-
-
-def _ensure_scalar(f: Callable, input_shape: int | tuple[int, ...]) -> Callable:
+def _ensure_scalar(f: Callable, avals: tuple[Any, ...]) -> Callable:
     """Ensure ``f`` returns a scalar, auto-squeezing if possible.
 
     If ``f`` already returns shape ``()``, it is returned unchanged.
@@ -314,39 +192,13 @@ def _ensure_scalar(f: Callable, input_shape: int | tuple[int, ...]) -> Callable:
     a wrapped version is returned.
     Otherwise, raises ``ValueError``.
     """
-    out = jax.eval_shape(f, jnp.zeros(input_shape))
+    dummy = tuple(_dummy_from_avals(pos) for pos in avals)
+    out = jax.eval_shape(f, *dummy)
     if out.shape == ():
         return f
-    squeezed = jax.eval_shape(lambda x: jnp.squeeze(f(x)), jnp.zeros(input_shape))
-    if squeezed.shape != ():
-        raise ValueError(
-            f"Expected scalar-valued function, but f has output shape {out.shape}."
-        )
-    return lambda x: jnp.squeeze(f(x))
-
-
-def _ensure_scalar_multi(
-    f: Callable, input_shapes: Any, multi_positional: bool
-) -> Callable:
-    """Multi-input variant of :func:`_ensure_scalar`."""
-    leaf_shapes, _, _ = flatten_shapes(input_shapes)
-    dummy = _dummy_from_shapes(input_shapes, leaf_shapes)
-
-    out = jax.eval_shape(f, *dummy) if multi_positional else jax.eval_shape(f, dummy)
-
-    if out.shape == ():
-        return f
-
-    if multi_positional:
-        squeezed_shape = jax.eval_shape(lambda *xs: jnp.squeeze(f(*xs)), *dummy).shape
-    else:
-        squeezed_shape = jax.eval_shape(lambda x: jnp.squeeze(f(x)), dummy).shape
-
+    squeezed_shape = jax.eval_shape(lambda *xs: jnp.squeeze(f(*xs)), *dummy).shape
     if squeezed_shape != ():
         raise ValueError(
             f"Expected scalar-valued function, but f has output shape {out.shape}."
         )
-
-    if multi_positional:
-        return lambda *xs: jnp.squeeze(f(*xs))
-    return lambda x: jnp.squeeze(f(x))
+    return lambda *xs: jnp.squeeze(f(*xs))

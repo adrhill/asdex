@@ -30,7 +30,7 @@ def test_dot_1d():
     def f(x):
         return jnp.dot(x, x).reshape(1)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.ones((1, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -47,7 +47,7 @@ def test_dot_1d_separate():
         y = xy[3:]
         return jnp.dot(x, y).reshape(1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     expected = np.ones((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -66,7 +66,7 @@ def test_matvec():
         v = x[6:]
         return A @ v
 
-    result = jacobian_sparsity(f, input_shape=9).todense().astype(int)
+    result = jacobian_sparsity(f, 9).todense().astype(int)
     # out[0] depends on A row 0 ({0,1,2}) and v ({6,7,8})
     # out[1] depends on A row 1 ({3,4,5}) and v ({6,7,8})
     expected = np.array(
@@ -91,7 +91,7 @@ def test_matmul_2x3_3x2():
         B = x[6:].reshape(3, 2)
         return (A @ B).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     # out[i,j] depends on A row i and B col j.
     # A row 0: {0,1,2}, A row 1: {3,4,5}
     # B col 0: {6,8,10}, B col 1: {7,9,11}
@@ -117,7 +117,7 @@ def test_matmul_self():
         mat = x.reshape(2, 3)
         return (mat @ mat.T).flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     # mat = [[x0,x1,x2],[x3,x4,x5]]
     # out[0,0] = row0·row0 → {0,1,2}
     # out[0,1] = row0·row1 → {0,1,2,3,4,5}
@@ -148,7 +148,7 @@ def test_batched_matmul():
         B = x[24:].reshape(3, 4, 5)
         return jnp.matmul(A, B).flatten()
 
-    result = jacobian_sparsity(f, input_shape=84).todense().astype(int)
+    result = jacobian_sparsity(f, 84).todense().astype(int)
     expected = _dot_general_jacobian(f, 84)
     np.testing.assert_array_equal(result, expected)
 
@@ -168,7 +168,7 @@ def test_outer_product_via_dot_general():
             a, b, dimension_numbers=(([], []), ([], []))
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, 5).todense().astype(int)
     # out[i,j] depends on {i} from a and {3+j} from b.
     expected = np.zeros((6, 5), dtype=int)
     for i in range(3):
@@ -188,7 +188,7 @@ def test_matmul_size_1_row():
         B = x[3:].reshape(3, 2)
         return (A @ B).flatten()
 
-    result = jacobian_sparsity(f, input_shape=9).todense().astype(int)
+    result = jacobian_sparsity(f, 9).todense().astype(int)
     # out[0,0] depends on A[0,:] = {0,1,2} and B[:,0] = {3,5,7}
     # out[0,1] depends on A[0,:] = {0,1,2} and B[:,1] = {4,6,8}
     expected = np.array(
@@ -212,7 +212,7 @@ def test_matmul_size_1_contract():
         B = x[2:].reshape(1, 3)
         return (A @ B).flatten()
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, 5).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 1, 0, 0],  # out[0,0]: A[0,0]={0}, B[0,0]={2}
@@ -236,7 +236,7 @@ def test_einsum_ij_jk():
         B = x[6:].reshape(3, 2)
         return jnp.einsum("ij,jk->ik", A, B).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     expected = _dot_general_jacobian(f, 12)
     np.testing.assert_array_equal(result, expected)
 
@@ -250,7 +250,7 @@ def test_einsum_batched():
         B = x[24:].reshape(3, 4, 5)
         return jnp.einsum("bij,bjk->bik", A, B).flatten()
 
-    result = jacobian_sparsity(f, input_shape=84).todense().astype(int)
+    result = jacobian_sparsity(f, 84).todense().astype(int)
     expected = _dot_general_jacobian(f, 84)
     np.testing.assert_array_equal(result, expected)
 
@@ -264,7 +264,7 @@ def test_tensordot_axes_1():
         B = x[6:].reshape(3, 4)
         return jnp.tensordot(A, B, axes=1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=18).todense().astype(int)
+    result = jacobian_sparsity(f, 18).todense().astype(int)
     expected = _dot_general_jacobian(f, 18)
     np.testing.assert_array_equal(result, expected)
 
@@ -278,7 +278,7 @@ def test_tensordot_axes_2():
         B = x[30:].reshape(2, 3, 4)
         return jnp.tensordot(A, B, axes=2).flatten()
 
-    result = jacobian_sparsity(f, input_shape=54).todense().astype(int)
+    result = jacobian_sparsity(f, 54).todense().astype(int)
     expected = _dot_general_jacobian(f, 54)
     np.testing.assert_array_equal(result, expected)
 
@@ -296,7 +296,7 @@ def test_matmul_after_broadcast():
         mat = jnp.broadcast_to(x, (2, 3))
         return (mat @ mat.T).flatten()
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # After broadcast, mat state_indices: each row is [{0},{1},{2}].
     # mat.T state_indices: each col is [{0},{1},{2}].
     # mat @ mat.T: all outputs depend on all inputs.
@@ -317,7 +317,7 @@ def test_matmul_with_constant():
         W = jnp.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
         return W @ x
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.array([[1, 0, 0], [0, 1, 0]])
     np.testing.assert_array_equal(result, expected)
 
@@ -371,7 +371,7 @@ def test_matmul_with_constant():
 )
 def test_against_jax_jacobian(desc, f, n):
     """Sparsity pattern matches the nonzero pattern of jax.jacobian."""
-    result = jacobian_sparsity(f, input_shape=n).todense().astype(int)
+    result = jacobian_sparsity(f, n).todense().astype(int)
     expected = _dot_general_jacobian(f, n)
     np.testing.assert_array_equal(result, expected)
 
@@ -389,7 +389,7 @@ def test_multi_contract_dims():
             A, B, dimension_numbers=(((1, 2), (0, 1)), ((), ()))
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=54).todense().astype(int)
+    result = jacobian_sparsity(f, 54).todense().astype(int)
     expected = _dot_general_jacobian(f, 54)
     np.testing.assert_array_equal(result, expected)
 
@@ -406,7 +406,7 @@ def test_multi_batch_dims():
             A, B, dimension_numbers=(((), ()), ((0, 1), (0, 1)))
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=54).todense().astype(int)
+    result = jacobian_sparsity(f, 54).todense().astype(int)
     expected = _dot_general_jacobian(f, 54)
     np.testing.assert_array_equal(result, expected)
 
@@ -423,7 +423,7 @@ def test_batch_and_contract():
             A, B, dimension_numbers=(((2,), (1,)), ((0,), (0,)))
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=64).todense().astype(int)
+    result = jacobian_sparsity(f, 64).todense().astype(int)
     expected = _dot_general_jacobian(f, 64)
     np.testing.assert_array_equal(result, expected)
 
@@ -440,7 +440,7 @@ def test_size_1_contract():
             A, B, dimension_numbers=(((1,), (0,)), ((), ()))
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=10).todense().astype(int)
+    result = jacobian_sparsity(f, 10).todense().astype(int)
     expected = _dot_general_jacobian(f, 10)
     np.testing.assert_array_equal(result, expected)
 
@@ -455,7 +455,7 @@ def test_double_matmul():
         C = x[18:].reshape(4, 2)
         return ((A @ B) @ C).flatten()
 
-    result = jacobian_sparsity(f, input_shape=26).todense().astype(int)
+    result = jacobian_sparsity(f, 26).todense().astype(int)
     expected = _dot_general_jacobian(f, 26)
     np.testing.assert_array_equal(result, expected)
 
@@ -469,7 +469,7 @@ def test_vecdot():
         B = x[6:].reshape(2, 3)
         return jnp.vdot(A, B).reshape(1)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     expected = np.ones((1, 12), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -519,7 +519,7 @@ def test_strictly_sparser_than_conservative(desc, f, n):
     The handler should have fewer nonzeros while still being a superset
     of the true Jacobian nonzero pattern.
     """
-    result = jacobian_sparsity(f, input_shape=n).todense().astype(int)
+    result = jacobian_sparsity(f, n).todense().astype(int)
     conservative = _conservative_pattern(f, n)
     true_jac = _dot_general_jacobian(f, n)
 
@@ -551,7 +551,7 @@ def test_asymmetric_matmul_2x5_5x7():
         return (A @ B).flatten()
 
     n = 10 + 35
-    result = jacobian_sparsity(f, input_shape=n).todense().astype(int)
+    result = jacobian_sparsity(f, n).todense().astype(int)
     expected = _dot_general_jacobian(f, n)
     np.testing.assert_array_equal(result, expected)
 
@@ -566,7 +566,7 @@ def test_asymmetric_batched_matmul_3x2x5_3x5x7():
         return jnp.matmul(A, B).flatten()
 
     n = 30 + 105
-    result = jacobian_sparsity(f, input_shape=n).todense().astype(int)
+    result = jacobian_sparsity(f, n).todense().astype(int)
     expected = _dot_general_jacobian(f, n)
     np.testing.assert_array_equal(result, expected)
 
@@ -591,7 +591,7 @@ def test_batch_broadcast_matmul():
         return jnp.matmul(A, B).flatten()
 
     n = 6 + 72
-    result = jacobian_sparsity(f, input_shape=n).todense().astype(int)
+    result = jacobian_sparsity(f, n).todense().astype(int)
     expected = _dot_general_jacobian(f, n)
     np.testing.assert_array_equal(result, expected)
 
@@ -621,9 +621,9 @@ def test_elementwise_matmul_elementwise_chain():
         B = x[6:].reshape(3, 2)
         return (A @ B).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     # Elementwise ops don't change sparsity structure.
-    expected = jacobian_sparsity(f_plain, input_shape=12).todense().astype(int)
+    expected = jacobian_sparsity(f_plain, 12).todense().astype(int)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -640,7 +640,7 @@ def test_scalar_constant_times_vector():
     def f(x):
         return jnp.dot(jnp.array(2.0), x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # out[i] = 2.0 * x[i], so the Jacobian is diagonal.
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -661,7 +661,7 @@ def test_hilbert_matrix_pattern():
         H = 1.0 / (i[:, None] + i[None, :] - 1.0)
         return x @ H @ x
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, 4).todense().astype(int)
     # Scalar output depends on all inputs.
     expected = np.ones((1, 4), dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -678,7 +678,7 @@ def test_scalar_zero_times_vector():
     def f(x):
         return jnp.dot(jnp.array(0.0), x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.zeros((3, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -696,7 +696,7 @@ def test_scalar_dot_zero_skipping():
         w = jnp.array([1.0, 0.0, 1.0])
         return jnp.dot(x, w).reshape(1)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.array([[1, 0, 1]], dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -715,6 +715,6 @@ def test_dot_zero_contraction():
     def f(x):
         return jnp.dot(x[:0], jnp.zeros((0, 2)))
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, 3)
     assert result.shape == (2, 3)
     assert result.nnz == 0

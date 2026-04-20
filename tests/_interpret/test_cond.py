@@ -27,7 +27,7 @@ def test_cond_union_of_branches():
             x,
         )
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # Branch 0: out[0]←{0}, out[1]←{1}
     # Branch 1: out[0]←{1}, out[1]←{2}
     # Union:    out[0]←{0,1}, out[1]←{1,2}
@@ -53,7 +53,7 @@ def test_cond_identical_branches():
             x,
         )
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # Both branches are elementwise, so the union is still diagonal
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -71,7 +71,7 @@ def test_cond_one_branch_constant():
             x,
         )
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # Branch 0: identity (diagonal).  Branch 1: constant (zeros).
     # Union is just the diagonal.
     expected = np.eye(3, dtype=int)
@@ -93,7 +93,7 @@ def test_switch_three_branches():
             x,
         )
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, 4).todense().astype(int)
     # Union: out[0]←{0,1,2}, out[1]←{1,2,3}
     expected = np.array([[1, 1, 1, 0], [0, 1, 1, 1]], dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -111,7 +111,7 @@ def test_cond_asymmetric_branches():
             x,
         )
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # Union: elementwise (diagonal) ∪ all-to-all (dense) = dense
     expected = np.ones((3, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -135,7 +135,7 @@ def test_cond_closure_captured_index():
 
         return jax.lax.cond(True, branch_a, branch_b, x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # branch_a: out[0]←{2}, out[1]←{0}, out[2]←{1}
     # branch_b: out[0]←{0}, out[1]←{1}, out[2]←{2}
     # Union:    out[0]←{0,2}, out[1]←{0,1}, out[2]←{1,2}
@@ -160,6 +160,6 @@ def test_cond_zero_size_output():
     def f(x):
         return jax.lax.cond(True, lambda y: y[:0], lambda y: y[:0], x)
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, 3)
     assert result.shape == (0, 3)
     assert result.nnz == 0

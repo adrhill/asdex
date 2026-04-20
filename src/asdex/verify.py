@@ -1,5 +1,6 @@
 """Verification utilities for checking asdex results against JAX references."""
 
+import math
 from collections.abc import Callable
 from typing import Literal, assert_never
 
@@ -191,6 +192,16 @@ def check_jacobian_correctness(
             ref_mode = coloring.mode
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
+
+    out_size = math.prod(jax.eval_shape(f, x).shape)
+    if out_size != coloring.sparsity.m:
+        raise VerificationError(
+            f"asdex's sparse Jacobian output size {coloring.sparsity.m} does not "
+            f"match the shape of f(x), which has {out_size} elements. "
+            "This likely means the detected sparsity pattern is missing nonzeros. "
+            "Please help out asdex's development by reporting this at "
+            "https://github.com/adrhill/asdex/issues"
+        )
 
     J_sparse = jacobian_from_coloring(f, coloring)(x)
 

@@ -36,10 +36,8 @@ from asdex.pattern import ColoredPattern, SparsityPattern
 
 def jacobian_coloring(
     f: Callable,
-    input_shape: int | tuple[int, ...] | None = None,
-    *,
-    input_shapes: Any = None,
-    argnums: int | Sequence[int] | None = None,
+    *in_avals: Any,
+    argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
@@ -48,14 +46,13 @@ def jacobian_coloring(
     """Detect Jacobian sparsity and color in one step.
 
     Args:
-        f: Function taking an array and returning an array.
-        input_shape: Shape of the input array (single-input mode).
-            Mutually exclusive with ``input_shapes``.
-        input_shapes: Pytree of shapes (multi-input mode).
-            Mutually exclusive with ``input_shape``.
-        argnums: Which positional arguments to differentiate with respect to,
-            mirroring ``jax.grad``.
-            Only supported with multi-positional ``input_shapes``.
+        f: Function taking one or more positional arrays and returning an array.
+        *in_avals: One positional ``in_aval`` per positional argument of ``f``.
+            Each entry is a pytree whose leaves are ``jax.ShapeDtypeStruct``,
+            a shape tuple, or a bare ``int``.
+        argnums: Positions of ``in_avals`` to differentiate with respect to,
+            mirroring ``jax.grad`` / ``jax.jacfwd``.
+            Defaults to ``0``.
         has_aux: If ``True``, ``f`` is assumed to return ``(output, aux)``
             where ``aux`` is auxiliary data ignored by sparsity detection.
         mode: AD mode.
@@ -73,9 +70,7 @@ def jacobian_coloring(
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
     """
-    sparsity = _detect_jacobian_sparsity(
-        f, input_shape, input_shapes=input_shapes, argnums=argnums, has_aux=has_aux
-    )
+    sparsity = _detect_jacobian_sparsity(f, *in_avals, argnums=argnums, has_aux=has_aux)
     return jacobian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )
@@ -83,10 +78,8 @@ def jacobian_coloring(
 
 def hessian_coloring(
     f: Callable,
-    input_shape: int | tuple[int, ...] | None = None,
-    *,
-    input_shapes: Any = None,
-    argnums: int | Sequence[int] | None = None,
+    *in_avals: Any,
+    argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     mode: HessianMode | None = None,
     symmetric: bool = True,
@@ -95,14 +88,12 @@ def hessian_coloring(
     """Detect Hessian sparsity and color in one step.
 
     Args:
-        f: Scalar-valued function taking an array.
-        input_shape: Shape of the input array (single-input mode).
-            Mutually exclusive with ``input_shapes``.
-        input_shapes: Pytree of shapes (multi-input mode).
-            Mutually exclusive with ``input_shape``.
-        argnums: Which positional arguments to differentiate with respect to,
+        f: Scalar-valued function taking one or more positional arrays.
+        *in_avals: One positional ``in_aval`` per positional argument of ``f``
+            (see :func:`jacobian_coloring`).
+        argnums: Positions of ``in_avals`` to differentiate with respect to,
             mirroring ``jax.grad``.
-            Only supported with multi-positional ``input_shapes``.
+            Defaults to ``0``.
         has_aux: If ``True``, ``f`` is assumed to return ``(output, aux)``
             where ``aux`` is auxiliary data ignored by sparsity detection.
         mode: AD composition strategy for Hessian-vector products.
@@ -120,9 +111,7 @@ def hessian_coloring(
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
     """
-    sparsity = _detect_hessian_sparsity(
-        f, input_shape, input_shapes=input_shapes, argnums=argnums, has_aux=has_aux
-    )
+    sparsity = _detect_hessian_sparsity(f, *in_avals, argnums=argnums, has_aux=has_aux)
     return hessian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )

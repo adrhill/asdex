@@ -3,6 +3,7 @@
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from jax import ShapeDtypeStruct
 from jax.experimental.sparse import BCOO
 
 from asdex import ColoredPattern, SparsityPattern, jacobian_sparsity
@@ -286,7 +287,7 @@ class TestIntegration:
         def f(x):
             return jnp.array([x[0] * x[1], x[1] + x[2], x[2]])
 
-        result = jacobian_sparsity(f, input_shape=3)
+        result = jacobian_sparsity(f, 3)
 
         assert isinstance(result, SparsityPattern)
         assert result.shape == (3, 3)
@@ -301,7 +302,7 @@ class TestIntegration:
         def f(x):
             return x**2
 
-        result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+        result = jacobian_sparsity(f, 3).todense().astype(int)
         expected = np.eye(3, dtype=int)
         np.testing.assert_array_equal(result, expected)
 
@@ -311,7 +312,7 @@ class TestIntegration:
         def f(x):
             return jnp.array([x[0] * x[1], x[1] + x[2], x[2]])
 
-        sparsity = jacobian_sparsity(f, input_shape=3)
+        sparsity = jacobian_sparsity(f, 3)
         # This should print nicely with braille
         output = str(sparsity)
         assert len(output) > 0
@@ -329,7 +330,7 @@ def test_save_load_sparsity_roundtrip(tmp_path):
     loaded = SparsityPattern.load(path)
 
     assert loaded.shape == original.shape
-    assert loaded.input_shape == original.input_shape
+    assert loaded.leaf_shapes == original.leaf_shapes
     assert loaded.nnz == original.nnz
     np.testing.assert_array_equal(loaded.rows, original.rows)
     np.testing.assert_array_equal(loaded.cols, original.cols)
@@ -364,7 +365,7 @@ def test_save_load_colored_roundtrip(tmp_path, symmetric, mode):
     loaded = ColoredPattern.load(path)
 
     assert loaded.sparsity.shape == original.sparsity.shape
-    assert loaded.sparsity.input_shape == original.sparsity.input_shape
+    assert loaded.sparsity.leaf_shapes == original.sparsity.leaf_shapes
     np.testing.assert_array_equal(loaded.sparsity.rows, original.sparsity.rows)
     np.testing.assert_array_equal(loaded.sparsity.cols, original.sparsity.cols)
     np.testing.assert_array_equal(loaded.colors, original.colors)
@@ -383,18 +384,19 @@ def test_save_load_sparsity_empty(tmp_path):
 
     assert loaded.shape == (3, 4)
     assert loaded.nnz == 0
-    assert loaded.input_shape == (4,)
+    assert loaded.leaf_shapes == [(4,)]
 
 
 def test_save_load_sparsity_non_default_input_shape(tmp_path):
-    """SparsityPattern with multidimensional input_shape roundtrips correctly."""
-    original = SparsityPattern.from_coo([0, 1], [0, 1], (2, 6), input_shape=(2, 3))
+    """SparsityPattern with multidimensional input aval roundtrips correctly."""
+    aval = ShapeDtypeStruct((2, 3), jnp.float_)
+    original = SparsityPattern.from_coo([0, 1], [0, 1], (2, 6), input_avals=(aval,))
     path = tmp_path / "nd.npz"
     original.save(path)
 
     loaded = SparsityPattern.load(path)
 
-    assert loaded.input_shape == (2, 3)
+    assert loaded.leaf_shapes == [(2, 3)]
     assert loaded.shape == (2, 6)
 
 

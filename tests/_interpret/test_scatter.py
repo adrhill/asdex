@@ -24,7 +24,7 @@ def test_scatter_at_set():
         arr = jnp.zeros(3)
         return arr.at[1].set(x[0])
 
-    result = jacobian_sparsity(f, input_shape=2).todense().astype(int)
+    result = jacobian_sparsity(f, 2).todense().astype(int)
     # Only index 1 depends on x[0], indices 0 and 2 are constant (zeros)
     expected = np.array([[0, 0], [1, 0], [0, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -41,7 +41,7 @@ def test_scatter_add():
         arr = jnp.array([1.0, 2.0, 3.0])
         return arr.at[1].add(x[0])  # arr[1] += x[0]
 
-    result = jacobian_sparsity(f, input_shape=2).todense().astype(int)
+    result = jacobian_sparsity(f, 2).todense().astype(int)
     # Index 1 depends on x[0] (no dependency on arr since arr is constant)
     expected = np.array(
         [
@@ -62,7 +62,7 @@ def test_scatter_multiple():
         arr = jnp.zeros(4)
         return arr.at[jnp.array([0, 2])].set(x[:2])
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0],  # out[0] <- x[0]
@@ -88,7 +88,7 @@ def test_scatter_dynamic_indices():
         idx = jnp.argmax(x[3:]).astype(int)
         return arr.at[idx].set(x[3])
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, 5).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0, 1, 0],
@@ -113,7 +113,7 @@ def test_scatter_combine(method):
         arr = x[:3]
         return getattr(arr.at[1], method)(x[3])
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, 4).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0, 0],  # out[0] <- x[0]
@@ -136,7 +136,7 @@ def test_segment_sum():
         segment_ids = jnp.array([0, 0, 1, 1, 1])
         return jax.ops.segment_sum(x, segment_ids, num_segments=2)
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, 5).todense().astype(int)
     # Segment 0: inputs 0,1 -> output 0
     # Segment 1: inputs 2,3,4 -> output 1
     expected = np.array(
@@ -165,7 +165,7 @@ def test_scatter_2d_batched_dim0():
         gathered = mat[indices]  # [3, 4]: rows reordered
         return gathered.reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     # gathered[0] = mat[2], gathered[1] = mat[0], gathered[2] = mat[1]
     # Each output element depends on exactly one input element.
     expected = np.zeros((12, 12), dtype=int)
@@ -191,7 +191,7 @@ def test_scatter_set_middle_dim():
         arr = arr.at[:, 2, :].set(0.0)
         return arr.reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, 24).todense().astype(int)
     expected = np.zeros((24, 24), dtype=int)
     for i in range(24):
         # Flat index i corresponds to (a, n, h) = (i//12, (i//4)%3, i%4)
@@ -217,7 +217,7 @@ def test_scatter_add_middle_dim():
         arr = arr.at[:, 1, :].add(values)
         return arr.reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, 24).todense().astype(int)
     # All positions keep identity since updates are constant.
     expected = np.eye(24, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -238,7 +238,7 @@ def test_scatter_at_set_precision():
         arr = x[:4]
         return arr.at[jnp.array([0, 2])].set(x[4:6])
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 0, 0, 1, 0],  # out[0] <- x[4]
@@ -265,7 +265,7 @@ def test_scatter_2d_batched_precision():
         updates = jnp.ones((2, 4))
         return mat.at[indices].set(updates).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     # Rows 0 and 2 replaced with constant ones, row 1 keeps identity.
     expected = np.zeros((12, 12), dtype=int)
     for i in range(4, 8):
@@ -286,7 +286,7 @@ def test_scatter_middle_dim_precision():
         arr = arr.at[:, 1, :].set(0.0)
         return arr.reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, 24).todense().astype(int)
     expected = np.zeros((24, 24), dtype=int)
     for i in range(24):
         if (i // 4) % 3 != 1:
@@ -308,7 +308,7 @@ def test_scatter_multi_index_precision():
         cols = jnp.array([1, 3, 0])
         return mat.at[rows, cols].set(jnp.zeros(3)).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     # Zeroed positions: (0,1)=1, (1,3)=7, (2,0)=8
     expected = np.eye(12, dtype=int)
     for pos in [1, 7, 8]:
@@ -332,7 +332,7 @@ def test_scatter_batched_nonsquare():
         updates = jnp.zeros((1, 5))
         return mat.at[jnp.array([1])].set(updates).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=15).todense().astype(int)
+    result = jacobian_sparsity(f, 15).todense().astype(int)
     # Row 1 (flat 5-9) zeroed, rows 0 and 2 keep identity.
     expected = np.eye(15, dtype=int)
     for i in range(5, 10):
@@ -352,7 +352,7 @@ def test_scatter_middle_dim_nonsquare():
         arr = arr.at[:, 0, :].set(0.0)
         return arr.reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=30).todense().astype(int)
+    result = jacobian_sparsity(f, 30).todense().astype(int)
     # dim 1 = 0 positions zeroed: (i // 5) % 3 == 0
     expected = np.zeros((30, 30), dtype=int)
     for i in range(30):
@@ -374,7 +374,7 @@ def test_scatter_multi_index_nonsquare():
         cols = jnp.array([4, 0, 2])
         return mat.at[rows, cols].set(jnp.zeros(3)).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=15).todense().astype(int)
+    result = jacobian_sparsity(f, 15).todense().astype(int)
     # Zeroed positions: (0,4)=4, (2,0)=10, (1,2)=7
     expected = np.eye(15, dtype=int)
     for pos in [4, 7, 10]:
@@ -393,7 +393,7 @@ def test_scatter_batched_sparser_than_conservative():
         mat = x.reshape(3, 4)
         return mat.at[jnp.array([0, 2])].set(jnp.zeros((2, 4))).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     n_out, n_in = result.shape
     assert 0 < result.sum() < n_out * n_in
 
@@ -407,7 +407,7 @@ def test_scatter_middle_dim_sparser_than_conservative():
         arr = arr.at[:, 2, :].set(0.0)
         return arr.reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, 24).todense().astype(int)
     n_out, n_in = result.shape
     assert 0 < result.sum() < n_out * n_in
 
@@ -422,7 +422,7 @@ def test_scatter_multi_index_sparser_than_conservative():
         cols = jnp.array([1, 3])
         return mat.at[rows, cols].set(jnp.zeros(2)).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=15).todense().astype(int)
+    result = jacobian_sparsity(f, 15).todense().astype(int)
     n_out, n_in = result.shape
     assert 0 < result.sum() < n_out * n_in
 
@@ -442,7 +442,7 @@ def test_scatter_then_gather():
         arr = x.at[1].set(0.0)
         return arr[jnp.array([0, 2])]
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0],  # out[0] <- x[0]
@@ -469,7 +469,7 @@ def test_scatter_with_const_chain_indices():
         idx = broadcasted + jnp.array([0, 1])  # [1, 2]
         return arr.at[idx].set(jnp.zeros(2))
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, 4).todense().astype(int)
     # Positions 1 and 2 replaced with constant zeros.
     expected = np.array(
         [
@@ -493,7 +493,7 @@ def test_scatter_after_reshape():
         mat = mat.at[0].set(jnp.zeros(3))
         return mat.reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     # Row 0 (positions 0-2) replaced with constant 0, row 1 (3-5) kept.
     expected = np.zeros((6, 6), dtype=int)
     for i in range(3, 6):
@@ -517,7 +517,7 @@ def test_scatter_duplicate_indices_set():
         # Both x[0] and x[1] target position 1; x[1] wins.
         return arr.at[jnp.array([1, 1])].set(x[:2])
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 0],  # out[0] <- constant 0
@@ -542,7 +542,7 @@ def test_scatter_duplicate_indices_add():
         # Both x[0] and x[1] are added to position 1.
         return arr.at[jnp.array([1, 1])].add(x[:2])
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 0],  # out[0] <- constant 0
@@ -563,7 +563,7 @@ def test_scatter_oob_indices():
         # Index 10 is OOB for size 3; JAX silently ignores it.
         return arr.at[jnp.array([10])].set(jnp.array([0.0]))
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -576,7 +576,7 @@ def test_scatter_replace_all():
         arr = x[:3]
         return arr.at[jnp.array([0, 1, 2])].set(x[3:6])
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     # Every position is replaced by the corresponding update.
     expected = np.array(
         [
@@ -603,7 +603,7 @@ def test_scatter_multi_index_duplicate_set():
         vals = x[:2]  # x[0] and x[1] both target (0, 1)
         return mat.at[rows, cols].set(vals).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     # Position (0,1) = flat 1 gets x[1] (last write wins).
     # All other positions keep their original identity state_indices.
     expected = np.eye(6, dtype=int)
@@ -626,7 +626,7 @@ def test_scatter_multi_index_duplicate_add():
         vals = x[:2]
         return mat.at[rows, cols].add(vals).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # Position (0,1) = flat 1 gets x[0] + x[1].
     expected = np.array(
         [
@@ -653,7 +653,7 @@ def test_scatter_multi_index_oob():
         cols = jnp.array([10])
         return mat.at[rows, cols].set(jnp.zeros(1)).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -671,7 +671,7 @@ def test_scatter_2d():
         updates = x[:2].reshape(1, 2)
         return mat.at[0, :2].set(updates.flatten()).flatten()
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.array(
         [
             [1, 0, 0],  # out[0] = mat[0,0] <- x[0]
@@ -709,7 +709,7 @@ def test_scatter_window():
             ),
         ).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, 12).todense().astype(int)
     # Updates are constant ones, so scatter-add positions keep identity.
     expected = np.eye(12, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -727,7 +727,7 @@ def test_scatter_hessian_slicing():
         return jnp.sum((x[1:] - x[:-1]) ** 2)
 
     n = 6
-    sp = hessian_sparsity(f, input_shape=n)
+    sp = hessian_sparsity(f, n)
     dense = sp.todense().astype(int)
 
     # Tridiagonal: each diagonal and the two sub/super-diagonals.
@@ -762,7 +762,7 @@ def test_scatter_batching_dims():
             ),
         ).reshape(-1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, 6).todense().astype(int)
     # Updates are constant ones, so all positions keep identity.
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -782,7 +782,7 @@ def test_scatter_dynamic_too_many_combinations():
         idx = jnp.argmax(arr).astype(int)
         return arr.at[idx].set(x[100])
 
-    result = jacobian_sparsity(f, input_shape=101).todense().astype(int)
+    result = jacobian_sparsity(f, 101).todense().astype(int)
     n_out, n_in = result.shape
     # Conservative: every output depends on every input.
     assert result.sum() == n_out * n_in
@@ -801,6 +801,6 @@ def test_scatter_zero_size_update():
     def f(x):
         return x.at[:0].set(jnp.zeros(0))
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)

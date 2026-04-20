@@ -28,7 +28,7 @@ def test_while_simple_accumulation():
 
         return jax.lax.while_loop(cond, body, x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -50,7 +50,7 @@ def test_while_dependency_spreading():
 
         return jax.lax.while_loop(cond, body, x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # Rolling mixes all elements after enough iterations
     expected = np.ones((3, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -69,7 +69,7 @@ def test_while_immediate_convergence():
 
         return jax.lax.while_loop(cond, body, x)
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, 4).todense().astype(int)
     expected = np.eye(4, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -94,7 +94,7 @@ def test_while_tuple_carry():
         arr_out, _ = jax.lax.while_loop(cond, body, (x, 0.0))
         return arr_out
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -119,7 +119,7 @@ def test_while_carry_interaction():
         _, total = jax.lax.while_loop(cond, body, (x, 0.0))
         return jnp.array([total])
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.ones((1, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -142,7 +142,7 @@ def test_while_with_closure_const():
 
         return jax.lax.while_loop(cond, body, x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -167,7 +167,7 @@ def test_while_body_closure_captured_index():
 
         return jax.lax.while_loop(cond, body, x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, 3).todense().astype(int)
     # 0 iterations: identity -> out[i]<-{i}
     # 1+ iterations: all read carry[0] -> out[i]<-{0}
     # Union: out[0]<-{0}, out[1]<-{0,1}, out[2]<-{0,2}
