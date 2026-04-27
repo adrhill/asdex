@@ -73,8 +73,8 @@ def test_diffrax_euler_step_traces():
     """
     n = 2 * N * N
 
-    rhs_pattern = asdex.jacobian_sparsity(brusselator_rhs, input_shape=(n,))
-    step_pattern = asdex.jacobian_sparsity(euler_step, input_shape=(n,))
+    rhs_pattern = asdex.jacobian_sparsity(brusselator_rhs, np.zeros(n))
+    step_pattern = asdex.jacobian_sparsity(euler_step, np.zeros(n))
 
     rhs_dense = rhs_pattern.todense().astype(bool)
     step_dense = step_pattern.todense().astype(bool)

@@ -33,7 +33,7 @@ def test_jit_closure_captured_index():
     def f(x):
         return permute(x)
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     # Permutation: out[0]←x[2], out[1]←x[0], out[2]←x[1]
     expected = np.array(
         [
@@ -70,7 +70,7 @@ def test_custom_jvp_closure_captured_index():
     def f(x):
         return permute(x)
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     # Permutation: out[0]←x[2], out[1]←x[0], out[2]←x[1]
     expected = np.array(
         [

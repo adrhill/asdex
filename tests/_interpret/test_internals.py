@@ -127,7 +127,7 @@ def test_stop_gradient():
     def f(x):
         return jax.lax.stop_gradient(x)
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -175,7 +175,7 @@ def test_transpose_2d():
         mat = x.reshape(2, 3)
         return mat.T.flatten()  # (3, 2) -> 6 elements
 
-    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     # Transpose of (2,3) -> (3,2): out[i,j] = in[j,i].
     # Flat mapping: out[0]=in[0], out[1]=in[3], out[2]=in[1],
     #               out[3]=in[4], out[4]=in[2], out[5]=in[5].
@@ -192,7 +192,7 @@ def test_reverse():
     def f(x):
         return jnp.flip(x)
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.array([[0, 0, 1], [0, 1, 0], [1, 0, 0]])
     np.testing.assert_array_equal(result, expected)
 
@@ -204,7 +204,7 @@ def test_pad():
     def f(x):
         return jnp.pad(x, (1, 1), constant_values=0)
 
-    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(2)).todense().astype(int)
     expected = np.array([[0, 0], [1, 0], [0, 1], [0, 0]])
     np.testing.assert_array_equal(result, expected)
 
@@ -216,7 +216,7 @@ def test_tile():
     def f(x):
         return jnp.tile(x, 2)
 
-    result = jacobian_sparsity(f, input_shape=(2,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(2)).todense().astype(int)
     expected = np.array([[1, 0], [0, 1], [1, 0], [0, 1]], dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -229,7 +229,7 @@ def test_split():
         parts = jnp.split(x, 2)
         return jnp.concatenate([parts[1], parts[0]])  # swap halves
 
-    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [[0, 0, 1, 0], [0, 0, 0, 1], [1, 0, 0, 0], [0, 1, 0, 0]], dtype=int
     )
@@ -249,7 +249,7 @@ def test_matmul():
         mat = x.reshape(2, 3)
         return (mat @ mat.T).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.array(
         [
             [1, 1, 1, 0, 0, 0],
@@ -272,7 +272,7 @@ def test_iota_eye():
     def f(x):
         return jnp.eye(3) @ x
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -284,7 +284,7 @@ def test_sort():
     def f(x):
         return jnp.sort(x)
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.ones((3, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -299,7 +299,7 @@ def test_custom_jvp_relu():
     def f(x):
         return jax.nn.relu(x)
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -324,6 +324,6 @@ def test_custom_vjp_user_defined():
     def f(x):
         return my_square(x)
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)  # Element-wise operation
     np.testing.assert_array_equal(result, expected)

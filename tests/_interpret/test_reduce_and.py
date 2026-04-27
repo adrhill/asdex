@@ -54,7 +54,7 @@ def test_reduce_bitwise(reduce_fn, in_shape, axes):
     def f(x):
         return reduce_fn(x.reshape(in_shape), axes).flatten() * jnp.ones(n_out)
 
-    result = jacobian_sparsity(f, input_shape=(n_in,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
     expected = np.zeros((n_out, n_in), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -67,7 +67,7 @@ def test_jnp_all_no_axis():
     def f(x):
         return jnp.all(x.reshape(2, 3) > 0) * jnp.ones(1)
 
-    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.zeros((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -79,7 +79,7 @@ def test_jnp_all_with_axis():
     def f(x):
         return jnp.all(x.reshape(2, 3) > 0, axis=1) * jnp.ones(2)
 
-    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.zeros((2, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -91,7 +91,7 @@ def test_jnp_any_no_axis():
     def f(x):
         return jnp.any(x.reshape(2, 3) > 0) * jnp.ones(1)
 
-    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.zeros((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -103,7 +103,7 @@ def test_jnp_any_with_axis():
     def f(x):
         return jnp.any(x.reshape(2, 3) > 0, axis=1) * jnp.ones(2)
 
-    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.zeros((2, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -118,6 +118,6 @@ def test_reduce_and_after_reduce_sum():
         mask = lax.reduce_and(s > 0, axes=(0,))  # scalar, zero deriv
         return mask * jnp.ones(1)
 
-    result = jacobian_sparsity(f, input_shape=(6,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.zeros((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)

@@ -1,135 +1,84 @@
-"""Input-side API helpers: aval / argnums normalization and dtype validation.
+"""Input-side API helpers: argnums normalization, dtype validation, kwargs binding.
 
 Handles everything that runs at the public API boundary before AD kicks in:
 
-- ``normalize_avals`` / ``normalize_argnums`` coerce user-facing input shapes
-  (``ShapeDtypeStruct``, shape tuples, bare ints) and ``argnums`` into a
-  uniform internal form so downstream code can skip ``is_leaf`` predicates
-  and negative-index arithmetic.
+- ``_ensure_index`` / ``_ensure_inbounds`` normalize ``argnums`` exactly once
+  at definition time, mirroring ``jax._src.api_util``.
+  The int-vs-tuple distinction is load-bearing: it determines whether the
+  returned Jacobian is a single pytree or a tuple of pytrees.
+- ``dyn_args_from_argnums`` extracts the differentiated args, mirroring
+  ``jax._src.api_util.argnums_partial``'s ``dyn_args`` extraction.
+- ``avals_from_args`` extracts ``ShapeDtypeStruct`` pytrees from sample inputs.
 - ``_validate_input_dtypes`` / ``_validate_output_dtypes`` gate AD on dtype
   compatibility, honoring the ``holomorphic`` and ``allow_int`` kwargs.
   The checks mirror ``jax._src.api._check_{input,output}_dtype_{jacrev,jacfwd}``
   but are reimplemented here to avoid coupling to jax's private API.
-
-Each positional ``in_aval`` passed by a user is a pytree whose leaves are any of:
-
-- ``jax.ShapeDtypeStruct`` (the canonical jax leaf, see ``jax.eval_shape``);
-- a shape tuple ``(3, 4)`` (asdex sugar);
-- a bare ``int`` (asdex sugar, treated as a 1D length).
-
-``normalize_avals`` coerces all leaves to ``jax.ShapeDtypeStruct`` exactly once
-at the API boundary so every internal site can work with a uniform leaf type
-and no custom ``is_leaf`` predicates.
-
-``normalize_argnums`` mirrors ``jax._src.api_util._ensure_index`` followed by
-``_ensure_inbounds`` (see ``jax/_src/api_util.py``): it accepts
-``int | Sequence[int]``, resolves negatives via ``i % num_args``, raises on
-out-of-bounds indices with jax-style wording, and preserves the int-vs-sequence
-form (``int`` stays ``int``; a sequence becomes ``tuple[int, ...]``).
-That int-vs-tuple distinction is load-bearing downstream — it selects whether
-``example_input`` is ``dyn_avals[0]`` or ``dyn_avals``, mirroring
-``jax/_src/api.py:746``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import operator
+from collections.abc import Callable
 from typing import Any
 
 import jax
-import jax.numpy as jnp
 import numpy as np
 from jax import ShapeDtypeStruct, dtypes
 from jax.tree_util import tree_map
 
-# Aval normalization
+# Argnums normalization
 
 
-def _is_aval_leaf(x: Any) -> bool:
-    """Return ``True`` iff ``x`` is a leaf that ``normalize_avals`` should coerce.
+def _ensure_index(x: Any) -> int | tuple[int, ...]:
+    """Ensure x is either an index or a tuple of indices.
 
-    A leaf is a bare ``int``, a ``tuple[int, ...]``, or a ``ShapeDtypeStruct``.
-    Used as the ``is_leaf`` predicate so shape tuples like ``(3, 4)`` are not
-    descended into as length-2 pytree nodes.
+    Mirrors jax._src.api_util._ensure_index.
+    Preserves int-vs-tuple distinction (load-bearing for return shape).
     """
-    if isinstance(x, ShapeDtypeStruct):
-        return True
-    if isinstance(x, int) and not isinstance(x, bool):
-        return True
-    return isinstance(x, tuple) and all(
-        isinstance(i, int) and not isinstance(i, bool) for i in x
-    )
-
-
-def _to_aval(x: Any) -> ShapeDtypeStruct:
-    """Turn a single leaf into a ``ShapeDtypeStruct``.
-
-    Shape-tuple and bare-int forms default to ``jnp.float_`` (x64-aware),
-    matching ``jax``'s default dtype conventions.
-    """
-    if isinstance(x, ShapeDtypeStruct):
-        return x
-    if isinstance(x, int):
-        return ShapeDtypeStruct((x,), jnp.float_)
-    return ShapeDtypeStruct(tuple(x), jnp.float_)
-
-
-def normalize_input_shape(input_shape: Any) -> tuple[Any, ...]:
-    """Normalize the ``input_shape`` parameter into a tuple of aval pytrees.
-
-    ``input_shape`` must be a sequence (tuple or list) with one element per
-    positional argument of ``f``.
-    Each element is a pytree whose leaves are ``jax.ShapeDtypeStruct``,
-    a shape tuple (e.g. ``(3, 4)``), or a bare ``int``.
-    """
-    return normalize_avals(tuple(input_shape))
-
-
-def normalize_avals(in_avals: tuple[Any, ...]) -> tuple[Any, ...]:
-    """Normalize ``*in_avals`` into a tuple of pytrees of ``ShapeDtypeStruct``.
-
-    One entry per positional argument of ``f``.
-    After this call, every leaf is a ``ShapeDtypeStruct`` and every internal
-    site can rely on the default ``jax.tree_util`` leaf recognition.
-    """
-    if len(in_avals) == 0:
-        raise TypeError(
-            "Expected at least one positional `in_aval` describing the input "
-            "structure of `f`, got none."
-        )
-    return tuple(tree_map(_to_aval, a, is_leaf=_is_aval_leaf) for a in in_avals)
-
-
-def normalize_argnums(
-    argnums: int | Sequence[int], num_args: int
-) -> int | tuple[int, ...]:
-    """Normalize ``argnums`` at the boundary exactly once.
-
-    Preserves the int-vs-sequence distinction (``int`` stays ``int``,
-    any ``Sequence[int]`` becomes ``tuple[int, ...]``).
-    Resolves negatives via ``i % num_args`` and raises ``ValueError`` on
-    out-of-bounds indices, matching ``jax/_src/api_util.py:_ensure_inbounds``.
-    """
-    if isinstance(argnums, int) and not isinstance(argnums, bool):
-        return _resolve_index(argnums, num_args)
     try:
-        seq = tuple(int(i) for i in argnums)  # ty: ignore[not-iterable]
-    except TypeError as exc:
-        raise TypeError(
-            f"argnums must be an int or a sequence of ints, got {argnums!r}."
-        ) from exc
-    return tuple(_resolve_index(i, num_args) for i in seq)
+        return operator.index(x)
+    except TypeError:
+        return tuple(map(operator.index, x))
 
 
-def _resolve_index(i: int, num_args: int) -> int:
-    """Resolve a single index against ``num_args``, mirroring jax's wording."""
-    if not -num_args <= i < num_args:
-        raise ValueError(
-            "Positional argument indices, e.g. for `static_argnums`, must have "
-            "value greater than or equal to -len(args) and less than len(args), "
-            f"but got value {i} for len(args) == {num_args}."
-        )
-    return i % num_args
+def _ensure_inbounds(num_args: int, argnums: tuple[int, ...]) -> tuple[int, ...]:
+    """Validate bounds and resolve negative indices.
+
+    Mirrors jax._src.api_util._ensure_inbounds.
+    """
+    result = []
+    for i in argnums:
+        if not -num_args <= i < num_args:
+            raise ValueError(
+                "Positional argument indices must have value >= -len(args) "
+                f"and < len(args), but got {i} for len(args) == {num_args}."
+            )
+        result.append(i % num_args)
+    return tuple(result)
+
+
+def dyn_args_from_argnums(
+    args: tuple[Any, ...], argnums: int | tuple[int, ...]
+) -> tuple[Any, ...]:
+    """Extract dynamic args at positions specified by argnums.
+
+    Mirrors jax._src.api_util.argnums_partial's dyn_args extraction.
+    """
+    argnums_tuple = (argnums,) if isinstance(argnums, int) else argnums
+    argnums_tuple = _ensure_inbounds(len(args), argnums_tuple)
+    return tuple(args[i] for i in argnums_tuple)
+
+
+# Aval extraction from sample inputs
+
+
+def avals_from_args(args: tuple[Any, ...]) -> tuple[Any, ...]:
+    """Extract ShapeDtypeStruct pytrees from sample inputs."""
+    if len(args) == 0:
+        raise TypeError("Expected at least one sample input.")
+    return tuple(
+        tree_map(lambda x: ShapeDtypeStruct(x.shape, x.dtype), arg) for arg in args
+    )
 
 
 # Dtype validation

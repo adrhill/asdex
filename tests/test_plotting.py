@@ -36,7 +36,7 @@ def coloring():
     def f(x):
         return (x[1:] - x[:-1]) ** 2
 
-    return jacobian_coloring(f, input_shape=(5,))
+    return jacobian_coloring(f, np.zeros(5))
 
 
 class TestSpySparsityPattern:

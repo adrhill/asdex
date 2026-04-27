@@ -60,7 +60,7 @@ def test_cumsum_1d_forward():
     def f(x):
         return lax.cumsum(x, axis=0)
 
-    result = jacobian_sparsity(f, input_shape=(5,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = _cumsum_jacobian((5,), axis=0)
     np.testing.assert_array_equal(result, expected)
 
@@ -72,7 +72,7 @@ def test_cumsum_1d_reverse():
     def f(x):
         return lax.cumsum(x, axis=0, reverse=True)
 
-    result = jacobian_sparsity(f, input_shape=(5,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = _cumsum_jacobian((5,), axis=0, reverse=True)
     np.testing.assert_array_equal(result, expected)
 
@@ -85,7 +85,7 @@ def test_cumsum_1d_jacobian_values():
         return lax.cumsum(x, axis=0)
 
     x = jnp.array([1.0, 2.0, 3.0, 4.0])
-    detected = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
+    detected = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     numerical = (np.abs(jax.jacobian(f)(x)) > 1e-10).astype(int)
     np.testing.assert_array_equal(detected, numerical)
 
@@ -104,11 +104,12 @@ def test_cumsum_1d_jacobian_values():
 def test_cumsum_2d(shape, axis):
     """2D cumsum along each axis with non-square shape."""
     n = int(np.prod(shape))
+    np.zeros(n)
 
     def f(x):
         return lax.cumsum(x.reshape(shape), axis=axis).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(n,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
     expected = _cumsum_jacobian(shape, axis=axis)
     np.testing.assert_array_equal(result, expected)
 
@@ -124,11 +125,12 @@ def test_cumsum_2d(shape, axis):
 def test_cumsum_2d_reverse(shape, axis):
     """2D reverse cumsum along each axis."""
     n = int(np.prod(shape))
+    np.zeros(n)
 
     def f(x):
         return lax.cumsum(x.reshape(shape), axis=axis, reverse=True).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(n,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
     expected = _cumsum_jacobian(shape, axis=axis, reverse=True)
     np.testing.assert_array_equal(result, expected)
 
@@ -143,7 +145,7 @@ def test_cumsum_2d_jacobian_values():
         return lax.cumsum(x.reshape(shape), axis=1).flatten()
 
     x = jnp.arange(1.0, n + 1.0)
-    detected = jacobian_sparsity(f, input_shape=(n,)).todense().astype(int)
+    detected = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
     numerical = (np.abs(jax.jacobian(f)(x)) > 1e-10).astype(int)
     np.testing.assert_array_equal(detected, numerical)
 
@@ -164,11 +166,12 @@ def test_cumsum_3d(axis):
     """3D cumsum along each axis."""
     shape = (2, 3, 4)
     n = int(np.prod(shape))
+    np.zeros(n)
 
     def f(x):
         return lax.cumsum(x.reshape(shape), axis=axis).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(n,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
     expected = _cumsum_jacobian(shape, axis=axis)
     np.testing.assert_array_equal(result, expected)
 
@@ -183,7 +186,7 @@ def test_cumsum_3d_jacobian_values():
         return lax.cumsum(x.reshape(shape), axis=1).flatten()
 
     x = jnp.arange(1.0, n + 1.0)
-    detected = jacobian_sparsity(f, input_shape=(n,)).todense().astype(int)
+    detected = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
     numerical = (np.abs(jax.jacobian(f)(x)) > 1e-10).astype(int)
     np.testing.assert_array_equal(detected, numerical)
 
@@ -198,7 +201,7 @@ def test_cumsum_size_one():
     def f(x):
         return lax.cumsum(x.reshape(1, 3), axis=0).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -210,7 +213,7 @@ def test_cumsum_size_zero():
     def f(x):
         return lax.cumsum(jnp.zeros((0, 3)), axis=0).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(3,))
+    result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0
 
@@ -226,7 +229,7 @@ def test_cumsum_chained():
         y = lax.cumsum(x, axis=0)
         return lax.cumsum(y, axis=0, reverse=True)
 
-    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     # Forward lower-triangular then reverse upper-triangular.
     # Verify against numerical Jacobian.
     x = jnp.array([1.0, 2.0, 3.0, 4.0])
@@ -243,7 +246,7 @@ def test_cumsum_after_broadcast():
         y = jnp.broadcast_to(x, (2, 3))
         return lax.cumsum(y, axis=0).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(3,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     # Row 0: [a, b, c] (broadcast of x)
     # Row 1: [a+a, b+b, c+c] (cumsum along axis 0)
     # First 3 outputs are identity, last 3 are also identity (2*x[i] depends on x[i])
@@ -259,11 +262,12 @@ def test_cumsum_sparser_than_conservative():
     """Cumsum pattern is strictly sparser than conservative (all-ones)."""
     shape = (3, 4)
     n = int(np.prod(shape))
+    np.zeros(n)
 
     def f(x):
         return lax.cumsum(x.reshape(shape), axis=0).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(n,))
+    result = jacobian_sparsity(f, np.zeros(n))
     # Conservative would be n*n = 144 nonzeros
     assert result.nnz < n * n
     # Exact count: 4 lanes * (1+2+3) = 24 nonzeros
@@ -281,7 +285,7 @@ def test_jnp_cumsum():
     def f(x):
         return jnp.cumsum(x)
 
-    result = jacobian_sparsity(f, input_shape=(4,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = _cumsum_jacobian((4,), axis=0)
     np.testing.assert_array_equal(result, expected)
 
@@ -291,10 +295,11 @@ def test_jnp_cumsum_2d_axis():
     """jnp.cumsum with explicit axis on 2D array."""
     shape = (3, 4)
     n = int(np.prod(shape))
+    np.zeros(n)
 
     def f(x):
         return jnp.cumsum(x.reshape(shape), axis=1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=(n,)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
     expected = _cumsum_jacobian(shape, axis=1)
     np.testing.assert_array_equal(result, expected)

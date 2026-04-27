@@ -36,8 +36,7 @@ from asdex.pattern import ColoredPattern, SparsityPattern
 
 def jacobian_coloring(
     f: Callable,
-    input_shape: Any,
-    *,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     mode: JacobianMode | None = None,
@@ -48,10 +47,9 @@ def jacobian_coloring(
 
     Args:
         f: Function taking one or more positional arrays and returning an array.
-        input_shape: A sequence with one entry per positional argument of ``f``,
-            specifying the shape and dtype of that argument.
-            Each entry is a pytree whose leaves are ``jax.ShapeDtypeStruct``,
-            a shape tuple, or a bare ``int``.
+        *args: Sample inputs specifying the structure, shape, and dtype of each
+            positional argument of ``f``.
+            Only structure is used; values are ignored.
         argnums: Positions of the positional arguments to differentiate with
             respect to, mirroring ``jax.grad`` / ``jax.jacfwd``.
             Defaults to ``0``.
@@ -72,9 +70,7 @@ def jacobian_coloring(
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
     """
-    sparsity = _detect_jacobian_sparsity(
-        f, input_shape, argnums=argnums, has_aux=has_aux
-    )
+    sparsity = _detect_jacobian_sparsity(f, *args, argnums=argnums, has_aux=has_aux)
     return jacobian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )
@@ -82,8 +78,7 @@ def jacobian_coloring(
 
 def hessian_coloring(
     f: Callable,
-    input_shape: Any,
-    *,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     mode: HessianMode | None = None,
@@ -94,9 +89,9 @@ def hessian_coloring(
 
     Args:
         f: Scalar-valued function taking one or more positional arrays.
-        input_shape: A sequence with one entry per positional argument of ``f``,
-            specifying the shape and dtype of that argument
-            (see :func:`jacobian_coloring`).
+        *args: Sample inputs specifying the structure, shape, and dtype of each
+            positional argument of ``f``.
+            Only structure is used; values are ignored.
         argnums: Positions of the positional arguments to differentiate with
             respect to, mirroring ``jax.grad``.
             Defaults to ``0``.
@@ -117,9 +112,7 @@ def hessian_coloring(
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
     """
-    sparsity = _detect_hessian_sparsity(
-        f, input_shape, argnums=argnums, has_aux=has_aux
-    )
+    sparsity = _detect_hessian_sparsity(f, *args, argnums=argnums, has_aux=has_aux)
     return hessian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )

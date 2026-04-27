@@ -10,7 +10,13 @@ import jax.numpy as jnp
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
-from asdex._input import bind_kwargs, validate_input_dtypes, validate_output_dtypes
+from asdex._input import (
+    _ensure_index,
+    bind_kwargs,
+    dyn_args_from_argnums,
+    validate_input_dtypes,
+    validate_output_dtypes,
+)
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.detection._api import _ensure_scalar, _strip_aux
@@ -29,8 +35,7 @@ from asdex.pattern import ColoredPattern, SparsityPattern
 
 def jacobian(
     f: Callable[..., Any],
-    input_shape: Any,
-    *,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -47,9 +52,9 @@ def jacobian(
 
     Args:
         f: Function taking one or more positional arrays and returning an array.
-        input_shape: A sequence with one entry per positional argument of ``f``,
-            specifying the shape and dtype of that argument
-            (see [`jacobian_sparsity`][asdex.jacobian_sparsity]).
+        *args: Sample inputs specifying the structure, shape, and dtype of each
+            positional argument of ``f``.
+            Only structure is used; values are ignored.
         argnums: Positions of the positional arguments to differentiate with
             respect to, mirroring ``jax.jacfwd`` / ``jax.jacrev``.
             Defaults to ``0``.
@@ -79,28 +84,36 @@ def jacobian(
             (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
             when ``"dense"``).
     """
+    argnums = _ensure_index(argnums)
     coloring = _jacobian_coloring(
         f,
-        input_shape,
+        *args,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
-    return jacobian_from_coloring(
-        f,
-        coloring,
-        output_format=output_format,
-        has_aux=has_aux,
-        holomorphic=holomorphic,
-        allow_int=allow_int,
-    )
+
+    def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
+        f_bound = bind_kwargs(f, kwargs)
+        dyn_args = dyn_args_from_argnums(call_args, argnums)
+        validate_input_dtypes(dyn_args, coloring.mode, holomorphic, allow_int)
+        return _eval_jacobian(
+            f_bound,
+            call_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+        )
+
+    return jac_fn
 
 
 def value_and_jacobian(
     f: Callable[..., Any],
-    input_shape: Any,
-    *,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -120,28 +133,36 @@ def value_and_jacobian(
             ``(value, jac)`` — or ``((value, aux), jac)`` when ``has_aux=True``,
             matching ``jax.value_and_grad`` ordering.
     """
+    argnums = _ensure_index(argnums)
     coloring = _jacobian_coloring(
         f,
-        input_shape,
+        *args,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
-    return value_and_jacobian_from_coloring(
-        f,
-        coloring,
-        output_format=output_format,
-        has_aux=has_aux,
-        holomorphic=holomorphic,
-        allow_int=allow_int,
-    )
+
+    def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
+        f_bound = bind_kwargs(f, kwargs)
+        dyn_args = dyn_args_from_argnums(call_args, argnums)
+        validate_input_dtypes(dyn_args, coloring.mode, holomorphic, allow_int)
+        return _eval_value_and_jacobian(
+            f_bound,
+            call_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+        )
+
+    return val_jac_fn
 
 
 def hessian(
     f: Callable[..., Any],
-    input_shape: Any,
-    *,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -155,28 +176,36 @@ def hessian(
     If ``f`` returns a squeezable shape like ``(1,)`` or ``(1, 1)``,
     it is automatically squeezed to scalar.
     """
+    argnums = _ensure_index(argnums)
     coloring = _hessian_coloring(
         f,
-        input_shape,
+        *args,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
-    return hessian_from_coloring(
-        f,
-        coloring,
-        output_format=output_format,
-        has_aux=has_aux,
-        holomorphic=holomorphic,
-        allow_int=allow_int,
-    )
+
+    def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
+        f_bound = bind_kwargs(f, kwargs)
+        dyn_args = dyn_args_from_argnums(call_args, argnums)
+        validate_input_dtypes(dyn_args, coloring.mode, holomorphic, allow_int)
+        return _eval_hessian(
+            f_bound,
+            call_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+        )
+
+    return hess_fn
 
 
 def value_and_hessian(
     f: Callable[..., Any],
-    input_shape: Any,
-    *,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -190,22 +219,31 @@ def value_and_hessian(
     Like [`hessian`][asdex.hessian], but also returns the primal value
     ``f(*args)`` without an extra forward pass.
     """
+    argnums = _ensure_index(argnums)
     coloring = _hessian_coloring(
         f,
-        input_shape,
+        *args,
         argnums=argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
-    return value_and_hessian_from_coloring(
-        f,
-        coloring,
-        output_format=output_format,
-        has_aux=has_aux,
-        holomorphic=holomorphic,
-        allow_int=allow_int,
-    )
+
+    def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
+        f_bound = bind_kwargs(f, kwargs)
+        dyn_args = dyn_args_from_argnums(call_args, argnums)
+        validate_input_dtypes(dyn_args, coloring.mode, holomorphic, allow_int)
+        return _eval_value_and_hessian(
+            f_bound,
+            call_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+        )
+
+    return val_hess_fn
 
 
 # Public API: ``*_from_coloring`` entry points

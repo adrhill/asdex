@@ -22,7 +22,8 @@ _0 = np.array([[0]])
 
 def _jac(f, n=1):
     """Compute the dense Jacobian sparsity pattern for a scalar function."""
-    return jacobian_sparsity(f, input_shape=(n,)).todense().astype(int)
+    x = jnp.zeros(n)
+    return jacobian_sparsity(f, x).todense().astype(int)
 
 
 def _hes(f, n=1):
@@ -31,7 +32,8 @@ def _hes(f, n=1):
     def scalar_f(x):
         return jnp.squeeze(f(x))
 
-    return hessian_sparsity(scalar_f, input_shape=(n,)).todense().astype(int)
+    x = jnp.zeros(n)
+    return hessian_sparsity(scalar_f, x).todense().astype(int)
 
 
 # Nonlinear unary functions: J = [[1]], H = [[1]]

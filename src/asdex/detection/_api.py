@@ -9,7 +9,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from asdex._input import normalize_argnums, normalize_input_shape
+from asdex._input import _ensure_inbounds, _ensure_index, avals_from_args
 from asdex.detection._interpret import prop_jaxpr
 from asdex.detection._interpret._commons import empty_index_sets
 from asdex.pattern import SparsityPattern
@@ -17,8 +17,7 @@ from asdex.pattern import SparsityPattern
 
 def jacobian_sparsity(
     f: Callable,
-    input_shape: Any,
-    *,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
 ) -> SparsityPattern:
@@ -31,15 +30,12 @@ def jacobian_sparsity(
     Args:
         f: Function taking one or more positional arrays and returning an array.
             Each positional argument may itself be a pytree.
-        input_shape: A sequence with one entry per positional argument of ``f``,
-            specifying the shape and dtype of that argument.
-            Each entry is a pytree whose leaves are
-            ``jax.ShapeDtypeStruct``, a shape tuple (e.g. ``(3, 4)``), or a
-            bare ``int``.
-            The shape-tuple and bare-int forms default to ``jnp.float_``.
+        *args: Sample inputs specifying the structure, shape, and dtype of each
+            positional argument of ``f``.
+            Only structure is used; values are ignored.
         argnums: Positions of the positional arguments to differentiate with
             respect to, mirroring ``jax.grad`` / ``jax.jacfwd``.
-            Negative indices are resolved via ``i % len(input_shape)``.
+            Negative indices are resolved via ``i % len(args)``.
             Defaults to ``0``.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
             When True, only ``output`` is analyzed for sparsity;
@@ -50,15 +46,14 @@ def jacobian_sparsity(
             where ``m = prod(output_shape)`` and ``n_selected`` is the total
             flat size of the selected inputs.
     """
-    avals = normalize_input_shape(input_shape)
-    argnums = normalize_argnums(argnums, len(avals))
-    selected = _as_tuple(argnums)
+    argnums = _ensure_index(argnums)
+    avals = avals_from_args(args)
+    selected = _argnums_tuple(argnums, len(args))
 
     f_out = _strip_aux(f) if has_aux else f
-    dummy_args = tuple(_dummy_from_avals(pos) for pos in avals)
 
-    closed_jaxpr = jax.make_jaxpr(f_out)(*dummy_args)
-    out_aval = jax.eval_shape(f_out, *dummy_args)
+    closed_jaxpr = jax.make_jaxpr(f_out)(*args)
+    out_aval = jax.eval_shape(f_out, *args)
     m = sum(int(leaf.size) for leaf in jax.tree_util.tree_leaves(out_aval))
 
     input_indices, n_selected = _build_input_indices(avals, selected)
@@ -75,8 +70,7 @@ def jacobian_sparsity(
 
 def hessian_sparsity(
     f: Callable,
-    input_shape: Any,
-    *,
+    *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
 ) -> SparsityPattern:
@@ -91,9 +85,9 @@ def hessian_sparsity(
 
     Args:
         f: Scalar-valued function taking one or more positional arrays.
-        input_shape: A sequence with one entry per positional argument of ``f``,
-            specifying the shape and dtype of that argument
-            (see :func:`jacobian_sparsity`).
+        *args: Sample inputs specifying the structure, shape, and dtype of each
+            positional argument of ``f``.
+            Only structure is used; values are ignored.
         argnums: Positions of the positional arguments to differentiate with
             respect to, mirroring ``jax.grad``.
         has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``.
@@ -102,33 +96,26 @@ def hessian_sparsity(
     Returns:
         Square SparsityPattern over the combined, selected input space.
     """
-    avals = normalize_input_shape(input_shape)
-    argnums = normalize_argnums(argnums, len(avals))
+    argnums = _ensure_index(argnums)
 
     f_out = _strip_aux(f) if has_aux else f
-    f_scalar = _ensure_scalar(f_out, avals)
+    f_scalar = _ensure_scalar(f_out, args)
     grad_fn = jax.grad(f_scalar, argnums=argnums)
-    return jacobian_sparsity(grad_fn, avals, argnums=argnums)
+    return jacobian_sparsity(grad_fn, *args, argnums=argnums)
 
 
 # Internal helpers
 
 
-def _as_tuple(argnums: int | tuple[int, ...]) -> tuple[int, ...]:
-    """``argnums`` as a tuple for indexing."""
-    if isinstance(argnums, int):
-        return (argnums,)
-    return argnums
+def _argnums_tuple(argnums: int | tuple[int, ...], num_args: int) -> tuple[int, ...]:
+    """Normalize argnums to a tuple and resolve negative indices."""
+    tup = (argnums,) if isinstance(argnums, int) else argnums
+    return _ensure_inbounds(num_args, tup)
 
 
 def _strip_aux(f: Callable) -> Callable:
     """Drop the aux output of a ``has_aux=True`` function."""
     return lambda *xs: f(*xs)[0]
-
-
-def _dummy_from_avals(aval_tree: Any) -> Any:
-    """Build a pytree of ``jnp.zeros`` matching a pytree of ``ShapeDtypeStruct``."""
-    return jax.tree_util.tree_map(lambda s: jnp.zeros(s.shape, s.dtype), aval_tree)
 
 
 def _build_input_indices(
@@ -187,7 +174,7 @@ def _coo_from_index_sets(
     return rows, cols
 
 
-def _ensure_scalar(f: Callable, avals: tuple[Any, ...]) -> Callable:
+def _ensure_scalar(f: Callable, args: tuple[Any, ...]) -> Callable:
     """Ensure ``f`` returns a scalar, auto-squeezing if possible.
 
     If ``f`` already returns shape ``()``, it is returned unchanged.
@@ -195,11 +182,10 @@ def _ensure_scalar(f: Callable, avals: tuple[Any, ...]) -> Callable:
     a wrapped version is returned.
     Otherwise, raises ``ValueError``.
     """
-    dummy = tuple(_dummy_from_avals(pos) for pos in avals)
-    out = jax.eval_shape(f, *dummy)
+    out = jax.eval_shape(f, *args)
     if out.shape == ():
         return f
-    squeezed_shape = jax.eval_shape(lambda *xs: jnp.squeeze(f(*xs)), *dummy).shape
+    squeezed_shape = jax.eval_shape(lambda *xs: jnp.squeeze(f(*xs)), *args).shape
     if squeezed_shape != ():
         raise ValueError(
             f"Expected scalar-valued function, but f has output shape {out.shape}."
