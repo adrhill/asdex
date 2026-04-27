@@ -17,18 +17,16 @@ warnings.filterwarnings("ignore", category=asdex.DenseColoringWarning)
 
 @pytest.mark.jacobian
 def test_jacobian_wrt_x_y_and_both_agree():
-    """J_x and J_y from the multi-input call match the single-input closures."""
+    """J_x and J_y from the multi-input call match jax.jacobian."""
 
     def f(x, y):
         return jnp.array([x[0] * y[0], x[1] + y[1], x[0] * x[1]])
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J_x_ref = asdex.jacobian(lambda x: f(x, y), x, output_format="dense")(x)
-    J_y_ref = asdex.jacobian(lambda y: f(x, y), y, output_format="dense")(y)
-
-    J_x, J_y = asdex.jacobian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
-    np.testing.assert_allclose(J_x, J_x_ref)
-    np.testing.assert_allclose(J_y, J_y_ref)
+    J = asdex.jacobian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
+    J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 @pytest.mark.jacobian
@@ -39,9 +37,10 @@ def test_jacobian_asymmetric_block_shapes():
         return jnp.array([x[0] + y[2], x[2] * y[1]])
 
     x, y = jnp.ones(3), jnp.ones(4)
-    J_x, J_y = asdex.jacobian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
-    assert J_x.shape == (2, 3)
-    assert J_y.shape == (2, 4)
+    J = asdex.jacobian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
+    J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 @pytest.mark.jacobian
@@ -52,17 +51,15 @@ def test_jacobian_three_inputs_ordering():
         return x * y + z
 
     x, y, z = jnp.full(3, 2.0), jnp.full(3, 3.0), jnp.ones(3)
-    Jx, Jy, Jz = asdex.jacobian(f, x, y, z, argnums=(0, 1, 2), output_format="dense")(
-        x, y, z
-    )
-    np.testing.assert_allclose(Jx, np.diag([3.0, 3.0, 3.0]))
-    np.testing.assert_allclose(Jy, np.diag([2.0, 2.0, 2.0]))
-    np.testing.assert_allclose(Jz, np.eye(3))
+    J = asdex.jacobian(f, x, y, z, argnums=(0, 1, 2), output_format="dense")(x, y, z)
+    J_jax = jax.jacobian(f, argnums=(0, 1, 2))(x, y, z)
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 @pytest.mark.jacobian
 def test_jacobian_dict_input_preserves_pytree():
-    """Dict input returns dict-of-Jacobians with same keys and leaf shapes."""
+    """Dict input returns dict-of-Jacobians matching jax.jacobian structure."""
 
     def f(params):
         return params["w"] @ params["x"] + params["b"]
@@ -74,64 +71,60 @@ def test_jacobian_dict_input_preserves_pytree():
     }
 
     J = asdex.jacobian(f, inputs, output_format="dense")(inputs)
-    assert set(J.keys()) == {"w", "x", "b"}
-    assert J["w"].shape == (3, 3, 2)
-    assert J["x"].shape == (3, 2)
-    assert J["b"].shape == (3, 3)
+    J_jax = jax.jacobian(f)(inputs)
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 @pytest.mark.jacobian
 def test_jacobian_fwd_and_rev_modes_agree():
-    """Both fwd and rev modes produce the same result for multi-input."""
+    """Both fwd and rev modes match jax.jacobian."""
 
     def f(x, y):
         return x * y
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0, 6.0])
-    Jx_fwd, Jy_fwd = asdex.jacobian(
-        f, x, y, argnums=(0, 1), mode="fwd", output_format="dense"
-    )(x, y)
-    Jx_rev, Jy_rev = asdex.jacobian(
-        f, x, y, argnums=(0, 1), mode="rev", output_format="dense"
-    )(x, y)
-    np.testing.assert_allclose(Jx_fwd, Jx_rev)
-    np.testing.assert_allclose(Jy_fwd, Jy_rev)
+    J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
+    for mode in ("fwd", "rev"):
+        J = asdex.jacobian(f, x, y, argnums=(0, 1), mode=mode, output_format="dense")(
+            x, y
+        )
+        assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+        jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 @pytest.mark.jacobian
 def test_value_and_jacobian_multi_input():
-    """value_and_jacobian returns matching primal and blocks."""
+    """value_and_jacobian returns matching primal and Jacobian structure."""
 
     def f(x, y):
         return jnp.array([x[0] * y[0], x[1] + y[1], x[0] * x[1]])
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    val, (J_x, J_y) = asdex.value_and_jacobian(
-        f, x, y, argnums=(0, 1), output_format="dense"
-    )(x, y)
+    val, J = asdex.value_and_jacobian(f, x, y, argnums=(0, 1), output_format="dense")(
+        x, y
+    )
     np.testing.assert_allclose(val, f(x, y))
-    J_x_jax, J_y_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
-    np.testing.assert_allclose(J_x, J_x_jax)
-    np.testing.assert_allclose(J_y, J_y_jax)
+    J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 # Hessians
 
 
 @pytest.mark.hessian
-def test_hessian_diagonal_blocks_match_single_input_closures():
-    """H_xx and H_yy from multi-input call match closed-over single-input fns."""
+def test_hessian_diagonal_blocks_match_jax():
+    """H_xx and H_yy from multi-input call match jax.hessian."""
 
     def f(x, y):
         return jnp.sum(x**3) + jnp.dot(x[:2], y) + jnp.sum(y**2)
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0])
-    H_xx_ref = asdex.hessian(lambda x: f(x, y), x, output_format="dense")(x)
-    H_yy_ref = asdex.hessian(lambda y: f(x, y), y, output_format="dense")(y)
-
     H = asdex.hessian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
-    np.testing.assert_allclose(H[0][0], H_xx_ref)
-    np.testing.assert_allclose(H[1][1], H_yy_ref)
+    H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
@@ -143,10 +136,9 @@ def test_hessian_separable_has_zero_cross_blocks():
 
     x, y = jnp.ones(3), jnp.ones(2)
     H = asdex.hessian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
-    np.testing.assert_allclose(H[0][0], 2 * np.eye(3))
-    np.testing.assert_allclose(H[1][1], 2 * np.eye(2))
-    np.testing.assert_allclose(H[0][1], np.zeros((3, 2)))
-    np.testing.assert_allclose(H[1][0], np.zeros((2, 3)))
+    H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
@@ -158,92 +150,85 @@ def test_hessian_bilinear_has_dense_cross_blocks():
 
     x, y = jnp.ones(3), jnp.ones(2)
     H = asdex.hessian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
-    np.testing.assert_allclose(H[0][1], np.ones((3, 2)))
-    np.testing.assert_allclose(H[1][0], np.ones((2, 3)))
+    H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
 def test_hessian_asymmetric_block_shapes():
-    """Differently-sized inputs produce four blocks with correct shapes."""
+    """Differently-sized inputs produce four blocks matching jax.hessian."""
 
     def f(x, y):
         return jnp.sum(x**2) + jnp.dot(x, y[:3]) + jnp.sum(y**3)
 
     x, y = jnp.ones(3), jnp.ones(4)
     H = asdex.hessian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
-    (H_xx, H_xy), (H_yx, H_yy) = H
-    assert H_xx.shape == (3, 3)
-    assert H_xy.shape == (3, 4)
-    assert H_yx.shape == (4, 3)
-    assert H_yy.shape == (4, 4)
+    H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
 def test_hessian_three_inputs_block_grid():
-    """Three inputs: 3x3 block grid matches jax.hessian element-wise."""
+    """Three inputs: 3x3 block grid matches jax.hessian."""
 
     def f(x, y, z):
         return jnp.dot(x, y) + jnp.dot(y, z)
 
     x, y, z = jnp.ones(3), jnp.ones(3), jnp.ones(3)
-    H_jax = jax.hessian(f, argnums=(0, 1, 2))(x, y, z)
     H = asdex.hessian(f, x, y, z, argnums=(0, 1, 2), output_format="dense")(x, y, z)
-    for i in range(3):
-        for j in range(3):
-            np.testing.assert_allclose(H[i][j], H_jax[i][j])
+    H_jax = jax.hessian(f, argnums=(0, 1, 2))(x, y, z)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
 def test_hessian_dict_input_preserves_pytree_on_both_axes():
-    """Dict input returns dict-of-dicts on both Hessian axes."""
+    """Dict input returns dict-of-dicts matching jax.hessian structure."""
 
     def f(p):
         return jnp.sum(p["a"] ** 2) + jnp.dot(p["a"], p["b"][:2])
 
     inputs = {"a": jnp.ones(2), "b": jnp.ones(3)}
     H = asdex.hessian(f, inputs, output_format="dense")(inputs)
-    assert set(H.keys()) == {"a", "b"}
-    assert set(H["a"].keys()) == {"a", "b"}
-    assert H["a"]["a"].shape == (2, 2)
-    assert H["a"]["b"].shape == (2, 3)
-    assert H["b"]["a"].shape == (3, 2)
-    assert H["b"]["b"].shape == (3, 3)
+    H_jax = jax.hessian(f)(inputs)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
-def test_hessian_mixed_matches_jax_block_for_block():
-    """All blocks of a mixed Hessian agree with jax.hessian numerically."""
+def test_hessian_mixed_matches_jax():
+    """All blocks of a mixed Hessian match jax.hessian."""
 
     def f(x, y):
         return jnp.dot(x, y) + jnp.sum(x**2)
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0, 6.0])
-    H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     H = asdex.hessian(f, x, y, argnums=(0, 1), output_format="dense")(x, y)
-    for i in range(2):
-        for j in range(2):
-            np.testing.assert_allclose(H[i][j], H_jax[i][j])
+    H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 def test_hessian_all_modes_match_jax(mode):
-    """All Hessian AD composition modes produce the right blocks."""
+    """All Hessian AD composition modes match jax.hessian."""
 
     def f(x, y):
         return jnp.dot(x, y) + jnp.sum(x**2) + jnp.sum(y**3)
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     H = asdex.hessian(f, x, y, argnums=(0, 1), mode=mode, output_format="dense")(x, y)
-    for i in range(2):
-        for j in range(2):
-            np.testing.assert_allclose(H[i][j], H_jax[i][j], atol=1e-6)
+    H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(lambda a, b: np.testing.assert_allclose(a, b, atol=1e-6), H, H_jax)
 
 
 @pytest.mark.hessian
 def test_value_and_hessian_multi_input():
-    """value_and_hessian returns matching primal and block grid."""
+    """value_and_hessian returns matching primal and Hessian structure."""
 
     def f(x, y):
         return jnp.dot(x, y) + jnp.sum(x**2)
@@ -254,9 +239,8 @@ def test_value_and_hessian_multi_input():
     )
     np.testing.assert_allclose(val, f(x, y))
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
-    for i in range(2):
-        for j in range(2):
-            np.testing.assert_allclose(H[i][j], H_jax[i][j])
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 # Single-input regression
@@ -264,26 +248,30 @@ def test_value_and_hessian_multi_input():
 
 @pytest.mark.jacobian
 def test_jacobian_single_input_path_unchanged():
-    """Single-array Jacobian API still works exactly as before the refactor."""
+    """Single-array Jacobian matches jax.jacobian."""
 
     def f(x):
         return x[1:] - x[:-1]
 
     x = jnp.arange(5.0)
     J = asdex.jacobian(f, x, output_format="dense")(x)
-    np.testing.assert_allclose(J, np.eye(5)[1:] - np.eye(5)[:-1])
+    J_jax = jax.jacobian(f)(x)
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    np.testing.assert_allclose(J, J_jax)
 
 
 @pytest.mark.hessian
 def test_hessian_single_input_path_unchanged():
-    """Single-array Hessian API still works exactly as before the refactor."""
+    """Single-array Hessian matches jax.hessian."""
 
     def f(x):
         return jnp.sum(x**2)
 
     x = jnp.ones(4)
     H = asdex.hessian(f, x, output_format="dense")(x)
-    np.testing.assert_allclose(H, 2 * np.eye(4))
+    H_jax = jax.hessian(f)(x)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    np.testing.assert_allclose(H, H_jax)
 
 
 # Combined coloring
@@ -325,31 +313,30 @@ def test_combined_coloring_forward_mode_couples_inputs():
 
 @pytest.mark.jacobian
 def test_jacobian_argnums_int_returns_single_block():
-    """argnums=int returns a single Jacobian, not a 1-tuple."""
+    """argnums=int returns a single Jacobian matching jax.jacobian."""
 
     def f(x, y):
         return jnp.array([x[0] * y[0], x[1] + y[1]])
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     J = asdex.jacobian(f, x, y, argnums=0, output_format="dense")(x, y)
-
-    assert not isinstance(J, tuple)
-    assert J.shape == (2, 2)
-    np.testing.assert_allclose(J, np.array([[3.0, 0.0], [0.0, 1.0]]))
+    J_jax = jax.jacobian(f, argnums=0)(x, y)
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    np.testing.assert_allclose(J, J_jax)
 
 
 @pytest.mark.jacobian
 def test_jacobian_argnums_subset_returns_only_selected_blocks():
-    """argnums=(0, 2) on a 3-arg function returns exactly two blocks, in order."""
+    """argnums=(0, 2) on a 3-arg function matches jax.jacobian."""
 
     def f(x, y, z):
         return x * y + z
 
     x, y, z = jnp.full(3, 2.0), jnp.full(3, 3.0), jnp.ones(3)
-    Jx, Jz = asdex.jacobian(f, x, y, z, argnums=(0, 2), output_format="dense")(x, y, z)
-
-    np.testing.assert_allclose(Jx, np.diag([3.0, 3.0, 3.0]))
-    np.testing.assert_allclose(Jz, np.eye(3))
+    J = asdex.jacobian(f, x, y, z, argnums=(0, 2), output_format="dense")(x, y, z)
+    J_jax = jax.jacobian(f, argnums=(0, 2))(x, y, z)
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 @pytest.mark.jacobian
@@ -384,13 +371,14 @@ def test_jacobian_argnums_amortizes_across_changing_non_diff_args():
         (jnp.array([1.0, 1.0, 1.0]), jnp.array([2.0, 2.0, 2.0])),
     ]:
         J = jac(params, xb, yb)
-        J_ref = jax.jacobian(loss, argnums=0)(params, xb, yb)
-        np.testing.assert_allclose(J, J_ref)
+        J_jax = jax.jacobian(loss, argnums=0)(params, xb, yb)
+        assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+        np.testing.assert_allclose(J, J_jax)
 
 
 @pytest.mark.hessian
 def test_hessian_argnums_subset_returns_smaller_block_grid():
-    """hessian(..., argnums=(0, 2)) returns a 2x2 grid (not 3x3) of blocks."""
+    """hessian(..., argnums=(0, 2)) matches jax.hessian."""
 
     def f(x, y, z):
         return jnp.dot(x, y) + jnp.dot(x, z) + jnp.sum(y**2)
@@ -398,26 +386,21 @@ def test_hessian_argnums_subset_returns_smaller_block_grid():
     x, y, z = jnp.ones(3), jnp.ones(3), jnp.ones(3)
     H = asdex.hessian(f, x, y, z, argnums=(0, 2), output_format="dense")(x, y, z)
     H_jax = jax.hessian(f, argnums=(0, 2))(x, y, z)
-
-    assert len(H) == 2
-    assert len(H[0]) == 2
-    for i in range(2):
-        for j in range(2):
-            np.testing.assert_allclose(H[i][j], H_jax[i][j])
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
 def test_hessian_argnums_int_returns_single_block():
-    """Hessian with argnums=int returns a single block, not a nested tuple."""
+    """Hessian with argnums=int matches jax.hessian."""
 
     def f(x, y, z):
         return jnp.dot(x, y) + jnp.sum(z**2)
 
     x, y, z = jnp.ones(3), jnp.ones(3), jnp.ones(3)
     H = asdex.hessian(f, x, y, z, argnums=1, output_format="dense")(x, y, z)
-
-    assert not isinstance(H, tuple)
     H_jax = jax.hessian(f, argnums=1)(x, y, z)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
     np.testing.assert_allclose(H, H_jax)
 
 
@@ -426,7 +409,7 @@ def test_hessian_argnums_int_returns_single_block():
 
 @pytest.mark.jacobian
 def test_jacobian_two_dict_args_preserves_per_arg_pytree():
-    """Top-level tuple of dicts yields a tuple of dicts of Jacobian blocks."""
+    """Top-level tuple of dicts matches jax.jacobian structure."""
 
     def f(p, q):
         return p["a"] * q["b"][:3] + q["c"]
@@ -435,24 +418,14 @@ def test_jacobian_two_dict_args_preserves_per_arg_pytree():
     q = {"b": jnp.array([4.0, 5.0, 6.0, 7.0]), "c": jnp.array([8.0, 9.0, 10.0])}
 
     J = asdex.jacobian(f, p, q, argnums=(0, 1), output_format="dense")(p, q)
-
-    assert isinstance(J, tuple)
-    assert len(J) == 2
-    assert set(J[0].keys()) == {"a"}
-    assert set(J[1].keys()) == {"b", "c"}
-    assert J[0]["a"].shape == (3, 3)
-    assert J[1]["b"].shape == (3, 4)
-    assert J[1]["c"].shape == (3, 3)
-
     J_jax = jax.jacobian(f, argnums=(0, 1))(p, q)
-    np.testing.assert_allclose(J[0]["a"], J_jax[0]["a"])
-    np.testing.assert_allclose(J[1]["b"], J_jax[1]["b"])
-    np.testing.assert_allclose(J[1]["c"], J_jax[1]["c"])
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 @pytest.mark.jacobian
 def test_jacobian_argnums_selects_whole_pytree_position():
-    """argnums=0 with pytree positions returns the full first-arg pytree."""
+    """argnums=0 with pytree positions matches jax.jacobian."""
 
     def f(p, q):
         return p["a"] + q["b"][:2]
@@ -460,12 +433,10 @@ def test_jacobian_argnums_selects_whole_pytree_position():
     p = {"a": jnp.array([1.0, 2.0])}
     q = {"b": jnp.array([3.0, 4.0, 5.0])}
 
-    J0 = asdex.jacobian(f, p, q, argnums=0, output_format="dense")(p, q)
-
-    assert not isinstance(J0, tuple)
-    assert set(J0.keys()) == {"a"}
+    J = asdex.jacobian(f, p, q, argnums=0, output_format="dense")(p, q)
     J_jax = jax.jacobian(f, argnums=0)(p, q)
-    np.testing.assert_allclose(J0["a"], J_jax["a"])
+    assert jax.tree.structure(J) == jax.tree.structure(J_jax)
+    jax.tree.map(np.testing.assert_allclose, J, J_jax)
 
 
 @pytest.mark.jacobian
@@ -482,8 +453,8 @@ def test_jacobian_argnums_out_of_bounds_refers_to_positions():
 
 
 @pytest.mark.hessian
-def test_hessian_two_dict_args_matches_jax_block_for_block():
-    """Hessian over tuple of dicts indexes as H[i][key_i][j][key_j]."""
+def test_hessian_two_dict_args_matches_jax():
+    """Hessian over tuple of dicts matches jax.hessian structure."""
 
     def f(p, q):
         return jnp.sum(p["a"] ** 2) + jnp.dot(p["a"], q["b"]) + jnp.sum(q["c"] ** 3)
@@ -493,28 +464,13 @@ def test_hessian_two_dict_args_matches_jax_block_for_block():
 
     H = asdex.hessian(f, p, q, argnums=(0, 1), output_format="dense")(p, q)
     H_jax = jax.hessian(f, argnums=(0, 1))(p, q)
-
-    assert isinstance(H, tuple)
-    assert len(H) == 2
-    for outer_key in ("a",):
-        for inner_pos_idx, inner_keys in ((0, ("a",)), (1, ("b", "c"))):
-            for inner_key in inner_keys:
-                np.testing.assert_allclose(
-                    H[0][outer_key][inner_pos_idx][inner_key],
-                    H_jax[0][outer_key][inner_pos_idx][inner_key],
-                )
-    for outer_key in ("b", "c"):
-        for inner_pos_idx, inner_keys in ((0, ("a",)), (1, ("b", "c"))):
-            for inner_key in inner_keys:
-                np.testing.assert_allclose(
-                    H[1][outer_key][inner_pos_idx][inner_key],
-                    H_jax[1][outer_key][inner_pos_idx][inner_key],
-                )
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
 
 
 @pytest.mark.hessian
 def test_hessian_argnums_int_with_pytree_position_returns_pytree_of_pytrees():
-    """argnums=int on a pytree position returns a single dict-of-dicts block."""
+    """argnums=int on a pytree position matches jax.hessian."""
 
     def f(p, q):
         return jnp.sum(p["a"] ** 2) + jnp.dot(p["a"], q["b"])
@@ -523,7 +479,6 @@ def test_hessian_argnums_int_with_pytree_position_returns_pytree_of_pytrees():
     q = {"b": jnp.array([3.0, 4.0])}
 
     H = asdex.hessian(f, p, q, argnums=0, output_format="dense")(p, q)
-
-    assert not isinstance(H, tuple)
     H_jax = jax.hessian(f, argnums=0)(p, q)
-    np.testing.assert_allclose(H["a"]["a"], H_jax["a"]["a"])
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(np.testing.assert_allclose, H, H_jax)
