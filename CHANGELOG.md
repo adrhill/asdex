@@ -1,5 +1,14 @@
 # asdex
 
+## Version `v0.2.0`
+* ![BREAKING][badge-breaking] `color_symmetric` now returns `(colors, num_colors, star_set)` instead of `(colors, num_colors)` ([#104])
+* ![Feature][badge-feature] Promote `check_coloring_rows`, `check_coloring_cols`, `check_coloring_symmetric` to public API in `verify.py` ([#104])
+* ![Feature][badge-feature] Add `postprocess=True` kwarg to `color_symmetric`, demoting unused hub colors to reduce HVP count ([#104])
+* ![Enhancement][badge-enhancement] `ColoredPattern` gains optional `star_set` field for O(1) hub lookup during Hessian decompression ([#104])
+* ![Enhancement][badge-enhancement] 7–9× coloring speedup via numba JIT (`@njit(cache=True)`) ([#104])
+* ![Bugfix][badge-bugfix] Fix star constraint for internal vertices in `color_symmetric` ([#102])
+* ![Maintenance][badge-maintenance] Move coloring validators from tests to library and tidy test helpers ([#103])
+
 ## Version `v0.1.8`
 * ![Feature][badge-feature] Add `output_format` kwarg for optional dense decompression ([#100])
 * ![Enhancement][badge-enhancement] Smaller decompression jaxpr by using `lax.gather` ([#99])
@@ -51,6 +60,9 @@
 
 
 [#105]: https://github.com/adrhill/asdex/pull/105
+[#104]: https://github.com/adrhill/asdex/pull/104
+[#103]: https://github.com/adrhill/asdex/pull/103
+[#102]: https://github.com/adrhill/asdex/pull/102
 [#101]: https://github.com/adrhill/asdex/pull/101
 [#100]: https://github.com/adrhill/asdex/pull/100
 [#99]: https://github.com/adrhill/asdex/pull/99
