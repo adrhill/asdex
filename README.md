@@ -42,12 +42,13 @@ uv add asdex
 ```python
 import asdex
 import jax
-import numpy as np
+import jax.numpy as jnp
 
 def f(x):
     return (x[1:] - x[:-1]) ** 2
 
-jac_fn = jax.jit(asdex.jacobian(f, input_shape=50))
+x_sample = jnp.zeros(50)  # sample input for sparsity pattern detection
+jac_fn = jax.jit(asdex.jacobian(f, x_sample))
 # ColoredPattern(49×50, nnz=98, sparsity=96.0%, JVP, 2 colors)
 #   2 JVPs (instead of 49 VJPs or 50 JVPs)
 # ⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⣿⎤

@@ -64,7 +64,8 @@ Detect the sparsity and color it in one call:
 ```python exec="true" session="bruss" source="above"
 from asdex import jacobian_coloring
 
-coloring = jacobian_coloring(brusselator_rhs, input_shape=2 * N * N)
+uv = jnp.zeros(2 * N * N)
+coloring = jacobian_coloring(brusselator_rhs, uv)
 ```
 
 ```python exec="true" session="bruss"

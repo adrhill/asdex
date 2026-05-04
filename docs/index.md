@@ -38,9 +38,9 @@ import numpy as np
 def f(x):
     return (x[1:] - x[:-1]) ** 2
 
-x = np.random.randn(1000)
+x_sample = np.random.randn(1000)  # sample input for sparsity pattern detection
 
-jac_fn = jax.jit(asdex.jacobian(f, input_shape=x.shape))
+jac_fn = jax.jit(asdex.jacobian(f, x_sample))
 J = jac_fn(x)
 ```
 

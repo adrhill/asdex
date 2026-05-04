@@ -85,7 +85,10 @@ To show both the source code and the output, add `source="above"` or `source="be
 ```python exec="true" source="above"
 from asdex import jacobian_coloring
 
-coloring = jacobian_coloring(lambda x: (x[1:] - x[:-1]) ** 2, input_shape=50)
+import jax.numpy as jnp
+
+x_sample = jnp.zeros(50)  # sample input for sparsity pattern detection
+coloring = jacobian_coloring(lambda x: (x[1:] - x[:-1]) ** 2, x_sample)
 print(coloring)
 ```
 ```

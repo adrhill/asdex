@@ -13,13 +13,15 @@ using symmetric coloring and forward-over-reverse AD.
 
 ## Basic Usage
 
-Pass your scalar-valued function and its `input_shape` to [`hessian`](../reference/index.md#asdex.hessian):
+Pass your scalar-valued function and a sample input to [`hessian`](../reference/index.md#asdex.hessian):
 
 ```python
 import jax
+import jax.numpy as jnp
 from asdex import hessian
 
-hess_fn = jax.jit(hessian(f, input_shape=100))
+x_sample = jnp.zeros(100)  # sample input for sparsity detection
+hess_fn = jax.jit(hessian(f, x_sample))
 H = hess_fn(x)
 ```
 
@@ -56,7 +58,8 @@ from asdex import hessian_coloring, hessian_from_coloring
 def g(x):
     return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
 
-coloring = hessian_coloring(g, input_shape=100)
+x = jnp.zeros(100)
+coloring = hessian_coloring(g, x)
 ```
 
 ```python exec="true" session="hess-precompute"
@@ -87,9 +90,11 @@ for x in inputs:
 Save a coloring to disk and reload it in a later session:
 
 ```python
+import jax.numpy as jnp
 from asdex import hessian_coloring
 
-coloring = hessian_coloring(g, input_shape=100)
+x = jnp.zeros(100)
+coloring = hessian_coloring(g, x)
 coloring.save("colored.npz")
 ```
 
@@ -123,7 +128,8 @@ from asdex import hessian_coloring
 def rosenbrock(x):
     return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
 
-coloring = hessian_coloring(rosenbrock, input_shape=100)
+x = jnp.zeros(100)
+coloring = hessian_coloring(rosenbrock, x)
 ```
 
 ```python exec="true" session="hess"
@@ -135,14 +141,16 @@ print(f"```\n{coloring}\n```")
 For even more control, you can split detection and coloring:
 
 ```python
+import jax.numpy as jnp
 from asdex import hessian_sparsity, hessian_coloring_from_sparsity
 
-sparsity = hessian_sparsity(g, input_shape=100)
+x = jnp.zeros(100)
+sparsity = hessian_sparsity(g, x)
 coloring = hessian_coloring_from_sparsity(sparsity)
 ```
 
 Since the Hessian is the Jacobian of the gradient,
-`hessian_sparsity` simply calls `jacobian_sparsity(jax.grad(f), input_shape)`.
+`hessian_sparsity` simply calls `jacobian_sparsity(jax.grad(f), x)`.
 The [sparsity interpreter](../explanation/sparsity-detection.md) composes naturally with JAX's autodiff transforms.
 
 This is useful when you want to manually provide a sparsity pattern.
@@ -201,11 +209,13 @@ By default, `hessian` uses forward-over-reverse AD to compute Hessian-vector pro
 You can select a different AD composition strategy via the `mode` parameter:
 
 ```python
+import jax.numpy as jnp
 from asdex import hessian
 
-hess_fn_for = jax.jit(hessian(f, input_shape=100, mode="fwd_over_rev"))  # default
-hess_fn_rof = jax.jit(hessian(f, input_shape=100, mode="rev_over_fwd"))
-hess_fn_ror = jax.jit(hessian(f, input_shape=100, mode="rev_over_rev"))
+x = jnp.zeros(100)
+hess_fn_for = jax.jit(hessian(f, x, mode="fwd_over_rev"))  # default
+hess_fn_rof = jax.jit(hessian(f, x, mode="rev_over_fwd"))
+hess_fn_ror = jax.jit(hessian(f, x, mode="rev_over_rev"))
 ```
 
 All three modes produce the same mathematical result.
@@ -232,7 +242,7 @@ to verify `asdex`'s sparse Hessian against vanilla JAX.
 ```python
 from asdex import check_hessian_correctness, hessian_coloring
 
-coloring = hessian_coloring(g, input_shape=x.shape)
+coloring = hessian_coloring(g, x)
 check_hessian_correctness(g, x, coloring)
 ```
 
