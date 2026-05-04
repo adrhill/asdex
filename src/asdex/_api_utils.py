@@ -23,6 +23,7 @@ from collections.abc import Callable
 from typing import Any
 
 import jax
+import jax.numpy as jnp
 import numpy as np
 from jax import ShapeDtypeStruct, dtypes
 from jax.tree_util import tree_map
@@ -73,13 +74,17 @@ def dyn_args_from_argnums(
 # Aval extraction from sample inputs
 
 
+def _to_aval(x: Any) -> ShapeDtypeStruct:
+    """Convert a leaf to ShapeDtypeStruct, handling Python scalars."""
+    arr = jnp.asarray(x)
+    return ShapeDtypeStruct(arr.shape, arr.dtype)
+
+
 def avals_from_args(args: tuple[Any, ...]) -> tuple[Any, ...]:
     """Extract ShapeDtypeStruct pytrees from sample inputs."""
     if len(args) == 0:
         raise TypeError("Expected at least one sample input.")
-    return tuple(
-        tree_map(lambda x: ShapeDtypeStruct(x.shape, x.dtype), arg) for arg in args
-    )
+    return tuple(tree_map(_to_aval, arg) for arg in args)
 
 
 # Dtype validation

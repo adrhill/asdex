@@ -8,6 +8,8 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax._src.core import ClosedJaxpr
+from jax._src.interpreters.partial_eval import dce_jaxpr
 
 from asdex._api_utils import _ensure_inbounds, _ensure_index, avals_from_args
 from asdex.detection._interpret import prop_jaxpr
@@ -53,6 +55,7 @@ def jacobian_sparsity(
     f_out = _strip_aux(f) if has_aux else f
 
     closed_jaxpr = jax.make_jaxpr(f_out)(*args)
+    closed_jaxpr = _dce_closed_jaxpr(closed_jaxpr)
     out_aval = jax.eval_shape(f_out, *args)
     m = sum(int(leaf.size) for leaf in jax.tree_util.tree_leaves(out_aval))
 
@@ -116,6 +119,14 @@ def _argnums_tuple(argnums: int | tuple[int, ...], num_args: int) -> tuple[int, 
 def _strip_aux(f: Callable) -> Callable:
     """Drop the aux output of a ``has_aux=True`` function."""
     return lambda *xs: f(*xs)[0]
+
+
+def _dce_closed_jaxpr(closed_jaxpr: ClosedJaxpr) -> ClosedJaxpr:
+    """Apply dead code elimination to remove equations unused by outputs."""
+    jaxpr = closed_jaxpr.jaxpr
+    used_outputs = [True] * len(jaxpr.outvars)
+    new_jaxpr, _ = dce_jaxpr(jaxpr, used_outputs)
+    return ClosedJaxpr(new_jaxpr, closed_jaxpr.consts)
 
 
 def _build_input_indices(

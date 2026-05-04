@@ -375,3 +375,37 @@ def test_jacobian_no_sample_inputs_raises():
     """Calling jacobian with no sample inputs raises TypeError."""
     with pytest.raises(TypeError, match="at least one"):
         avals_from_args(())
+
+
+# Known limitations
+
+
+@pytest.mark.jacobian
+def test_has_aux_unsupported_primitive_in_aux_succeeds():
+    """Unsupported primitives in aux should not break detection.
+
+    The aux branch doesn't affect the main output, so unsupported primitives
+    there should be ignored during sparsity detection.
+    """
+
+    def f_with_aux(x):
+        main = jnp.sum(x**2)
+        aux = jnp.fft.fft(x.astype(jnp.complex64))
+        return main, aux
+
+    x = jnp.ones(4)
+    pattern = asdex.jacobian_sparsity(f_with_aux, x, has_aux=True)
+    assert pattern.shape == (1, 4)
+    np.testing.assert_array_equal(pattern.todense(), [[1, 1, 1, 1]])
+
+
+@pytest.mark.jacobian
+def test_scalar_sample_input():
+    """Plain Python scalars should work as sample inputs, matching JAX."""
+
+    def f(x):
+        return x**2
+
+    pattern = asdex.jacobian_sparsity(f, 3.0)
+    assert pattern.shape == (1, 1)
+    np.testing.assert_array_equal(pattern.todense(), [[1]])
