@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
-from asdex._input import (
+from asdex._api_utils import (
     _ensure_index,
     bind_kwargs,
     dyn_args_from_argnums,

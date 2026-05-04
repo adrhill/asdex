@@ -9,7 +9,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from asdex._input import _ensure_inbounds, _ensure_index, avals_from_args
+from asdex._api_utils import _ensure_inbounds, _ensure_index, avals_from_args
 from asdex.detection._interpret import prop_jaxpr
 from asdex.detection._interpret._commons import empty_index_sets
 from asdex.pattern import SparsityPattern
