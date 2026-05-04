@@ -394,3 +394,68 @@ def test_check_allclose_shape_mismatch():
 
     with pytest.raises(VerificationError, match="shape"):
         check_jacobian_correctness(f, x, coloring, method="dense")
+
+
+# PyTree inputs and outputs
+
+
+@pytest.mark.jacobian
+@pytest.mark.xfail(
+    reason="check_jacobian_correctness does not yet support PyTree outputs"
+)
+def test_check_jacobian_pytree_output():
+    """check_jacobian_correctness works with PyTree outputs."""
+
+    def f(x):
+        return {"a": x[:2] ** 2, "b": x[2:]}
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    coloring = jacobian_coloring(f, x)
+    check_jacobian_correctness(f, x, coloring)
+
+
+@pytest.mark.jacobian
+@pytest.mark.xfail(
+    reason="check_jacobian_correctness does not yet support PyTree outputs"
+)
+@pytest.mark.parametrize("method", ["matvec", "dense"])
+def test_check_jacobian_pytree_output_methods(method):
+    """check_jacobian_correctness works with PyTree outputs for both methods."""
+
+    def f(x):
+        return (x[:2], x[2:] ** 2)
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    coloring = jacobian_coloring(f, x)
+    check_jacobian_correctness(f, x, coloring, method=method)
+
+
+@pytest.mark.hessian
+@pytest.mark.xfail(
+    reason="check_hessian_correctness does not yet support PyTree inputs"
+)
+def test_check_hessian_pytree_input():
+    """check_hessian_correctness works with PyTree inputs (single argnum)."""
+
+    def f(x):
+        return jnp.sum(x["a"] ** 2) + jnp.sum(x["b"] ** 2)
+
+    x = {"a": np.array([1.0, 2.0]), "b": np.array([3.0, 4.0])}
+    coloring = hessian_coloring(f, x)
+    check_hessian_correctness(f, x, coloring)
+
+
+@pytest.mark.hessian
+@pytest.mark.xfail(
+    reason="check_hessian_correctness does not yet support PyTree inputs"
+)
+@pytest.mark.parametrize("method", ["matvec", "dense"])
+def test_check_hessian_pytree_input_methods(method):
+    """check_hessian_correctness works with PyTree inputs for both methods."""
+
+    def f(x):
+        return jnp.sum(x[0] ** 2) + jnp.dot(x[0], x[1])
+
+    x = (np.array([1.0, 2.0]), np.array([3.0, 4.0]))
+    coloring = hessian_coloring(f, x)
+    check_hessian_correctness(f, x, coloring, method=method)

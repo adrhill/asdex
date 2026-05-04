@@ -229,3 +229,24 @@ def output_size(pytree: Any) -> int:
     """
     leaves = jax.tree_util.tree_leaves(pytree)
     return sum(np.size(leaf) for leaf in leaves)
+
+
+def flatten_pytree(pytree: Any) -> jax.Array:
+    """Flatten a PyTree of arrays into a single 1D array."""
+    leaves = jax.tree_util.tree_leaves(pytree)
+    return jnp.concatenate([jnp.asarray(leaf).ravel() for leaf in leaves])
+
+
+def unflatten_to_pytree(flat: jax.Array, struct: Any) -> Any:
+    """Unflatten a 1D array into a PyTree matching the given structure.
+
+    Mirrors JAX's _unravel_array_into_pytree for cotangent construction.
+    """
+    leaves, treedef = jax.tree_util.tree_flatten(struct)
+    sizes = [np.size(leaf) for leaf in leaves]
+    splits = np.cumsum(sizes[:-1])
+    parts = jnp.split(flat, splits)
+    reshaped = [
+        part.reshape(leaf.shape) for part, leaf in zip(parts, leaves, strict=True)
+    ]
+    return jax.tree_util.tree_unflatten(treedef, reshaped)

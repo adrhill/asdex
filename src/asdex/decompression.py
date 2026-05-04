@@ -14,7 +14,8 @@ from jax.experimental.sparse import BCOO
 from asdex._api_utils import (
     _ensure_index,
     bind_kwargs,
-    dyn_args_from_argnums,
+    flatten_pytree,
+    unflatten_to_pytree,
     validate_input_dtypes,
     validate_output_dtypes,
 )
@@ -97,8 +98,6 @@ def jacobian(
 
     def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         f_bound = bind_kwargs(f, kwargs)
-        dyn_args = dyn_args_from_argnums(call_args, argnums)
-        validate_input_dtypes(dyn_args, coloring.mode, holomorphic, allow_int)
         return _eval_jacobian(
             f_bound,
             call_args,
@@ -146,8 +145,6 @@ def value_and_jacobian(
 
     def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         f_bound = bind_kwargs(f, kwargs)
-        dyn_args = dyn_args_from_argnums(call_args, argnums)
-        validate_input_dtypes(dyn_args, coloring.mode, holomorphic, allow_int)
         return _eval_value_and_jacobian(
             f_bound,
             call_args,
@@ -189,8 +186,6 @@ def hessian(
 
     def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         f_bound = bind_kwargs(f, kwargs)
-        dyn_args = dyn_args_from_argnums(call_args, argnums)
-        validate_input_dtypes(dyn_args, coloring.mode, holomorphic, allow_int)
         return _eval_hessian(
             f_bound,
             call_args,
@@ -232,8 +227,6 @@ def value_and_hessian(
 
     def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         f_bound = bind_kwargs(f, kwargs)
-        dyn_args = dyn_args_from_argnums(call_args, argnums)
-        validate_input_dtypes(dyn_args, coloring.mode, holomorphic, allow_int)
         return _eval_value_and_hessian(
             f_bound,
             call_args,
@@ -572,27 +565,6 @@ def _output_dtype(pytree: Any) -> jnp.dtype:
     return dtypes.result_type(*leaves)
 
 
-def _unflatten_to_pytree(flat: jax.Array, struct: Any) -> Any:
-    """Unflatten a 1D array into a PyTree matching the given structure.
-
-    Mirrors JAX's _unravel_array_into_pytree for cotangent construction.
-    """
-    leaves, treedef = jax.tree_util.tree_flatten(struct)
-    sizes = [np.size(leaf) for leaf in leaves]
-    splits = np.cumsum(sizes[:-1])
-    parts = jnp.split(flat, splits)
-    reshaped = [
-        part.reshape(leaf.shape) for part, leaf in zip(parts, leaves, strict=True)
-    ]
-    return jax.tree_util.tree_unflatten(treedef, reshaped)
-
-
-def _flatten_pytree(pytree: Any) -> jax.Array:
-    """Flatten a PyTree of arrays into a single 1D array."""
-    leaves = jax.tree_util.tree_leaves(pytree)
-    return jnp.concatenate([jnp.asarray(leaf).ravel() for leaf in leaves])
-
-
 # Jacobian rows / cols over the selected input space
 
 
@@ -618,7 +590,7 @@ def _jacobian_rows(
     seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
 
     def single_vjp(seed: jax.Array) -> jax.Array:
-        cotangent = _unflatten_to_pytree(seed, out_struct)
+        cotangent = unflatten_to_pytree(seed, out_struct)
         grads = vjp_fn(cotangent)
         return _flatten_selected_cotangents(grads, sparsity)
 
@@ -647,7 +619,7 @@ def _jacobian_cols(
 
     def single_jvp(seed: jax.Array) -> jax.Array:
         tangents = _build_tangents_from_seed(seed, args, sparsity)
-        return _flatten_pytree(jvp_fn(*tangents))
+        return flatten_pytree(jvp_fn(*tangents))
 
     return jax.vmap(single_jvp)(seeds), y, aux
 

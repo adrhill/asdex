@@ -9,7 +9,7 @@ import numpy as np
 from jax.experimental.sparse import BCOO
 from numpy.typing import ArrayLike, NDArray
 
-from asdex._api_utils import output_size
+from asdex._api_utils import flatten_pytree, output_size, unflatten_to_pytree
 from asdex.coloring import InvalidColoringError
 from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
 from asdex.modes import _assert_jacobian_mode
@@ -148,8 +148,8 @@ def check_coloring_symmetric(
 
 
 def check_jacobian_correctness(
-    f: Callable[[ArrayLike], ArrayLike],
-    x: ArrayLike,
+    f: Callable[..., Any],
+    x: Any,
     coloring: ColoredPattern,
     *,
     method: Literal["matvec", "dense"] = "matvec",
@@ -228,8 +228,8 @@ def check_jacobian_correctness(
 
 
 def check_hessian_correctness(
-    f: Callable[[ArrayLike], ArrayLike],
-    x: ArrayLike,
+    f: Callable[..., Any],
+    x: Any,
     coloring: ColoredPattern,
     *,
     method: Literal["matvec", "dense"] = "matvec",
@@ -300,24 +300,6 @@ def check_hessian_correctness(
 # Private helpers
 
 
-def _flatten_pytree(pytree: Any) -> jax.Array:
-    """Flatten a PyTree of arrays into a single 1D array."""
-    leaves = jax.tree_util.tree_leaves(pytree)
-    return jnp.concatenate([jnp.asarray(leaf).ravel() for leaf in leaves])
-
-
-def _unflatten_to_pytree(flat: jax.Array, struct: Any) -> Any:
-    """Unflatten a 1D array back into a PyTree matching the given structure."""
-    leaves, treedef = jax.tree_util.tree_flatten(struct)
-    sizes = [np.size(leaf) for leaf in leaves]
-    splits = np.cumsum(sizes[:-1])
-    parts = jnp.split(flat, splits)
-    reshaped = [
-        part.reshape(leaf.shape) for part, leaf in zip(parts, leaves, strict=True)
-    ]
-    return jax.tree_util.tree_unflatten(treedef, reshaped)
-
-
 def _dense_hessian(
     f: Callable[[ArrayLike], ArrayLike],
     x: jax.Array,
@@ -362,12 +344,12 @@ def _check_jacobian_matvec(
                 v = jax.random.normal(keys[i], shape=(n,))
                 sparse_result = (J_sparse @ v).ravel()
                 _, ref_result = jax.jvp(f, (x,), (v.reshape(x.shape),))
-                ref_result = _flatten_pytree(ref_result)
+                ref_result = flatten_pytree(ref_result)
             case "rev":
                 v = jax.random.normal(keys[i], shape=(m,))
                 sparse_result = (v @ J_sparse).ravel()
                 _, vjp_fn = jax.vjp(f, x)
-                cotangent = _unflatten_to_pytree(v, out_struct)
+                cotangent = unflatten_to_pytree(v, out_struct)
                 (ref_result,) = vjp_fn(cotangent)
                 ref_result = jnp.asarray(ref_result).ravel()
             case _ as unreachable:
