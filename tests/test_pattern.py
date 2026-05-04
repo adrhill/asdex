@@ -1,5 +1,6 @@
 """Tests for SparsityPattern data structure."""
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -9,6 +10,7 @@ from jax.experimental.sparse import BCOO
 import asdex
 from asdex import ColoredPattern, SparsityPattern, jacobian_sparsity
 from asdex._display import _render_braille, _render_dots
+from asdex.verify import _allclose_pytree
 
 
 class TestValidation:
@@ -491,3 +493,101 @@ def test_save_colored_multi_input_pattern_raises(tmp_path):
     path = tmp_path / "colored_multi.npz"
     with pytest.raises(NotImplementedError, match="multi-input"):
         coloring.save(path)
+
+
+def test_save_pytree_input_pattern_raises(tmp_path):
+    """save() with PyTree input raises NotImplementedError."""
+
+    def f(d):
+        return d["a"] + d["b"]
+
+    sparsity = asdex.jacobian_sparsity(f, {"a": np.zeros(2), "b": np.zeros(2)})
+    path = tmp_path / "pytree_input.npz"
+    with pytest.raises(NotImplementedError, match="pytree"):
+        sparsity.save(path)
+
+
+def test_save_colored_pytree_input_pattern_raises(tmp_path):
+    """ColoredPattern.save() with PyTree input raises NotImplementedError."""
+
+    def f(d):
+        return d["a"] + d["b"]
+
+    coloring = asdex.jacobian_coloring(f, {"a": np.zeros(2), "b": np.zeros(2)})
+    path = tmp_path / "colored_pytree_input.npz"
+    with pytest.raises(NotImplementedError, match="pytree"):
+        coloring.save(path)
+
+
+def test_save_load_pytree_output_roundtrip(tmp_path):
+    """SparsityPattern with PyTree output survives save/load and matches jax.jacobian."""
+
+    def f(x):
+        return {"a": x[:2], "b": x[2:]}
+
+    original = asdex.jacobian_sparsity(f, np.zeros(4))
+    path = tmp_path / "pytree_output.npz"
+    original.save(path)
+
+    loaded = asdex.SparsityPattern.load(path)
+
+    x = np.arange(4.0)
+    jax_jac = jax.jacobian(f)(x)
+    jax_dense = np.abs(np.concatenate([jax_jac["a"], jax_jac["b"]], axis=0)) > 0
+    np.testing.assert_array_equal(loaded.todense(), jax_dense.astype(np.int8))
+
+
+def test_save_load_colored_pytree_output_roundtrip(tmp_path):
+    """ColoredPattern with PyTree output survives save/load and matches jax.jacobian."""
+
+    def f(x):
+        return {"a": x[:2], "b": x[2:]}
+
+    original = asdex.jacobian_coloring(f, np.zeros(4))
+    path = tmp_path / "colored_pytree_output.npz"
+    original.save(path)
+
+    loaded = asdex.ColoredPattern.load(path)
+
+    x = np.arange(4.0)
+    expected = jax.jacobian(f)(x)
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(x)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.xfail(raises=NotImplementedError, reason="save/load not yet supported")
+def test_save_load_multi_pytree_input_output(tmp_path):
+    """save/load with 3 PyTree inputs and 2 PyTree outputs matches jax.jacobian.
+
+    TODO: Extend .npz format to support multi-input/PyTree patterns.
+    Until then, use pickle as a workaround.
+    """
+
+    def f(a, b, c):
+        # a: {"x": (2,), "y": (3,)}
+        # b: (4,)
+        # c: {"z": (2,)}
+        # output: (sum_xy, product_bc) as a tuple
+        sum_xy = a["x"] + a["y"][:2]
+        product_bc = b[:2] * c["z"]
+        return (sum_xy, product_bc)
+
+    a = {"x": np.zeros(2), "y": np.zeros(3)}
+    b = np.zeros(4)
+    c = {"z": np.zeros(2)}
+
+    coloring = asdex.jacobian_coloring(f, a, b, c, argnums=(0, 1, 2))
+    path = tmp_path / "multi_pytree.npz"
+    coloring.save(path)
+
+    loaded = asdex.ColoredPattern.load(path)
+
+    a_val = {"x": np.array([1.0, 2.0]), "y": np.array([3.0, 4.0, 5.0])}
+    b_val = np.array([6.0, 7.0, 8.0, 9.0])
+    c_val = {"z": np.array([10.0, 11.0])}
+
+    expected = jax.jacobian(f, argnums=(0, 1, 2))(a_val, b_val, c_val)
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(
+        a_val, b_val, c_val
+    )
+    assert _allclose_pytree(result, expected, rtol=1e-5)
