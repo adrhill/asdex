@@ -376,7 +376,7 @@ class ColoredPattern:
         cols = self.sparsity.cols
 
         if self.symmetric:
-            return self._star_extraction_indices
+            return self._hub_extraction_indices
 
         match self.mode:
             case "rev":
@@ -391,53 +391,6 @@ class ColoredPattern:
                 elem_idx = rows.astype(np.intp)
             case _ as unreachable:
                 assert_never(unreachable)
-
-        return color_idx, elem_idx
-
-    @cached_property
-    def _star_extraction_indices(
-        self,
-    ) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
-        """Pre-compute HVP extraction indices for symmetric coloring.
-
-        For each nonzero ``(i, j)``:
-
-        - diagonal (``i == j``): use ``compressed[colors[i]][i]``.
-        - off-diagonal: use the star's hub as the seeding vertex.
-          ``H[i, j] = compressed[colors[hub]][spoke]`` where ``spoke`` is
-          whichever of ``i, j`` is not the hub.
-
-        When ``star_set`` is ``None`` (legacy path without hub tracking),
-        falls back to a uniqueness heuristic.
-        """
-        if self.star_set is not None:
-            return self._hub_extraction_indices
-
-        rows = self.sparsity.rows
-        cols = self.sparsity.cols
-        col_to_rows = self.sparsity.col_to_rows
-
-        color_idx = np.empty(len(rows), dtype=np.intp)
-        elem_idx = np.empty(len(rows), dtype=np.intp)
-
-        for k, (i, j) in enumerate(zip(rows, cols, strict=True)):
-            i, j = int(i), int(j)
-            if i == j:
-                color_idx[k] = self.colors[i]
-                elem_idx[k] = i
-            else:
-                color_i = self.colors[i]
-                unique = True
-                for r in col_to_rows.get(j, []):
-                    if r != i and self.colors[r] == color_i:
-                        unique = False
-                        break
-                if unique:
-                    color_idx[k] = color_i
-                    elem_idx[k] = j
-                else:
-                    color_idx[k] = self.colors[j]
-                    elem_idx[k] = i
 
         return color_idx, elem_idx
 

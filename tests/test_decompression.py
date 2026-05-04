@@ -8,6 +8,8 @@ from jax.experimental.sparse import BCOO
 from numpy.testing import assert_allclose
 
 from asdex import (
+    ColoredPattern,
+    SparsityPattern,
     hessian,
     hessian_coloring,
     hessian_coloring_from_sparsity,
@@ -22,6 +24,12 @@ from asdex import (
     value_and_hessian_from_coloring,
     value_and_jacobian,
     value_and_jacobian_from_coloring,
+)
+from asdex.coloring._color_symmetric import StarSet
+from asdex.decompression import (
+    _flatten_grad_output,
+    _flatten_selected_cotangents,
+    _selected_dtype,
 )
 
 # Reference tests against jax.jacobian (row coloring, default)
@@ -1024,3 +1032,212 @@ def test_value_and_hessian_dense_output():
     assert not isinstance(hess, BCOO)
     assert_allclose(value, f(x), rtol=1e-5)
     assert_allclose(hess, jax.hessian(f)(x), rtol=1e-5)
+
+
+# --- Empty result with has_aux tests ---
+
+
+@pytest.mark.jacobian
+def test_jacobian_empty_output_with_has_aux():
+    """Empty Jacobian (zero output dim) with has_aux returns (empty_jac, aux)."""
+
+    def f(x):
+        aux = jnp.sum(x)
+        return jnp.zeros((0,)), aux
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac, aux = jacobian(f, x, has_aux=True, output_format="dense")(x)
+
+    assert jac.shape == (0, 3)
+    assert_allclose(aux, 6.0)
+
+
+@pytest.mark.jacobian
+def test_value_and_jacobian_empty_output_with_has_aux():
+    """Empty value_and_jacobian with has_aux returns ((value, aux), empty_jac)."""
+
+    def f(x):
+        aux = jnp.sum(x)
+        return jnp.zeros((0,)), aux
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    (value, aux), jac = value_and_jacobian(f, x, has_aux=True, output_format="dense")(x)
+
+    assert jac.shape == (0, 3)
+    assert value.shape == (0,)
+    assert_allclose(aux, 6.0)
+
+
+@pytest.mark.hessian
+def test_hessian_empty_with_has_aux():
+    """Empty Hessian (zero input dim via empty sparsity) with has_aux."""
+
+    def f(x):
+        aux = "metadata"
+        return jnp.array(0.0), aux
+
+    # Create an empty sparsity pattern (no nonzeros)
+    sparsity = SparsityPattern.from_coo([], [], (3, 3))
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.zeros(3, dtype=np.int32),
+        num_colors=1,
+        symmetric=True,
+        mode="fwd_over_rev",
+    )
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    hess, aux = hessian_from_coloring(f, coloring, has_aux=True, output_format="dense")(
+        x
+    )
+
+    assert hess.shape == (3, 3)
+    assert_allclose(hess, jnp.zeros((3, 3)))
+    assert aux == "metadata"
+
+
+@pytest.mark.hessian
+def test_value_and_hessian_empty_with_has_aux():
+    """Empty value_and_hessian with has_aux returns ((value, aux), empty_hess)."""
+
+    def f(x):
+        aux = 42
+        return jnp.sum(x), aux
+
+    # Create an empty sparsity pattern (no nonzeros)
+    sparsity = SparsityPattern.from_coo([], [], (3, 3))
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.zeros(3, dtype=np.int32),
+        num_colors=1,
+        symmetric=True,
+        mode="fwd_over_rev",
+    )
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    (value, aux), hess = value_and_hessian_from_coloring(
+        f, coloring, has_aux=True, output_format="dense"
+    )(x)
+
+    assert hess.shape == (3, 3)
+    assert_allclose(hess, jnp.zeros((3, 3)))
+    assert_allclose(value, 6.0)
+    assert aux == 42
+
+
+# --- Empty bcoo output format ---
+
+
+@pytest.mark.jacobian
+def test_jacobian_empty_bcoo_format():
+    """Empty Jacobian with bcoo format returns proper BCOO."""
+
+    def f(x):
+        return jnp.zeros((0,))
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac = jacobian(f, x, output_format="bcoo")(x)
+
+    assert isinstance(jac, BCOO)
+    assert jac.shape == (0, 3)
+
+
+# --- Argument validation tests ---
+
+
+@pytest.mark.jacobian
+def test_jacobian_wrong_number_of_args():
+    """Calling jacobian with wrong number of args raises ValueError."""
+
+    def f(x, y):
+        return x + y
+
+    x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1))
+    jac_fn = jacobian_from_coloring(f, coloring, output_format="dense")
+
+    # Call with only one arg instead of two
+    with pytest.raises(ValueError, match="positional argument"):
+        jac_fn(x)
+
+
+@pytest.mark.jacobian
+def test_jacobian_pytree_structure_mismatch():
+    """Calling jacobian with mismatched pytree structure raises ValueError."""
+
+    def f(params):
+        return params["a"] + params["b"]
+
+    inputs = {"a": jnp.zeros(2), "b": jnp.zeros(2)}
+    coloring = jacobian_coloring(f, inputs)
+    jac_fn = jacobian_from_coloring(f, coloring, output_format="dense")
+
+    # Call with a list instead of dict
+    with pytest.raises(ValueError, match="pytree structure"):
+        jac_fn([jnp.zeros(2), jnp.zeros(2)])
+
+
+@pytest.mark.jacobian
+def test_jacobian_shape_mismatch():
+    """Calling jacobian with wrong input shapes raises ValueError."""
+
+    def f(x):
+        return x**2
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    coloring = jacobian_coloring(f, x)
+    jac_fn = jacobian_from_coloring(f, coloring, output_format="dense")
+
+    # Call with a different shape
+    with pytest.raises(ValueError, match="shape"):
+        jac_fn(jnp.array([1.0, 2.0]))
+
+
+# --- Internal function edge cases ---
+
+
+def test_flatten_selected_cotangents_empty():
+    """_flatten_selected_cotangents with empty pytree returns zeros."""
+    # Create a sparsity pattern that selects an empty tuple
+    sparsity = SparsityPattern.from_coo([0], [0], (1, 1))
+    # Cotangents tuple where selected position is empty dict (no leaves)
+    cotangents = ({},)
+    result = _flatten_selected_cotangents(cotangents, sparsity)
+    assert result.shape == (0,)
+
+
+def test_flatten_grad_output_empty():
+    """_flatten_grad_output with empty pytree returns zeros."""
+    # Empty dict has no leaves
+    result = _flatten_grad_output({})
+    assert result.shape == (0,)
+
+
+def test_selected_dtype_no_leaves():
+    """_selected_dtype with no leaves returns jnp.float_ fallback."""
+    # Create sparsity that selects an empty tuple
+    sparsity = SparsityPattern.from_coo([0], [0], (1, 1))
+    # Args where selected position has no dtype (empty dict)
+    args = ({},)
+    result = _selected_dtype(args, sparsity)
+    assert result == jnp.float_
+
+
+def test_gather_indices_empty_symmetric():
+    """_gather_indices with nnz=0 symmetric pattern returns empty array."""
+    # Create empty symmetric colored pattern
+    sparsity = SparsityPattern.from_coo([], [], (3, 3))
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.zeros(3, dtype=np.int32),
+        num_colors=1,
+        symmetric=True,
+        mode="fwd_over_rev",
+        star_set=StarSet(
+            star=np.array([], dtype=np.intp),
+            hub=np.array([], dtype=np.intp),
+            edge_index={},
+        ),
+    )
+    indices = coloring._gather_indices
+    assert indices.shape == (0, 2)

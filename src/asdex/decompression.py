@@ -762,21 +762,6 @@ def _scatter_dense(coloring: ColoredPattern, data: jax.Array) -> jax.Array:
     return result.at[indices[:, 0], indices[:, 1]].set(data)
 
 
-def _empty_result(
-    shape: tuple[int, ...], output_format: OutputFormat
-) -> BCOO | jax.Array:
-    """Return an all-zero matrix in the requested format."""
-    match output_format:
-        case "bcoo":
-            return BCOO(
-                (jnp.array([]), jnp.zeros((0, 2), dtype=jnp.int32)), shape=shape
-            )
-        case "dense":
-            return jnp.zeros(shape)
-        case _ as unreachable:
-            assert_never(unreachable)
-
-
 # Argument handling and flattening
 
 

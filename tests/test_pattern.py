@@ -6,6 +6,7 @@ import pytest
 from jax import ShapeDtypeStruct
 from jax.experimental.sparse import BCOO
 
+import asdex
 from asdex import ColoredPattern, SparsityPattern, jacobian_sparsity
 from asdex._display import _render_braille, _render_dots
 
@@ -420,3 +421,73 @@ def test_load_colored_pattern_invalid_mode(tmp_path):
 
     with pytest.raises(ValueError, match="Unknown mode"):
         ColoredPattern.load(path)
+
+
+# --- Multi-input pattern tests ---
+
+
+def test_example_input_with_int_argnums():
+    """example_input returns single aval when argnums is int."""
+
+    def f(x, y):
+        return x + y
+
+    # argnums=0 (int) should return single aval, not tuple
+    sparsity = asdex.jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=0)
+    example = sparsity.example_input
+    # Should be a single ShapeDtypeStruct, not a tuple
+    assert hasattr(example, "shape")
+    assert example.shape == (3,)
+
+
+def test_example_input_with_tuple_argnums():
+    """example_input returns tuple of avals when argnums is tuple."""
+
+    def f(x, y):
+        return jnp.concatenate([x, y])
+
+    # argnums=(0, 1) (tuple) should return tuple of avals
+    sparsity = asdex.jacobian_sparsity(f, np.zeros(3), np.zeros(4), argnums=(0, 1))
+    example = sparsity.example_input
+    # Should be a tuple of ShapeDtypeStructs
+    assert isinstance(example, tuple)
+    assert len(example) == 2
+    assert example[0].shape == (3,)
+    assert example[1].shape == (4,)
+
+
+def test_input_treedef_property():
+    """input_treedef property returns the pytree structure of selected inputs."""
+
+    def f(params):
+        return params["a"] + params["b"]
+
+    inputs = {"a": np.zeros(2), "b": np.zeros(2)}
+    sparsity = asdex.jacobian_sparsity(f, inputs)
+    treedef = sparsity.input_treedef
+    # Should match the structure of dyn_avals
+    assert treedef is not None
+
+
+def test_save_multi_input_pattern_raises(tmp_path):
+    """save() with multi-input pattern raises NotImplementedError."""
+
+    def f(x, y):
+        return x + y
+
+    sparsity = asdex.jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=(0, 1))
+    path = tmp_path / "multi.npz"
+    with pytest.raises(NotImplementedError, match="multi-input"):
+        sparsity.save(path)
+
+
+def test_save_colored_multi_input_pattern_raises(tmp_path):
+    """ColoredPattern.save() with multi-input pattern raises NotImplementedError."""
+
+    def f(x, y):
+        return x + y
+
+    coloring = asdex.jacobian_coloring(f, np.zeros(3), np.zeros(3), argnums=(0, 1))
+    path = tmp_path / "colored_multi.npz"
+    with pytest.raises(NotImplementedError, match="multi-input"):
+        coloring.save(path)

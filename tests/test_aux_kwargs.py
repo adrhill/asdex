@@ -6,11 +6,19 @@ semantics on the asdex public API.
 
 import warnings
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from jax import ShapeDtypeStruct
 
 import asdex
+from asdex._input import (
+    _check_input_dtype_fwd,
+    _check_input_dtype_rev,
+    _check_output_dtype_rev,
+    avals_from_args,
+)
 
 warnings.filterwarnings("ignore", category=asdex.DenseColoringWarning)
 
@@ -210,3 +218,160 @@ def test_allow_int_false_rejects_int_input():
     x = jnp.array([1, 2], dtype=jnp.int32)
     with pytest.raises(TypeError):
         asdex.jacobian(f, np.zeros(2), mode="rev", output_format="dense")(x)
+
+
+# holomorphic dtype validation
+
+
+@pytest.mark.jacobian
+def test_holomorphic_rev_rejects_real_input():
+    """``holomorphic=True`` with real input in reverse mode raises TypeError."""
+
+    def f(x):
+        return jnp.array([x[0] ** 2])
+
+    x = jnp.array([1.0, 2.0])
+    with pytest.raises(TypeError, match=r"holomorphic.*complex"):
+        asdex.jacobian(
+            f, np.zeros(2), holomorphic=True, mode="rev", output_format="dense"
+        )(x)
+
+
+@pytest.mark.jacobian
+def test_holomorphic_fwd_rejects_real_input():
+    """``holomorphic=True`` with real input in forward mode raises TypeError."""
+
+    def f(x):
+        return jnp.array([x[0] ** 2])
+
+    x = jnp.array([1.0, 2.0])
+    with pytest.raises(TypeError, match=r"holomorphic.*complex"):
+        asdex.jacobian(
+            f, np.zeros(2), holomorphic=True, mode="fwd", output_format="dense"
+        )(x)
+
+
+@pytest.mark.jacobian
+def test_holomorphic_rev_rejects_real_output():
+    """``holomorphic=True`` with complex input but real output raises TypeError."""
+
+    def f(z):
+        return jnp.array([jnp.abs(z[0])])  # abs returns real
+
+    z = jnp.array([1.0 + 2.0j, 3.0 + 0.5j])
+    with pytest.raises(TypeError, match=r"holomorphic.*complex"):
+        asdex.jacobian(
+            f, np.zeros(2), holomorphic=True, mode="rev", output_format="dense"
+        )(z)
+
+
+@pytest.mark.jacobian
+def test_holomorphic_fwd_rejects_real_output():
+    """``holomorphic=True`` with complex input but real output raises TypeError."""
+
+    def f(z):
+        return jnp.array([jnp.abs(z[0])])  # abs returns real
+
+    z = jnp.array([1.0 + 2.0j, 3.0 + 0.5j])
+    with pytest.raises(TypeError, match=r"holomorphic.*complex"):
+        asdex.jacobian(
+            f, np.zeros(2), holomorphic=True, mode="fwd", output_format="dense"
+        )(z)
+
+
+@pytest.mark.jacobian
+def test_rev_rejects_complex_output_without_holomorphic():
+    """Complex output without ``holomorphic=True`` raises TypeError in rev mode."""
+
+    def f(x):
+        return jnp.array([x[0] + 1j])  # Returns complex
+
+    x = jnp.array([1.0, 2.0])
+    with pytest.raises(TypeError, match="holomorphic=True"):
+        asdex.jacobian(f, np.zeros(2), mode="rev", output_format="dense")(x)
+
+
+@pytest.mark.jacobian
+def test_rev_rejects_non_floating_output():
+    """Non-floating output (e.g. int) raises TypeError in rev mode."""
+
+    def f(x):
+        return (x * 10).astype(jnp.int32)  # Returns int with input dependency
+
+    x = jnp.array([1.0, 2.0])
+    with pytest.raises(TypeError, match="floating"):
+        asdex.jacobian(f, np.zeros(2), mode="rev", output_format="dense")(x)
+
+
+# kwargs binding
+
+
+@pytest.mark.jacobian
+def test_jacobian_with_kwargs():
+    """Functions with kwargs work correctly via bind_kwargs."""
+
+    def f(x, scale=1.0, offset=0.0):
+        return x * scale + offset
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac = asdex.jacobian(f, x, output_format="dense")(x, scale=2.0, offset=1.0)
+    expected = jnp.diag(jnp.full(3, 2.0))
+    np.testing.assert_allclose(jac, expected)
+
+
+@pytest.mark.hessian
+def test_hessian_with_kwargs():
+    """Hessian with kwargs works correctly."""
+
+    def f(x, scale=1.0):
+        return scale * jnp.sum(x**2)
+
+    x = jnp.array([1.0, 2.0])
+    hess = asdex.hessian(f, x, output_format="dense")(x, scale=3.0)
+    expected = 6.0 * jnp.eye(2)
+    np.testing.assert_allclose(hess, expected)
+
+
+# Extended dtype validation
+
+
+@pytest.mark.jacobian
+def test_extended_dtype_input_fwd_raises():
+    """Extended dtype (e.g. PRNG key) input raises TypeError in fwd mode."""
+    key = jax.random.key(0)
+    with pytest.raises(TypeError, match="Unsupported input"):
+        _check_input_dtype_fwd(holomorphic=False, x=key)
+
+
+@pytest.mark.jacobian
+def test_extended_dtype_input_rev_raises():
+    """Extended dtype input raises TypeError in rev mode (without allow_int)."""
+    key = jax.random.key(0)
+    with pytest.raises(TypeError, match="inexact"):
+        _check_input_dtype_rev(holomorphic=False, allow_int=False, x=key)
+
+
+@pytest.mark.jacobian
+def test_extended_dtype_output_rev_raises():
+    """Extended dtype output raises TypeError in rev mode."""
+    key = jax.random.key(0)
+    with pytest.raises(TypeError, match="Unsupported output"):
+        _check_output_dtype_rev(holomorphic=False, y=key)
+
+
+@pytest.mark.jacobian
+def test_non_numeric_dtype_input_rev_raises():
+    """Non-numeric dtype (e.g. string) input raises TypeError in rev mode."""
+    struct = ShapeDtypeStruct((3,), np.str_)
+    with pytest.raises(TypeError, match="numerical-valued"):
+        _check_input_dtype_rev(holomorphic=False, allow_int=False, x=struct)
+
+
+# Empty args validation
+
+
+@pytest.mark.jacobian
+def test_jacobian_no_sample_inputs_raises():
+    """Calling jacobian with no sample inputs raises TypeError."""
+    with pytest.raises(TypeError, match="at least one"):
+        avals_from_args(())
