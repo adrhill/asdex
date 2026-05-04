@@ -409,8 +409,7 @@ def _eval_jacobian(
 
     validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
-    dense = _scatter_dense(coloring, data)
-    jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
+    jac = _build_jacobian(coloring, data, output_format, out_struct)
     if has_aux:
         return jac, aux
     return jac
@@ -463,8 +462,7 @@ def _eval_value_and_jacobian(
 
     validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
-    dense = _scatter_dense(coloring, data)
-    jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
+    jac = _build_jacobian(coloring, data, output_format, out_struct)
     if has_aux:
         return (y, aux), jac
     return y, jac
@@ -502,8 +500,7 @@ def _eval_hessian(
 
     compressed = _compute_hvps(f_scalar, args, coloring)
     data = _decompress_data(coloring, compressed)
-    dense = _scatter_dense(coloring, data)
-    hess = _assemble_hessian(dense, sparsity, output_format)
+    hess = _build_hessian(coloring, data, output_format)
     if has_aux:
         _, aux = f(*args)
         return hess, aux
@@ -543,8 +540,7 @@ def _eval_value_and_hessian(
 
     value, compressed = _value_and_compute_hvps(f_scalar, args, coloring)
     data = _decompress_data(coloring, compressed)
-    dense = _scatter_dense(coloring, data)
-    hess = _assemble_hessian(dense, sparsity, output_format)
+    hess = _build_hessian(coloring, data, output_format)
     if has_aux:
         _, aux = f(*args)
         return (value, aux), hess
@@ -769,6 +765,63 @@ def _scatter_dense(coloring: ColoredPattern, data: jax.Array) -> jax.Array:
         return jnp.zeros(sparsity.shape, dtype=jnp.float_)
     result = jnp.zeros(sparsity.shape, dtype=data.dtype)
     return result.at[indices[:, 0], indices[:, 1]].set(data)
+
+
+def _is_simple_output(out_struct: Any, sparsity: SparsityPattern) -> bool:
+    """Check if output is a single flat array matching the sparsity shape."""
+    out_leaves = jax.tree_util.tree_leaves(out_struct)
+    if len(out_leaves) != 1:
+        return False
+    out_size = int(np.prod(out_leaves[0].shape))
+    return out_size == sparsity.m and len(sparsity.leaf_shapes) == 1
+
+
+def _build_jacobian(
+    coloring: ColoredPattern,
+    data: jax.Array,
+    output_format: OutputFormat,
+    out_struct: Any,
+) -> Any:
+    """Build Jacobian output from sparse data, avoiding BCOO.fromdense under JIT.
+
+    For simple single-array outputs, constructs BCOO directly from known indices.
+    For PyTree outputs, scatters to dense then assembles blocks.
+    """
+    sparsity = coloring.sparsity
+
+    # Fast path: single flat array output with BCOO format.
+    # Use the known sparsity pattern indices directly, avoiding fromdense.
+    if output_format == "bcoo" and _is_simple_output(out_struct, sparsity):
+        if data.dtype == dtypes.float0:
+            data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
+        return sparsity.to_bcoo(data=data)
+
+    # General path: scatter to dense, then assemble blocks.
+    dense = _scatter_dense(coloring, data)
+    return _assemble_jacobian(dense, sparsity, output_format, out_struct)
+
+
+def _build_hessian(
+    coloring: ColoredPattern,
+    data: jax.Array,
+    output_format: OutputFormat,
+) -> Any:
+    """Build Hessian output from sparse data, avoiding BCOO.fromdense under JIT.
+
+    For simple single-input cases, constructs BCOO directly from known indices.
+    For PyTree inputs, scatters to dense then assembles blocks.
+    """
+    sparsity = coloring.sparsity
+
+    # Fast path: single input leaf with BCOO format.
+    if output_format == "bcoo" and len(sparsity.leaf_shapes) == 1:
+        if data.dtype == dtypes.float0:
+            data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
+        return sparsity.to_bcoo(data=data)
+
+    # General path: scatter to dense, then assemble blocks.
+    dense = _scatter_dense(coloring, data)
+    return _assemble_hessian(dense, sparsity, output_format)
 
 
 # Argument handling and flattening

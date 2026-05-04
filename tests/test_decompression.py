@@ -330,6 +330,38 @@ def test_bcoo_format():
     assert isinstance(result, BCOO)
 
 
+@pytest.mark.jacobian
+def test_jacobian_jit_bcoo():
+    """BCOO Jacobian works under jax.jit."""
+
+    def f(x):
+        return (x[1:] - x[:-1]) ** 2
+
+    x = jnp.ones(10)
+    jac_fn = jax.jit(jacobian(f, x))
+    result = jac_fn(x)
+
+    assert isinstance(result, BCOO)
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result.todense(), expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_jit_bcoo():
+    """BCOO Hessian works under jax.jit."""
+
+    def f(x):
+        return jnp.sum((x[1:] - x[:-1]) ** 2)
+
+    x = jnp.ones(10)
+    hess_fn = jax.jit(hessian(f, x))
+    result = hess_fn(x)
+
+    assert isinstance(result, BCOO)
+    expected = jax.hessian(f)(x)
+    assert_allclose(result.todense(), expected, rtol=1e-5)
+
+
 # Column coloring (JVP) Jacobian tests
 
 
