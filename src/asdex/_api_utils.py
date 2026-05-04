@@ -13,6 +13,7 @@ Handles everything that runs at the public API boundary before AD kicks in:
   compatibility, honoring the ``holomorphic`` and ``allow_int`` kwargs.
   The checks mirror ``jax._src.api._check_{input,output}_dtype_{jacrev,jacfwd}``
   but are reimplemented here to avoid coupling to jax's private API.
+- ``output_size`` computes the total number of elements in a PyTree output.
 """
 
 from __future__ import annotations
@@ -210,3 +211,16 @@ def bind_kwargs(f: Callable[..., Any], kwargs: dict[str, Any]) -> Callable[..., 
     if not kwargs:
         return f
     return lambda *xs: f(*xs, **kwargs)
+
+
+# Output PyTree utilities
+
+
+def output_size(pytree: Any) -> int:
+    """Compute the total number of elements in a PyTree of arrays.
+
+    Used to determine the number of output dimensions for Jacobian computation,
+    mirroring JAX's approach of flattening PyTree outputs.
+    """
+    leaves = jax.tree_util.tree_leaves(pytree)
+    return sum(np.size(leaf) for leaf in leaves)

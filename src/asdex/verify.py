@@ -1,8 +1,7 @@
 """Verification utilities for checking asdex results against JAX references."""
 
-import math
 from collections.abc import Callable
-from typing import Literal, assert_never
+from typing import Any, Literal, assert_never
 
 import jax
 import jax.numpy as jnp
@@ -10,6 +9,7 @@ import numpy as np
 from jax.experimental.sparse import BCOO
 from numpy.typing import ArrayLike, NDArray
 
+from asdex._api_utils import output_size
 from asdex.coloring import InvalidColoringError
 from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
 from asdex.modes import _assert_jacobian_mode
@@ -193,7 +193,7 @@ def check_jacobian_correctness(
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
-    out_size = math.prod(jax.eval_shape(f, x).shape)
+    out_size = output_size(jax.eval_shape(f, x))
     if out_size != coloring.sparsity.m:
         raise VerificationError(
             f"asdex's sparse Jacobian output size {coloring.sparsity.m} does not "
@@ -300,6 +300,24 @@ def check_hessian_correctness(
 # Private helpers
 
 
+def _flatten_pytree(pytree: Any) -> jax.Array:
+    """Flatten a PyTree of arrays into a single 1D array."""
+    leaves = jax.tree_util.tree_leaves(pytree)
+    return jnp.concatenate([jnp.asarray(leaf).ravel() for leaf in leaves])
+
+
+def _unflatten_to_pytree(flat: jax.Array, struct: Any) -> Any:
+    """Unflatten a 1D array back into a PyTree matching the given structure."""
+    leaves, treedef = jax.tree_util.tree_flatten(struct)
+    sizes = [np.size(leaf) for leaf in leaves]
+    splits = np.cumsum(sizes[:-1])
+    parts = jnp.split(flat, splits)
+    reshaped = [
+        part.reshape(leaf.shape) for part, leaf in zip(parts, leaves, strict=True)
+    ]
+    return jax.tree_util.tree_unflatten(treedef, reshaped)
+
+
 def _dense_hessian(
     f: Callable[[ArrayLike], ArrayLike],
     x: jax.Array,
@@ -334,8 +352,8 @@ def _check_jacobian_matvec(
     key = jax.random.key(seed)
     keys = jax.random.split(key, num_probes)
 
-    out_shape = jax.eval_shape(f, x).shape
-    m = int(np.prod(out_shape))
+    out_struct = jax.eval_shape(f, x)
+    m = output_size(out_struct)
     n = x.size
 
     for i in range(num_probes):
@@ -344,12 +362,13 @@ def _check_jacobian_matvec(
                 v = jax.random.normal(keys[i], shape=(n,))
                 sparse_result = (J_sparse @ v).ravel()
                 _, ref_result = jax.jvp(f, (x,), (v.reshape(x.shape),))
-                ref_result = jnp.asarray(ref_result).ravel()
+                ref_result = _flatten_pytree(ref_result)
             case "rev":
                 v = jax.random.normal(keys[i], shape=(m,))
                 sparse_result = (v @ J_sparse).ravel()
                 _, vjp_fn = jax.vjp(f, x)
-                (ref_result,) = vjp_fn(v.reshape(out_shape))
+                cotangent = _unflatten_to_pytree(v, out_struct)
+                (ref_result,) = vjp_fn(cotangent)
                 ref_result = jnp.asarray(ref_result).ravel()
             case _ as unreachable:
                 assert_never(unreachable)

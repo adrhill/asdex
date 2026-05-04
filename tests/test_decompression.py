@@ -1241,3 +1241,51 @@ def test_gather_indices_empty_symmetric():
     )
     indices = coloring._gather_indices
     assert indices.shape == (0, 2)
+
+
+# PyTree output tests
+
+
+@pytest.mark.jacobian
+def test_jacobian_pytree_output_dict():
+    """asdex.jacobian matches jax.jacobian for dict output."""
+
+    def f(x):
+        return {"a": x[:2], "b": jnp.sum(x**2)}
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, output_format="dense")(x)
+    expected = jax.jacobian(f)(x)
+
+    assert_allclose(result["a"], expected["a"], rtol=1e-5)
+    assert_allclose(result["b"], expected["b"], rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_pytree_output_tuple():
+    """asdex.jacobian matches jax.jacobian for tuple output."""
+
+    def f(x):
+        return (x**2, x[:2])
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, output_format="dense")(x)
+    expected = jax.jacobian(f)(x)
+
+    assert_allclose(result[0], expected[0], rtol=1e-5)
+    assert_allclose(result[1], expected[1], rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_pytree_output_nested():
+    """asdex.jacobian matches jax.jacobian for nested PyTree output."""
+
+    def f(x):
+        return {"out": [x[:2], jnp.sum(x)]}
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, output_format="dense")(x)
+    expected = jax.jacobian(f)(x)
+
+    assert_allclose(result["out"][0], expected["out"][0], rtol=1e-5)
+    assert_allclose(result["out"][1], expected["out"][1], rtol=1e-5)

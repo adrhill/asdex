@@ -7,6 +7,7 @@ from typing import Any, assert_never
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
@@ -392,11 +393,11 @@ def _eval_jacobian(
     m = sparsity.m
     n_selected = sparsity.n
     f_out = _strip_aux(f) if has_aux else f
-    out_shape = jax.eval_shape(f_out, *args).shape
+    out_struct = jax.eval_shape(f_out, *args)
 
     if m == 0 or sparsity.nnz == 0:
         dense = jnp.zeros((m, n_selected))
-        jac = _assemble_jacobian(dense, sparsity, output_format, out_shape)
+        jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
         if has_aux:
             _, aux = f(*args)
             return jac, aux
@@ -406,7 +407,7 @@ def _eval_jacobian(
     match coloring.mode:
         case "rev":
             compressed, y, aux = _jacobian_rows(
-                f, args, coloring, out_shape, has_aux=has_aux
+                f, args, coloring, out_struct, has_aux=has_aux
             )
         case "fwd":
             compressed, y, aux = _jacobian_cols(f, args, coloring, has_aux=has_aux)
@@ -416,7 +417,7 @@ def _eval_jacobian(
     validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    jac = _assemble_jacobian(dense, sparsity, output_format, out_shape)
+    jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
     if has_aux:
         return jac, aux
     return jac
@@ -445,22 +446,22 @@ def _eval_value_and_jacobian(
     m = sparsity.m
     n_selected = sparsity.n
     f_out = _strip_aux(f) if has_aux else f
-    out_shape = jax.eval_shape(f_out, *args).shape
+    out_struct = jax.eval_shape(f_out, *args)
 
     if m == 0 or sparsity.nnz == 0:
         dense = jnp.zeros((m, n_selected))
-        empty = _assemble_jacobian(dense, sparsity, output_format, out_shape)
+        empty = _assemble_jacobian(dense, sparsity, output_format, out_struct)
         if has_aux:
             value, aux = f(*args)
-            return (jnp.asarray(value), aux), empty
-        value = jnp.asarray(f(*args))
+            return (value, aux), empty
+        value = f(*args)
         return value, empty
 
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
         case "rev":
             compressed, y, aux = _jacobian_rows(
-                f, args, coloring, out_shape, has_aux=has_aux
+                f, args, coloring, out_struct, has_aux=has_aux
             )
         case "fwd":
             compressed, y, aux = _jacobian_cols(f, args, coloring, has_aux=has_aux)
@@ -470,7 +471,7 @@ def _eval_value_and_jacobian(
     validate_output_dtypes(y, coloring.mode, holomorphic)
     data = _decompress_data(coloring, compressed)
     dense = _scatter_dense(coloring, data)
-    jac = _assemble_jacobian(dense, sparsity, output_format, out_shape)
+    jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
     if has_aux:
         return (y, aux), jac
     return y, jac
@@ -557,6 +558,41 @@ def _eval_value_and_hessian(
     return value, hess
 
 
+# PyTree output helpers
+#
+# These mirror JAX's internal helpers for handling PyTree outputs in jacrev/jacfwd.
+# See jax/_src/api.py: _std_basis, _jacrev_unravel, _unravel_array_into_pytree.
+
+
+def _output_dtype(pytree: Any) -> jnp.dtype:
+    """Get the result dtype for a PyTree of arrays."""
+    leaves = jax.tree_util.tree_leaves(pytree)
+    if not leaves:
+        return jnp.float_
+    return dtypes.result_type(*leaves)
+
+
+def _unflatten_to_pytree(flat: jax.Array, struct: Any) -> Any:
+    """Unflatten a 1D array into a PyTree matching the given structure.
+
+    Mirrors JAX's _unravel_array_into_pytree for cotangent construction.
+    """
+    leaves, treedef = jax.tree_util.tree_flatten(struct)
+    sizes = [np.size(leaf) for leaf in leaves]
+    splits = np.cumsum(sizes[:-1])
+    parts = jnp.split(flat, splits)
+    reshaped = [
+        part.reshape(leaf.shape) for part, leaf in zip(parts, leaves, strict=True)
+    ]
+    return jax.tree_util.tree_unflatten(treedef, reshaped)
+
+
+def _flatten_pytree(pytree: Any) -> jax.Array:
+    """Flatten a PyTree of arrays into a single 1D array."""
+    leaves = jax.tree_util.tree_leaves(pytree)
+    return jnp.concatenate([jnp.asarray(leaf).ravel() for leaf in leaves])
+
+
 # Jacobian rows / cols over the selected input space
 
 
@@ -564,10 +600,10 @@ def _jacobian_rows(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
-    out_shape: tuple[int, ...],
+    out_struct: Any,
     *,
     has_aux: bool,
-) -> tuple[jax.Array, jax.Array, Any]:
+) -> tuple[jax.Array, Any, Any]:
     """Row-coloring VJPs over the combined selected input space.
 
     Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
@@ -578,12 +614,13 @@ def _jacobian_rows(
     else:
         y, vjp_fn = jax.vjp(f, *args)
         aux = None
-    dtype = y.dtype
+    dtype = _output_dtype(y)
     seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
 
     def single_vjp(seed: jax.Array) -> jax.Array:
-        cotangents = vjp_fn(seed.reshape(out_shape))
-        return _flatten_selected_cotangents(cotangents, sparsity)
+        cotangent = _unflatten_to_pytree(seed, out_struct)
+        grads = vjp_fn(cotangent)
+        return _flatten_selected_cotangents(grads, sparsity)
 
     return jax.vmap(single_vjp)(seeds), y, aux
 
@@ -594,7 +631,7 @@ def _jacobian_cols(
     coloring: ColoredPattern,
     *,
     has_aux: bool,
-) -> tuple[jax.Array, jax.Array, Any]:
+) -> tuple[jax.Array, Any, Any]:
     """Column-coloring JVPs over the combined selected input space.
 
     Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
@@ -610,7 +647,7 @@ def _jacobian_cols(
 
     def single_jvp(seed: jax.Array) -> jax.Array:
         tangents = _build_tangents_from_seed(seed, args, sparsity)
-        return jvp_fn(*tangents).ravel()
+        return _flatten_pytree(jvp_fn(*tangents))
 
     return jax.vmap(single_jvp)(seeds), y, aux
 
@@ -918,29 +955,67 @@ def _assemble_jacobian(
     dense: jax.Array,
     sparsity: SparsityPattern,
     output_format: OutputFormat,
-    out_shape: tuple[int, ...],
+    out_struct: Any,
 ) -> Any:
     """Split a ``(m, n_selected)`` dense matrix into per-leaf Jacobian blocks.
 
-    Each block is reshaped to ``(*out_shape, *in_leaf_shape)`` to match
+    Each block is reshaped to ``(*out_leaf_shape, *in_leaf_shape)`` to match
     ``jax.jacfwd`` / ``jax.jacrev`` output layout.
-    The result mirrors ``sparsity.example_input`` (single pytree when
-    ``argnums`` is an int, tuple of pytrees when it is a tuple).
+
+    For PyTree outputs, the result has structure ``(output_tree, input_tree)``,
+    mirroring ``jax.jacobian``.
     """
-    leaf_shapes = sparsity.leaf_shapes
-    leaf_sizes = sparsity.leaf_sizes
+    in_leaf_shapes = sparsity.leaf_shapes
+    in_leaf_sizes = sparsity.leaf_sizes
 
-    blocks: list[jax.Array | BCOO] = []
-    offset = 0
-    for size, shape in zip(leaf_sizes, leaf_shapes, strict=True):
-        chunk = dense[:, offset : offset + size]
-        block: jax.Array | BCOO = chunk.reshape((*out_shape, *shape))
-        if output_format == "bcoo":
-            block = BCOO.fromdense(block)
-        blocks.append(block)
-        offset += size
+    out_leaves, out_treedef = jax.tree_util.tree_flatten(out_struct)
+    out_leaf_shapes = [tuple(leaf.shape) for leaf in out_leaves]
+    out_leaf_sizes = [int(np.prod(shape)) for shape in out_leaf_shapes]
 
-    return _group_blocks_by_argnums(blocks, sparsity)
+    # Build (input_leaf_idx, output_leaf_idx) -> block
+    # Then transpose to (output_tree, input_tree) structure
+    in_col_offset = 0
+    per_input_blocks: list[list[jax.Array | BCOO]] = []
+
+    for in_size, in_shape in zip(in_leaf_sizes, in_leaf_shapes, strict=True):
+        out_row_offset = 0
+        out_blocks: list[jax.Array | BCOO] = []
+
+        for out_size, out_shape in zip(out_leaf_sizes, out_leaf_shapes, strict=True):
+            chunk = dense[
+                out_row_offset : out_row_offset + out_size,
+                in_col_offset : in_col_offset + in_size,
+            ]
+            block: jax.Array | BCOO = chunk.reshape((*out_shape, *in_shape))
+            if output_format == "bcoo":
+                block = BCOO.fromdense(block)
+            out_blocks.append(block)
+            out_row_offset += out_size
+
+        per_input_blocks.append(out_blocks)
+        in_col_offset += in_size
+
+    # per_input_blocks[in_idx][out_idx] -> need (out_tree, in_tree) structure
+    # First rebuild as (in_tree, out_tree), then transpose
+    out_trees_per_in_leaf = [
+        jax.tree_util.tree_unflatten(out_treedef, out_blocks)
+        for out_blocks in per_input_blocks
+    ]
+
+    # For single output leaf (scalar or single array output), no transpose needed
+    if len(out_leaves) == 1:
+        return _group_blocks_by_argnums(
+            [out_trees[0] for out_trees in per_input_blocks], sparsity
+        )
+
+    # For single input leaf, the result is already the output tree structure
+    if len(in_leaf_shapes) == 1:
+        return out_trees_per_in_leaf[0]
+
+    # For multiple input leaves: transpose from (in_tree, out_tree) to (out_tree, in_tree)
+    in_tree_of_out_trees = _group_blocks_by_argnums(out_trees_per_in_leaf, sparsity)
+    in_structure = jax.tree_util.tree_structure(in_tree_of_out_trees)
+    return jax.tree_util.tree_transpose(in_structure, out_treedef, in_tree_of_out_trees)
 
 
 def _assemble_hessian(
