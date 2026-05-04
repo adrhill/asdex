@@ -794,7 +794,9 @@ def _build_jacobian(
     if output_format == "bcoo" and _is_simple_output(out_struct, sparsity):
         if data.dtype == dtypes.float0:
             data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
-        return sparsity.to_bcoo(data=data)
+        out_shape = jax.tree_util.tree_leaves(out_struct)[0].shape
+        in_shape = sparsity.leaf_shapes[0]
+        return sparsity.to_bcoo(data=data).reshape((*out_shape, *in_shape))
 
     # General path: scatter to dense, then assemble blocks.
     dense = _scatter_dense(coloring, data)
@@ -817,7 +819,8 @@ def _build_hessian(
     if output_format == "bcoo" and len(sparsity.leaf_shapes) == 1:
         if data.dtype == dtypes.float0:
             data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
-        return sparsity.to_bcoo(data=data)
+        in_shape = sparsity.leaf_shapes[0]
+        return sparsity.to_bcoo(data=data).reshape((*in_shape, *in_shape))
 
     # General path: scatter to dense, then assemble blocks.
     dense = _scatter_dense(coloring, data)
