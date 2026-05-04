@@ -31,6 +31,7 @@ from asdex.decompression import (
     _flatten_selected_cotangents,
     _selected_dtype,
 )
+from asdex.verify import _allclose_pytree
 
 # Reference tests against jax.jacobian (row coloring, default)
 
@@ -1256,9 +1257,7 @@ def test_jacobian_pytree_output_dict():
     x = jnp.array([1.0, 2.0, 3.0])
     result = jacobian(f, x, output_format="dense")(x)
     expected = jax.jacobian(f)(x)
-
-    assert_allclose(result["a"], expected["a"], rtol=1e-5)
-    assert_allclose(result["b"], expected["b"], rtol=1e-5)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
 
 
 @pytest.mark.jacobian
@@ -1271,9 +1270,7 @@ def test_jacobian_pytree_output_tuple():
     x = jnp.array([1.0, 2.0, 3.0])
     result = jacobian(f, x, output_format="dense")(x)
     expected = jax.jacobian(f)(x)
-
-    assert_allclose(result[0], expected[0], rtol=1e-5)
-    assert_allclose(result[1], expected[1], rtol=1e-5)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
 
 
 @pytest.mark.jacobian
@@ -1286,6 +1283,4 @@ def test_jacobian_pytree_output_nested():
     x = jnp.array([1.0, 2.0, 3.0])
     result = jacobian(f, x, output_format="dense")(x)
     expected = jax.jacobian(f)(x)
-
-    assert_allclose(result["out"][0], expected["out"][0], rtol=1e-5)
-    assert_allclose(result["out"][1], expected["out"][1], rtol=1e-5)
+    assert _allclose_pytree(result, expected, rtol=1e-5)

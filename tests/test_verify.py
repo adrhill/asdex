@@ -400,9 +400,6 @@ def test_check_allclose_shape_mismatch():
 
 
 @pytest.mark.jacobian
-@pytest.mark.xfail(
-    reason="check_jacobian_correctness does not yet support PyTree outputs"
-)
 def test_check_jacobian_pytree_output():
     """check_jacobian_correctness works with PyTree outputs."""
 
@@ -415,9 +412,6 @@ def test_check_jacobian_pytree_output():
 
 
 @pytest.mark.jacobian
-@pytest.mark.xfail(
-    reason="check_jacobian_correctness does not yet support PyTree outputs"
-)
 @pytest.mark.parametrize("method", ["matvec", "dense"])
 def test_check_jacobian_pytree_output_methods(method):
     """check_jacobian_correctness works with PyTree outputs for both methods."""
@@ -431,9 +425,6 @@ def test_check_jacobian_pytree_output_methods(method):
 
 
 @pytest.mark.hessian
-@pytest.mark.xfail(
-    reason="check_hessian_correctness does not yet support PyTree inputs"
-)
 def test_check_hessian_pytree_input():
     """check_hessian_correctness works with PyTree inputs (single argnum)."""
 
@@ -446,9 +437,6 @@ def test_check_hessian_pytree_input():
 
 
 @pytest.mark.hessian
-@pytest.mark.xfail(
-    reason="check_hessian_correctness does not yet support PyTree inputs"
-)
 @pytest.mark.parametrize("method", ["matvec", "dense"])
 def test_check_hessian_pytree_input_methods(method):
     """check_hessian_correctness works with PyTree inputs for both methods."""
