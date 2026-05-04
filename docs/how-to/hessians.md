@@ -20,8 +20,9 @@ import jax
 import jax.numpy as jnp
 from asdex import hessian
 
-x_sample = jnp.zeros(100)  # sample input for sparsity detection
-hess_fn = jax.jit(hessian(f, x_sample))
+x = jnp.zeros(100)
+hess_fn = jax.jit(hessian(f, x))  # you can use any sample input with correct shape and dtype here
+
 H = hess_fn(x)
 ```
 

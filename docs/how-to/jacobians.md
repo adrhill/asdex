@@ -20,8 +20,9 @@ import jax
 import jax.numpy as jnp
 from asdex import jacobian
 
-x_sample = jnp.zeros(1000)  # sample input for sparsity detection
-jac_fn = jax.jit(jacobian(f, x_sample))
+x = jnp.zeros(1000)
+jac_fn = jax.jit(jacobian(f, x))  # you can use any sample input with correct shape and dtype here
+
 J = jac_fn(x)
 ```
 
