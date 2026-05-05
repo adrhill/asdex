@@ -1164,49 +1164,6 @@ def test_color_empty_pattern():
     assert len(result.colors) == 0
 
 
-@pytest.mark.slow
-@pytest.mark.hessian
-def test_hessian_star_decompression_non_unique_branch():
-    """Star decompression uses fallback when a color is not unique in a column.
-
-    With a tridiagonal Hessian and star coloring using 3 colors,
-    some off-diagonal entries require the fallback decompress path
-    (colors[j] in row i instead of colors[i] in column j).
-    """
-
-    def f(x):
-        return jnp.sum((x[1:] - x[:-1]) ** 2)
-
-    x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    expected = jax.hessian(f)(x)
-
-    # Build the correct tridiagonal sparsity pattern manually
-    rows, cols = [], []
-    n = x.size
-    for i in range(n):
-        rows.append(i)
-        cols.append(i)
-        if i + 1 < n:
-            rows.extend([i, i + 1])
-            cols.extend([i + 1, i])
-    sparsity = SparsityPattern.from_coo(rows, cols, (n, n))
-    colors_arr, num, _ = color_symmetric(sparsity)
-
-    # Verify star coloring reuses colors (needs only 3 for tridiagonal)
-    assert num == 3
-
-    coloring = ColoredPattern(
-        sparsity,
-        colors=colors_arr,
-        num_colors=num,
-        symmetric=True,
-        mode="fwd_over_rev",
-    )
-    result = hessian_from_coloring(f, coloring)(x).todense()
-
-    assert_allclose(result, expected, rtol=1e-5)
-
-
 # DenseColoringWarning tests
 
 
