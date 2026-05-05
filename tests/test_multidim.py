@@ -272,7 +272,6 @@ def test_lenet_jacobian_values():
     x = jax.random.normal(jax.random.key(0), (8, 8))
 
     result = jacobian(_lenet_fn, np.zeros((8, 8)))(np.asarray(x)).todense()
-    # Reference: jax.jacobian gives (m, H, W), reshape to (m, n)
-    expected = jax.jacobian(_lenet_fn)(x).reshape(result.shape[0], 64)
+    expected = jax.jacobian(_lenet_fn)(x)
 
     assert_allclose(result, np.asarray(expected), rtol=1e-4)
