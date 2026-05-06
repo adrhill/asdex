@@ -53,13 +53,11 @@ def jacobian(
     in one call.
 
     Args:
-        f: Function taking one or more positional arrays and returning an array.
-        *args: Sample inputs specifying the structure, shape, and dtype of each
-            positional argument of ``f``.
-            Only structure is used; values are ignored.
-        argnums: Positions of the positional arguments to differentiate with
-            respect to, mirroring ``jax.jacfwd`` / ``jax.jacrev``.
-            Defaults to ``0``.
+        f: Function whose Jacobian is to be computed.
+        *args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
             mirroring ``jax.jacrev``.
             When True, the returned function yields ``(jac, aux)``.

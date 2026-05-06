@@ -35,7 +35,8 @@ def _ensure_index(x: Any) -> int | tuple[int, ...]:
     """Ensure x is either an index or a tuple of indices.
 
     Mirrors jax._src.api_util._ensure_index.
-    Preserves int-vs-tuple distinction (load-bearing for return shape).
+    Preserves int-vs-tuple distinction: argnums=0 returns a single array,
+    while argnums=(0,) returns a length-1 tuple.
     """
     try:
         return operator.index(x)
@@ -44,8 +45,9 @@ def _ensure_index(x: Any) -> int | tuple[int, ...]:
 
 
 def _ensure_inbounds(num_args: int, argnums: tuple[int, ...]) -> tuple[int, ...]:
-    """Validate bounds and resolve negative indices.
+    """Validate bounds and resolve negative indices to positive ones.
 
+    For example, argnums=(-1,) with 3 args becomes (2,).
     Mirrors jax._src.api_util._ensure_inbounds.
     """
     result = []
@@ -62,8 +64,9 @@ def _ensure_inbounds(num_args: int, argnums: tuple[int, ...]) -> tuple[int, ...]
 def dyn_args_from_argnums(
     args: tuple[Any, ...], argnums: int | tuple[int, ...]
 ) -> tuple[Any, ...]:
-    """Extract dynamic args at positions specified by argnums.
+    """Extract args to differentiate with respect to, as specified by argnums.
 
+    For example, argnums=(0, 2) with args (a, b, c) returns (a, c).
     Mirrors jax._src.api_util.argnums_partial's dyn_args extraction.
     """
     argnums_tuple = (argnums,) if isinstance(argnums, int) else argnums
@@ -75,13 +78,19 @@ def dyn_args_from_argnums(
 
 
 def _to_aval(x: Any) -> ShapeDtypeStruct:
-    """Convert a leaf to ShapeDtypeStruct, handling Python scalars."""
+    """Convert a pytree leaf (array or scalar) to ShapeDtypeStruct.
+
+    ShapeDtypeStruct holds shape and dtype metadata without actual array data.
+    """
     arr = jnp.asarray(x)
     return ShapeDtypeStruct(arr.shape, arr.dtype)
 
 
 def avals_from_args(args: tuple[Any, ...]) -> tuple[Any, ...]:
-    """Extract ShapeDtypeStruct pytrees from sample inputs."""
+    """Extract ShapeDtypeStruct pytrees from sample inputs.
+
+    Returns pytrees with the same structure, but leaves replaced by shape+dtype metadata.
+    """
     if len(args) == 0:
         raise TypeError("Expected at least one sample input.")
     return tuple(tree_map(_to_aval, arg) for arg in args)

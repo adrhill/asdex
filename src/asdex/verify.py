@@ -165,7 +165,7 @@ def check_jacobian_correctness(
     """Verify asdex's sparse Jacobian against a JAX reference at a given input.
 
     Args:
-        f: Function taking an array and returning an array.
+        f: Function whose Jacobian is to be verified.
         x: Input at which to evaluate the Jacobian.
         coloring: Pre-computed colored pattern from
             :func:`~asdex.jacobian_coloring`.

@@ -30,15 +30,11 @@ def jacobian_sparsity(
     The result is valid for all inputs.
 
     Args:
-        f: Function taking one or more positional arrays and returning an array.
-            Each positional argument may itself be a pytree.
-        *args: Sample inputs specifying the structure, shape, and dtype of each
-            positional argument of ``f``.
-            Only structure is used; values are ignored.
-        argnums: Positions of the positional arguments to differentiate with
-            respect to, mirroring ``jax.grad`` / ``jax.jacfwd``.
-            Negative indices are resolved via ``i % len(args)``.
-            Defaults to ``0``.
+        f: Function whose Jacobian sparsity pattern is to be detected.
+        *args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
             When True, only ``output`` is analyzed for sparsity;
             the auxiliary branch of the computation is not traced.
@@ -88,11 +84,10 @@ def hessian_sparsity(
 
     Args:
         f: Scalar-valued function taking one or more positional arrays.
-        *args: Sample inputs specifying the structure, shape, and dtype of each
-            positional argument of ``f``.
-            Only structure is used; values are ignored.
-        argnums: Positions of the positional arguments to differentiate with
-            respect to, mirroring ``jax.grad``.
+        *args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
         has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``.
             When True, aux is stripped before detection.
 

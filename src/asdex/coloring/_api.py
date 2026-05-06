@@ -46,13 +46,11 @@ def jacobian_coloring(
     """Detect Jacobian sparsity and color in one step.
 
     Args:
-        f: Function taking one or more positional arrays and returning an array.
-        *args: Sample inputs specifying the structure, shape, and dtype of each
-            positional argument of ``f``.
-            Only structure is used; values are ignored.
-        argnums: Positions of the positional arguments to differentiate with
-            respect to, mirroring ``jax.grad`` / ``jax.jacfwd``.
-            Defaults to ``0``.
+        f: Function whose Jacobian is to be computed.
+        *args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
         has_aux: If ``True``, ``f`` is assumed to return ``(output, aux)``
             where ``aux`` is auxiliary data ignored by sparsity detection.
         mode: AD mode.
@@ -89,12 +87,10 @@ def hessian_coloring(
 
     Args:
         f: Scalar-valued function taking one or more positional arrays.
-        *args: Sample inputs specifying the structure, shape, and dtype of each
-            positional argument of ``f``.
-            Only structure is used; values are ignored.
-        argnums: Positions of the positional arguments to differentiate with
-            respect to, mirroring ``jax.grad``.
-            Defaults to ``0``.
+        *args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
         has_aux: If ``True``, ``f`` is assumed to return ``(output, aux)``
             where ``aux`` is auxiliary data ignored by sparsity detection.
         mode: AD composition strategy for Hessian-vector products.
