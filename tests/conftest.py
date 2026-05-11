@@ -1,5 +1,54 @@
 """Pytest configuration and fixtures for asdex tests."""
 
+import jax
+import pytest
+from jax.experimental.sparse import BCOO
+from numpy.testing import assert_allclose
+
+
+def _to_dense(x):
+    """Convert BCOO to dense, pass through other arrays."""
+    return x.todense() if isinstance(x, BCOO) else x
+
+
+def _assert_trees_allclose(actual, expected, *, rtol=1e-7, atol=0):
+    """Assert two pytrees have matching structure and allclose leaves.
+
+    Automatically converts BCOO leaves to dense for comparison.
+    Structure is compared after conversion to handle BCOO's custom pytree node.
+    """
+    actual_dense = jax.tree.map(
+        _to_dense, actual, is_leaf=lambda x: isinstance(x, BCOO)
+    )
+    assert jax.tree.structure(actual_dense) == jax.tree.structure(expected)
+    jax.tree.map(
+        lambda a, e: assert_allclose(a, e, rtol=rtol, atol=atol), actual_dense, expected
+    )
+
+
+@pytest.fixture
+def assert_trees_allclose():
+    """Fixture providing the assert_trees_allclose helper."""
+    return _assert_trees_allclose
+
+
+@pytest.fixture(params=["dense", "bcoo"])
+def output_format(request):
+    """Parametrize over output formats."""
+    return request.param
+
+
+@pytest.fixture(params=["fwd", "rev"])
+def jacobian_mode(request):
+    """Parametrize over Jacobian AD modes."""
+    return request.param
+
+
+@pytest.fixture(params=["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def hessian_mode(request):
+    """Parametrize over Hessian AD modes."""
+    return request.param
+
 
 def pytest_report_teststatus(report, config):
     """Suppress progress dots for passing tests to keep output concise."""

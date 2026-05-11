@@ -48,6 +48,9 @@ def jacobian_sparsity(
     avals = avals_from_args(args)
     selected = _argnums_tuple(argnums, len(args))
 
+    # Resolve negative indices while preserving int-vs-tuple distinction
+    argnums_resolved = selected[0] if isinstance(argnums, int) else selected
+
     f_out = _strip_aux(f) if has_aux else f
 
     closed_jaxpr = jax.make_jaxpr(f_out)(*args)
@@ -63,7 +66,7 @@ def jacobian_sparsity(
         cols,
         (m, n_selected),
         input_avals=avals,
-        argnums=argnums,
+        argnums=argnums_resolved,
     )
 
 
@@ -117,10 +120,14 @@ def _strip_aux(f: Callable) -> Callable:
 
 
 def _dce_closed_jaxpr(closed_jaxpr: ClosedJaxpr) -> ClosedJaxpr:
-    """Apply dead code elimination to remove equations unused by outputs."""
+    """Remove equations unused by outputs while preserving all inputs.
+
+    Uses ``instantiate=True`` so DCE keeps all input variables even if unused.
+    This is needed because input_indices must align with the original inputs.
+    """
     jaxpr = closed_jaxpr.jaxpr
     used_outputs = [True] * len(jaxpr.outvars)
-    new_jaxpr, _ = dce_jaxpr(jaxpr, used_outputs)
+    new_jaxpr, _ = dce_jaxpr(jaxpr, used_outputs, instantiate=True)
     return ClosedJaxpr(new_jaxpr, closed_jaxpr.consts)
 
 
@@ -132,21 +139,35 @@ def _build_input_indices(
     Selected positions get identity index sets over a contiguous column
     space; non-selected positions get empty index sets so dependencies
     flowing through them do not appear in the pattern.
+
+    Column indices are assigned in ``selected`` (argnums) order so that
+    the sparsity pattern columns match the order expected by decompression.
+
     Returns ``(input_indices, n_selected)``.
     """
-    input_indices: list[list] = []
+    # First pass: assign column offsets in argnums order
+    col_offsets: dict[int, int] = {}
     offset = 0
+    for pos_idx in selected:
+        col_offsets[pos_idx] = offset
+        leaves = jax.tree_util.tree_leaves(avals[pos_idx])
+        offset += sum(int(leaf.size) for leaf in leaves)
+    n_selected = offset
+
+    # Second pass: build input_indices in jaxpr input order
+    input_indices: list[list] = []
     for pos_idx, pos_aval in enumerate(avals):
         leaves = jax.tree_util.tree_leaves(pos_aval)
-        if pos_idx in selected:
+        if pos_idx in col_offsets:
+            col_offset = col_offsets[pos_idx]
             for leaf in leaves:
                 size = int(leaf.size)
-                input_indices.append([{offset + j} for j in range(size)])
-                offset += size
+                input_indices.append([{col_offset + j} for j in range(size)])
+                col_offset += size
         else:
             for leaf in leaves:
                 input_indices.append(empty_index_sets(int(leaf.size)))  # noqa: PERF401
-    return input_indices, offset
+    return input_indices, n_selected
 
 
 def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:

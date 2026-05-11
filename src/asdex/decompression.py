@@ -554,8 +554,6 @@ def _eval_value_and_hessian(
 def _output_dtype(pytree: Any) -> jnp.dtype:
     """Get the result dtype for a PyTree of arrays."""
     leaves = jax.tree_util.tree_leaves(pytree)
-    if not leaves:
-        return jnp.float_
     return dtypes.result_type(*leaves)
 
 
@@ -815,8 +813,6 @@ def _build_hessian(
 
     # Fast path: single input leaf with BCOO format.
     if output_format == "bcoo" and len(sparsity.leaf_shapes) == 1:
-        if data.dtype == dtypes.float0:
-            data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
         in_shape = sparsity.leaf_shapes[0]
         return sparsity.to_bcoo(data=data).reshape((*in_shape, *in_shape))
 
@@ -888,19 +884,25 @@ def _build_tangents_from_seed(
         chunks.append(seed[offset : offset + size])
         offset += size
 
-    selected_positions = set(sparsity._argnums_tuple)
+    # Map position -> chunk offset. Chunks are in argnums order, not position order.
+    pos_to_chunk_offset: dict[int, int] = {}
+    chunk_offset = 0
+    for pos in sparsity._argnums_tuple:
+        pos_to_chunk_offset[pos] = chunk_offset
+        aval_leaves = jax.tree_util.tree_leaves(sparsity.input_avals[pos])
+        chunk_offset += len(aval_leaves)
+
     tangents: list[Any] = []
-    chunk_idx = 0
     for pos_idx, (arg, aval) in enumerate(zip(args, sparsity.input_avals, strict=True)):
         del arg
         aval_leaves = jax.tree_util.tree_leaves(aval)
         aval_tree = jax.tree_util.tree_structure(aval)
-        if pos_idx in selected_positions:
+        if pos_idx in pos_to_chunk_offset:
+            chunk_idx = pos_to_chunk_offset[pos_idx]
             leaf_tangents = [
                 chunks[chunk_idx + k].reshape(leaf_shapes[chunk_idx + k])
                 for k in range(len(aval_leaves))
             ]
-            chunk_idx += len(aval_leaves)
         else:
             leaf_tangents = [
                 jnp.zeros(tuple(leaf.shape), dtype=seed.dtype) for leaf in aval_leaves
@@ -1038,10 +1040,10 @@ def _assemble_jacobian(
     if len(in_leaf_shapes) == 1:
         return out_trees_per_in_leaf[0]
 
-    # For multiple input leaves: transpose from (in_tree, out_tree) to (out_tree, in_tree)
+    # Multiple input leaves and multiple output leaves:
+    # Group by argnums, then transpose to get (out_tree, in_tree) structure
     in_tree_of_out_trees = _group_blocks_by_argnums(out_trees_per_in_leaf, sparsity)
-    in_structure = jax.tree_util.tree_structure(in_tree_of_out_trees)
-    return jax.tree_util.tree_transpose(in_structure, out_treedef, in_tree_of_out_trees)
+    return _transpose_in_out_trees(in_tree_of_out_trees, out_treedef, output_format)
 
 
 def _assemble_hessian(
@@ -1104,3 +1106,51 @@ def _group_blocks_by_argnums(
         assert len(grouped) == 1
         return grouped[0]
     return tuple(grouped)
+
+
+def _transpose_in_out_trees(
+    in_tree_of_out_trees: Any,
+    out_treedef: jax.tree_util.PyTreeDef,
+    output_format: OutputFormat,
+) -> Any:
+    """Transpose (in_tree, out_tree) structure to (out_tree, in_tree).
+
+    For dense output, uses jax.tree_util.tree_transpose.
+    For BCOO output, performs manual transpose since BCOO arrays have internal
+    pytree structure that confuses tree_transpose.
+    """
+
+    def is_bcoo(x: Any) -> bool:
+        return isinstance(x, BCOO)
+
+    def is_out_tree(x: Any) -> bool:
+        return jax.tree_util.tree_structure(x, is_leaf=is_bcoo) == out_treedef
+
+    in_treedef = jax.tree_util.tree_structure(
+        jax.tree_util.tree_map(lambda _: 0, in_tree_of_out_trees, is_leaf=is_out_tree)
+    )
+
+    if output_format == "dense":
+        return jax.tree_util.tree_transpose(
+            in_treedef, out_treedef, in_tree_of_out_trees
+        )
+
+    # BCOO: manual transpose to avoid tree_transpose seeing BCOO's internal structure.
+    # Flatten outer structure (in_tree), keeping out_trees as leaves.
+    out_trees = jax.tree_util.tree_leaves(in_tree_of_out_trees, is_leaf=is_out_tree)
+
+    # Flatten each out_tree, treating BCOO as leaves
+    leaves_per_out_tree = [
+        jax.tree_util.tree_leaves(t, is_leaf=is_bcoo) for t in out_trees
+    ]
+
+    # Transpose: for each output position, collect blocks across all input leaves
+    num_out_leaves = len(leaves_per_out_tree[0])
+    transposed_leaves = [
+        jax.tree_util.tree_unflatten(
+            in_treedef, [leaves[i] for leaves in leaves_per_out_tree]
+        )
+        for i in range(num_out_leaves)
+    ]
+
+    return jax.tree_util.tree_unflatten(out_treedef, transposed_leaves)

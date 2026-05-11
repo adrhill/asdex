@@ -45,6 +45,20 @@ uv run pytest -m jacobian        # Run only sparse Jacobian tests
 uv run pytest -m hessian         # Run only Hessian tests
 ```
 
+## Test Utilities (conftest.py)
+
+### Assertion helpers
+
+- `assert_trees_allclose(actual, expected, rtol=1e-7, atol=0)`: Assert two pytrees have matching structure and allclose leaves. Automatically converts BCOO leaves to dense for comparison. Use as a fixture parameter in test functions.
+
+### Fixtures for parametrization
+
+- `output_format`: Parametrizes over `"dense"` and `"bcoo"`.
+- `jacobian_mode`: Parametrizes over `"fwd"` and `"rev"`.
+- `hessian_mode`: Parametrizes over `"fwd_over_rev"`, `"rev_over_fwd"`, and `"rev_over_rev"`.
+
+Use these fixtures in test function signatures to automatically run tests across all variants.
+
 ## Conventions
 
 - Each test function should have a docstring explaining what it tests.
