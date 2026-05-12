@@ -20,6 +20,7 @@ from asdex.coloring._api import (
 )
 from asdex.coloring._color_greedy import color_cols, color_rows
 from asdex.coloring._color_symmetric import color_symmetric
+from asdex.coloring._graph import reconstruct_edge_index
 from asdex.coloring._types import DenseColoringWarning, InvalidColoringError, StarSet
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "hessian_coloring_from_sparsity",
     "jacobian_coloring",
     "jacobian_coloring_from_sparsity",
+    "reconstruct_edge_index",
 ]

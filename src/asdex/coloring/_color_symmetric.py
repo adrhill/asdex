@@ -16,7 +16,11 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
-from asdex.coloring._graph import _build_edge_to_index, _build_symmetric_csr
+from asdex.coloring._graph import (
+    _build_edge_index_dict,
+    _build_edge_to_index,
+    _build_symmetric_csr,
+)
 from asdex.coloring._postprocessing import _postprocess_star_coloring
 from asdex.coloring._types import InvalidColoringError, StarSet
 from asdex.pattern import SparsityPattern
@@ -139,26 +143,6 @@ def color_symmetric(
 
 
 # Internals
-
-
-def _build_edge_index_dict(
-    indptr: NDArray[np.int32],
-    neighbors: NDArray[np.int32],
-    edge_to_index: NDArray[np.int32],
-) -> dict[tuple[int, int], int]:
-    """Materialize the ``(min, max) -> edge_idx`` dict consumed by :class:`StarSet`.
-
-    Walks each CSR entry once and keeps only the ``j < i`` direction so that
-    every undirected edge contributes exactly once.
-    """
-    result: dict[tuple[int, int], int] = {}
-    n = len(indptr) - 1
-    for j in range(n):
-        for pos in range(int(indptr[j]), int(indptr[j + 1])):
-            i = int(neighbors[pos])
-            if i > j:
-                result[(j, i)] = int(edge_to_index[pos])
-    return result
 
 
 @njit(cache=True)

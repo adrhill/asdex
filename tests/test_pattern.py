@@ -365,29 +365,125 @@ def test_save_load_sparsity_roundtrip(tmp_path):
     np.testing.assert_array_equal(loaded.cols, original.cols)
 
 
-@pytest.mark.parametrize(
-    ("symmetric", "mode"),
-    [
-        (False, "fwd"),
-        (False, "rev"),
-        (True, "fwd_over_rev"),
-        (True, "rev_over_fwd"),
-        (True, "rev_over_rev"),
-    ],
-    ids=["fwd", "rev", "fwd_over_rev", "rev_over_fwd", "rev_over_rev"],
-)
-def test_save_load_colored_roundtrip(tmp_path, symmetric, mode):
-    """ColoredPattern survives a save/load roundtrip for each mode."""
-    sparsity = SparsityPattern.from_coo([0, 1, 2], [0, 1, 2], (3, 3))
-    # One color per row/col for a diagonal pattern.
-    colors = np.array([0, 1, 2], dtype=np.int32)
-    original = ColoredPattern(
-        sparsity=sparsity,
-        colors=colors,
-        num_colors=3,
-        symmetric=symmetric,
-        mode=mode,
+def test_save_load_hessian_coloring_decompression(tmp_path):
+    """Hessian coloring survives save/load and produces correct results."""
+
+    def f(x):
+        return jnp.sum(x**2) + x[0] * x[1]
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    coloring = asdex.hessian_coloring(f, x)
+    expected = asdex.hessian_from_coloring(f, coloring, output_format="dense")(x)
+
+    path = tmp_path / "hessian_coloring.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    result = asdex.hessian_from_coloring(f, loaded, output_format="dense")(x)
+    np.testing.assert_allclose(result, expected, rtol=1e-5)
+
+
+def test_save_load_hessian_coloring_star_set_preserved(tmp_path):
+    """star_set is preserved after save/load roundtrip."""
+
+    def f(x):
+        return jnp.sum(x**2) + x[0] * x[1]
+
+    coloring = asdex.hessian_coloring(f, jnp.zeros(3))
+    assert coloring.star_set is not None
+
+    path = tmp_path / "hessian.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    assert loaded.star_set is not None
+    np.testing.assert_array_equal(loaded.star_set.star, coloring.star_set.star)
+    np.testing.assert_array_equal(loaded.star_set.hub, coloring.star_set.hub)
+    assert loaded.star_set.edge_index == coloring.star_set.edge_index
+
+
+def test_load_legacy_symmetric_without_star_set_raises(tmp_path):
+    """Loading old symmetric coloring without star/hub arrays raises ValueError."""
+    sparsity = SparsityPattern.from_coo([0, 1, 0], [0, 1, 1], (2, 2))
+    np.savez(
+        tmp_path / "legacy.npz",
+        rows=sparsity.rows,
+        cols=sparsity.cols,
+        shape=np.array(sparsity.shape),
+        input_shape=np.array((2,)),
+        colors=np.array([0, 1], dtype=np.int32),
+        num_colors=np.array(2),
+        symmetric=np.array(True),
+        mode=np.array("fwd_over_rev"),
     )
+    with pytest.raises(ValueError, match=r"star_set.*missing"):
+        ColoredPattern.load(tmp_path / "legacy.npz")
+
+
+def test_save_load_hessian_coloring_empty(tmp_path):
+    """Hessian coloring with empty off-diagonal survives save/load."""
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    coloring = asdex.hessian_coloring(f, jnp.zeros(3))
+    path = tmp_path / "empty_offdiag.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    expected = asdex.hessian_from_coloring(f, coloring, output_format="dense")(x)
+    result = asdex.hessian_from_coloring(f, loaded, output_format="dense")(x)
+    np.testing.assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_save_load_hessian_coloring_all_modes(tmp_path, mode):
+    """Hessian coloring survives save/load for all Hessian modes."""
+
+    def f(x):
+        return jnp.sum(x**2) + x[0] * x[1]
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    coloring = asdex.hessian_coloring(f, x, mode=mode)
+    expected = asdex.hessian_from_coloring(f, coloring, output_format="dense")(x)
+
+    path = tmp_path / f"hessian_{mode}.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    result = asdex.hessian_from_coloring(f, loaded, output_format="dense")(x)
+    np.testing.assert_allclose(result, expected, rtol=1e-5)
+
+
+def test_save_load_jacobian_coloring_no_star_set(tmp_path):
+    """Jacobian coloring (non-symmetric) saves and loads without star_set."""
+
+    def f(x):
+        return x**2
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    coloring = asdex.jacobian_coloring(f, x)
+    assert coloring.star_set is None
+
+    path = tmp_path / "jacobian.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    assert loaded.star_set is None
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(x)
+    expected = asdex.jacobian_from_coloring(f, coloring, output_format="dense")(x)
+    np.testing.assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.parametrize("mode", ["fwd", "rev"], ids=["fwd", "rev"])
+def test_save_load_jacobian_colored_roundtrip(tmp_path, mode):
+    """Jacobian ColoredPattern survives a save/load roundtrip."""
+
+    def f(x):
+        return x**2
+
+    original = asdex.jacobian_coloring(f, jnp.zeros(3), mode=mode)
     path = tmp_path / "colored.npz"
     original.save(path)
 
@@ -401,6 +497,36 @@ def test_save_load_colored_roundtrip(tmp_path, symmetric, mode):
     assert loaded.num_colors == original.num_colors
     assert loaded.symmetric == original.symmetric
     assert loaded.mode == original.mode
+    assert loaded.star_set is None
+
+
+@pytest.mark.parametrize(
+    "mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"], ids=str
+)
+def test_save_load_hessian_colored_roundtrip(tmp_path, mode):
+    """Hessian ColoredPattern survives a save/load roundtrip with star_set."""
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    original = asdex.hessian_coloring(f, jnp.zeros(3), mode=mode)
+    path = tmp_path / "colored.npz"
+    original.save(path)
+
+    loaded = ColoredPattern.load(path)
+
+    assert loaded.sparsity.shape == original.sparsity.shape
+    assert loaded.sparsity.leaf_shapes == original.sparsity.leaf_shapes
+    np.testing.assert_array_equal(loaded.sparsity.rows, original.sparsity.rows)
+    np.testing.assert_array_equal(loaded.sparsity.cols, original.sparsity.cols)
+    np.testing.assert_array_equal(loaded.colors, original.colors)
+    assert loaded.num_colors == original.num_colors
+    assert loaded.symmetric == original.symmetric
+    assert loaded.mode == original.mode
+    assert original.star_set is not None
+    assert loaded.star_set is not None
+    np.testing.assert_array_equal(loaded.star_set.star, original.star_set.star)
+    np.testing.assert_array_equal(loaded.star_set.hub, original.star_set.hub)
 
 
 def test_save_load_sparsity_empty(tmp_path):

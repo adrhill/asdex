@@ -41,65 +41,21 @@ Apply to all `tests/_interpret/test_*.py` files, not just `test_scan.py`.
 
 ## Later
 
-### Star/hub tracking and postprocessing for `color_symmetric` [M]
+### Star coloring postprocessing [S]
 
-#### Background
+Star tracking and hub-based decompression are now implemented.
+The remaining improvement is **postprocessing** (SMC's `postprocessing.jl`):
 
-A star coloring partitions the edges of the adjacency graph into 2-colored stars.
-Each star has one *hub* (center) and one or more *spokes* (leaves).
-For an edge `(hub, spoke)`, the hub and spoke have different colors,
-and all spokes of a given star share the same color (which differs from the hub's color).
-
-During Hessian decompression, each HVP seeds all vertices of one color simultaneously.
-The entry `H[i, j]` can be recovered from the HVP seeded with `color[hub]`:
-the hub's result encodes the interaction between hub and spoke.
-The spoke's own color is never directly needed for extraction —
-only the hub color matters.
-
-#### Current state
-
-`color_symmetric` in `coloring.py` produces a valid star coloring
-(following SMC's Case 1 / Case 2 structure)
-but does not build any star/hub data structure.
-`decompression.py` uses its own extraction logic
-that does not exploit the hub/spoke distinction.
-
-#### What SMC does
-
-SMC's `_update_stars!` (called after assigning each vertex's color) maintains:
-- `star[edge_index]`: which star an edge belongs to
-- `hub[star_index]`: the hub vertex of each star (negative sentinel for trivial 2-vertex stars)
-
-This is built incrementally:
-when vertex `v` is colored and a neighbor `w` has another neighbor `x` with `color[x] == color[v]`,
-`w` becomes the hub of the star containing edge `w-x`,
-and edge `v-w` is merged into that star.
-
-#### Improvements unlocked
-
-**1. Postprocessing** (`postprocessing.jl` in SMC):
 After coloring, scan all stars.
 A color is "used" only if it is the hub color of at least one star
 (diagonal nonzeros also force their color to be used).
-Spoke-only colors are marked neutral (color 0) and compacted out,
+Spoke-only colors are marked neutral (`-1`) and compacted out,
 reducing the number of HVPs below what the greedy algorithm alone achieves.
 For trivial 2-vertex stars, the hub can be chosen as whichever endpoint
 already has a used color, to avoid introducing a new used color.
 
-**2. Case 2 efficiency**:
-The current Case 2 check in `color_symmetric`
-scans all neighbors `u` of `w`, then all neighbors of `u`,
-to find a vertex with `colors[x] == colors[w]` — O(deg²) worst case.
-With the star structure, this becomes an O(1) lookup:
-`x == hub[star[edge_wx]]` (SMC's actual check),
-since a non-negative hub on edge `w-x` certifies that such a vertex exists.
-
-#### What needs to change
-
-- `color_symmetric` must build and return a `StarSet` (star + hub arrays) alongside the colors.
-- `hessian_coloring_from_sparsity` / `ColoredPattern` must carry the `StarSet`.
-- `decompression.py` must be rewritten to use hub-based extraction.
-- A `postprocess!`-equivalent must be added and applied before returning the `ColoredPattern`.
+`color_symmetric` already has a `postprocess=False` kwarg that enables this
+when set to `True`. Verify it works correctly and consider making it the default.
 
 ### Coloring verification via `forced_colors` [S]
 

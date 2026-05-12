@@ -486,17 +486,20 @@ class ColoredPattern:
                 "the ColoredPattern."
             )
         leaf = self.sparsity._dyn_flat[0][0]
-        np.savez(
-            path,
-            rows=self.sparsity.rows,
-            cols=self.sparsity.cols,
-            shape=np.array(self.sparsity.shape),
-            input_shape=np.array(leaf.shape),
-            colors=self.colors,
-            num_colors=np.array(self.num_colors),
-            symmetric=np.array(self.symmetric),
-            mode=np.array(self.mode),
-        )
+        save_dict: dict[str, np.ndarray] = {
+            "rows": self.sparsity.rows,
+            "cols": self.sparsity.cols,
+            "shape": np.array(self.sparsity.shape),
+            "input_shape": np.array(leaf.shape),
+            "colors": self.colors,
+            "num_colors": np.array(self.num_colors),
+            "symmetric": np.array(self.symmetric),
+            "mode": np.array(self.mode),
+        }
+        if self.star_set is not None:
+            save_dict["star"] = self.star_set.star
+            save_dict["hub"] = self.star_set.hub
+        np.savez(path, **save_dict)  # ty: ignore[invalid-argument-type]
 
     @classmethod
     def load(cls, path: str | os.PathLike[str]) -> ColoredPattern:
@@ -516,12 +519,34 @@ class ColoredPattern:
         )
         mode = str(data["mode"])
         _assert_coloring_mode(mode)
+
+        symmetric = bool(data["symmetric"])
+        star_set: StarSet | None = None
+        if symmetric:
+            if "star" not in data or "hub" not in data:
+                msg = (
+                    "Cannot load symmetric ColoredPattern: star_set arrays missing. "
+                    "Re-run asdex.hessian_coloring() to regenerate."
+                )
+                raise ValueError(msg)
+            from asdex.coloring import StarSet, reconstruct_edge_index  # noqa: PLC0415
+
+            edge_index = reconstruct_edge_index(
+                sparsity.rows, sparsity.cols, sparsity.n
+            )
+            star_set = StarSet(
+                star=data["star"].astype(np.int32),
+                hub=data["hub"].astype(np.int32),
+                edge_index=edge_index,
+            )
+
         return cls(
             sparsity=sparsity,
             colors=data["colors"].astype(np.int32),
             num_colors=int(data["num_colors"]),
-            symmetric=bool(data["symmetric"]),
+            symmetric=symmetric,
             mode=mode,  # ty: ignore[invalid-argument-type]
+            star_set=star_set,
         )
 
     # Display
