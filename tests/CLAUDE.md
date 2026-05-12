@@ -4,6 +4,7 @@
 
 - Top-level test files (`test_*.py`) cover the public modules in `src/asdex/`.
 - `_interpret/` mirrors the handler modules: `_interpret/test_foo.py` tests `src/asdex/detection/_interpret/_foo.py`.
+- `e2e/` contains end-to-end tests covering the full pipeline from public API through detection, coloring, and decompression.
 - External-package handler tests live in subfolders (e.g., `_interpret/_equinox/`).
 
 ## Running Tests
@@ -34,6 +35,8 @@ Use markers to run subsets of tests:
 | `fallback` | Documents conservative fallback behavior (TODO) |
 | `bug` | Documents known bugs |
 | `slow` | Tests that take more than 1 second |
+| `benchmark` | Performance benchmarks (skipped by default) |
+| `dashboard` | Benchmarks tracked in GitHub Pages dashboard |
 | `cutest` | CUTEst benchmark problem tests (requires sif2jax) |
 
 ```bash
