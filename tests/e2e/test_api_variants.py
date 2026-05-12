@@ -57,8 +57,6 @@ def test_value_and_jacobian_dict_input(mode, output_format, assert_trees_allclos
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_jacobian_nested_dict(mode, output_format, assert_trees_allclose):
     """value_and_jacobian with nested dict matches JAX."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for nested dict inputs")
 
     def f(params):
         return params["layer"]["w"] @ jnp.ones(2)
@@ -328,8 +326,6 @@ def test_value_and_hessian_from_coloring_dict(
     mode, output_format, assert_trees_allclose
 ):
     """value_and_hessian_from_coloring with dict input matches JAX."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose PyTree structure for single-leaf dict")
 
     def f(params):
         return jnp.sum(params["w"] ** 2)
@@ -384,8 +380,6 @@ def test_jacobian_coloring_reuse_pytree_nondiff_arg(
     mode, output_format, assert_trees_allclose
 ):
     """Coloring built once reuses correctly when non-diff PyTree arg changes."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for single-leaf dict")
 
     def f(params, config):
         return params["w"] * config["scale"] + config["offset"]
@@ -416,8 +410,6 @@ def test_hessian_coloring_reuse_pytree_nondiff_arg(
     mode, output_format, assert_trees_allclose
 ):
     """Hessian coloring reuses correctly when non-diff PyTree arg changes."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose PyTree structure for single-leaf dict")
 
     def f(params, config):
         return jnp.sum(params["w"] ** 2) * config["scale"]

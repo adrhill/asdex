@@ -32,6 +32,22 @@ from asdex.modes import (
 )
 from asdex.pattern import ColoredPattern, SparsityPattern
 
+
+class _BCOOLeaf:
+    """Wrapper to hide BCOO's internal pytree structure from tree operations.
+
+    BCOO is registered as a pytree in JAX, which causes tree_transpose to descend
+    into its internal structure.
+    By wrapping BCOO in a plain class (not registered as a pytree), we can use
+    tree_transpose normally and then unwrap afterwards.
+    """
+
+    __slots__ = ("array",)
+
+    def __init__(self, array: BCOO) -> None:
+        self.array = array
+
+
 # Public API: one-shot entry points
 
 
@@ -763,13 +779,29 @@ def _scatter_dense(coloring: ColoredPattern, data: jax.Array) -> jax.Array:
     return result.at[indices[:, 0], indices[:, 1]].set(data)
 
 
+def _is_simple_input(sparsity: SparsityPattern) -> bool:
+    """Check if input has a single leaf with trivial pytree structure."""
+    if len(sparsity.leaf_shapes) != 1:
+        return False
+    if not isinstance(sparsity.argnums, int):
+        return False
+    in_aval = sparsity.input_avals[sparsity.argnums]
+    in_treedef = jax.tree_util.tree_structure(in_aval)
+    return in_treedef.num_leaves == 1 and in_treedef.num_nodes == 1
+
+
 def _is_simple_output(out_struct: Any, sparsity: SparsityPattern) -> bool:
-    """Check if output is a single flat array matching the sparsity shape."""
+    """Check if output and input are both single flat arrays with trivial structure."""
     out_leaves = jax.tree_util.tree_leaves(out_struct)
     if len(out_leaves) != 1:
         return False
     out_size = int(np.prod(out_leaves[0].shape))
-    return out_size == sparsity.m and len(sparsity.leaf_shapes) == 1
+    if out_size != sparsity.m:
+        return False
+    out_treedef = jax.tree_util.tree_structure(out_struct)
+    if out_treedef.num_leaves != 1 or out_treedef.num_nodes != 1:
+        return False
+    return _is_simple_input(sparsity)
 
 
 def _build_jacobian(
@@ -811,8 +843,8 @@ def _build_hessian(
     """
     sparsity = coloring.sparsity
 
-    # Fast path: single input leaf with BCOO format.
-    if output_format == "bcoo" and len(sparsity.leaf_shapes) == 1:
+    # Fast path: single input leaf with BCOO format and trivial pytree structure.
+    if output_format == "bcoo" and _is_simple_input(sparsity):
         in_shape = sparsity.leaf_shapes[0]
         return sparsity.to_bcoo(data=data).reshape((*in_shape, *in_shape))
 
@@ -918,12 +950,19 @@ def _flatten_selected_cotangents(
 
     ``jax.vjp(f, *xs)`` returns a tuple of cotangents matching the primals.
     Non-selected positions are ignored; selected positions contribute all leaves.
+    Float0 leaves (from integer inputs with allow_int=True) are replaced with zeros.
     """
     selected = tuple(cotangents[i] for i in sparsity._argnums_tuple)
     leaves = jax.tree_util.tree_leaves(selected)
     if not leaves:
         return jnp.zeros((0,))
-    return jnp.concatenate([leaf.ravel() for leaf in leaves])
+    raveled = []
+    for leaf in leaves:
+        if leaf.dtype == dtypes.float0:
+            raveled.append(jnp.zeros(leaf.shape, dtype=jnp.float_).ravel())
+        else:
+            raveled.append(leaf.ravel())
+    return jnp.concatenate(raveled)
 
 
 def _flatten_grad_output(out: Any) -> jax.Array:
@@ -1104,42 +1143,36 @@ def _transpose_in_out_trees(
 ) -> Any:
     """Transpose (in_tree, out_tree) structure to (out_tree, in_tree).
 
-    For dense output, uses jax.tree_util.tree_transpose.
-    For BCOO output, performs manual transpose since BCOO arrays have internal
-    pytree structure that confuses tree_transpose.
+    For dense output, uses jax.tree_util.tree_transpose directly.
+    For BCOO output, wraps BCOO arrays in _BCOOLeaf to hide their internal pytree
+    structure, transposes normally, then unwraps.
     """
 
     def is_bcoo(x: Any) -> bool:
         return isinstance(x, BCOO)
 
+    def is_bcoo_leaf(x: Any) -> bool:
+        return isinstance(x, _BCOOLeaf)
+
     def is_out_tree(x: Any) -> bool:
-        return jax.tree_util.tree_structure(x, is_leaf=is_bcoo) == out_treedef
+        is_leaf = is_bcoo_leaf if output_format == "bcoo" else is_bcoo
+        return jax.tree_util.tree_structure(x, is_leaf=is_leaf) == out_treedef
+
+    if output_format == "bcoo":
+        in_tree_of_out_trees = jax.tree_util.tree_map(
+            _BCOOLeaf, in_tree_of_out_trees, is_leaf=is_bcoo
+        )
 
     in_treedef = jax.tree_util.tree_structure(
         jax.tree_util.tree_map(lambda _: 0, in_tree_of_out_trees, is_leaf=is_out_tree)
     )
 
-    if output_format == "dense":
-        return jax.tree_util.tree_transpose(
-            in_treedef, out_treedef, in_tree_of_out_trees
+    transposed = jax.tree_util.tree_transpose(
+        in_treedef, out_treedef, in_tree_of_out_trees
+    )
+
+    if output_format == "bcoo":
+        return jax.tree_util.tree_map(
+            lambda x: x.array, transposed, is_leaf=is_bcoo_leaf
         )
-
-    # BCOO: manual transpose to avoid tree_transpose seeing BCOO's internal structure.
-    # Flatten outer structure (in_tree), keeping out_trees as leaves.
-    out_trees = jax.tree_util.tree_leaves(in_tree_of_out_trees, is_leaf=is_out_tree)
-
-    # Flatten each out_tree, treating BCOO as leaves
-    leaves_per_out_tree = [
-        jax.tree_util.tree_leaves(t, is_leaf=is_bcoo) for t in out_trees
-    ]
-
-    # Transpose: for each output position, collect blocks across all input leaves
-    num_out_leaves = len(leaves_per_out_tree[0])
-    transposed_leaves = [
-        jax.tree_util.tree_unflatten(
-            in_treedef, [leaves[i] for leaves in leaves_per_out_tree]
-        )
-        for i in range(num_out_leaves)
-    ]
-
-    return jax.tree_util.tree_unflatten(out_treedef, transposed_leaves)
+    return transposed

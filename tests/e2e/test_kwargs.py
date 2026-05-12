@@ -211,8 +211,6 @@ def test_jacobian_has_aux_pytree_input(mode, output_format, assert_trees_allclos
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_has_aux_nested_dict(mode, output_format, assert_trees_allclose):
     """Hessian has_aux with nested dict input matches jax.hessian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose PyTree structure for nested dict inputs")
 
     def f(params):
         w = params["layer"]["w"]
@@ -273,8 +271,6 @@ def test_hessian_has_aux_pytree_aux(mode, output_format, assert_trees_allclose):
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_jacobian_has_aux_pytree(mode, output_format, assert_trees_allclose):
     """value_and_jacobian with has_aux and PyTree input matches JAX."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for single-leaf dict")
 
     def f(params):
         main = params["w"] ** 2
@@ -296,8 +292,6 @@ def test_value_and_jacobian_has_aux_pytree(mode, output_format, assert_trees_all
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_hessian_has_aux_pytree(mode, output_format, assert_trees_allclose):
     """value_and_hessian with has_aux and PyTree input matches JAX."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose PyTree structure for single-leaf dict")
 
     def f(params):
         main = jnp.sum(params["w"] ** 2)
@@ -346,8 +340,6 @@ def test_holomorphic_false_rejects_complex_input():
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_holomorphic_pytree_input(output_format, assert_trees_allclose):
     """holomorphic=True with PyTree complex input matches jax.jacobian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for single-leaf dict")
 
     def f(params):
         return params["z"] ** 2
@@ -418,8 +410,6 @@ def test_allow_int_false_rejects_int_input():
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-@pytest.mark.xfail(strict=True, reason="allow_int with PyTree loses structure")
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_allow_int_pytree_input(output_format, assert_trees_allclose):
     """allow_int=True with PyTree containing integer leaf matches jax.jacobian."""
@@ -555,8 +545,6 @@ def test_hessian_with_kwargs():
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_kwargs_with_pytree_input(mode, output_format, assert_trees_allclose):
     """Kwargs work correctly with PyTree inputs."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for single-leaf dict")
 
     def f(params, scale=1.0, offset=0.0):
         return params["w"] * scale + offset

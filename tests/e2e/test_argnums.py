@@ -336,8 +336,6 @@ def test_jacobian_argnums_single_element_tuple(
     This is a critical semantic distinction in JAX:
     argnums=0 returns J, argnums=(0,) returns (J,).
     """
-    if output_format == "bcoo":
-        pytest.xfail("BCOO loses tuple structure for argnums=(0,)")
 
     def f(x, y):
         return x * y
@@ -357,8 +355,6 @@ def test_jacobian_argnums_int_vs_tuple_structure(
     mode, output_format, assert_trees_allclose
 ):
     """argnums=0 and argnums=(0,) produce different structures."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO loses tuple structure for argnums=(0,)")
 
     def f(x):
         return x**2
@@ -399,8 +395,6 @@ def test_hessian_argnums_single_element_tuple(
     mode, output_format, assert_trees_allclose
 ):
     """Hessian with argnums=(0,) returns tuple structure."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose tuple structure for argnums=(0,)")
 
     def f(x, y):
         return jnp.sum(x**2) + jnp.dot(x, y)
@@ -442,8 +436,6 @@ def test_jacobian_argnums_selects_whole_pytree_position(
     mode, output_format, assert_trees_allclose
 ):
     """argnums=0 with pytree positions matches jax.jacobian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for single PyTree position")
 
     def f(p, q):
         return p["a"] + q["b"][:2]
@@ -463,8 +455,6 @@ def test_hessian_argnums_int_with_pytree_position(
     mode, output_format, assert_trees_allclose
 ):
     """argnums=int on a pytree position matches jax.hessian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose PyTree structure for single PyTree position")
 
     def f(p, q):
         return jnp.sum(p["a"] ** 2) + jnp.dot(p["a"], q["b"])
@@ -543,8 +533,6 @@ def test_jacobian_single_negative_argnum_pytree_output(
     mode, output_format, assert_trees_allclose
 ):
     """Single negative argnum with PyTree output matches jax.jacobian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO output with single negative argnum not yet supported")
 
     def f(x, y):
         return {"sq": y**2, "double": 2 * y}

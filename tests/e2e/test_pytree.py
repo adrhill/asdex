@@ -42,8 +42,6 @@ def test_jacobian_nested_dict_input(mode, output_format, assert_trees_allclose):
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_triple_nested_dict(mode, output_format, assert_trees_allclose):
     """Triple-nested dict input matches jax.jacobian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for nested dict inputs")
 
     def f(params):
         return params["net"]["layer"]["w"] @ jnp.ones(2)
@@ -59,8 +57,6 @@ def test_jacobian_triple_nested_dict(mode, output_format, assert_trees_allclose)
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_nested_dict_input(mode, output_format, assert_trees_allclose):
     """Hessian with nested dict input matches jax.hessian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose PyTree structure for nested dict inputs")
 
     def f(params):
         w = params["layer"]["w"]
@@ -77,8 +73,6 @@ def test_hessian_nested_dict_input(mode, output_format, assert_trees_allclose):
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_triple_nested_dict(mode, output_format, assert_trees_allclose):
     """Hessian with triple-nested dict input matches jax.hessian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose PyTree structure for nested dict inputs")
 
     def f(params):
         w = params["net"]["layer"]["w"]
@@ -116,8 +110,6 @@ def test_jacobian_nested_dict_output(mode, output_format, assert_trees_allclose)
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_triple_nested_dict_output(mode, output_format, assert_trees_allclose):
     """Triple-nested dict output matches jax.jacobian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for deeply nested outputs")
 
     def f(x):
         return {"level1": {"level2": {"y": x**2}}}
@@ -354,8 +346,6 @@ def test_jacobian_nested_input_nested_output(
     mode, output_format, assert_trees_allclose
 ):
     """Both nested input and nested output match jax.jacobian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for nested input + output")
 
     def f(params):
         w = params["net"]["layer"]["w"]
@@ -409,8 +399,6 @@ def test_jacobian_single_element_arrays(mode, output_format, assert_trees_allclo
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_single_leaf_pytree(mode, output_format, assert_trees_allclose):
     """Single-leaf PyTree behaves like the leaf itself."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Jacobians lose PyTree structure for single-leaf dict")
 
     def f(params):
         return params["w"] ** 2
@@ -489,8 +477,6 @@ def test_jacobian_3d_arrays_in_pytree(mode, output_format, assert_trees_allclose
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_2d_array_input(mode, output_format, assert_trees_allclose):
     """Hessian with 2D array in PyTree matches jax.hessian."""
-    if output_format == "bcoo":
-        pytest.xfail("BCOO Hessians lose PyTree structure for dict with 2D array")
 
     def f(params):
         W = params["W"]
