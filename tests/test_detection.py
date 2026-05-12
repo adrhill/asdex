@@ -872,3 +872,92 @@ def test_hessian_sparsity_pytree_tuple_input():
     # Diagonal Hessian since no cross-terms between a and b
     expected_diag = np.eye(4, dtype=int)
     np.testing.assert_array_equal(pattern.todense().astype(int), expected_diag)
+
+
+# Multi-arg and argnums tests
+
+
+@pytest.mark.jacobian
+def test_jacobian_sparsity_multi_arg_all_argnums():
+    """jacobian_sparsity with argnums=(0, 1) for multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x, y = np.zeros(2), np.zeros(2)
+    pattern = jacobian_sparsity(f, x, y, argnums=(0, 1))
+
+    assert pattern.shape == (2, 4)
+    expected = np.array([[1, 0, 1, 0], [0, 1, 0, 1]])
+    np.testing.assert_array_equal(pattern.todense().astype(int), expected)
+
+
+@pytest.mark.jacobian
+def test_jacobian_sparsity_multi_arg_single_argnum_int():
+    """jacobian_sparsity with argnums=0 (int) selects first arg only."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x, y = np.zeros(2), np.zeros(2)
+    pattern = jacobian_sparsity(f, x, y, argnums=0)
+
+    assert pattern.shape == (2, 2)
+    expected = np.eye(2, dtype=int)
+    np.testing.assert_array_equal(pattern.todense().astype(int), expected)
+
+
+@pytest.mark.jacobian
+def test_jacobian_sparsity_multi_arg_single_argnum_tuple():
+    """jacobian_sparsity with argnums=(1,) (tuple) selects second arg only."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x, y = np.zeros(2), np.zeros(2)
+    pattern = jacobian_sparsity(f, x, y, argnums=(1,))
+
+    assert pattern.shape == (2, 2)
+    expected = np.eye(2, dtype=int)
+    np.testing.assert_array_equal(pattern.todense().astype(int), expected)
+
+
+@pytest.mark.jacobian
+def test_jacobian_sparsity_multi_arg_different_shapes():
+    """jacobian_sparsity with multi-arg of different shapes."""
+
+    def f(x, y):
+        return jnp.concatenate([x, y])
+
+    x, y = np.zeros(2), np.zeros(3)
+    pattern = jacobian_sparsity(f, x, y, argnums=(0, 1))
+
+    assert pattern.shape == (5, 5)
+
+
+@pytest.mark.hessian
+def test_hessian_sparsity_multi_arg_all_argnums():
+    """hessian_sparsity with argnums=(0, 1) for multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x, y = np.zeros(2), np.zeros(2)
+    pattern = hessian_sparsity(f, x, y, argnums=(0, 1))
+
+    assert pattern.shape == (4, 4)
+
+
+@pytest.mark.hessian
+def test_hessian_sparsity_multi_arg_single_argnum():
+    """hessian_sparsity with argnums=0 selects first arg only."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x, y = np.zeros(2), np.zeros(2)
+    pattern = hessian_sparsity(f, x, y, argnums=0)
+
+    assert pattern.shape == (2, 2)
+    expected = np.eye(2, dtype=int)
+    np.testing.assert_array_equal(pattern.todense().astype(int), expected)

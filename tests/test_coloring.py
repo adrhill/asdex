@@ -1645,3 +1645,81 @@ def test_hessian_coloring_pytree_tuple_input(mode):
     coloring = hessian_coloring(f, params, mode=mode)
 
     assert coloring.sparsity.shape == (4, 4)
+
+
+# Multi-arg and argnums tests
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_multi_arg_all_argnums(mode):
+    """jacobian_coloring with argnums=(0, 1) for multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x, y = np.zeros(2), np.zeros(2)
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+
+    assert coloring.sparsity.shape == (2, 4)
+    check_coloring_rows(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_multi_arg_single_argnum(mode):
+    """jacobian_coloring with argnums=0 selects first arg only."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x, y = np.zeros(2), np.zeros(2)
+    coloring = jacobian_coloring(f, x, y, argnums=0, mode=mode)
+
+    assert coloring.sparsity.shape == (2, 2)
+    check_coloring_rows(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_multi_arg_different_shapes(mode):
+    """jacobian_coloring with multi-arg of different shapes."""
+
+    def f(x, y):
+        return jnp.concatenate([x, y])
+
+    x, y = np.zeros(2), np.zeros(3)
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+
+    assert coloring.sparsity.shape == (5, 5)
+    check_coloring_rows(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_multi_arg_all_argnums(mode):
+    """hessian_coloring with argnums=(0, 1) for multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x, y = np.zeros(2), np.zeros(2)
+    coloring = hessian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+
+    assert coloring.sparsity.shape == (4, 4)
+    check_coloring_symmetric(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_multi_arg_single_argnum(mode):
+    """hessian_coloring with argnums=0 selects first arg only."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x, y = np.zeros(2), np.zeros(2)
+    coloring = hessian_coloring(f, x, y, argnums=0, mode=mode)
+
+    assert coloring.sparsity.shape == (2, 2)
+    check_coloring_symmetric(coloring.sparsity, coloring.colors)

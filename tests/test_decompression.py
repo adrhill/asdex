@@ -1525,3 +1525,225 @@ def test_hessian_coloring_from_sparsity_pytree_input(mode):
     result = hessian_from_coloring(f, coloring, output_format="dense")(params)
     expected = jax.hessian(f)(params)
     assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+# Multi-arg and argnums tests
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_multi_arg_all_argnums(mode):
+    """asdex.jacobian matches jax.jacobian for multi-arg with argnums=(0, 1)."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = jacobian(f, x, y, argnums=(0, 1), mode=mode, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_multi_arg_single_argnum_int(mode):
+    """asdex.jacobian with argnums=0 (int) matches jax.jacobian."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = jacobian(f, x, y, argnums=0, mode=mode, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=0)(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_multi_arg_single_argnum_tuple(mode):
+    """asdex.jacobian with argnums=(1,) (tuple) matches jax.jacobian."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = jacobian(f, x, y, argnums=(1,), mode=mode, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=(1,))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_from_coloring_multi_arg(mode):
+    """jacobian_from_coloring works with multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+    result = jacobian_from_coloring(f, coloring, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_value_and_jacobian_multi_arg(mode):
+    """value_and_jacobian works with multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    val, jac = value_and_jacobian(
+        f, x, y, argnums=(0, 1), mode=mode, output_format="dense"
+    )(x, y)
+    expected_val = f(x, y)
+    expected_jac = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_value_and_jacobian_from_coloring_multi_arg(mode):
+    """value_and_jacobian_from_coloring works with multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+    val, jac = value_and_jacobian_from_coloring(f, coloring, output_format="dense")(
+        x, y
+    )
+    expected_val = f(x, y)
+    expected_jac = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_from_sparsity_multi_arg(mode):
+    """jacobian_coloring_from_sparsity works with multi-arg sparsity."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    sparsity = jacobian_sparsity(f, x, y, argnums=(0, 1))
+    coloring = jacobian_coloring_from_sparsity(sparsity, mode=mode)
+    result = jacobian_from_coloring(f, coloring, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_multi_arg_all_argnums(mode):
+    """asdex.hessian matches jax.hessian for multi-arg with argnums=(0, 1)."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = hessian(f, x, y, argnums=(0, 1), mode=mode, output_format="dense")(x, y)
+    expected = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_multi_arg_single_argnum(mode):
+    """asdex.hessian with argnums=0 matches jax.hessian."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = hessian(f, x, y, argnums=0, mode=mode, output_format="dense")(x, y)
+    expected = jax.hessian(f, argnums=0)(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_from_coloring_multi_arg(mode):
+    """hessian_from_coloring works with multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    coloring = hessian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+    result = hessian_from_coloring(f, coloring, output_format="dense")(x, y)
+    expected = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_value_and_hessian_multi_arg(mode):
+    """value_and_hessian works with multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    val, hess = value_and_hessian(
+        f, x, y, argnums=(0, 1), mode=mode, output_format="dense"
+    )(x, y)
+    expected_val = f(x, y)
+    expected_hess = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected_hess, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_value_and_hessian_from_coloring_multi_arg(mode):
+    """value_and_hessian_from_coloring works with multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    coloring = hessian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+    val, hess = value_and_hessian_from_coloring(f, coloring, output_format="dense")(
+        x, y
+    )
+    expected_val = f(x, y)
+    expected_hess = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected_hess, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_from_sparsity_multi_arg(mode):
+    """hessian_coloring_from_sparsity works with multi-arg sparsity."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    sparsity = hessian_sparsity(f, x, y, argnums=(0, 1))
+    coloring = hessian_coloring_from_sparsity(sparsity, mode=mode)
+    result = hessian_from_coloring(f, coloring, output_format="dense")(x, y)
+    expected = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
