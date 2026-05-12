@@ -6,8 +6,6 @@ Handles everything that runs at the public API boundary before AD kicks in:
   at definition time, mirroring ``jax._src.api_util``.
   The int-vs-tuple distinction is load-bearing: it determines whether the
   returned Jacobian is a single pytree or a tuple of pytrees.
-- ``dyn_args_from_argnums`` extracts the differentiated args, mirroring
-  ``jax._src.api_util.argnums_partial``'s ``dyn_args`` extraction.
 - ``avals_from_args`` extracts ``ShapeDtypeStruct`` pytrees from sample inputs.
 - ``_validate_input_dtypes`` / ``_validate_output_dtypes`` gate AD on dtype
   compatibility, honoring the ``holomorphic`` and ``allow_int`` kwargs.
@@ -59,19 +57,6 @@ def _ensure_inbounds(num_args: int, argnums: tuple[int, ...]) -> tuple[int, ...]
             )
         result.append(i % num_args)
     return tuple(result)
-
-
-def dyn_args_from_argnums(
-    args: tuple[Any, ...], argnums: int | tuple[int, ...]
-) -> tuple[Any, ...]:
-    """Extract args to differentiate with respect to, as specified by argnums.
-
-    For example, argnums=(0, 2) with args (a, b, c) returns (a, c).
-    Mirrors jax._src.api_util.argnums_partial's dyn_args extraction.
-    """
-    argnums_tuple = (argnums,) if isinstance(argnums, int) else argnums
-    argnums_tuple = _ensure_inbounds(len(args), argnums_tuple)
-    return tuple(args[i] for i in argnums_tuple)
 
 
 # Aval extraction from sample inputs
