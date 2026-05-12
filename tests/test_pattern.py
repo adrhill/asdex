@@ -623,52 +623,77 @@ def test_input_treedef_property():
     assert treedef is not None
 
 
-def test_save_multi_input_pattern_raises(tmp_path):
-    """save() with multi-input pattern raises NotImplementedError."""
+def test_save_load_multi_input_sparsity_roundtrip(tmp_path):
+    """SparsityPattern with multi-input survives save/load."""
 
     def f(x, y):
         return x + y
 
-    sparsity = asdex.jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=(0, 1))
+    original = asdex.jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=(0, 1))
     path = tmp_path / "multi.npz"
-    with pytest.raises(NotImplementedError, match="multi-input"):
-        sparsity.save(path)
+    original.save(path)
+
+    loaded = asdex.SparsityPattern.load(path)
+
+    np.testing.assert_array_equal(loaded.rows, original.rows)
+    np.testing.assert_array_equal(loaded.cols, original.cols)
+    assert loaded.shape == original.shape
+    assert loaded.argnums == original.argnums
+    assert loaded.leaf_shapes == original.leaf_shapes
 
 
-def test_save_colored_multi_input_pattern_raises(tmp_path):
-    """ColoredPattern.save() with multi-input pattern raises NotImplementedError."""
+def test_save_load_multi_input_coloring_roundtrip(tmp_path):
+    """ColoredPattern with multi-input survives save/load and matches jax.jacobian."""
 
     def f(x, y):
         return x + y
 
-    coloring = asdex.jacobian_coloring(f, np.zeros(3), np.zeros(3), argnums=(0, 1))
+    original = asdex.jacobian_coloring(f, np.zeros(3), np.zeros(3), argnums=(0, 1))
     path = tmp_path / "colored_multi.npz"
-    with pytest.raises(NotImplementedError, match="multi-input"):
-        coloring.save(path)
+    original.save(path)
+
+    loaded = asdex.ColoredPattern.load(path)
+
+    x, y = np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0])
+    expected = jax.jacobian(f, argnums=(0, 1))(x, y)
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
 
 
-def test_save_pytree_input_pattern_raises(tmp_path):
-    """save() with PyTree input raises NotImplementedError."""
+def test_save_load_pytree_input_sparsity_roundtrip(tmp_path):
+    """SparsityPattern with PyTree input survives save/load."""
 
     def f(d):
         return d["a"] + d["b"]
 
-    sparsity = asdex.jacobian_sparsity(f, {"a": np.zeros(2), "b": np.zeros(2)})
+    original = asdex.jacobian_sparsity(f, {"a": np.zeros(2), "b": np.zeros(2)})
     path = tmp_path / "pytree_input.npz"
-    with pytest.raises(NotImplementedError, match="pytree"):
-        sparsity.save(path)
+    original.save(path)
+
+    loaded = asdex.SparsityPattern.load(path)
+
+    np.testing.assert_array_equal(loaded.rows, original.rows)
+    np.testing.assert_array_equal(loaded.cols, original.cols)
+    assert loaded.shape == original.shape
+    assert loaded.leaf_shapes == original.leaf_shapes
 
 
-def test_save_colored_pytree_input_pattern_raises(tmp_path):
-    """ColoredPattern.save() with PyTree input raises NotImplementedError."""
+def test_save_load_pytree_input_coloring_roundtrip(tmp_path):
+    """ColoredPattern with PyTree input survives save/load and matches jax.jacobian."""
 
     def f(d):
         return d["a"] + d["b"]
 
-    coloring = asdex.jacobian_coloring(f, {"a": np.zeros(2), "b": np.zeros(2)})
+    original = asdex.jacobian_coloring(f, {"a": np.zeros(2), "b": np.zeros(2)})
     path = tmp_path / "colored_pytree_input.npz"
-    with pytest.raises(NotImplementedError, match="pytree"):
-        coloring.save(path)
+    original.save(path)
+
+    loaded = asdex.ColoredPattern.load(path)
+
+    d = {"a": np.array([1.0, 2.0]), "b": np.array([3.0, 4.0])}
+    expected = jax.jacobian(f)(d)
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(d)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
 
 
 def test_save_load_pytree_output_roundtrip(tmp_path):
@@ -707,13 +732,8 @@ def test_save_load_colored_pytree_output_roundtrip(tmp_path):
     assert _allclose_pytree(result, expected, rtol=1e-5)
 
 
-@pytest.mark.xfail(raises=NotImplementedError, reason="save/load not yet supported")
 def test_save_load_multi_pytree_input_output(tmp_path):
-    """save/load with 3 PyTree inputs and 2 PyTree outputs matches jax.jacobian.
-
-    TODO: Extend .npz format to support multi-input/PyTree patterns.
-    Until then, use pickle as a workaround.
-    """
+    """save/load with 3 PyTree inputs and 2 PyTree outputs matches jax.jacobian."""
 
     def f(a, b, c):
         # a: {"x": (2,), "y": (3,)}
@@ -743,3 +763,201 @@ def test_save_load_multi_pytree_input_output(tmp_path):
         a_val, b_val, c_val
     )
     assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+# Full API surface tests with multi-input patterns
+
+
+def test_save_load_multi_input_jacobian_full_api(tmp_path):
+    """Multi-input Jacobian: full API roundtrip via save/load."""
+
+    def f(x, y):
+        return jnp.concatenate([x * y[0], y * x.sum()])
+
+    x, y = np.zeros(3), np.zeros(2)
+    coloring = asdex.jacobian_coloring(f, x, y, argnums=(0, 1))
+    path = tmp_path / "multi_jac.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    x_val, y_val = np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0])
+
+    # jacobian_from_coloring
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(
+        x_val, y_val
+    )
+    expected = jax.jacobian(f, argnums=(0, 1))(x_val, y_val)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+    # value_and_jacobian_from_coloring
+    val, jac = asdex.value_and_jacobian_from_coloring(f, loaded, output_format="dense")(
+        x_val, y_val
+    )
+    expected_val = f(x_val, y_val)
+    np.testing.assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected, rtol=1e-5)
+
+    # check_jacobian_correctness
+    asdex.check_jacobian_correctness(f, (x_val, y_val), loaded)
+
+
+def test_save_load_pytree_input_jacobian_full_api(tmp_path):
+    """PyTree input Jacobian: full API roundtrip via save/load."""
+
+    def f(d):
+        return d["a"] * d["b"].sum() + d["b"][:2]
+
+    d_shape = {"a": np.zeros(2), "b": np.zeros(3)}
+    coloring = asdex.jacobian_coloring(f, d_shape)
+    path = tmp_path / "pytree_jac.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    d_val = {"a": np.array([1.0, 2.0]), "b": np.array([3.0, 4.0, 5.0])}
+
+    # jacobian_from_coloring
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(d_val)
+    expected = jax.jacobian(f)(d_val)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+    # value_and_jacobian_from_coloring
+    val, _jac = asdex.value_and_jacobian_from_coloring(
+        f, loaded, output_format="dense"
+    )(d_val)
+    expected_val = f(d_val)
+    np.testing.assert_allclose(val, expected_val, rtol=1e-5)
+
+    # check_jacobian_correctness
+    asdex.check_jacobian_correctness(f, d_val, loaded)
+
+
+def test_save_load_multi_input_hessian_full_api(tmp_path):
+    """Multi-input Hessian: full API roundtrip via save/load."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.sum(y**2) + jnp.sum(x) * jnp.sum(y)
+
+    x, y = np.zeros(3), np.zeros(2)
+    coloring = asdex.hessian_coloring(f, x, y, argnums=(0, 1))
+    path = tmp_path / "multi_hess.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    x_val, y_val = np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0])
+
+    # hessian_from_coloring
+    result = asdex.hessian_from_coloring(f, loaded, output_format="dense")(x_val, y_val)
+    expected = jax.hessian(f, argnums=(0, 1))(x_val, y_val)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+    # value_and_hessian_from_coloring
+    val, hess = asdex.value_and_hessian_from_coloring(f, loaded, output_format="dense")(
+        x_val, y_val
+    )
+    expected_val = f(x_val, y_val)
+    np.testing.assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected, rtol=1e-5)
+
+    # check_hessian_correctness
+    asdex.check_hessian_correctness(f, (x_val, y_val), loaded)
+
+
+def test_save_load_pytree_input_hessian_full_api(tmp_path):
+    """PyTree input Hessian: full API roundtrip via save/load."""
+
+    def f(d):
+        return jnp.sum(d["a"] ** 2) + jnp.sum(d["b"] ** 2) + jnp.dot(d["a"], d["b"][:2])
+
+    d_shape = {"a": np.zeros(2), "b": np.zeros(3)}
+    coloring = asdex.hessian_coloring(f, d_shape)
+    path = tmp_path / "pytree_hess.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    d_val = {"a": np.array([1.0, 2.0]), "b": np.array([3.0, 4.0, 5.0])}
+
+    # hessian_from_coloring
+    result = asdex.hessian_from_coloring(f, loaded, output_format="dense")(d_val)
+    expected = jax.hessian(f)(d_val)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+    # value_and_hessian_from_coloring
+    val, hess = asdex.value_and_hessian_from_coloring(f, loaded, output_format="dense")(
+        d_val
+    )
+    expected_val = f(d_val)
+    np.testing.assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected, rtol=1e-5)
+
+    # check_hessian_correctness
+    asdex.check_hessian_correctness(f, d_val, loaded)
+
+
+def test_save_load_preserves_argnums_int_vs_tuple(tmp_path):
+    """Argnums type (int vs tuple) is preserved through save/load."""
+
+    def f(x, y):
+        return x + y
+
+    x, y = np.zeros(3), np.zeros(3)
+
+    # int argnums
+    sp_int = asdex.jacobian_sparsity(f, x, y, argnums=0)
+    path_int = tmp_path / "argnums_int.npz"
+    sp_int.save(path_int)
+    loaded_int = asdex.SparsityPattern.load(path_int)
+    assert isinstance(loaded_int.argnums, int)
+    assert loaded_int.argnums == 0
+
+    # tuple argnums
+    sp_tuple = asdex.jacobian_sparsity(f, x, y, argnums=(0, 1))
+    path_tuple = tmp_path / "argnums_tuple.npz"
+    sp_tuple.save(path_tuple)
+    loaded_tuple = asdex.SparsityPattern.load(path_tuple)
+    assert isinstance(loaded_tuple.argnums, tuple)
+    assert loaded_tuple.argnums == (0, 1)
+
+
+def test_save_load_nested_pytree_structure(tmp_path):
+    """Nested PyTree structures survive save/load."""
+
+    def f(d):
+        return d["outer"]["inner"] + d["flat"]
+
+    d_shape = {
+        "outer": {"inner": np.zeros(2)},
+        "flat": np.zeros(2),
+    }
+    coloring = asdex.jacobian_coloring(f, d_shape)
+    path = tmp_path / "nested.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    d_val = {
+        "outer": {"inner": np.array([1.0, 2.0])},
+        "flat": np.array([3.0, 4.0]),
+    }
+
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(d_val)
+    expected = jax.jacobian(f)(d_val)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+def test_save_load_mixed_dtypes(tmp_path):
+    """Different dtypes in input_avals survive save/load."""
+
+    def f(x):
+        return x.astype(jnp.float32) * 2.0
+
+    x_shape = np.zeros(3, dtype=np.float64)
+    coloring = asdex.jacobian_coloring(f, x_shape)
+    path = tmp_path / "dtypes.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    assert loaded.sparsity.leaf_shapes == [(3,)]
+
+    x_val = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(x_val)
+    expected = jax.jacobian(f)(x_val)
+    np.testing.assert_allclose(result, expected, rtol=1e-5)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -20,6 +21,48 @@ from asdex.modes import ColoringMode, _assert_coloring_mode
 
 if TYPE_CHECKING:
     from asdex.coloring import StarSet
+
+
+# Serialization helpers
+
+
+def _serialize_avals(input_avals: tuple[Any, ...]) -> str:
+    """Serialize input_avals to JSON string.
+
+    Converts PyTree of ShapeDtypeStruct to a JSON-serializable structure.
+    """
+
+    def convert(x: Any) -> Any:
+        if isinstance(x, ShapeDtypeStruct):
+            return {"_sds": True, "shape": list(x.shape), "dtype": str(x.dtype)}
+        if isinstance(x, dict):
+            return {"_dict": True, "items": [[k, convert(v)] for k, v in x.items()]}
+        if isinstance(x, (list, tuple)):
+            return [convert(v) for v in x]
+        msg = f"Cannot serialize {type(x).__name__}"
+        raise TypeError(msg)
+
+    return json.dumps([convert(a) for a in input_avals])
+
+
+def _deserialize_avals(json_str: str) -> tuple[Any, ...]:
+    """Deserialize input_avals from JSON string."""
+
+    def convert(x: Any) -> Any:
+        if isinstance(x, dict):
+            if x.get("_sds"):
+                return ShapeDtypeStruct(tuple(x["shape"]), jnp.dtype(x["dtype"]))
+            if x.get("_dict"):
+                return {k: convert(v) for k, v in x["items"]}
+            msg = f"Unknown dict format: {x}"
+            raise ValueError(msg)
+        if isinstance(x, list):
+            return tuple(convert(v) for v in x)
+        msg = f"Cannot deserialize {type(x).__name__}"
+        raise TypeError(msg)
+
+    data = json.loads(json_str)
+    return tuple(convert(a) for a in data)
 
 
 @dataclass(frozen=True)
@@ -266,25 +309,24 @@ class SparsityPattern:
     def save(self, path: str | os.PathLike[str]) -> None:
         """Save sparsity pattern to an ``.npz`` file.
 
-        Pytree-structured or multi-positional patterns are not yet supported
-        by this simple ``.npz`` layout.
+        Supports multi-input and PyTree-structured patterns.
 
         Args:
             path: Destination file path.
         """
-        if not self._is_simple():
-            raise NotImplementedError(
-                "save()/load() does not yet support multi-input or pytree-"
-                "structured patterns. Pickle the pattern or reconstruct it "
-                "from source for now."
-            )
-        leaf = self._dyn_flat[0][0]
+        argnums_arr = (
+            np.array([self.argnums])
+            if isinstance(self.argnums, int)
+            else np.array(self.argnums)
+        )
         np.savez(
             path,
             rows=self.rows,
             cols=self.cols,
             shape=np.array(self.shape),
-            input_shape=np.array(leaf.shape),
+            input_avals_json=np.array(_serialize_avals(self.input_avals)),
+            argnums=argnums_arr,
+            argnums_is_int=np.array(isinstance(self.argnums, int)),
         )
 
     @classmethod
@@ -294,14 +336,27 @@ class SparsityPattern:
         Args:
             path: Source file path.
         """
-        data = np.load(path)
-        shape = tuple(int(s) for s in data["input_shape"])
-        input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
+        data = np.load(path, allow_pickle=False)
+
+        if "input_avals_json" in data:
+            input_avals = _deserialize_avals(str(data["input_avals_json"]))
+            argnums_arr = data["argnums"]
+            argnums: int | tuple[int, ...] = (
+                int(argnums_arr[0])
+                if bool(data["argnums_is_int"])
+                else tuple(int(x) for x in argnums_arr)
+            )
+        else:
+            shape = tuple(int(s) for s in data["input_shape"])
+            input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
+            argnums = 0
+
         return cls.from_coo(
             rows=data["rows"],
             cols=data["cols"],
             shape=tuple(data["shape"]),
             input_avals=input_avals,
+            argnums=argnums,
         )
 
     # Display
@@ -471,26 +526,24 @@ class ColoredPattern:
     def save(self, path: str | os.PathLike[str]) -> None:
         """Save colored pattern to an ``.npz`` file.
 
-        Pytree-structured or multi-positional patterns are not yet supported
-        by this simple ``.npz`` layout.
+        Supports multi-input and PyTree-structured patterns.
 
         Args:
             path: Destination file path.
         """
-        if not self.sparsity._is_simple():
-            raise NotImplementedError(
-                "save()/load() only supports single-input, single-leaf patterns. "
-                "For multi-input or pytree-structured patterns, re-run "
-                "`asdex.jacobian_coloring(f, *args, ...)` (or "
-                "`asdex.hessian_coloring`) at load time instead of persisting "
-                "the ColoredPattern."
-            )
-        leaf = self.sparsity._dyn_flat[0][0]
+        sp = self.sparsity
+        argnums_arr = (
+            np.array([sp.argnums])
+            if isinstance(sp.argnums, int)
+            else np.array(sp.argnums)
+        )
         save_dict: dict[str, np.ndarray] = {
-            "rows": self.sparsity.rows,
-            "cols": self.sparsity.cols,
-            "shape": np.array(self.sparsity.shape),
-            "input_shape": np.array(leaf.shape),
+            "rows": sp.rows,
+            "cols": sp.cols,
+            "shape": np.array(sp.shape),
+            "input_avals_json": np.array(_serialize_avals(sp.input_avals)),
+            "argnums": argnums_arr,
+            "argnums_is_int": np.array(isinstance(sp.argnums, int)),
             "colors": self.colors,
             "num_colors": np.array(self.num_colors),
             "symmetric": np.array(self.symmetric),
@@ -509,13 +562,26 @@ class ColoredPattern:
             path: Source file path.
         """
         data = np.load(path, allow_pickle=False)
-        shape = tuple(int(s) for s in data["input_shape"])
-        input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
+
+        if "input_avals_json" in data:
+            input_avals = _deserialize_avals(str(data["input_avals_json"]))
+            argnums_arr = data["argnums"]
+            argnums: int | tuple[int, ...] = (
+                int(argnums_arr[0])
+                if bool(data["argnums_is_int"])
+                else tuple(int(x) for x in argnums_arr)
+            )
+        else:
+            shape = tuple(int(s) for s in data["input_shape"])
+            input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
+            argnums = 0
+
         sparsity = SparsityPattern.from_coo(
             rows=data["rows"],
             cols=data["cols"],
             shape=tuple(data["shape"]),
             input_avals=input_avals,
+            argnums=argnums,
         )
         mode = str(data["mode"])
         _assert_coloring_mode(mode)
