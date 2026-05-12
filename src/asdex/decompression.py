@@ -1024,24 +1024,13 @@ def _assemble_jacobian(
         in_col_offset += in_size
 
     # per_input_blocks[in_idx][out_idx] -> need (out_tree, in_tree) structure
-    # First rebuild as (in_tree, out_tree), then transpose
+    # First rebuild as (in_tree, out_tree), then transpose.
+    # This mirrors JAX's approach: always build both tree structures and transpose,
+    # even for single-leaf cases where the structure may still be nested.
     out_trees_per_in_leaf = [
         jax.tree_util.tree_unflatten(out_treedef, out_blocks)
         for out_blocks in per_input_blocks
     ]
-
-    # For single output leaf (scalar or single array output), no transpose needed
-    if len(out_leaves) == 1:
-        return _group_blocks_by_argnums(
-            [out_trees[0] for out_trees in per_input_blocks], sparsity
-        )
-
-    # For single input leaf, the result is already the output tree structure
-    if len(in_leaf_shapes) == 1:
-        return out_trees_per_in_leaf[0]
-
-    # Multiple input leaves and multiple output leaves:
-    # Group by argnums, then transpose to get (out_tree, in_tree) structure
     in_tree_of_out_trees = _group_blocks_by_argnums(out_trees_per_in_leaf, sparsity)
     return _transpose_in_out_trees(in_tree_of_out_trees, out_treedef, output_format)
 

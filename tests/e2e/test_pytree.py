@@ -112,12 +112,12 @@ def test_jacobian_nested_dict_output(mode, output_format, assert_trees_allclose)
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-@pytest.mark.xfail(strict=True, reason="Deeply nested dict outputs lose structure")
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_triple_nested_dict_output(mode, output_format, assert_trees_allclose):
     """Triple-nested dict output matches jax.jacobian."""
+    if output_format == "bcoo":
+        pytest.xfail("BCOO Jacobians lose PyTree structure for deeply nested outputs")
 
     def f(x):
         return {"level1": {"level2": {"y": x**2}}}
@@ -348,14 +348,14 @@ def test_jacobian_mixed_pytree_input_output(mode, output_format, assert_trees_al
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-@pytest.mark.xfail(strict=True, reason="Nested input + nested output loses structure")
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_nested_input_nested_output(
     mode, output_format, assert_trees_allclose
 ):
     """Both nested input and nested output match jax.jacobian."""
+    if output_format == "bcoo":
+        pytest.xfail("BCOO Jacobians lose PyTree structure for nested input + output")
 
     def f(params):
         w = params["net"]["layer"]["w"]
