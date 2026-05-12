@@ -187,8 +187,6 @@ def check_jacobian_correctness(
     if method not in ("matvec", "dense"):
         raise ValueError(f"Unknown method {method!r}. Expected 'matvec' or 'dense'.")
 
-    x = jnp.asarray(x)
-
     # Derive reference AD mode from the colored pattern
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
@@ -318,13 +316,20 @@ def _is_bcoo(x: Any) -> bool:
     return isinstance(x, BCOO)
 
 
-def _stack_bcoo_pytree(pytree: Any, n: int) -> BCOO:
-    """Stack a PyTree of BCOO matrices into a single (m, n) BCOO."""
+def _stack_bcoo_pytree(pytree: Any, axis: int) -> BCOO:
+    """Stack a PyTree of BCOO matrices into a single (m, n) BCOO.
+
+    Args:
+        pytree: PyTree of BCOO matrices.
+        axis: Concatenation axis.
+            0 for PyTree output (each leaf is (m_leaf, n), stack rows).
+            1 for PyTree input (each leaf is (m, n_leaf), stack columns).
+    """
     leaves = jax.tree_util.tree_leaves(pytree, is_leaf=_is_bcoo)
     if len(leaves) == 1:
         return leaves[0]
     dense_blocks = [leaf.todense() for leaf in leaves]
-    stacked = jnp.concatenate([b.reshape(-1, n) for b in dense_blocks], axis=0)
+    stacked = jnp.concatenate(dense_blocks, axis=axis)
     return BCOO.fromdense(stacked)
 
 
@@ -364,8 +369,8 @@ def _stack_hessian_pytree(pytree: Any, n: int) -> BCOO:
 
 
 def _check_jacobian_matvec(
-    f: Callable[[ArrayLike], ArrayLike],
-    x: jax.Array,
+    f: Callable[..., Any],
+    x: Any,
     J_sparse: Any,
     *,
     ref_mode: Literal["fwd", "rev"],
@@ -382,18 +387,22 @@ def _check_jacobian_matvec(
 
     out_struct = jax.eval_shape(f, x)
     m = output_size(out_struct)
-    n = x.size
+    n = output_size(x)
 
     # Stack PyTree of BCOOs into a single (m, n) matrix if needed
     if not isinstance(J_sparse, BCOO):
-        J_sparse = _stack_bcoo_pytree(J_sparse, n)
+        # PyTree input: leaves are columns (axis=1), PyTree output: leaves are rows (axis=0)
+        is_pytree_input = len(jax.tree_util.tree_leaves(x)) > 1
+        axis = 1 if is_pytree_input else 0
+        J_sparse = _stack_bcoo_pytree(J_sparse, axis)
 
     for i in range(num_probes):
         match ref_mode:
             case "fwd":
                 v = jax.random.normal(keys[i], shape=(n,))
                 sparse_result = (J_sparse @ v).ravel()
-                _, ref_result = jax.jvp(f, (x,), (v.reshape(x.shape),))
+                tangent = unflatten_to_pytree(v, x)
+                _, ref_result = jax.jvp(f, (x,), (tangent,))
                 ref_result = flatten_pytree(ref_result)
             case "rev":
                 v = jax.random.normal(keys[i], shape=(m,))
@@ -401,7 +410,7 @@ def _check_jacobian_matvec(
                 _, vjp_fn = jax.vjp(f, x)
                 cotangent = unflatten_to_pytree(v, out_struct)
                 (ref_result,) = vjp_fn(cotangent)
-                ref_result = jnp.asarray(ref_result).ravel()
+                ref_result = flatten_pytree(ref_result)
             case _ as unreachable:
                 assert_never(unreachable)
 

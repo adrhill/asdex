@@ -400,6 +400,20 @@ def test_check_allclose_shape_mismatch():
 
 
 @pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("method", ["matvec", "dense"])
+def test_check_jacobian_pytree_input(mode, method):
+    """check_jacobian_correctness works with PyTree inputs."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": np.array([1.0, 2.0]), "b": np.array([3.0, 4.0])}
+    coloring = jacobian_coloring(f, params, mode=mode)
+    check_jacobian_correctness(f, params, coloring, method=method)
+
+
+@pytest.mark.jacobian
 def test_check_jacobian_pytree_output():
     """check_jacobian_correctness works with PyTree outputs."""
 
