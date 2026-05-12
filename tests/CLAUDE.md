@@ -1,5 +1,12 @@
 # Test Suite
 
+## Golden Rule
+
+**Failing tests are gold.**
+They reveal gaps in the implementation.
+When a test fails, investigate and fix the code, not the test.
+Never remove or simplify a test to make it pass.
+
 ## Structure
 
 - Top-level test files (`test_*.py`) cover the public modules in `src/asdex/`.
