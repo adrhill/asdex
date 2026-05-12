@@ -104,7 +104,6 @@ def test_cumsum_1d_jacobian_values():
 def test_cumsum_2d(shape, axis):
     """2D cumsum along each axis with non-square shape."""
     n = int(np.prod(shape))
-    np.zeros(n)
 
     def f(x):
         return lax.cumsum(x.reshape(shape), axis=axis).flatten()
@@ -125,7 +124,6 @@ def test_cumsum_2d(shape, axis):
 def test_cumsum_2d_reverse(shape, axis):
     """2D reverse cumsum along each axis."""
     n = int(np.prod(shape))
-    np.zeros(n)
 
     def f(x):
         return lax.cumsum(x.reshape(shape), axis=axis, reverse=True).flatten()
@@ -166,7 +164,6 @@ def test_cumsum_3d(axis):
     """3D cumsum along each axis."""
     shape = (2, 3, 4)
     n = int(np.prod(shape))
-    np.zeros(n)
 
     def f(x):
         return lax.cumsum(x.reshape(shape), axis=axis).flatten()
@@ -262,7 +259,6 @@ def test_cumsum_sparser_than_conservative():
     """Cumsum pattern is strictly sparser than conservative (all-ones)."""
     shape = (3, 4)
     n = int(np.prod(shape))
-    np.zeros(n)
 
     def f(x):
         return lax.cumsum(x.reshape(shape), axis=0).flatten()
@@ -295,7 +291,6 @@ def test_jnp_cumsum_2d_axis():
     """jnp.cumsum with explicit axis on 2D array."""
     shape = (3, 4)
     n = int(np.prod(shape))
-    np.zeros(n)
 
     def f(x):
         return jnp.cumsum(x.reshape(shape), axis=1).flatten()
