@@ -1584,3 +1584,64 @@ def test_postprocess_trivial_star_flips_hub_to_keep_used_color():
     # Flipping collapses the color count from 2 down to 1.
     assert num_off == 2
     assert num_on == 1
+
+
+# PyTree input tests
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_pytree_dict_input(mode):
+    """jacobian_coloring works with dict PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": np.zeros(2), "b": np.zeros(2)}
+    coloring = jacobian_coloring(f, params, mode=mode)
+
+    assert coloring.sparsity.shape == (2, 4)
+    check_coloring_rows(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_pytree_tuple_input(mode):
+    """jacobian_coloring works with tuple PyTree input."""
+
+    def f(params):
+        return params[0] ** 2 + params[1]
+
+    params = (np.zeros(2), np.zeros(2))
+    coloring = jacobian_coloring(f, params, mode=mode)
+
+    assert coloring.sparsity.shape == (2, 4)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_pytree_dict_input(mode):
+    """hessian_coloring works with dict PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": np.zeros(2), "b": np.zeros(2)}
+    coloring = hessian_coloring(f, params, mode=mode)
+
+    assert coloring.sparsity.shape == (4, 4)
+    check_coloring_symmetric(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_pytree_tuple_input(mode):
+    """hessian_coloring works with tuple PyTree input."""
+
+    def f(params):
+        return jnp.sum(params[0] ** 2) + jnp.sum(params[1] ** 2)
+
+    params = (np.zeros(2), np.zeros(2))
+    coloring = hessian_coloring(f, params, mode=mode)
+
+    assert coloring.sparsity.shape == (4, 4)

@@ -1348,3 +1348,180 @@ def test_jacobian_pytree_output_nested():
     result = jacobian(f, x, output_format="dense")(x)
     expected = jax.jacobian(f)(x)
     assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+# PyTree input tests
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_pytree_input_dict(mode):
+    """asdex.jacobian matches jax.jacobian for dict input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    result = jacobian(f, params, mode=mode, output_format="dense")(params)
+    expected = jax.jacobian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_pytree_input_tuple(mode):
+    """asdex.jacobian matches jax.jacobian for tuple input."""
+
+    def f(params):
+        return params[0] ** 2 + params[1]
+
+    params = (jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]))
+    result = jacobian(f, params, mode=mode, output_format="dense")(params)
+    expected = jax.jacobian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_from_coloring_pytree_input(mode):
+    """jacobian_from_coloring works with PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    coloring = jacobian_coloring(f, params, mode=mode)
+    result = jacobian_from_coloring(f, coloring, output_format="dense")(params)
+    expected = jax.jacobian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_value_and_jacobian_pytree_input(mode):
+    """value_and_jacobian works with PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    val, jac = value_and_jacobian(f, params, mode=mode, output_format="dense")(params)
+    expected_val = f(params)
+    expected_jac = jax.jacobian(f)(params)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_value_and_jacobian_from_coloring_pytree_input(mode):
+    """value_and_jacobian_from_coloring works with PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    coloring = jacobian_coloring(f, params, mode=mode)
+    val, jac = value_and_jacobian_from_coloring(f, coloring, output_format="dense")(
+        params
+    )
+    expected_val = f(params)
+    expected_jac = jax.jacobian(f)(params)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_from_sparsity_pytree_input(mode):
+    """jacobian_coloring_from_sparsity works with PyTree-derived sparsity."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    sparsity = jacobian_sparsity(f, params)
+    coloring = jacobian_coloring_from_sparsity(sparsity, mode=mode)
+    result = jacobian_from_coloring(f, coloring, output_format="dense")(params)
+    expected = jax.jacobian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_pytree_input_dict(mode):
+    """asdex.hessian matches jax.hessian for dict input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    result = hessian(f, params, mode=mode, output_format="dense")(params)
+    expected = jax.hessian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_from_coloring_pytree_input(mode):
+    """hessian_from_coloring works with PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    coloring = hessian_coloring(f, params, mode=mode)
+    result = hessian_from_coloring(f, coloring, output_format="dense")(params)
+    expected = jax.hessian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_value_and_hessian_pytree_input(mode):
+    """value_and_hessian works with PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    val, hess = value_and_hessian(f, params, mode=mode, output_format="dense")(params)
+    expected_val = f(params)
+    expected_hess = jax.hessian(f)(params)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected_hess, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_value_and_hessian_from_coloring_pytree_input(mode):
+    """value_and_hessian_from_coloring works with PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    coloring = hessian_coloring(f, params, mode=mode)
+    val, hess = value_and_hessian_from_coloring(f, coloring, output_format="dense")(
+        params
+    )
+    expected_val = f(params)
+    expected_hess = jax.hessian(f)(params)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected_hess, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_from_sparsity_pytree_input(mode):
+    """hessian_coloring_from_sparsity works with PyTree-derived sparsity."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    sparsity = hessian_sparsity(f, params)
+    coloring = hessian_coloring_from_sparsity(sparsity, mode=mode)
+    result = hessian_from_coloring(f, coloring, output_format="dense")(params)
+    expected = jax.hessian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)

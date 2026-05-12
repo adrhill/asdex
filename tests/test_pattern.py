@@ -280,6 +280,32 @@ class TestVisualization:
         assert "nnz=0" in s
         assert "(empty)" in s
 
+    def test_repr_pytree_input_pattern(self):
+        """__repr__ works for pattern from PyTree input."""
+
+        def f(params):
+            return params["a"] + params["b"] * 2
+
+        params = {"a": np.zeros(2), "b": np.zeros(2)}
+        sparsity = jacobian_sparsity(f, params)
+        r = repr(sparsity)
+
+        assert "SparsityPattern" in r
+        assert "shape=(2, 4)" in r
+
+    def test_str_pytree_input_pattern(self):
+        """__str__ works for pattern from PyTree input."""
+
+        def f(params):
+            return params["a"] + params["b"] * 2
+
+        params = {"a": np.zeros(2), "b": np.zeros(2)}
+        sparsity = jacobian_sparsity(f, params)
+        s = str(sparsity)
+
+        assert "SparsityPattern" in s
+        assert "●" in s or "⠀" in s  # Either dots or braille
+
 
 class TestIntegration:
     """Integration tests with detection pipeline."""

@@ -8,7 +8,13 @@ mpl.use("Agg")
 
 import matplotlib.pyplot as plt
 
-from asdex import ColoredPattern, SparsityPattern, jacobian_coloring, spy
+from asdex import (
+    ColoredPattern,
+    SparsityPattern,
+    jacobian_coloring,
+    jacobian_sparsity,
+    spy,
+)
 
 pytestmark = [pytest.mark.slow, pytest.mark.plot]
 
@@ -130,4 +136,32 @@ class TestColormapCycling:
         valid = data[~np.isnan(data)]
         # Colors 10 and 11 should cycle to 0 and 1
         assert valid.max() < 10
+        plt.close()
+
+
+class TestPyTreeInputs:
+    """Test spy with PyTree-derived patterns."""
+
+    def test_spy_sparsity_from_pytree_input(self):
+        """Spy works with sparsity from PyTree input function."""
+
+        def f(params):
+            return params["a"] + params["b"] * 2
+
+        params = {"a": np.zeros(2), "b": np.zeros(2)}
+        pattern = jacobian_sparsity(f, params)
+        ax = spy(pattern)
+        assert isinstance(ax, plt.Axes)
+        plt.close()
+
+    def test_spy_coloring_from_pytree_input(self):
+        """Spy works with coloring from PyTree input function."""
+
+        def f(params):
+            return params["a"] + params["b"] * 2
+
+        params = {"a": np.zeros(2), "b": np.zeros(2)}
+        coloring = jacobian_coloring(f, params)
+        ax = spy(coloring)
+        assert isinstance(ax, plt.Axes)
         plt.close()

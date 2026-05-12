@@ -797,3 +797,78 @@ def test_hessian_clamp_times_x2():
         ]
     )
     np.testing.assert_array_equal(H, expected)
+
+
+# PyTree input tests
+
+
+@pytest.mark.jacobian
+def test_jacobian_sparsity_pytree_dict_input():
+    """jacobian_sparsity works with dict PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": np.zeros(2), "b": np.zeros(2)}
+    pattern = jacobian_sparsity(f, params)
+
+    assert pattern.shape == (2, 4)
+    assert pattern.nnz == 4
+    expected = np.array([[1, 0, 1, 0], [0, 1, 0, 1]])
+    np.testing.assert_array_equal(pattern.todense().astype(int), expected)
+
+
+@pytest.mark.jacobian
+def test_jacobian_sparsity_pytree_tuple_input():
+    """jacobian_sparsity works with tuple PyTree input."""
+
+    def f(params):
+        return params[0] ** 2 + params[1]
+
+    params = (np.zeros(2), np.zeros(2))
+    pattern = jacobian_sparsity(f, params)
+
+    assert pattern.shape == (2, 4)
+    assert pattern.nnz == 4
+
+
+@pytest.mark.jacobian
+def test_jacobian_sparsity_pytree_nested_input():
+    """jacobian_sparsity works with nested PyTree input."""
+
+    def f(params):
+        return params["layer"]["w"] @ np.ones(2)
+
+    params = {"layer": {"w": np.zeros((3, 2))}}
+    pattern = jacobian_sparsity(f, params)
+
+    assert pattern.shape == (3, 6)
+
+
+@pytest.mark.hessian
+def test_hessian_sparsity_pytree_dict_input():
+    """hessian_sparsity works with dict PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": np.zeros(2), "b": np.zeros(2)}
+    pattern = hessian_sparsity(f, params)
+
+    assert pattern.shape == (4, 4)
+
+
+@pytest.mark.hessian
+def test_hessian_sparsity_pytree_tuple_input():
+    """hessian_sparsity works with tuple PyTree input."""
+
+    def f(params):
+        return jnp.sum(params[0] ** 2) + jnp.sum(params[1] ** 2)
+
+    params = (np.zeros(2), np.zeros(2))
+    pattern = hessian_sparsity(f, params)
+
+    assert pattern.shape == (4, 4)
+    # Diagonal Hessian since no cross-terms between a and b
+    expected_diag = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(pattern.todense().astype(int), expected_diag)
