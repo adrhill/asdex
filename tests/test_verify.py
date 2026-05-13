@@ -461,3 +461,41 @@ def test_check_hessian_pytree_input_methods(method):
     x = (np.array([1.0, 2.0]), np.array([3.0, 4.0]))
     coloring = hessian_coloring(f, x)
     check_hessian_correctness(f, x, coloring, method=method)
+
+
+# _stack_bcoo_pytree bugs
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+@pytest.mark.filterwarnings("ignore::asdex.DenseColoringWarning")
+def test_stack_bcoo_pytree_fails_with_different_ndim_dict():
+    """_stack_bcoo_pytree fails when Jacobian blocks have different dimensions.
+
+    This documents a known bug: when the Jacobian is a PyTree of BCOOs with
+    different ndims (e.g., (3,3) vs (3,3,3)), concatenation fails.
+    """
+
+    def f(params):
+        return params["w"] @ params["b"]
+
+    params = {"w": jnp.eye(3), "b": jnp.ones(3)}
+    coloring = jacobian_coloring(f, params)
+    with pytest.raises(TypeError, match="different numbers of dimensions"):
+        check_jacobian_correctness(f, params, coloring)
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+@pytest.mark.filterwarnings("ignore::asdex.DenseColoringWarning")
+def test_stack_bcoo_pytree_fails_with_different_ndim_tuple():
+    """_stack_bcoo_pytree fails with tuple PyTree inputs of different ndims."""
+
+    def f(inputs):
+        a, b = inputs
+        return a @ b
+
+    inputs = (jnp.eye(2), jnp.ones(2))
+    coloring = jacobian_coloring(f, inputs)
+    with pytest.raises(TypeError, match="different numbers of dimensions"):
+        check_jacobian_correctness(f, inputs, coloring)

@@ -961,3 +961,30 @@ def test_save_load_mixed_dtypes(tmp_path):
     result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(x_val)
     expected = jax.jacobian(f)(x_val)
     np.testing.assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.bug
+def test_list_container_becomes_tuple_after_load(tmp_path):
+    """List containers become tuples after save/load due to JSON serialization.
+
+    This documents a known bug: _serialize_avals converts both list and tuple
+    to JSON arrays, and _deserialize_avals always returns tuples.
+    """
+
+    def f(inputs):
+        return inputs[0] + inputs[1]
+
+    inputs_list = [jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])]
+    sparsity = jacobian_sparsity(f, inputs_list)
+
+    path = tmp_path / "list_input.npz"
+    sparsity.save(path)
+    loaded = SparsityPattern.load(path)
+
+    original_avals = sparsity.input_avals
+    loaded_avals = loaded.input_avals
+
+    assert isinstance(original_avals[0], list), "Original should have list container"
+    assert not isinstance(loaded_avals[0], list), (
+        "Bug: list becomes tuple after load. If this fails, the bug is fixed!"
+    )

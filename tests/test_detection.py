@@ -961,3 +961,38 @@ def test_hessian_sparsity_multi_arg_single_argnum():
     assert pattern.shape == (2, 2)
     expected = np.eye(2, dtype=int)
     np.testing.assert_array_equal(pattern.todense().astype(int), expected)
+
+
+# _ensure_scalar error handling
+
+
+@pytest.mark.hessian
+@pytest.mark.bug
+def test_hessian_sparsity_rejects_dict_output():
+    """hessian_sparsity should reject non-scalar dict output.
+
+    Currently raises AttributeError instead of a user-friendly ValueError.
+    """
+
+    def f(x):
+        return {"a": x[0], "b": x[1]}
+
+    x = jnp.array([1.0, 2.0])
+    with pytest.raises(AttributeError, match="no attribute 'shape'"):
+        hessian_sparsity(f, x)
+
+
+@pytest.mark.hessian
+@pytest.mark.bug
+def test_hessian_sparsity_rejects_tuple_output():
+    """hessian_sparsity should reject non-scalar tuple output.
+
+    Currently raises AttributeError instead of a user-friendly ValueError.
+    """
+
+    def f(x):
+        return (x[0], x[1])
+
+    x = jnp.array([1.0, 2.0])
+    with pytest.raises(AttributeError, match="no attribute 'shape'"):
+        hessian_sparsity(f, x)
