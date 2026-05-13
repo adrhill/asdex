@@ -963,13 +963,28 @@ def test_save_load_mixed_dtypes(tmp_path):
     np.testing.assert_allclose(result, expected, rtol=1e-5)
 
 
-@pytest.mark.bug
-def test_list_container_becomes_tuple_after_load(tmp_path):
-    """List containers become tuples after save/load due to JSON serialization.
+def test_save_load_multi_arg_correctness(tmp_path):
+    """Multi-argument coloring produces correct Jacobian after save/load."""
 
-    This documents a known bug: _serialize_avals converts both list and tuple
-    to JSON arrays, and _deserialize_avals always returns tuples.
-    """
+    def f(x, y):
+        return x * y + x**2
+
+    x_shape, y_shape = np.zeros(3), np.zeros(3)
+    coloring = asdex.jacobian_coloring(f, x_shape, y_shape, argnums=(0, 1))
+    path = tmp_path / "multi_arg.npz"
+    coloring.save(path)
+    loaded = asdex.ColoredPattern.load(path)
+
+    x_val, y_val = np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0])
+    result = asdex.jacobian_from_coloring(f, loaded, output_format="dense")(
+        x_val, y_val
+    )
+    expected = jax.jacobian(f, argnums=(0, 1))(x_val, y_val)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+def test_list_container_preserved_after_load(tmp_path):
+    """List containers are preserved after save/load."""
 
     def f(inputs):
         return inputs[0] + inputs[1]
@@ -985,6 +1000,4 @@ def test_list_container_becomes_tuple_after_load(tmp_path):
     loaded_avals = loaded.input_avals
 
     assert isinstance(original_avals[0], list), "Original should have list container"
-    assert not isinstance(loaded_avals[0], list), (
-        "Bug: list becomes tuple after load. If this fails, the bug is fixed!"
-    )
+    assert isinstance(loaded_avals[0], list), "Loaded should preserve list container"

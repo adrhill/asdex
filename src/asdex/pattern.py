@@ -37,8 +37,10 @@ def _serialize_avals(input_avals: tuple[Any, ...]) -> str:
             return {"_sds": True, "shape": list(x.shape), "dtype": str(x.dtype)}
         if isinstance(x, dict):
             return {"_dict": True, "items": [[k, convert(v)] for k, v in x.items()]}
-        if isinstance(x, (list, tuple)):
-            return [convert(v) for v in x]
+        if isinstance(x, list):
+            return {"_list": True, "items": [convert(v) for v in x]}
+        if isinstance(x, tuple):
+            return {"_tuple": True, "items": [convert(v) for v in x]}
         msg = f"Cannot serialize {type(x).__name__}"
         raise TypeError(msg)
 
@@ -54,9 +56,14 @@ def _deserialize_avals(json_str: str) -> tuple[Any, ...]:
                 return ShapeDtypeStruct(tuple(x["shape"]), jnp.dtype(x["dtype"]))
             if x.get("_dict"):
                 return {k: convert(v) for k, v in x["items"]}
+            if x.get("_list"):
+                return [convert(v) for v in x["items"]]
+            if x.get("_tuple"):
+                return tuple(convert(v) for v in x["items"])
             msg = f"Unknown dict format: {x}"
             raise ValueError(msg)
         if isinstance(x, list):
+            # Legacy format: bare JSON arrays become tuples
             return tuple(convert(v) for v in x)
         msg = f"Cannot deserialize {type(x).__name__}"
         raise TypeError(msg)

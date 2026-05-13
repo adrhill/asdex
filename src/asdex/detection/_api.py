@@ -210,6 +210,10 @@ def _ensure_scalar(f: Callable, args: tuple[Any, ...]) -> Callable:
     Otherwise, raises ``ValueError``.
     """
     out = jax.eval_shape(f, *args)
+    if not hasattr(out, "shape"):
+        raise ValueError(
+            f"Expected scalar-valued function, but f returns a PyTree: {type(out).__name__}."
+        )
     if out.shape == ():
         return f
     squeezed_shape = jax.eval_shape(lambda *xs: jnp.squeeze(f(*xs)), *args).shape

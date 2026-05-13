@@ -967,32 +967,24 @@ def test_hessian_sparsity_multi_arg_single_argnum():
 
 
 @pytest.mark.hessian
-@pytest.mark.bug
 def test_hessian_sparsity_rejects_dict_output():
-    """hessian_sparsity should reject non-scalar dict output.
-
-    Currently raises AttributeError instead of a user-friendly ValueError.
-    """
+    """hessian_sparsity rejects non-scalar dict output with a clear error."""
 
     def f(x):
         return {"a": x[0], "b": x[1]}
 
     x = jnp.array([1.0, 2.0])
-    with pytest.raises(AttributeError, match="no attribute 'shape'"):
+    with pytest.raises(ValueError, match="returns a PyTree"):
         hessian_sparsity(f, x)
 
 
 @pytest.mark.hessian
-@pytest.mark.bug
 def test_hessian_sparsity_rejects_tuple_output():
-    """hessian_sparsity should reject non-scalar tuple output.
-
-    Currently raises AttributeError instead of a user-friendly ValueError.
-    """
+    """hessian_sparsity rejects non-scalar tuple output with a clear error."""
 
     def f(x):
         return (x[0], x[1])
 
     x = jnp.array([1.0, 2.0])
-    with pytest.raises(AttributeError, match="no attribute 'shape'"):
+    with pytest.raises(ValueError, match="returns a PyTree"):
         hessian_sparsity(f, x)

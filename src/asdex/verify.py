@@ -349,7 +349,19 @@ def _stack_bcoo_pytree(pytree: Any, axis: int) -> BCOO:
     leaves = jax.tree_util.tree_leaves(pytree, is_leaf=_is_bcoo)
     if len(leaves) == 1:
         return leaves[0]
-    dense_blocks = [leaf.todense() for leaf in leaves]
+
+    def to_2d(leaf: BCOO) -> jax.Array:
+        dense = leaf.todense()
+        if dense.ndim == 2:
+            return dense
+        # Flatten to 2D based on concatenation axis
+        if axis == 0:
+            # Stacking rows: keep last dim (columns), flatten the rest into rows
+            return dense.reshape(-1, dense.shape[-1])
+        # Stacking columns (axis=1): keep first dim (rows), flatten the rest into columns
+        return dense.reshape(dense.shape[0], -1)
+
+    dense_blocks = [to_2d(leaf) for leaf in leaves]
     stacked = jnp.concatenate(dense_blocks, axis=axis)
     return BCOO.fromdense(stacked)
 
