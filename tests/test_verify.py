@@ -557,59 +557,43 @@ def test_check_jacobian_pytree_2d_same_ndim_blocks_dense():
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-def test_check_jacobian_pytree_2d_matvec_shape_mismatch():
-    """Matvec verification fails for 2D PyTree inputs due to shape handling.
-
-    The dense method works, but matvec has shape mismatches when inputs are 2D.
-    """
+@pytest.mark.parametrize("method", ["matvec", "dense"])
+def test_check_jacobian_pytree_2d_inputs(method):
+    """check_jacobian_correctness works with 2D PyTree inputs."""
 
     def f(params):
         return params["a"] + params["b"]
 
     params = {"a": np.eye(2), "b": np.ones((2, 2))}
     coloring = jacobian_coloring(f, params)
-    with pytest.raises(TypeError, match="contracting dimensions"):
-        check_jacobian_correctness(f, params, coloring, method="matvec")
+    check_jacobian_correctness(f, params, coloring, method=method)
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-def test_check_jacobian_pytree_input_and_output_matvec_fails():
-    """Matvec verification fails when both input and output are PyTrees.
-
-    The dense method works, but matvec has shape mismatches due to incorrect
-    flattening of the Jacobian structure.
-    """
+@pytest.mark.parametrize("method", ["matvec", "dense"])
+def test_check_jacobian_pytree_input_and_output(method):
+    """check_jacobian_correctness works when both input and output are PyTrees."""
 
     def f(params):
         return {"sum": params["a"] + params["b"], "diff": params["a"] - params["b"]}
 
     params = {"a": np.array([1.0, 2.0]), "b": np.array([3.0, 4.0])}
     coloring = jacobian_coloring(f, params)
-    check_jacobian_correctness(f, params, coloring, method="dense")
-    with pytest.raises(TypeError, match="contracting dimensions"):
-        check_jacobian_correctness(f, params, coloring, method="matvec")
+    check_jacobian_correctness(f, params, coloring, method=method)
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
+@pytest.mark.parametrize("method", ["matvec", "dense"])
 @pytest.mark.filterwarnings("ignore::asdex.DenseColoringWarning")
-def test_check_jacobian_3d_tensor_input_matvec_fails():
-    """Matvec verification fails for 3D tensor inputs.
-
-    The dense method works, but matvec has shape mismatches when inputs
-    have more than 2 dimensions.
-    """
+def test_check_jacobian_3d_tensor_input(method):
+    """check_jacobian_correctness works for 3D tensor inputs."""
 
     def f(params):
         return jnp.einsum("ijk,k->ij", params["tensor"], params["vec"])
 
     params = {"tensor": jnp.ones((2, 3, 4)), "vec": jnp.ones(4)}
     coloring = jacobian_coloring(f, params)
-    check_jacobian_correctness(f, params, coloring, method="dense")
-    with pytest.raises(TypeError, match="contracting dimensions"):
-        check_jacobian_correctness(f, params, coloring, method="matvec")
+    check_jacobian_correctness(f, params, coloring, method=method)
 
 
 # _stack_bcoo_pytree tests

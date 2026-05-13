@@ -337,33 +337,84 @@ def _is_bcoo(x: Any) -> bool:
     return isinstance(x, BCOO)
 
 
-def _stack_bcoo_pytree(pytree: Any, axis: int) -> BCOO:
-    """Stack a PyTree of BCOO matrices into a single (m, n) BCOO.
+def _flatten_jacobian_to_dense(
+    J_pytree: Any,
+    sparsity: SparsityPattern,
+    out_struct: Any,
+) -> jax.Array:
+    """Flatten a PyTree of Jacobian blocks into a (m, n) dense matrix.
+
+    This mirrors decompression._assemble_jacobian_blocks in reverse:
+    that function splits a (m, n) matrix into blocks, this reassembles them.
 
     Args:
-        pytree: PyTree of BCOO matrices.
-        axis: Concatenation axis.
-            0 for PyTree output (each leaf is (m_leaf, n), stack rows).
-            1 for PyTree input (each leaf is (m, n_leaf), stack columns).
+        J_pytree: PyTree of BCOO/array blocks with structure (out_tree, in_tree).
+        sparsity: SparsityPattern providing input leaf shapes/sizes.
+        out_struct: Output structure from jax.eval_shape(f, *args).
+
+    Returns:
+        Dense (m, n) array where m = output size, n = selected input size.
     """
-    leaves = jax.tree_util.tree_leaves(pytree, is_leaf=_is_bcoo)
-    if len(leaves) == 1:
-        return leaves[0]
+    in_leaf_sizes = sparsity.leaf_sizes
 
-    def to_2d(leaf: BCOO) -> jax.Array:
-        dense = leaf.todense()
-        if dense.ndim == 2:
-            return dense
-        # Flatten to 2D based on concatenation axis
-        if axis == 0:
-            # Stacking rows: keep last dim (columns), flatten the rest into rows
-            return dense.reshape(-1, dense.shape[-1])
-        # Stacking columns (axis=1): keep first dim (rows), flatten the rest into columns
-        return dense.reshape(dense.shape[0], -1)
+    out_leaves = jax.tree_util.tree_leaves(out_struct)
+    out_leaf_sizes = [int(np.prod(leaf.shape)) for leaf in out_leaves]
 
-    dense_blocks = [to_2d(leaf) for leaf in leaves]
-    stacked = jnp.concatenate(dense_blocks, axis=axis)
-    return BCOO.fromdense(stacked)
+    m = sum(out_leaf_sizes)
+    n = sum(in_leaf_sizes)
+    dense = jnp.zeros((m, n))
+
+    # J_pytree has structure (out_tree, in_tree) - flatten to get blocks
+    # in the same order as _assemble_jacobian_blocks produces them
+    out_row_offset = 0
+    for out_idx, out_size in enumerate(out_leaf_sizes):
+        in_col_offset = 0
+        for in_idx, in_size in enumerate(in_leaf_sizes):
+            # Navigate to the block: J_pytree[out_key][in_key] for dicts
+            block = _get_jacobian_block(J_pytree, out_idx, in_idx, out_struct, sparsity)
+            block_dense = block.todense() if _is_bcoo(block) else jnp.asarray(block)
+            block_2d = block_dense.reshape(out_size, in_size)
+            dense = dense.at[
+                out_row_offset : out_row_offset + out_size,
+                in_col_offset : in_col_offset + in_size,
+            ].set(block_2d)
+            in_col_offset += in_size
+        out_row_offset += out_size
+
+    return dense
+
+
+def _get_jacobian_block(
+    J_pytree: Any,
+    out_idx: int,
+    in_idx: int,
+    out_struct: Any,
+    sparsity: SparsityPattern,
+) -> Any:
+    """Extract a single Jacobian block from the nested PyTree structure."""
+    # Get the output-indexed subtree
+    out_leaves, _ = jax.tree_util.tree_flatten(out_struct)
+    if len(out_leaves) == 1:
+        # Single output leaf - J_pytree is just the input tree
+        out_subtree = J_pytree
+    else:
+        # Multiple output leaves - J_pytree[out_key] gives input tree
+        out_keys = _get_sorted_keys(J_pytree)
+        out_subtree = J_pytree[out_keys[out_idx]]
+
+    # Get the input-indexed block from the output subtree
+    in_leaves = jax.tree_util.tree_leaves(out_subtree, is_leaf=_is_bcoo)
+    return in_leaves[in_idx]
+
+
+def _get_sorted_keys(pytree: Any) -> list[Any]:
+    """Get keys from a PyTree container in JAX's canonical order."""
+    if isinstance(pytree, dict):
+        return sorted(pytree.keys())
+    if isinstance(pytree, (list, tuple)):
+        return list(range(len(pytree)))
+    msg = f"Unsupported PyTree type: {type(pytree)}"
+    raise TypeError(msg)
 
 
 def _stack_hessian_pytree(pytree: Any, n: int) -> BCOO:
@@ -428,11 +479,10 @@ def _check_jacobian_matvec(
     dyn_args = tuple(args[i] for i in sparsity._argnums_tuple)
     n = sum(output_size(a) for a in dyn_args)
 
-    # Stack PyTree of BCOOs into a single (m, n) matrix if needed
+    # Flatten PyTree of BCOOs into a single (m, n) matrix if needed
     if not isinstance(J_sparse, BCOO):
-        is_pytree_input = len(jax.tree_util.tree_leaves(dyn_args)) > 1
-        axis = 1 if is_pytree_input else 0
-        J_sparse = _stack_bcoo_pytree(J_sparse, axis)
+        J_dense = _flatten_jacobian_to_dense(J_sparse, sparsity, out_struct)
+        J_sparse = BCOO.fromdense(J_dense)
 
     for i in range(num_probes):
         match ref_mode:
