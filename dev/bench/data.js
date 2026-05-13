@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776723942772,
+  "lastUpdate": 1778678016147,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -13827,6 +13827,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000027916263536611794",
             "extra": "mean: 20.616019571652817 usec\nrounds: 17883"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "479e5ea432e800c9f76cd51887435f8f2039429b",
+          "message": "feat(api)!: require sample inputs, support multi-input functions (#105)\n\n## Summary\n\n- Support pytree / multi-positional-input functions across detection, coloring, and decompression via sample inputs (`*args`) and `argnums=`, mirroring `jax.make_jaxpr(f)(*args)` / `jax.jacrev` semantics.\n- Add `has_aux`, `holomorphic`, and `allow_int` kwargs to `jacobian`, `value_and_jacobian`, `hessian`, `value_and_hessian`, their `*_from_coloring` counterparts, and `jacobian_coloring` / `hessian_coloring`, matching `jax.jacrev` / `jax.jacfwd` / `jax.hessian` semantics.\n\n## Details\n\n- Introduce `_api_utils.py` helpers mirroring `jax._src.api_util`: `_ensure_index`, `_ensure_inbounds`, `avals_from_args`.\n- Generalize `SparsityPattern` to represent multi-input Jacobian / Hessian blocks.\n- Multi-input block structure for both Jacobian and Hessian decompression; `H[i][j]` / `J[i]` pytree returns.\n- Support PyTree outputs in Jacobian/Hessian computation.\n- Support scalar inputs (0-dimensional arrays).\n- PyTree input/output support in `check_jacobian_correctness` and `check_hessian_correctness`.\n- Dtype validators mirror `jax._src.api._check_{input,output}_dtype_{jacrev,jacfwd}` without coupling to JAX's private API.\n- `_jacobian_rows` seed dtype now matches the output dtype (needed for `allow_int` with int→float functions).\n- Replace the deprecated `jax.core.get_aval` with `jax.typeof`.\n- All multi-input tests verify structural and numerical equality against `jax.jacobian` / `jax.hessian`.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-05-13T15:12:50+02:00",
+          "tree_id": "cfd18b564cde0670b840f1d3f0b2dd34b53937c7",
+          "url": "https://github.com/adrhill/asdex/commit/479e5ea432e800c9f76cd51887435f8f2039429b"
+        },
+        "date": 1778678014637,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1034.9466747443348,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005662084667546892",
+            "extra": "mean: 966.2333571408712 usec\nrounds: 14"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27088.075161316247,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000038280691068619045",
+            "extra": "mean: 36.91661345609647 usec\nrounds: 8576"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 79639.73081695955,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025164970509096804",
+            "extra": "mean: 12.556546710314178 usec\nrounds: 25626"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 45283.042930407995,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000423553059401689",
+            "extra": "mean: 22.083321598701364 usec\nrounds: 10709"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 78929.15401801828,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025289942363153784",
+            "extra": "mean: 12.669589740841714 usec\nrounds: 27858"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 23.442559701064702,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006182463083892949",
+            "extra": "mean: 42.65745774999914 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2889.451550880033,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009866669824098555",
+            "extra": "mean: 346.086439724325 usec\nrounds: 2613"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1869.2289814770286,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000028786145930887754",
+            "extra": "mean: 534.9799355292572 usec\nrounds: 1427"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1888.076613187166,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003063616270052122",
+            "extra": "mean: 529.6395246970147 usec\nrounds: 1073"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 3958.120816548925,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001675790908155969",
+            "extra": "mean: 252.64514307370166 usec\nrounds: 3299"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 140.41793948704156,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010878283589816113",
+            "extra": "mean: 7.121597166666049 msec\nrounds: 60"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26999.54378548048,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000038834808966031395",
+            "extra": "mean: 37.03766285628015 usec\nrounds: 19333"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 41160.62741986243,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010416345581806574",
+            "extra": "mean: 24.2950621184516 usec\nrounds: 8516"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 41253.85303302762,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008039803457796861",
+            "extra": "mean: 24.240160045157605 usec\nrounds: 14171"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 41619.03804022328,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008221008649114643",
+            "extra": "mean: 24.027465484270362 usec\nrounds: 14660"
           }
         ]
       }
