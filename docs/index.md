@@ -40,7 +40,7 @@ def f(x):
 
 x = np.random.randn(1000)
 
-jac_fn = jax.jit(asdex.jacobian(f, input_shape=x.shape))
+jac_fn = jax.jit(asdex.jacobian(f, x)) # shape and dtype of `x` are used for sparsity pattern detection
 J = jac_fn(x)
 ```
 

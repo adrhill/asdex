@@ -33,7 +33,7 @@ def test_gather_fancy_indexing():
         indices = jnp.array([2, 0, 1])
         return x[indices]
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     # Permutation: out[0] <- in[2], out[1] <- in[0], out[2] <- in[1]
     expected = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -55,7 +55,7 @@ def test_gather_indices_through_select_n():
         final_indices = lax.select(pred, wrapped, indices)
         return x[final_indices]
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     # Permutation: out[0] <- in[2], out[1] <- in[0], out[2] <- in[1]
     expected = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -75,7 +75,7 @@ def test_gather_dynamic_indices_fallback():
         indices = jnp.array([0, 1]) + idx
         return jnp.take(x, indices)
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array([[1, 1, 0, 0], [0, 1, 1, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -92,7 +92,7 @@ def test_gather_2d_row_select():
         indices = jnp.array([2, 0])  # Select rows 2 and 0
         return mat[indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     # Output: row 2 (indices 4,5), then row 0 (indices 0,1)
     expected = np.array(
         [
@@ -122,7 +122,7 @@ def test_gather_embedding_precision():
         indices = jnp.array([3, 0, 4])
         return mat[indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=15).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(15)).todense().astype(int)
     # rows 3,0,4 from (5,3): flat indices [9..11, 0..2, 12..14]
     expected = _perm_matrix(9, 15, [9, 10, 11, 0, 1, 2, 12, 13, 14])
     np.testing.assert_array_equal(result, expected)
@@ -140,7 +140,7 @@ def test_gather_dim1_precision():
         indices = jnp.array([2, 0])
         return mat[:, indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     # For each row r, select cols 2,0: flat = r*4+col
     expected = _perm_matrix(6, 12, [2, 0, 6, 4, 10, 8])
     np.testing.assert_array_equal(result, expected)
@@ -158,7 +158,7 @@ def test_gather_middle_dim_precision():
         indices = jnp.array([2, 0])
         return t[:, indices, :].flatten()
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
     # For batch b, sel s in [2,0], col c: input = b*12 + sel*4 + c
     mapping = [b * 12 + s * 4 + c for b in range(2) for s in [2, 0] for c in range(4)]
     expected = _perm_matrix(16, 24, mapping)
@@ -177,7 +177,7 @@ def test_gather_last_dim_precision():
         indices = jnp.array([3, 1, 0])
         return t[:, :, indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
     # For batch b, row r, sel c in [3,1,0]: input = b*12 + r*4 + c
     mapping = [
         b * 12 + r * 4 + c for b in range(2) for r in range(3) for c in [3, 1, 0]
@@ -200,7 +200,7 @@ def test_gather_multi_index_precision():
         cols = jnp.array([3, 1, 0, 2])
         return mat[rows, cols]
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     # flat = row*4 + col: [3, 9, 4, 2]
     expected = _perm_matrix(4, 12, [3, 9, 4, 2])
     np.testing.assert_array_equal(result, expected)
@@ -221,7 +221,7 @@ def test_gather_dim0_nonsquare():
         indices = jnp.array([4, 1])
         return mat[indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=15).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(15)).todense().astype(int)
     # rows 4,1 from (5,3): flat indices [12,13,14, 3,4,5]
     expected = _perm_matrix(6, 15, [12, 13, 14, 3, 4, 5])
     np.testing.assert_array_equal(result, expected)
@@ -239,7 +239,7 @@ def test_gather_dim1_nonsquare():
         indices = jnp.array([4, 0, 2])
         return mat[:, indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=10).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(10)).todense().astype(int)
     # For each row r, select cols 4,0,2: flat = r*5+col
     expected = _perm_matrix(6, 10, [4, 0, 2, 9, 5, 7])
     np.testing.assert_array_equal(result, expected)
@@ -257,7 +257,7 @@ def test_gather_3d_asymmetric():
         indices = jnp.array([2, 0])
         return t[:, indices, :].flatten()
 
-    result = jacobian_sparsity(f, input_shape=30).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(30)).todense().astype(int)
     # For batch b, sel s in [2,0], col c: input = b*15 + s*5 + c
     mapping = [b * 15 + s * 5 + c for b in range(2) for s in [2, 0] for c in range(5)]
     expected = _perm_matrix(20, 30, mapping)
@@ -276,7 +276,7 @@ def test_gather_dim0_sparser_than_conservative():
         indices = jnp.array([3, 0])
         return mat[indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=15).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(15)).todense().astype(int)
     n_out, n_in = result.shape
     assert 0 < result.sum() < n_out * n_in
 
@@ -290,7 +290,7 @@ def test_gather_dim1_sparser_than_conservative():
         indices = jnp.array([4, 1])
         return mat[:, indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=10).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(10)).todense().astype(int)
     n_out, n_in = result.shape
     assert 0 < result.sum() < n_out * n_in
 
@@ -304,7 +304,7 @@ def test_gather_middle_dim_sparser_than_conservative():
         indices = jnp.array([1])
         return t[:, indices, :].flatten()
 
-    result = jacobian_sparsity(f, input_shape=30).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(30)).todense().astype(int)
     n_out, n_in = result.shape
     assert 0 < result.sum() < n_out * n_in
 
@@ -319,7 +319,7 @@ def test_gather_multi_index_sparser_than_conservative():
         cols = jnp.array([3, 1])
         return mat[rows, cols]
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     n_out, n_in = result.shape
     assert 0 < result.sum() < n_out * n_in
 
@@ -341,7 +341,7 @@ def test_gather_indices_through_broadcast():
         idx_arr = jnp.broadcast_to(idx, (1,))
         return x[idx_arr]
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.array([[0, 0, 1, 0, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -359,7 +359,7 @@ def test_gather_indices_through_reshape():
         idx_flat = idx.reshape(4)
         return x[idx_flat]
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.array(
         [
             [0, 1, 0, 0, 0],
@@ -384,7 +384,7 @@ def test_gather_indices_through_slice():
         idx_sub = idx[:3]  # [3, 0, 2]
         return x[idx_sub]
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 0, 1, 0],
@@ -408,7 +408,7 @@ def test_gather_indices_through_transpose():
         idx_t = jnp.transpose(idx)  # [[1, 3], [0, 2]]
         return x[idx_t.flatten()]  # [1, 3, 0, 2]
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.array(
         [
             [0, 1, 0, 0, 0],
@@ -433,7 +433,7 @@ def test_gather_indices_through_tile():
         idx_rep = jnp.tile(idx, 2)  # [2, 0, 2, 0]
         return x[idx_rep]
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 1, 0],
@@ -460,7 +460,7 @@ def test_gather_indices_through_convert_element_type():
         idx64 = idx.astype(jnp.int64)
         return x[idx64]
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -481,7 +481,7 @@ def test_gather_chained_two_gathers():
         idx2 = jnp.array([2, 0])
         return intermediate[:, idx2].flatten()
 
-    result = jacobian_sparsity(f, input_shape=15).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(15)).todense().astype(int)
     # Row 4 cols [2,0] → [14,12], row 0 cols [2,0] → [2,0], row 2 cols [2,0] → [8,6]
     expected = _perm_matrix(6, 15, [14, 12, 2, 0, 8, 6])
     np.testing.assert_array_equal(result, expected)
@@ -497,7 +497,7 @@ def test_gather_single_element():
     def f(x):
         return x[jnp.array([2])]
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.array([[0, 0, 1, 0, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -513,7 +513,7 @@ def test_gather_2d_index_array():
         idx = jnp.array([[0, 3], [1, 2]])
         return x[idx].flatten()
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     # out[0] <- in[0], out[1] <- in[3], out[2] <- in[1], out[3] <- in[2]
     expected = np.array(
         [
@@ -539,7 +539,7 @@ def test_gather_repeated_indices():
         idx = jnp.array([1, 1, 1])
         return x[idx]
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [
             [0, 1, 0, 0],
@@ -559,7 +559,7 @@ def test_gather_identity_permutation():
         idx = jnp.array([0, 1, 2, 3])
         return x[idx]
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.eye(4, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -577,7 +577,7 @@ def test_gather_dim1_via_lax_gather():
         indices = jnp.array([3, 0])
         return mat[:, indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     # For each row r, select cols 3,0: flat = r*4+col
     expected = _perm_matrix(6, 12, [3, 0, 7, 4, 11, 8])
     np.testing.assert_array_equal(result, expected)
@@ -597,7 +597,7 @@ def test_gather_3d_last_dim_direct():
         indices = jnp.array([4, 1, 0])
         return t[:, :, indices].flatten()
 
-    result = jacobian_sparsity(f, input_shape=30).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(30)).todense().astype(int)
     # For batch b, row r, sel c in [4,1,0]: input = b*15 + r*5 + c
     mapping = [
         b * 15 + r * 5 + c for b in range(2) for r in range(3) for c in [4, 1, 0]
@@ -621,7 +621,7 @@ def test_gather_multi_dim_with_kept_dim():
         t = x.reshape(3, 4, 5)
         return t[jnp.array([0, 2]), jnp.array([1, 3])].flatten()
 
-    result = jacobian_sparsity(f, input_shape=60).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(60)).todense().astype(int)
     # out[i, c] = t[rows[i], cols[i], c]
     # Flat input: rows[i]*20 + cols[i]*5 + c
     mapping = [r * 20 + c * 5 + k for r, c in [(0, 1), (2, 3)] for k in range(5)]
@@ -651,7 +651,7 @@ def test_gather_multi_dim_single_coordinate():
             slice_sizes=(1, 1),
         ).reshape(1)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _perm_matrix(1, 12, [6])
     np.testing.assert_array_equal(result, expected)
 
@@ -678,7 +678,7 @@ def test_gather_multi_dim_start_indices_single_collapse():
         idx = jnp.array([[0, 2], [1, 0]])
         return mat[:, idx].flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     # Each output reads exactly one input element.
     # mat[:, idx] has shape (2, 2, 2).
     # mat[r, idx[i,j]] = x[r*3 + idx[i,j]]
@@ -708,7 +708,7 @@ def test_gather_single_dim_start_map_mismatch():
             slice_sizes=(1, 1),
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     # out[0] = arr[0, 1] = x[1], out[1] = arr[0, 3] = x[3].
     expected = _perm_matrix(2, 12, [1, 3])
     np.testing.assert_array_equal(result, expected)
@@ -735,7 +735,7 @@ def test_gather_single_dim_partial_slice():
             slice_sizes=(1, 2),
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     # out[0] = arr[0, 0] = x[0], out[1] = arr[0, 1] = x[1],
     # out[2] = arr[2, 0] = x[8], out[3] = arr[2, 1] = x[9].
     expected = _perm_matrix(4, 12, [0, 1, 8, 9])
@@ -764,7 +764,7 @@ def test_gather_multi_dim_start_map_mismatch():
             slice_sizes=(1, 1, 5),
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=60).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(60)).todense().astype(int)
     # arr[1, 0, 0..4] = x[20..24], arr[2, 2, 0..4] = x[50..54] (dim0 clamped 3→2).
     expected = _perm_matrix(10, 60, list(range(20, 25)) + list(range(50, 55)))
     np.testing.assert_array_equal(result, expected)
@@ -790,7 +790,7 @@ def test_gather_multi_dim_partial_non_collapsed():
             slice_sizes=(1, 1, 3),
         ).flatten()
 
-    result = jacobian_sparsity(f, input_shape=60).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(60)).todense().astype(int)
     # out[0..2] = arr[0, 1, 0..2] = x[5..7],
     # out[3..5] = arr[2, 3, 0..2] = x[55..57].
     expected = _perm_matrix(6, 60, [5, 6, 7, 55, 56, 57])
@@ -820,7 +820,7 @@ def test_gather_batching_dims():
             slice_sizes=(1, 1),
         )
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     # out[0] = arr[0, 1] = x[1], out[1] = arr[1, 0] = x[3].
     expected = _perm_matrix(2, 6, [1, 3])
     np.testing.assert_array_equal(result, expected)
@@ -836,6 +836,6 @@ def test_gather_zero_size_indices():
     def f(x):
         return x[:0][jnp.array([], dtype=int)]
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0

@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Any, assert_never
 
 import jax.numpy as jnp
 import numpy as np
+from jax import ShapeDtypeStruct
 from jax.experimental.sparse import BCOO
+from jax.tree_util import tree_flatten
 from numpy.typing import NDArray
 
 from asdex._display import colored_repr, colored_str, sparsity_repr, sparsity_str
@@ -18,6 +21,55 @@ from asdex.modes import ColoringMode, _assert_coloring_mode
 
 if TYPE_CHECKING:
     from asdex.coloring import StarSet
+
+
+# Serialization helpers
+
+
+def _serialize_avals(input_avals: tuple[Any, ...]) -> str:
+    """Serialize input_avals to JSON string.
+
+    Converts PyTree of ShapeDtypeStruct to a JSON-serializable structure.
+    """
+
+    def convert(x: Any) -> Any:
+        if isinstance(x, ShapeDtypeStruct):
+            return {"_sds": True, "shape": list(x.shape), "dtype": str(x.dtype)}
+        if isinstance(x, dict):
+            return {"_dict": True, "items": [[k, convert(v)] for k, v in x.items()]}
+        if isinstance(x, list):
+            return {"_list": True, "items": [convert(v) for v in x]}
+        if isinstance(x, tuple):
+            return {"_tuple": True, "items": [convert(v) for v in x]}
+        msg = f"Cannot serialize {type(x).__name__}"
+        raise TypeError(msg)
+
+    return json.dumps([convert(a) for a in input_avals])
+
+
+def _deserialize_avals(json_str: str) -> tuple[Any, ...]:
+    """Deserialize input_avals from JSON string."""
+
+    def convert(x: Any) -> Any:
+        if isinstance(x, dict):
+            if x.get("_sds"):
+                return ShapeDtypeStruct(tuple(x["shape"]), jnp.dtype(x["dtype"]))
+            if x.get("_dict"):
+                return {k: convert(v) for k, v in x["items"]}
+            if x.get("_list"):
+                return [convert(v) for v in x["items"]]
+            if x.get("_tuple"):
+                return tuple(convert(v) for v in x["items"])
+            msg = f"Unknown dict format: {x}"
+            raise ValueError(msg)
+        if isinstance(x, list):
+            # Legacy format: bare JSON arrays become tuples
+            return tuple(convert(v) for v in x)
+        msg = f"Cannot deserialize {type(x).__name__}"
+        raise TypeError(msg)
+
+    data = json.loads(json_str)
+    return tuple(convert(a) for a in data)
 
 
 @dataclass(frozen=True)
@@ -28,25 +80,90 @@ class SparsityPattern:
     by the coloring and decompression stages.
 
     Attributes:
-        rows: Row indices of non-zero entries, shape ``(nnz,)``
-        cols: Column indices of non-zero entries, shape ``(nnz,)``
-        shape: Matrix dimensions ``(m, n)``
-        input_shape: Shape of the function input that produced this pattern.
-            Defaults to ``(n,)`` if not specified.
+        rows: Row indices of non-zero entries, shape ``(nnz,)``.
+        cols: Column indices of non-zero entries, shape ``(nnz,)``.
+        shape: Matrix dimensions ``(m, n)``.
+        input_avals: One pytree of ``jax.ShapeDtypeStruct`` per positional
+            argument of the traced function, in the same order
+            ``jax.eval_shape(fun, *args)`` expects.
+            Positions not in ``argnums`` are still stored (so the full input
+            structure is preserved), but they do not contribute columns to
+            the Jacobian / rows to the Hessian.
+        argnums: Positions of ``input_avals`` that were differentiated,
+            mirroring ``jax.grad`` / ``jax.jacfwd``.
+            An ``int`` stays ``int`` and a sequence becomes ``tuple[int, ...]``
+            — that distinction drives whether
+            [`example_input`][asdex.SparsityPattern.example_input]
+            is a single aval or a tuple of avals.
     """
 
     rows: NDArray[np.int32]
     cols: NDArray[np.int32]
     shape: tuple[int, int]
-    input_shape: tuple[int, ...] | None = None
+    input_avals: tuple[Any, ...] = field(default=())
+    argnums: int | tuple[int, ...] = 0
 
     def __post_init__(self) -> None:
-        """Validate inputs and set defaults."""
+        """Validate inputs and fill in the default single-leaf aval."""
         if len(self.rows) != len(self.cols):
-            msg = f"rows and cols must have same length, got {len(self.rows)} and {len(self.cols)}"
+            msg = (
+                f"rows and cols must have same length, "
+                f"got {len(self.rows)} and {len(self.cols)}"
+            )
             raise ValueError(msg)
-        if self.input_shape is None:
-            object.__setattr__(self, "input_shape", (self.n,))
+        if not self.input_avals:
+            default = (ShapeDtypeStruct((self.n,), jnp.float_),)
+            object.__setattr__(self, "input_avals", default)
+
+    # Derived input structure
+
+    @property
+    def _argnums_tuple(self) -> tuple[int, ...]:
+        """``argnums`` always as a tuple, for indexing into ``input_avals``."""
+        if isinstance(self.argnums, int):
+            return (self.argnums,)
+        return self.argnums
+
+    @property
+    def dyn_avals(self) -> tuple[Any, ...]:
+        """Sub-tuple of ``input_avals`` selected by ``argnums``."""
+        return tuple(self.input_avals[i] for i in self._argnums_tuple)
+
+    @property
+    def example_input(self) -> Any:
+        """The aval structure the returned Jacobian / Hessian mirrors.
+
+        When ``argnums`` is an ``int`` this is the single selected aval;
+        when ``argnums`` is a tuple this is the tuple of selected avals.
+        Matches ``jax/_src/api.py:746`` (``jacfwd``) and line 840 (``jacrev``).
+        """
+        if isinstance(self.argnums, int):
+            return self.dyn_avals[0]
+        return self.dyn_avals
+
+    @cached_property
+    def _dyn_flat(self) -> tuple[list[Any], Any]:
+        """``tree_flatten`` of ``dyn_avals``, cached for reuse."""
+        leaves, treedef = tree_flatten(self.dyn_avals)
+        return leaves, treedef
+
+    @property
+    def leaf_shapes(self) -> list[tuple[int, ...]]:
+        """Per-leaf shapes of the selected (differentiated) inputs."""
+        leaves, _ = self._dyn_flat
+        return [tuple(leaf.shape) for leaf in leaves]
+
+    @property
+    def leaf_sizes(self) -> list[int]:
+        """Per-leaf flat sizes (``prod(shape)``) of the selected inputs."""
+        leaves, _ = self._dyn_flat
+        return [int(leaf.size) for leaf in leaves]
+
+    @property
+    def input_treedef(self) -> Any:
+        """Pytree structure of ``dyn_avals``."""
+        _, treedef = self._dyn_flat
+        return treedef
 
     # Properties
 
@@ -102,7 +219,8 @@ class SparsityPattern:
         cols: NDArray[np.int32] | list[int],
         shape: tuple[int, int],
         *,
-        input_shape: tuple[int, ...] | None = None,
+        input_avals: tuple[Any, ...] = (),
+        argnums: int | tuple[int, ...] = 0,
     ) -> SparsityPattern:
         """Create pattern from row and column index arrays.
 
@@ -110,14 +228,18 @@ class SparsityPattern:
             rows: Row indices of non-zero entries.
             cols: Column indices of non-zero entries.
             shape: Matrix dimensions ``(m, n)``.
-            input_shape: Shape of the function input.
-                Defaults to ``(n,)`` if not specified.
+            input_avals: One pytree of ``ShapeDtypeStruct`` per positional
+                argument of the traced function.
+                Defaults to a single 1-D aval of size ``n``.
+            argnums: Positions of ``input_avals`` that were differentiated,
+                mirroring ``jax.grad`` / ``jax.jacfwd``.
         """
         return cls(
             rows=np.asarray(rows, dtype=np.int32),
             cols=np.asarray(cols, dtype=np.int32),
             shape=shape,
-            input_shape=input_shape,
+            input_avals=input_avals,
+            argnums=argnums,
         )
 
     @classmethod
@@ -184,18 +306,34 @@ class SparsityPattern:
 
     # Persistence
 
+    def _is_simple(self) -> bool:
+        """Whether the pattern came from a single 1-positional, 1-leaf function."""
+        if len(self.input_avals) != 1 or self.argnums != 0:
+            return False
+        leaves, _ = self._dyn_flat
+        return len(leaves) == 1
+
     def save(self, path: str | os.PathLike[str]) -> None:
         """Save sparsity pattern to an ``.npz`` file.
+
+        Supports multi-input and PyTree-structured patterns.
 
         Args:
             path: Destination file path.
         """
+        argnums_arr = (
+            np.array([self.argnums])
+            if isinstance(self.argnums, int)
+            else np.array(self.argnums)
+        )
         np.savez(
             path,
             rows=self.rows,
             cols=self.cols,
             shape=np.array(self.shape),
-            input_shape=np.array(self.input_shape),
+            input_avals_json=np.array(_serialize_avals(self.input_avals)),
+            argnums=argnums_arr,
+            argnums_is_int=np.array(isinstance(self.argnums, int)),
         )
 
     @classmethod
@@ -205,12 +343,27 @@ class SparsityPattern:
         Args:
             path: Source file path.
         """
-        data = np.load(path)
+        data = np.load(path, allow_pickle=False)
+
+        if "input_avals_json" in data:
+            input_avals = _deserialize_avals(str(data["input_avals_json"]))
+            argnums_arr = data["argnums"]
+            argnums: int | tuple[int, ...] = (
+                int(argnums_arr[0])
+                if bool(data["argnums_is_int"])
+                else tuple(int(x) for x in argnums_arr)
+            )
+        else:
+            shape = tuple(int(s) for s in data["input_shape"])
+            input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
+            argnums = 0
+
         return cls.from_coo(
             rows=data["rows"],
             cols=data["cols"],
             shape=tuple(data["shape"]),
-            input_shape=tuple(data["input_shape"]),
+            input_avals=input_avals,
+            argnums=argnums,
         )
 
     # Display
@@ -285,7 +438,7 @@ class ColoredPattern:
         cols = self.sparsity.cols
 
         if self.symmetric:
-            return self._star_extraction_indices
+            return self._hub_extraction_indices
 
         match self.mode:
             case "rev":
@@ -300,53 +453,6 @@ class ColoredPattern:
                 elem_idx = rows.astype(np.intp)
             case _ as unreachable:
                 assert_never(unreachable)
-
-        return color_idx, elem_idx
-
-    @cached_property
-    def _star_extraction_indices(
-        self,
-    ) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
-        """Pre-compute HVP extraction indices for symmetric coloring.
-
-        For each nonzero ``(i, j)``:
-
-        - diagonal (``i == j``): use ``compressed[colors[i]][i]``.
-        - off-diagonal: use the star's hub as the seeding vertex.
-          ``H[i, j] = compressed[colors[hub]][spoke]`` where ``spoke`` is
-          whichever of ``i, j`` is not the hub.
-
-        When ``star_set`` is ``None`` (legacy path without hub tracking),
-        falls back to a uniqueness heuristic.
-        """
-        if self.star_set is not None:
-            return self._hub_extraction_indices
-
-        rows = self.sparsity.rows
-        cols = self.sparsity.cols
-        col_to_rows = self.sparsity.col_to_rows
-
-        color_idx = np.empty(len(rows), dtype=np.intp)
-        elem_idx = np.empty(len(rows), dtype=np.intp)
-
-        for k, (i, j) in enumerate(zip(rows, cols, strict=True)):
-            i, j = int(i), int(j)
-            if i == j:
-                color_idx[k] = self.colors[i]
-                elem_idx[k] = i
-            else:
-                color_i = self.colors[i]
-                unique = True
-                for r in col_to_rows.get(j, []):
-                    if r != i and self.colors[r] == color_i:
-                        unique = False
-                        break
-                if unique:
-                    color_idx[k] = color_i
-                    elem_idx[k] = j
-                else:
-                    color_idx[k] = self.colors[j]
-                    elem_idx[k] = i
 
         return color_idx, elem_idx
 
@@ -427,20 +533,33 @@ class ColoredPattern:
     def save(self, path: str | os.PathLike[str]) -> None:
         """Save colored pattern to an ``.npz`` file.
 
+        Supports multi-input and PyTree-structured patterns.
+
         Args:
             path: Destination file path.
         """
-        np.savez(
-            path,
-            rows=self.sparsity.rows,
-            cols=self.sparsity.cols,
-            shape=np.array(self.sparsity.shape),
-            input_shape=np.array(self.sparsity.input_shape),
-            colors=self.colors,
-            num_colors=np.array(self.num_colors),
-            symmetric=np.array(self.symmetric),
-            mode=np.array(self.mode),
+        sp = self.sparsity
+        argnums_arr = (
+            np.array([sp.argnums])
+            if isinstance(sp.argnums, int)
+            else np.array(sp.argnums)
         )
+        save_dict: dict[str, np.ndarray] = {
+            "rows": sp.rows,
+            "cols": sp.cols,
+            "shape": np.array(sp.shape),
+            "input_avals_json": np.array(_serialize_avals(sp.input_avals)),
+            "argnums": argnums_arr,
+            "argnums_is_int": np.array(isinstance(sp.argnums, int)),
+            "colors": self.colors,
+            "num_colors": np.array(self.num_colors),
+            "symmetric": np.array(self.symmetric),
+            "mode": np.array(self.mode),
+        }
+        if self.star_set is not None:
+            save_dict["star"] = self.star_set.star
+            save_dict["hub"] = self.star_set.hub
+        np.savez(path, **save_dict)  # ty: ignore[invalid-argument-type]
 
     @classmethod
     def load(cls, path: str | os.PathLike[str]) -> ColoredPattern:
@@ -450,20 +569,57 @@ class ColoredPattern:
             path: Source file path.
         """
         data = np.load(path, allow_pickle=False)
+
+        if "input_avals_json" in data:
+            input_avals = _deserialize_avals(str(data["input_avals_json"]))
+            argnums_arr = data["argnums"]
+            argnums: int | tuple[int, ...] = (
+                int(argnums_arr[0])
+                if bool(data["argnums_is_int"])
+                else tuple(int(x) for x in argnums_arr)
+            )
+        else:
+            shape = tuple(int(s) for s in data["input_shape"])
+            input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
+            argnums = 0
+
         sparsity = SparsityPattern.from_coo(
             rows=data["rows"],
             cols=data["cols"],
             shape=tuple(data["shape"]),
-            input_shape=tuple(data["input_shape"]),
+            input_avals=input_avals,
+            argnums=argnums,
         )
         mode = str(data["mode"])
         _assert_coloring_mode(mode)
+
+        symmetric = bool(data["symmetric"])
+        star_set: StarSet | None = None
+        if symmetric:
+            if "star" not in data or "hub" not in data:
+                msg = (
+                    "Cannot load symmetric ColoredPattern: star_set arrays missing. "
+                    "Re-run asdex.hessian_coloring() to regenerate."
+                )
+                raise ValueError(msg)
+            from asdex.coloring import StarSet, reconstruct_edge_index  # noqa: PLC0415
+
+            edge_index = reconstruct_edge_index(
+                sparsity.rows, sparsity.cols, sparsity.n
+            )
+            star_set = StarSet(
+                star=data["star"].astype(np.int32),
+                hub=data["hub"].astype(np.int32),
+                edge_index=edge_index,
+            )
+
         return cls(
             sparsity=sparsity,
             colors=data["colors"].astype(np.int32),
             num_colors=int(data["num_colors"]),
-            symmetric=bool(data["symmetric"]),
+            symmetric=symmetric,
             mode=mode,  # ty: ignore[invalid-argument-type]
+            star_set=star_set,
         )
 
     # Display

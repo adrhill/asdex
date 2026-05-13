@@ -24,7 +24,7 @@ def test_dynamic_slice_static_start():
     def f(x):
         return lax.dynamic_slice(x, (1,), (3,))
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     # out = x[1:4], so out[0]←{1}, out[1]←{2}, out[2]←{3}
     expected = np.array(
         [
@@ -53,7 +53,7 @@ def test_dynamic_slice_dynamic_start():
         idx = jnp.argmax(x[:2])
         return lax.dynamic_slice(x, (idx,), (3,))
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.array(
         [[1, 1, 0, 0, 0], [0, 1, 1, 0, 0], [0, 0, 1, 1, 0]],
         dtype=int,
@@ -70,7 +70,7 @@ def test_dynamic_slice_swap_halves():
         second_half = lax.dynamic_slice(x, (2,), (2,))
         return jnp.concatenate([second_half, first_half])
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 1, 0],
@@ -94,7 +94,7 @@ def test_dynamic_update_slice_static_start():
         arr = jnp.zeros(5)
         return lax.dynamic_update_slice(arr, x[:2], (1,))
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     # out = [0, x[0], x[1], 0, 0]
     expected = np.array(
         [
@@ -124,7 +124,7 @@ def test_dynamic_update_slice_dynamic_start():
         idx = jnp.argmax(x[:2])
         return lax.dynamic_update_slice(x, x[2:4], (idx,))
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [[1, 0, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 0, 1]],
         dtype=int,
@@ -144,7 +144,7 @@ def test_dynamic_slice_2d():
         mat = x.reshape(3, 4)
         return lax.dynamic_slice(mat, (1, 1), (2, 3)).ravel()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = np.zeros((6, 12), dtype=int)
     expected[0, 5] = 1  # (1,1)
     expected[1, 6] = 1  # (1,2)
@@ -168,7 +168,7 @@ def test_dynamic_update_slice_2d():
         update = x[:6].reshape(2, 3)
         return lax.dynamic_update_slice(mat, update, (0, 1)).ravel()
 
-    result = jacobian_sparsity(f, input_shape=8).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(8)).todense().astype(int)
     expected = np.zeros((12, 8), dtype=int)
     expected[1, 0] = 1  # (0,1) ← x[0]
     expected[2, 1] = 1  # (0,2) ← x[1]
@@ -189,6 +189,6 @@ def test_dynamic_slice_zero_size():
     def f(x):
         return lax.dynamic_slice(x[:0], (0,), (0,))
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0

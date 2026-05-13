@@ -29,7 +29,7 @@ def test_row_sum_sparsity():
     def f(x):
         return x.sum(axis=1)
 
-    result = jacobian_sparsity(f, input_shape=(3, 4))
+    result = jacobian_sparsity(f, np.zeros((3, 4)))
     assert result.shape == (3, 12)
     dense = result.todense().astype(int)
     expected = np.zeros((3, 12), dtype=int)
@@ -45,7 +45,7 @@ def test_column_sum_sparsity():
     def f(x):
         return x.sum(axis=0)
 
-    result = jacobian_sparsity(f, input_shape=(3, 4))
+    result = jacobian_sparsity(f, np.zeros((3, 4)))
     assert result.shape == (4, 12)
     dense = result.todense().astype(int)
     # Output j depends on inputs j, j+4, j+8 (column j in row-major layout)
@@ -63,7 +63,7 @@ def test_flatten_sparsity():
     def f(x):
         return x.ravel()
 
-    result = jacobian_sparsity(f, input_shape=(3, 4))
+    result = jacobian_sparsity(f, np.zeros((3, 4)))
     assert result.shape == (12, 12)
     dense = result.todense().astype(int)
     np.testing.assert_array_equal(dense, np.eye(12, dtype=int))
@@ -77,7 +77,7 @@ def test_3d_input_sparsity():
         # Sum over last axis: (2, 3, 4) -> (2, 3) -> flatten to (6,)
         return x.sum(axis=2).ravel()
 
-    result = jacobian_sparsity(f, input_shape=(2, 3, 4))
+    result = jacobian_sparsity(f, np.zeros((2, 3, 4)))
     assert result.shape == (6, 24)
     assert result.nnz == 24  # each of 24 inputs appears in exactly one output
 
@@ -89,7 +89,7 @@ def test_hessian_matrix_input_sparsity():
     def f(x):
         return jnp.sum(x**2)
 
-    result = hessian_sparsity(f, input_shape=(3, 3))
+    result = hessian_sparsity(f, np.zeros((3, 3)))
     assert result.shape == (9, 9)
     # Diagonal Hessian: each x_{ij}^2 only couples with itself
     dense = result.todense().astype(int)
@@ -106,7 +106,7 @@ def test_reshape_output_sparsity():
     def f(x):
         return (x**2).reshape(2, 3)
 
-    result = jacobian_sparsity(f, input_shape=6)
+    result = jacobian_sparsity(f, np.zeros(6))
     assert result.shape == (6, 6)
     dense = result.todense().astype(int)
     np.testing.assert_array_equal(dense, np.eye(6, dtype=int))
@@ -119,7 +119,7 @@ def test_keepdims_output_sparsity():
     def f(x):
         return x.sum(axis=1, keepdims=True)
 
-    result = jacobian_sparsity(f, input_shape=(3, 4))
+    result = jacobian_sparsity(f, np.zeros((3, 4)))
     assert result.shape == (3, 12)
     dense = result.todense().astype(int)
     expected = np.zeros((3, 12), dtype=int)
@@ -138,7 +138,7 @@ def test_multidim_input_and_output_sparsity():
         cols = [jnp.array([rows[0][j], rows[1][j]]) for j in range(3)]
         return jnp.stack(cols)  # (3, 2)
 
-    result = jacobian_sparsity(f, input_shape=(2, 3))
+    result = jacobian_sparsity(f, np.zeros((2, 3)))
     assert result.shape == (6, 6)
     dense = result.todense().astype(int)
     # Output is effectively a transpose: out[j, i] = in[i, j]
@@ -163,9 +163,8 @@ def test_jacobian_matrix_input():
         return x.sum(axis=1)
 
     x = np.arange(12.0).reshape(3, 4)
-    result = jacobian(f, input_shape=x.shape)(x).todense()
-    # Reference: jax.jacobian gives (m, *input_shape), reshape to (m, n)
-    expected = jax.jacobian(f)(x).reshape(3, 12)
+    result = jacobian(f, x)(x).todense()
+    expected = jax.jacobian(f)(x)
     assert_allclose(result, expected, rtol=1e-5)
 
 
@@ -177,10 +176,8 @@ def test_jacobian_elementwise_matrix():
         return x**2
 
     x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
-
-    # Diagonal Jacobian: diag(2x) in flattened space
-    expected = jax.jacobian(f)(x).reshape(6, 6)
+    result = jacobian(f, x)(x).todense()
+    expected = jax.jacobian(f)(x)
     assert_allclose(result, expected, rtol=1e-5)
 
 
@@ -192,8 +189,8 @@ def test_jacobian_2d_output():
         return (x**2).reshape(2, 3)
 
     x = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
-    expected = jax.jacobian(f)(x).reshape(6, 6)
+    result = jacobian(f, x)(x).todense()
+    expected = jax.jacobian(f)(x)
     assert_allclose(result, expected, rtol=1e-5)
 
 
@@ -206,8 +203,8 @@ def test_jacobian_2d_input_and_output():
         return x.sum(axis=1, keepdims=True)
 
     x = np.arange(12.0).reshape(3, 4)
-    result = jacobian(f, input_shape=x.shape)(x).todense()
-    expected = jax.jacobian(f)(x).reshape(3, 12)
+    result = jacobian(f, x)(x).todense()
+    expected = jax.jacobian(f)(x)
     assert_allclose(result, expected, rtol=1e-5)
 
 
@@ -219,9 +216,8 @@ def test_hessian_matrix_input():
         return jnp.sum(x**2)
 
     x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-    result = hessian(f, input_shape=x.shape)(x).todense()
-    # Reference: jax.hessian gives (*in_shape, *in_shape), reshape to (n, n)
-    expected = jax.hessian(f)(x).reshape(6, 6)
+    result = hessian(f, x)(x).todense()
+    expected = jax.hessian(f)(x)
     assert_allclose(result, expected, rtol=1e-5)
 
 
@@ -257,7 +253,7 @@ def _lenet_fn(x):
 @pytest.mark.jacobian
 def test_lenet_sparsity_detection():
     """Sparsity detection on a LeNet with 2D image input."""
-    sparsity = jacobian_sparsity(_lenet_fn, input_shape=(8, 8))
+    sparsity = jacobian_sparsity(_lenet_fn, np.zeros((8, 8)))
 
     n = 64  # 8 * 8
     assert sparsity.n == n
@@ -275,8 +271,7 @@ def test_lenet_jacobian_values():
     """Sparse Jacobian of LeNet matches dense jax.jacobian."""
     x = jax.random.normal(jax.random.key(0), (8, 8))
 
-    result = jacobian(_lenet_fn, input_shape=(8, 8))(np.asarray(x)).todense()
-    # Reference: jax.jacobian gives (m, H, W), reshape to (m, n)
-    expected = jax.jacobian(_lenet_fn)(x).reshape(result.shape[0], 64)
+    result = jacobian(_lenet_fn, np.zeros((8, 8)))(np.asarray(x)).todense()
+    expected = jax.jacobian(_lenet_fn)(x)
 
     assert_allclose(result, np.asarray(expected), rtol=1e-4)

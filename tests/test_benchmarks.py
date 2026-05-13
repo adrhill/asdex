@@ -77,14 +77,14 @@ def rosenbrock(x):
 @pytest.mark.benchmark(group="heat_equation")
 def test_heat_detection(benchmark):
     """Heat equation: sparsity detection."""
-    benchmark(jacobian_sparsity, heat_equation_rhs, N)
+    benchmark(jacobian_sparsity, heat_equation_rhs, np.zeros(N))
 
 
 @pytest.mark.dashboard
 @pytest.mark.benchmark(group="heat_equation")
 def test_heat_coloring(benchmark):
     """Heat equation: graph coloring."""
-    sparsity = jacobian_sparsity(heat_equation_rhs, N)
+    sparsity = jacobian_sparsity(heat_equation_rhs, np.zeros(N))
     color_rows(sparsity)  # warmup: trigger numba JIT compile
     benchmark(color_rows, sparsity)
 
@@ -95,7 +95,7 @@ def test_heat_materialization(benchmark):
     """Heat equation: VJP computation (with known sparsity/colors)."""
     x = np.ones(N)
     coloring = jacobian_coloring_from_sparsity(
-        jacobian_sparsity(heat_equation_rhs, N), mode="rev"
+        jacobian_sparsity(heat_equation_rhs, np.zeros(N)), mode="rev"
     )
     jac_fn = jax.jit(jacobian_from_coloring(heat_equation_rhs, coloring))
     jac_fn(x).block_until_ready()  # warmup
@@ -108,7 +108,7 @@ def test_heat_value_and_materialization(benchmark):
     """Heat equation: value_and VJP computation (with known sparsity/colors)."""
     x = np.ones(N)
     coloring = jacobian_coloring_from_sparsity(
-        jacobian_sparsity(heat_equation_rhs, N), mode="rev"
+        jacobian_sparsity(heat_equation_rhs, np.zeros(N)), mode="rev"
     )
     val_jac_fn = jax.jit(value_and_jacobian_from_coloring(heat_equation_rhs, coloring))
     val_jac_fn(x)  # warmup
@@ -120,7 +120,7 @@ def test_heat_value_and_materialization(benchmark):
 def test_heat_end_to_end(benchmark):
     """Heat equation: full pipeline."""
     x = np.ones(N)
-    jac_fn = jax.jit(jacobian(heat_equation_rhs, N))
+    jac_fn = jax.jit(jacobian(heat_equation_rhs, np.zeros(N)))
     jac_fn(x).block_until_ready()  # warmup
     benchmark(lambda: jac_fn(x).block_until_ready())
 
@@ -132,14 +132,14 @@ def test_heat_end_to_end(benchmark):
 @pytest.mark.benchmark(group="convnet")
 def test_convnet_detection(benchmark):
     """ConvNet: sparsity detection."""
-    benchmark(jacobian_sparsity, convnet, N)
+    benchmark(jacobian_sparsity, convnet, np.zeros(N))
 
 
 @pytest.mark.dashboard
 @pytest.mark.benchmark(group="convnet")
 def test_convnet_coloring(benchmark):
     """ConvNet: graph coloring."""
-    sparsity = jacobian_sparsity(convnet, N)
+    sparsity = jacobian_sparsity(convnet, np.zeros(N))
     color_rows(sparsity)  # warmup: trigger numba JIT compile
     benchmark(color_rows, sparsity)
 
@@ -150,7 +150,7 @@ def test_convnet_materialization(benchmark):
     """ConvNet: VJP computation (with known sparsity/colors)."""
     x = np.ones(N)
     coloring = jacobian_coloring_from_sparsity(
-        jacobian_sparsity(convnet, N), mode="rev"
+        jacobian_sparsity(convnet, np.zeros(N)), mode="rev"
     )
     jac_fn = jax.jit(jacobian_from_coloring(convnet, coloring))
     jac_fn(x).block_until_ready()  # warmup
@@ -163,7 +163,7 @@ def test_convnet_value_and_materialization(benchmark):
     """ConvNet: value_and VJP computation (with known sparsity/colors)."""
     x = np.ones(N)
     coloring = jacobian_coloring_from_sparsity(
-        jacobian_sparsity(convnet, N), mode="rev"
+        jacobian_sparsity(convnet, np.zeros(N)), mode="rev"
     )
     val_jac_fn = jax.jit(value_and_jacobian_from_coloring(convnet, coloring))
     val_jac_fn(x)  # warmup
@@ -175,7 +175,7 @@ def test_convnet_value_and_materialization(benchmark):
 def test_convnet_end_to_end(benchmark):
     """ConvNet: full pipeline."""
     x = np.ones(N)
-    jac_fn = jax.jit(jacobian(convnet, N))
+    jac_fn = jax.jit(jacobian(convnet, np.zeros(N)))
     jac_fn(x).block_until_ready()  # warmup
     benchmark(lambda: jac_fn(x).block_until_ready())
 
@@ -187,14 +187,14 @@ def test_convnet_end_to_end(benchmark):
 @pytest.mark.benchmark(group="rosenbrock")
 def test_rosenbrock_detection(benchmark):
     """Rosenbrock: Hessian sparsity detection."""
-    benchmark(hessian_sparsity, rosenbrock, N)
+    benchmark(hessian_sparsity, rosenbrock, np.zeros(N))
 
 
 @pytest.mark.dashboard
 @pytest.mark.benchmark(group="rosenbrock")
 def test_rosenbrock_coloring(benchmark):
     """Rosenbrock: graph coloring."""
-    sparsity = hessian_sparsity(rosenbrock, N)
+    sparsity = hessian_sparsity(rosenbrock, np.zeros(N))
     color_rows(sparsity)  # warmup: trigger numba JIT compile
     benchmark(color_rows, sparsity)
 
@@ -204,7 +204,7 @@ def test_rosenbrock_coloring(benchmark):
 def test_rosenbrock_materialization(benchmark):
     """Rosenbrock: HVP computation (with known sparsity/colors)."""
     x = np.ones(N)
-    sparsity = hessian_sparsity(rosenbrock, N)
+    sparsity = hessian_sparsity(rosenbrock, np.zeros(N))
     coloring = hessian_coloring_from_sparsity(sparsity)
     hess_fn = jax.jit(hessian_from_coloring(rosenbrock, coloring))
     hess_fn(x).block_until_ready()  # warmup
@@ -216,7 +216,7 @@ def test_rosenbrock_materialization(benchmark):
 def test_rosenbrock_value_and_materialization(benchmark):
     """Rosenbrock: value_and HVP computation (with known sparsity/colors)."""
     x = np.ones(N)
-    sparsity = hessian_sparsity(rosenbrock, N)
+    sparsity = hessian_sparsity(rosenbrock, np.zeros(N))
     coloring = hessian_coloring_from_sparsity(sparsity)
     val_hess_fn = jax.jit(value_and_hessian_from_coloring(rosenbrock, coloring))
     val_hess_fn(x)  # warmup
@@ -228,6 +228,6 @@ def test_rosenbrock_value_and_materialization(benchmark):
 def test_rosenbrock_end_to_end(benchmark):
     """Rosenbrock: full pipeline."""
     x = np.ones(N)
-    hess_fn = jax.jit(hessian(rosenbrock, N))
+    hess_fn = jax.jit(hessian(rosenbrock, np.zeros(N)))
     hess_fn(x).block_until_ready()  # warmup
     benchmark(lambda: hess_fn(x).block_until_ready())

@@ -83,7 +83,7 @@ def test_reduce(reduce_fn, in_shape, axes):
     def f(x):
         return reduce_fn(x.reshape(in_shape), axes).flatten()
 
-    result = jacobian_sparsity(f, input_shape=n_in).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
     expected = _reduction_jacobian(in_shape, axes)
     np.testing.assert_array_equal(result, expected)
 
@@ -99,7 +99,7 @@ def test_reduce_chained(reduce_fn):
         a = reduce_fn(x.reshape(shape), (0,))
         return reduce_fn(a, (0,)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
     expected = _reduction_jacobian(shape, (0, 1))
     np.testing.assert_array_equal(result, expected)
 
@@ -112,7 +112,7 @@ def test_reduce_after_broadcast(reduce_fn):
     def f(x):
         return reduce_fn(jnp.broadcast_to(x, (2, 3)), (0,))
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -127,7 +127,7 @@ def test_reduce_after_reduce_sum(reduce_fn):
         a = jnp.sum(x.reshape(shape), axis=2)  # (2, 3)
         return reduce_fn(a, (1,)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
     expected = _reduction_jacobian(shape, (1, 2))
     np.testing.assert_array_equal(result, expected)
 
@@ -140,7 +140,7 @@ def test_reduce_sum_zero_size_input():
     def f(x):
         return jnp.sum(x)
 
-    result = jacobian_sparsity(f, input_shape=0)
+    result = jacobian_sparsity(f, np.zeros(0))
     assert result.shape == (1, 0)
     assert result.nnz == 0
 
@@ -153,7 +153,7 @@ def test_jnp_max_no_axis():
     def f(x):
         return jnp.max(x.reshape(2, 3)) * jnp.ones(1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.ones((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -166,7 +166,7 @@ def test_jnp_max_with_axis():
     def f(x):
         return jnp.max(x.reshape(shape), axis=1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = _reduction_jacobian(shape, (1,))
     np.testing.assert_array_equal(result, expected)
 
@@ -179,7 +179,7 @@ def test_jnp_amax():
     def f(x):
         return jnp.amax(x.reshape(shape), axis=0)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _reduction_jacobian(shape, (0,))
     np.testing.assert_array_equal(result, expected)
 
@@ -191,7 +191,7 @@ def test_jnp_min_no_axis():
     def f(x):
         return jnp.min(x.reshape(2, 3)) * jnp.ones(1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.ones((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -204,7 +204,7 @@ def test_jnp_min_with_axis():
     def f(x):
         return jnp.min(x.reshape(shape), axis=1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = _reduction_jacobian(shape, (1,))
     np.testing.assert_array_equal(result, expected)
 
@@ -217,7 +217,7 @@ def test_jnp_amin():
     def f(x):
         return jnp.amin(x.reshape(shape), axis=0)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _reduction_jacobian(shape, (0,))
     np.testing.assert_array_equal(result, expected)
 
@@ -229,7 +229,7 @@ def test_jnp_prod_no_axis():
     def f(x):
         return jnp.prod(x.reshape(2, 3)) * jnp.ones(1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.ones((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -242,7 +242,7 @@ def test_jnp_prod_with_axis():
     def f(x):
         return jnp.prod(x.reshape(shape), axis=1)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = _reduction_jacobian(shape, (1,))
     np.testing.assert_array_equal(result, expected)
 
@@ -259,6 +259,6 @@ def test_argmax():
         idx = jnp.argmax(x)
         return x[0] * idx.astype(float)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.array([[1, 0, 0]])
     np.testing.assert_array_equal(result, expected)

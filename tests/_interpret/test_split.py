@@ -19,7 +19,7 @@ def test_split_identity():
         parts = jnp.split(x, 2)
         return jnp.concatenate(parts)
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.eye(4, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -32,7 +32,7 @@ def test_split_swap_halves():
         parts = jnp.split(x, 2)
         return jnp.concatenate([parts[1], parts[0]])
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [[0, 0, 1, 0], [0, 0, 0, 1], [1, 0, 0, 0], [0, 1, 0, 0]], dtype=int
     )
@@ -47,7 +47,7 @@ def test_split_uneven_sizes():
         a, b = jnp.split(x, [1])
         return jnp.concatenate([b, a])
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     # x = [a, b, c] -> a=[a], b=[b,c] -> [b, c, a]
     expected = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -62,7 +62,7 @@ def test_split_multidim():
         left, right = jnp.split(mat, 2, axis=1)
         return jnp.concatenate([right, left], axis=1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=8).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(8)).todense().astype(int)
     # mat = [[0,1,2,3],[4,5,6,7]]
     # left = [[0,1],[4,5]], right = [[2,3],[6,7]]
     # concat = [[2,3,0,1],[6,7,4,5]]
@@ -81,7 +81,7 @@ def test_split_constant():
         a, b = jnp.split(const, 2)
         return jnp.concatenate([b, a])
 
-    result = jacobian_sparsity(f, input_shape=2).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(2)).todense().astype(int)
     expected = np.zeros((4, 2), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -94,7 +94,7 @@ def test_split_select_one():
         parts = jnp.split(x, 3)
         return parts[1]  # middle third
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.zeros((2, 6), dtype=int)
     expected[0, 2] = 1
     expected[1, 3] = 1
@@ -110,7 +110,7 @@ def test_split_3d_axis0():
         top, bottom = jnp.split(arr, 2, axis=0)
         return jnp.concatenate([bottom, top], axis=0).flatten()
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
     # top = arr[:2] (12 elements), bottom = arr[2:] (12 elements)
     # concat swaps: [bottom, top] -> indices 12..23, 0..11
     expected = np.zeros((24, 24), dtype=int)
@@ -128,7 +128,7 @@ def test_split_many_chunks():
         parts = jnp.split(x, 4)
         return jnp.concatenate(list(reversed(parts)))
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     # Reverse: out[0]=in[3], out[1]=in[2], out[2]=in[1], out[3]=in[0]
     expected = np.array(
         [[0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0], [1, 0, 0, 0]], dtype=int
@@ -146,7 +146,7 @@ def test_split_non_contiguous_deps():
         a, b = jnp.split(broadcasted, 2)
         return a + b  # [x0+x0, x1+x1] = [2*x0, 2*x1]
 
-    result = jacobian_sparsity(f, input_shape=2).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(2)).todense().astype(int)
     expected = np.eye(2, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -160,7 +160,7 @@ def test_split_double_split():
         a1, a2 = jnp.split(a, 2)
         return jnp.concatenate([a2, a1, b])
 
-    result = jacobian_sparsity(f, input_shape=8).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(8)).todense().astype(int)
     # x = [0..7], a = [0..3], b = [4..7]
     # a1 = [0,1], a2 = [2,3]
     # out = [2, 3, 0, 1, 4, 5, 6, 7]
@@ -183,7 +183,7 @@ def test_split_matches_jax_jacobian():
     dense_jac = jax.jacobian(f)(x)
     dense_pattern = (np.abs(np.array(dense_jac)) > 0).astype(int)
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     np.testing.assert_array_equal(result, dense_pattern)
 
 
@@ -197,6 +197,6 @@ def test_split_zero_size():
     def f(x):
         return jnp.split(x[:0], 1)[0]
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0

@@ -59,7 +59,7 @@ def test_top_k_values(in_shape, k):
         vals, _ = lax.top_k(x.reshape(in_shape), k)
         return vals.flatten()
 
-    result = jacobian_sparsity(f, input_shape=n_in).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
     expected = _top_k_values_jacobian(in_shape, k)
     np.testing.assert_array_equal(result, expected)
 
@@ -76,7 +76,7 @@ def test_top_k_indices_zero_derivative(in_shape, k):
         _, idx = lax.top_k(x.reshape(in_shape), k)
         return idx.flatten().astype(float)
 
-    result = jacobian_sparsity(f, input_shape=n_in).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
     expected = np.zeros((n_out, n_in), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -91,7 +91,7 @@ def test_top_k_after_broadcast():
         vals, _ = lax.top_k(jnp.broadcast_to(x, (2, 3)), 2)
         return vals.flatten()
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     # Each row of the broadcast shares the same 3 inputs.
     # top_k(k=2) per row: 2 outputs per row, each depending on all 3 inputs.
     expected = np.array(
@@ -114,7 +114,7 @@ def test_top_k_chained():
         vals2, _ = lax.top_k(vals, 2)  # (2, 2)
         return vals2.flatten()
 
-    result = jacobian_sparsity(f, input_shape=8).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(8)).todense().astype(int)
     # Row 0 outputs depend on inputs 0..3, row 1 on inputs 4..7
     expected = np.zeros((4, 8), dtype=int)
     expected[0:2, 0:4] = 1
@@ -130,7 +130,7 @@ def test_top_k_then_reduce():
         vals, _ = lax.top_k(x.reshape(2, 3), 2)  # (2, 2)
         return jnp.sum(vals, axis=0)  # (2,)
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     # Sum over batch: each output depends on all 6 inputs
     expected = np.ones((2, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -145,7 +145,7 @@ def test_jnp_top_k_1d():
         vals, _ = lax.top_k(x, 2)
         return vals
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.ones((2, 4), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -158,7 +158,7 @@ def test_top_k_values_used_in_arithmetic():
         vals, _ = lax.top_k(x.reshape(2, 3), 2)
         return (vals * 2 + 1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = _top_k_values_jacobian((2, 3), 2)
     np.testing.assert_array_equal(result, expected)
 
@@ -174,6 +174,6 @@ def test_top_k_zero_size():
         vals, _ = lax.top_k(x[:0], 0)
         return vals
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0

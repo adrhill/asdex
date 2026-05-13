@@ -273,7 +273,7 @@ class TestSympyComparison:
 
         # Convert to JAX and compute sparsity with asdex
         jax_fn = sympy_to_jax_fn(exprs, symbols)
-        result = jacobian_sparsity(jax_fn, n_inputs).todense().astype(bool)
+        result = jacobian_sparsity(jax_fn, np.zeros(n_inputs)).todense().astype(bool)
 
         # asdex sparsity should exactly match symbolic sparsity
         if not np.array_equal(expected, result):
@@ -329,7 +329,7 @@ class TestSympyEdgeCases:
         def f(arr):
             return jnp.array([jnp.sin(jnp.cos(jnp.exp(jnp.tanh(arr[0]))))])
 
-        result = jacobian_sparsity(f, 1).todense().astype(bool)
+        result = jacobian_sparsity(f, np.zeros(1)).todense().astype(bool)
         np.testing.assert_array_equal(result, expected)
 
     def test_shared_subexpression(self):
@@ -344,7 +344,7 @@ class TestSympyEdgeCases:
             shared = arr[0] * arr[1]
             return jnp.array([jnp.sin(shared), jnp.cos(shared) + arr[0]])
 
-        result = jacobian_sparsity(f, 2).todense().astype(bool)
+        result = jacobian_sparsity(f, np.zeros(2)).todense().astype(bool)
         np.testing.assert_array_equal(result, expected)
 
     def test_polynomial(self):
@@ -356,7 +356,7 @@ class TestSympyEdgeCases:
         def f(arr):
             return jnp.array([arr[0] ** 2 + 2 * arr[0] * arr[1] + arr[1] ** 2 + arr[2]])
 
-        result = jacobian_sparsity(f, 3).todense().astype(bool)
+        result = jacobian_sparsity(f, np.zeros(3)).todense().astype(bool)
         np.testing.assert_array_equal(result, expected)
 
     def test_rational_function(self):
@@ -368,7 +368,7 @@ class TestSympyEdgeCases:
         def f(arr):
             return jnp.array([(arr[0] ** 2 + arr[1]) / (jnp.abs(arr[0]) + 1)])
 
-        result = jacobian_sparsity(f, 2).todense().astype(bool)
+        result = jacobian_sparsity(f, np.zeros(2)).todense().astype(bool)
         np.testing.assert_array_equal(result, expected)
 
     def test_mixed_binary_ops(self):
@@ -382,7 +382,7 @@ class TestSympyEdgeCases:
                 [(arr[0] + arr[1]) * (arr[1] - arr[2]) / (jnp.abs(arr[0] * arr[2]) + 1)]
             )
 
-        result = jacobian_sparsity(f, 3).todense().astype(bool)
+        result = jacobian_sparsity(f, np.zeros(3)).todense().astype(bool)
         np.testing.assert_array_equal(result, expected)
 
 
@@ -484,7 +484,7 @@ class TestHessianSympyComparison:
 
         # Convert to JAX and compute sparsity with asdex
         jax_fn = sympy_to_jax_scalar_fn(expr, symbols)
-        result = hessian_sparsity(jax_fn, n_inputs).todense().astype(bool)
+        result = hessian_sparsity(jax_fn, np.zeros(n_inputs)).todense().astype(bool)
 
         # asdex should have no false negatives (may have false positives due to
         # conservative pad handling)
@@ -529,7 +529,7 @@ class TestHessianSympyEdgeCases:
         def f(arr):
             return 2 * arr[0] + 3 * arr[1] - arr[2]
 
-        result = hessian_sparsity(f, 3).todense().astype(bool)
+        result = hessian_sparsity(f, np.zeros(3)).todense().astype(bool)
         # Linear function has zero Hessian
         assert not expected.any()
         assert not result.any()
@@ -543,7 +543,7 @@ class TestHessianSympyEdgeCases:
         def f(arr):
             return arr[0] ** 2 + arr[1] ** 2 + arr[2] ** 2
 
-        result = hessian_sparsity(f, 3).todense().astype(bool)
+        result = hessian_sparsity(f, np.zeros(3)).todense().astype(bool)
         # No false negatives
         missed = expected & ~result
         assert not missed.any()
@@ -557,7 +557,7 @@ class TestHessianSympyEdgeCases:
         def f(arr):
             return arr[0] * arr[1] + arr[1] * arr[2]
 
-        result = hessian_sparsity(f, 3).todense().astype(bool)
+        result = hessian_sparsity(f, np.zeros(3)).todense().astype(bool)
         # No false negatives
         missed = expected & ~result
         assert not missed.any()
@@ -571,7 +571,7 @@ class TestHessianSympyEdgeCases:
         def f(arr):
             return jnp.sin(arr[0] * arr[1]) + jnp.exp(arr[0])
 
-        result = hessian_sparsity(f, 2).todense().astype(bool)
+        result = hessian_sparsity(f, np.zeros(2)).todense().astype(bool)
         # No false negatives
         missed = expected & ~result
         assert not missed.any()
@@ -585,7 +585,7 @@ class TestHessianSympyEdgeCases:
         def f(arr):
             return (arr[0] * arr[1]) / (jnp.abs(arr[0]) + 1)
 
-        result = hessian_sparsity(f, 2).todense().astype(bool)
+        result = hessian_sparsity(f, np.zeros(2)).todense().astype(bool)
         # No false negatives
         missed = expected & ~result
         assert not missed.any()

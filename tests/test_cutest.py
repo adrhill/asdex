@@ -515,7 +515,7 @@ def _run_sparsity_test(
         )
 
     try:
-        detected = detect_fn(make_fn(problem), problem.y0.shape)
+        detected = detect_fn(make_fn(problem), problem.y0)
     except NotImplementedError as exc:
         pytest.xfail(f"asdex internal error for {name}: {exc}")
 

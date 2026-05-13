@@ -19,7 +19,7 @@ def test_ifelse_both_branches():
         # jnp.where is the JAX equivalent of ifelse
         return jnp.array([jnp.where(x[1] < x[2], x[0] + x[1], x[2] * x[3])])
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array([[1, 1, 1, 1]])
     np.testing.assert_array_equal(result, expected)
 
@@ -31,7 +31,7 @@ def test_ifelse_one_branch_constant():
     def f(x):
         return jnp.array([jnp.where(x[1] < x[2], x[0] + x[1], 1.0)])
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array([[1, 1, 0, 0]])
     np.testing.assert_array_equal(result, expected)
 
@@ -48,7 +48,7 @@ def test_where_mask():
         mask = x > 0
         return jnp.where(mask, x, -x)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -60,7 +60,7 @@ def test_ifelse_one_branch_constant_false():
     def f(x):
         return jnp.array([jnp.where(x[1] < x[2], 1.0, x[2] * x[3])])
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array([[0, 0, 1, 1]])
     np.testing.assert_array_equal(result, expected)
 
@@ -78,7 +78,7 @@ def test_select_n_mixed_deps():
         pred = jnp.array([True, False, True])
         return jnp.where(pred, a, b)
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     # out[0] ← a[0] = {0}, out[1] ← b[1] = {4}, out[2] ← a[2] = {2}
     expected = np.array([[1, 0, 0, 0, 0], [0, 0, 0, 0, 1], [0, 0, 1, 0, 0]], dtype=int)
     np.testing.assert_array_equal(result, expected)
@@ -95,7 +95,7 @@ def test_hessian_where_both_branches():
     def f(x):
         return jnp.where(x[0] > 0, x[0] ** x[1], x[2] * x[3])
 
-    H = hessian_sparsity(f, input_shape=4).todense().astype(int)
+    H = hessian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [
             [1, 1, 0, 0],
@@ -115,7 +115,7 @@ def test_hessian_where_one_constant_true():
     def f(x):
         return jnp.where(x[0] > 0, x[0] ** x[1], 1.0)
 
-    H = hessian_sparsity(f, input_shape=4).todense().astype(int)
+    H = hessian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [
             [1, 1, 0, 0],
@@ -135,7 +135,7 @@ def test_hessian_where_one_constant_false():
     def f(x):
         return jnp.where(x[0] > 0, 1.0, x[2] * x[3])
 
-    H = hessian_sparsity(f, input_shape=4).todense().astype(int)
+    H = hessian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 0, 0],
@@ -168,7 +168,7 @@ def test_select_n_bounds_merge_floor_div():
         start = idx // 2  # bounds: [-1, 1] via merged select_n
         return lax.dynamic_slice(x, (start,), (3,))
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     # Slightly conservative: start ∈ {0,1,2} instead of true {0,1}.
     expected = np.array(
         [

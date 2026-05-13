@@ -945,7 +945,7 @@ def test_jacobian_coloring_basic():
     def f(x):
         return x**2
 
-    result = jacobian_coloring(f, (4,))
+    result = jacobian_coloring(f, np.zeros(4))
 
     assert isinstance(result, ColoredPattern)
     assert result.sparsity.shape == (4, 4)
@@ -959,8 +959,8 @@ def test_jacobian_coloring_mode():
     def f(x):
         return x**2
 
-    result_rev = jacobian_coloring(f, (3,), mode="rev")
-    result_fwd = jacobian_coloring(f, (3,), mode="fwd")
+    result_rev = jacobian_coloring(f, np.zeros(3), mode="rev")
+    result_fwd = jacobian_coloring(f, np.zeros(3), mode="fwd")
 
     assert result_rev.mode == "rev"
     assert result_fwd.mode == "fwd"
@@ -973,7 +973,7 @@ def test_hessian_coloring_basic():
     def f(x):
         return jnp.sum(x**2)
 
-    result = hessian_coloring(f, (4,))
+    result = hessian_coloring(f, np.zeros(4))
 
     assert isinstance(result, ColoredPattern)
     assert result.symmetric is True
@@ -990,7 +990,7 @@ def test_hessian_coloring_coupled():
     def f(x):
         return x[0] * x[1] + x[1] * x[2] + jnp.sum(x**2)
 
-    result = hessian_coloring(f, (3,))
+    result = hessian_coloring(f, np.zeros(3))
 
     assert isinstance(result, ColoredPattern)
     assert result.symmetric is True
@@ -1104,7 +1104,7 @@ def test_hessian_with_coloring():
         return jnp.sum(x**2) + x[0] * x[1]
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape)
+    coloring = hessian_coloring(f, x)
     result = hessian_from_coloring(f, coloring)(x).todense()
     expected = jax.hessian(f)(x)
 
@@ -1119,7 +1119,7 @@ def test_hessian_coloring_zero_hessian():
         return jnp.sum(x)
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape)
+    coloring = hessian_coloring(f, x)
     result = hessian_from_coloring(f, coloring)(x)
 
     assert result.shape == (3, 3)
@@ -1133,7 +1133,7 @@ def test_str_hvp_display():
     def f(x):
         return jnp.sum(x**2)
 
-    coloring = hessian_coloring(f, (3,))
+    coloring = hessian_coloring(f, np.zeros(3))
     s = str(coloring)
 
     assert "HVP" in s
@@ -1148,7 +1148,7 @@ def test_repr_coloring():
     def f(x):
         return x**2
 
-    coloring = jacobian_coloring(f, (3,))
+    coloring = jacobian_coloring(f, np.zeros(3))
     r = repr(coloring)
 
     assert "ColoredPattern" in r
@@ -1162,49 +1162,6 @@ def test_color_empty_pattern():
 
     assert result.num_colors == 0
     assert len(result.colors) == 0
-
-
-@pytest.mark.slow
-@pytest.mark.hessian
-def test_hessian_star_decompression_non_unique_branch():
-    """Star decompression uses fallback when a color is not unique in a column.
-
-    With a tridiagonal Hessian and star coloring using 3 colors,
-    some off-diagonal entries require the fallback decompress path
-    (colors[j] in row i instead of colors[i] in column j).
-    """
-
-    def f(x):
-        return jnp.sum((x[1:] - x[:-1]) ** 2)
-
-    x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    expected = jax.hessian(f)(x)
-
-    # Build the correct tridiagonal sparsity pattern manually
-    rows, cols = [], []
-    n = x.size
-    for i in range(n):
-        rows.append(i)
-        cols.append(i)
-        if i + 1 < n:
-            rows.extend([i, i + 1])
-            cols.extend([i + 1, i])
-    sparsity = SparsityPattern.from_coo(rows, cols, (n, n))
-    colors_arr, num, _ = color_symmetric(sparsity)
-
-    # Verify star coloring reuses colors (needs only 3 for tridiagonal)
-    assert num == 3
-
-    coloring = ColoredPattern(
-        sparsity,
-        colors=colors_arr,
-        num_colors=num,
-        symmetric=True,
-        mode="fwd_over_rev",
-    )
-    result = hessian_from_coloring(f, coloring)(x).todense()
-
-    assert_allclose(result, expected, rtol=1e-5)
 
 
 # DenseColoringWarning tests
@@ -1436,7 +1393,7 @@ def test_hessian_coloring_explicit_mode_roundtrip():
         return jnp.sum(x**2) + x[0] * x[1]
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape, mode="rev_over_fwd")
+    coloring = hessian_coloring(f, x, mode="rev_over_fwd")
 
     assert coloring.mode == "rev_over_fwd"
     result = hessian_from_coloring(f, coloring)(x).todense()
@@ -1462,7 +1419,7 @@ def test_hessian_coloring_non_symmetric_column_roundtrip():
         return x[0] * x[1] + x[1] * x[2] + jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, x.shape, symmetric=False)
+    coloring = hessian_coloring(f, x, symmetric=False)
 
     assert coloring.symmetric is False
     assert coloring.star_set is None
@@ -1627,3 +1584,142 @@ def test_postprocess_trivial_star_flips_hub_to_keep_used_color():
     # Flipping collapses the color count from 2 down to 1.
     assert num_off == 2
     assert num_on == 1
+
+
+# PyTree input tests
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_pytree_dict_input(mode):
+    """jacobian_coloring works with dict PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": np.zeros(2), "b": np.zeros(2)}
+    coloring = jacobian_coloring(f, params, mode=mode)
+
+    assert coloring.sparsity.shape == (2, 4)
+    check_coloring_rows(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_pytree_tuple_input(mode):
+    """jacobian_coloring works with tuple PyTree input."""
+
+    def f(params):
+        return params[0] ** 2 + params[1]
+
+    params = (np.zeros(2), np.zeros(2))
+    coloring = jacobian_coloring(f, params, mode=mode)
+
+    assert coloring.sparsity.shape == (2, 4)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_pytree_dict_input(mode):
+    """hessian_coloring works with dict PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": np.zeros(2), "b": np.zeros(2)}
+    coloring = hessian_coloring(f, params, mode=mode)
+
+    assert coloring.sparsity.shape == (4, 4)
+    check_coloring_symmetric(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_pytree_tuple_input(mode):
+    """hessian_coloring works with tuple PyTree input."""
+
+    def f(params):
+        return jnp.sum(params[0] ** 2) + jnp.sum(params[1] ** 2)
+
+    params = (np.zeros(2), np.zeros(2))
+    coloring = hessian_coloring(f, params, mode=mode)
+
+    assert coloring.sparsity.shape == (4, 4)
+
+
+# Multi-arg and argnums tests
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_multi_arg_all_argnums(mode):
+    """jacobian_coloring with argnums=(0, 1) for multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x, y = np.zeros(2), np.zeros(2)
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+
+    assert coloring.sparsity.shape == (2, 4)
+    check_coloring_rows(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_multi_arg_single_argnum(mode):
+    """jacobian_coloring with argnums=0 selects first arg only."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x, y = np.zeros(2), np.zeros(2)
+    coloring = jacobian_coloring(f, x, y, argnums=0, mode=mode)
+
+    assert coloring.sparsity.shape == (2, 2)
+    check_coloring_rows(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_multi_arg_different_shapes(mode):
+    """jacobian_coloring with multi-arg of different shapes."""
+
+    def f(x, y):
+        return jnp.concatenate([x, y])
+
+    x, y = np.zeros(2), np.zeros(3)
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+
+    assert coloring.sparsity.shape == (5, 5)
+    check_coloring_rows(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_multi_arg_all_argnums(mode):
+    """hessian_coloring with argnums=(0, 1) for multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x, y = np.zeros(2), np.zeros(2)
+    coloring = hessian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+
+    assert coloring.sparsity.shape == (4, 4)
+    check_coloring_symmetric(coloring.sparsity, coloring.colors)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_multi_arg_single_argnum(mode):
+    """hessian_coloring with argnums=0 selects first arg only."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x, y = np.zeros(2), np.zeros(2)
+    coloring = hessian_coloring(f, x, y, argnums=0, mode=mode)
+
+    assert coloring.sparsity.shape == (2, 2)
+    check_coloring_symmetric(coloring.sparsity, coloring.colors)

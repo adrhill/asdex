@@ -167,3 +167,52 @@ def _build_edge_to_index_core(
                 edge_to_index[k2] = counter
                 offsets[i] += 1
                 counter += 1
+
+
+def reconstruct_edge_index(
+    rows: NDArray[np.int32],
+    cols: NDArray[np.int32],
+    n: int,
+) -> dict[tuple[int, int], int]:
+    """Reconstruct edge_index dict from symmetric sparsity pattern.
+
+    Used by ``ColoredPattern.load()`` to restore ``StarSet.edge_index``
+    from persisted ``star`` and ``hub`` arrays.
+    The reconstruction is deterministic because ``_build_symmetric_csr``
+    and ``_build_edge_to_index`` use lexsort ordering.
+
+    Args:
+        rows: Row indices of pattern nonzeros (shape ``(nnz,)``, ``int32``).
+        cols: Column indices of pattern nonzeros (shape ``(nnz,)``, ``int32``).
+        n: Number of vertices (pattern has shape ``(n, n)``).
+
+    Returns:
+        Mapping ``(min(i, j), max(i, j)) -> edge_idx`` for each off-diagonal edge.
+    """
+    if n == 0:
+        return {}
+    indptr, neighbors, _ = _build_symmetric_csr(rows, cols, n)
+    if len(neighbors) == 0:
+        return {}
+    edge_to_index = _build_edge_to_index(indptr, neighbors)
+    return _build_edge_index_dict(indptr, neighbors, edge_to_index)
+
+
+def _build_edge_index_dict(
+    indptr: NDArray[np.int32],
+    neighbors: NDArray[np.int32],
+    edge_to_index: NDArray[np.int32],
+) -> dict[tuple[int, int], int]:
+    """Materialize the ``(min, max) -> edge_idx`` dict consumed by :class:`StarSet`.
+
+    Walks each CSR entry once and keeps only the ``j < i`` direction so that
+    every undirected edge contributes exactly once.
+    """
+    result: dict[tuple[int, int], int] = {}
+    n = len(indptr) - 1
+    for j in range(n):
+        for pos in range(int(indptr[j]), int(indptr[j + 1])):
+            i = int(neighbors[pos])
+            if i > j:
+                result[(j, i)] = int(edge_to_index[pos])
+    return result

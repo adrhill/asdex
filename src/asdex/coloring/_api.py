@@ -13,8 +13,8 @@ See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 """
 
 import warnings
-from collections.abc import Callable
-from typing import assert_never
+from collections.abc import Callable, Sequence
+from typing import Any, assert_never
 
 import numpy as np
 from jax.experimental.sparse import BCOO
@@ -36,8 +36,9 @@ from asdex.pattern import ColoredPattern, SparsityPattern
 
 def jacobian_coloring(
     f: Callable,
-    input_shape: int | tuple[int, ...],
-    *,
+    *args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     postprocess: bool = False,
@@ -45,8 +46,13 @@ def jacobian_coloring(
     """Detect Jacobian sparsity and color in one step.
 
     Args:
-        f: Function taking an array and returning an array.
-        input_shape: Shape of the input array.
+        f: Function whose Jacobian is to be computed.
+        *args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: If ``True``, ``f`` is assumed to return ``(output, aux)``
+            where ``aux`` is auxiliary data ignored by sparsity detection.
         mode: AD mode.
             ``"fwd"`` uses JVPs (forward-mode AD),
             ``"rev"`` uses VJPs (reverse-mode AD),
@@ -62,7 +68,7 @@ def jacobian_coloring(
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
     """
-    sparsity = _detect_jacobian_sparsity(f, input_shape)
+    sparsity = _detect_jacobian_sparsity(f, *args, argnums=argnums, has_aux=has_aux)
     return jacobian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )
@@ -70,8 +76,9 @@ def jacobian_coloring(
 
 def hessian_coloring(
     f: Callable,
-    input_shape: int | tuple[int, ...],
-    *,
+    *args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
     mode: HessianMode | None = None,
     symmetric: bool = True,
     postprocess: bool = False,
@@ -79,8 +86,13 @@ def hessian_coloring(
     """Detect Hessian sparsity and color in one step.
 
     Args:
-        f: Scalar-valued function taking an array.
-        input_shape: Shape of the input array.
+        f: Scalar-valued function taking one or more positional arrays.
+        *args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: If ``True``, ``f`` is assumed to return ``(output, aux)``
+            where ``aux`` is auxiliary data ignored by sparsity detection.
         mode: AD composition strategy for Hessian-vector products.
             ``"fwd_over_rev"`` uses forward-over-reverse,
             ``"rev_over_fwd"`` uses reverse-over-forward,
@@ -96,7 +108,7 @@ def hessian_coloring(
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
     """
-    sparsity = _detect_hessian_sparsity(f, input_shape)
+    sparsity = _detect_hessian_sparsity(f, *args, argnums=argnums, has_aux=has_aux)
     return hessian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )

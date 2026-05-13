@@ -1,9 +1,17 @@
 # Test Suite
 
+## Golden Rule
+
+**Failing tests are gold.**
+They reveal gaps in the implementation.
+When a test fails, investigate and fix the code, not the test.
+Never remove or simplify a test to make it pass.
+
 ## Structure
 
 - Top-level test files (`test_*.py`) cover the public modules in `src/asdex/`.
 - `_interpret/` mirrors the handler modules: `_interpret/test_foo.py` tests `src/asdex/detection/_interpret/_foo.py`.
+- `e2e/` contains end-to-end tests covering the full pipeline from public API through detection, coloring, and decompression.
 - External-package handler tests live in subfolders (e.g., `_interpret/_equinox/`).
 
 ## Running Tests
@@ -34,6 +42,8 @@ Use markers to run subsets of tests:
 | `fallback` | Documents conservative fallback behavior (TODO) |
 | `bug` | Documents known bugs |
 | `slow` | Tests that take more than 1 second |
+| `benchmark` | Performance benchmarks (skipped by default) |
+| `dashboard` | Benchmarks tracked in GitHub Pages dashboard |
 | `cutest` | CUTEst benchmark problem tests (requires sif2jax) |
 
 ```bash
@@ -44,6 +54,20 @@ uv run pytest -m coloring        # Run only coloring tests
 uv run pytest -m jacobian        # Run only sparse Jacobian tests
 uv run pytest -m hessian         # Run only Hessian tests
 ```
+
+## Test Utilities (conftest.py)
+
+### Assertion helpers
+
+- `assert_trees_allclose(actual, expected, rtol=1e-7, atol=0)`: Assert two pytrees have matching structure and allclose leaves. Automatically converts BCOO leaves to dense for comparison. Use as a fixture parameter in test functions.
+
+### Fixtures for parametrization
+
+- `output_format`: Parametrizes over `"dense"` and `"bcoo"`.
+- `jacobian_mode`: Parametrizes over `"fwd"` and `"rev"`.
+- `hessian_mode`: Parametrizes over `"fwd_over_rev"`, `"rev_over_fwd"`, and `"rev_over_rev"`.
+
+Use these fixtures in test function signatures to automatically run tests across all variants.
 
 ## Conventions
 

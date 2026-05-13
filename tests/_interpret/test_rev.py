@@ -42,7 +42,7 @@ def test_rev_1d():
     def f(x):
         return lax.rev(x, dimensions=(0,))
 
-    result = jacobian_sparsity(f, input_shape=shape).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(shape)).todense().astype(int)
     expected = _rev_jacobian(shape, (0,))
     np.testing.assert_array_equal(result, expected)
 
@@ -55,7 +55,7 @@ def test_rev_1d_size_one():
     def f(x):
         return lax.rev(x, dimensions=(0,))
 
-    result = jacobian_sparsity(f, input_shape=shape).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(shape)).todense().astype(int)
     expected = np.eye(1, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -69,7 +69,7 @@ def test_rev_2d_dim0():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(0,)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _rev_jacobian(shape, (0,))
     np.testing.assert_array_equal(result, expected)
 
@@ -82,7 +82,7 @@ def test_rev_2d_dim1():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(1,)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _rev_jacobian(shape, (1,))
     np.testing.assert_array_equal(result, expected)
 
@@ -95,7 +95,7 @@ def test_rev_2d_both_dims():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(0, 1)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _rev_jacobian(shape, (0, 1))
     np.testing.assert_array_equal(result, expected)
 
@@ -108,7 +108,7 @@ def test_rev_2d_size_one_dim():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(0,)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.eye(5, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -122,7 +122,7 @@ def test_rev_3d_single_dim():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(1,)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
     expected = _rev_jacobian(shape, (1,))
     np.testing.assert_array_equal(result, expected)
 
@@ -135,7 +135,7 @@ def test_rev_3d_two_dims():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(0, 2)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
     expected = _rev_jacobian(shape, (0, 2))
     np.testing.assert_array_equal(result, expected)
 
@@ -148,7 +148,7 @@ def test_rev_3d_all_dims():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(0, 1, 2)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=24).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
     expected = _rev_jacobian(shape, (0, 1, 2))
     np.testing.assert_array_equal(result, expected)
 
@@ -162,7 +162,7 @@ def test_rev_4d():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(1, 3)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=48).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(48)).todense().astype(int)
     expected = _rev_jacobian(shape, (1, 3))
     np.testing.assert_array_equal(result, expected)
 
@@ -175,7 +175,7 @@ def test_jnp_flip():
     def f(x):
         return jnp.flip(x)
 
-    result = jacobian_sparsity(f, input_shape=5).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = _rev_jacobian((5,), (0,))
     np.testing.assert_array_equal(result, expected)
 
@@ -188,7 +188,7 @@ def test_jnp_flip_axis():
     def f(x):
         return jnp.flip(x.reshape(shape), axis=1).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _rev_jacobian(shape, (1,))
     np.testing.assert_array_equal(result, expected)
 
@@ -201,7 +201,7 @@ def test_jnp_flipud():
     def f(x):
         return jnp.flipud(x.reshape(shape)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _rev_jacobian(shape, (0,))
     np.testing.assert_array_equal(result, expected)
 
@@ -214,7 +214,7 @@ def test_jnp_fliplr():
     def f(x):
         return jnp.fliplr(x.reshape(shape)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     expected = _rev_jacobian(shape, (1,))
     np.testing.assert_array_equal(result, expected)
 
@@ -227,7 +227,7 @@ def test_rev_empty_dimensions():
     def f(x):
         return lax.rev(x, dimensions=())
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.eye(4, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -240,7 +240,7 @@ def test_rev_2d_square():
     def f(x):
         return lax.rev(x.reshape(shape), dimensions=(0, 1)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=9).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(9)).todense().astype(int)
     # Full reversal of a 3x3: anti-identity on the full flattened array.
     expected = np.eye(9, dtype=int)[::-1]
     np.testing.assert_array_equal(result, expected)
@@ -255,7 +255,7 @@ def test_double_rev_is_identity():
         arr = x.reshape(2, 3)
         return lax.rev(lax.rev(arr, dimensions=(0, 1)), dimensions=(0, 1)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = np.eye(6, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -269,7 +269,7 @@ def test_rev_then_rev_different_dims():
         arr = x.reshape(shape)
         return lax.rev(lax.rev(arr, dimensions=(0,)), dimensions=(1,)).flatten()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     expected = _rev_jacobian(shape, (0, 1))
     np.testing.assert_array_equal(result, expected)
 
@@ -284,6 +284,6 @@ def test_rev_zero_size():
     def f(x):
         return lax.rev(x[:0], dimensions=(0,))
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0

@@ -8,6 +8,8 @@ from jax.experimental.sparse import BCOO
 from numpy.testing import assert_allclose
 
 from asdex import (
+    ColoredPattern,
+    SparsityPattern,
     hessian,
     hessian_coloring,
     hessian_coloring_from_sparsity,
@@ -23,6 +25,13 @@ from asdex import (
     value_and_jacobian,
     value_and_jacobian_from_coloring,
 )
+from asdex.coloring._color_symmetric import StarSet
+from asdex.decompression import (
+    _flatten_grad_output,
+    _flatten_selected_cotangents,
+    _selected_dtype,
+)
+from asdex.verify import _allclose_pytree
 
 # Reference tests against jax.jacobian (row coloring, default)
 
@@ -35,7 +44,7 @@ def test_diagonal():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -50,7 +59,7 @@ def test_lower_triangular():
         return jnp.array([x[0], x[0] + x[1], x[0] + x[1] + x[2]])
 
     x = np.array([1.0, 2.0, 3.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -65,7 +74,7 @@ def test_upper_triangular():
         return jnp.array([x[0] + x[1] + x[2], x[1] + x[2], x[2]])
 
     x = np.array([1.0, 2.0, 3.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -79,7 +88,7 @@ def test_mixed_sparsity():
         return jnp.array([x[0] ** 2, 2 * x[0] * x[1] ** 2, jnp.sin(x[2])])
 
     x = np.array([1.0, 2.0, 0.5])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -95,7 +104,7 @@ def test_dense():
         return jnp.array([total, total * 2, total**2])
 
     x = np.array([1.0, 2.0, 3.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -109,7 +118,7 @@ def test_zero_jacobian():
         return jnp.array([1.0, 2.0, 3.0])
 
     x = np.array([1.0, 2.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -123,12 +132,12 @@ def test_precomputed_sparsity():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0])
-    sparsity = jacobian_sparsity(f, input_shape=3)
+    sparsity = jacobian_sparsity(f, x)
 
     result1 = jacobian_from_coloring(f, jacobian_coloring_from_sparsity(sparsity))(
         x
     ).todense()
-    result2 = jacobian(f, input_shape=x.shape)(x).todense()
+    result2 = jacobian(f, x)(x).todense()
 
     assert_allclose(result1, result2, rtol=1e-10)
 
@@ -141,11 +150,11 @@ def test_precomputed_colors():
         return (x[1:] - x[:-1]) ** 2
 
     x = np.array([1.0, 2.0, 4.0, 3.0, 5.0])
-    sparsity = jacobian_sparsity(f, input_shape=5)
+    sparsity = jacobian_sparsity(f, x)
     coloring = jacobian_coloring_from_sparsity(sparsity, mode="rev")
 
     result1 = jacobian_from_coloring(f, coloring)(x).todense()
-    result2 = jacobian(f, input_shape=x.shape)(x).todense()
+    result2 = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result1, result2, rtol=1e-10)
@@ -159,7 +168,8 @@ def test_different_input_points():
     def f(x):
         return jnp.array([x[0] * x[1], x[1] ** 2, jnp.exp(x[2])])
 
-    sparsity = jacobian_sparsity(f, input_shape=3)
+    x = np.zeros(3)
+    sparsity = jacobian_sparsity(f, x)
     jac_fn = jacobian_from_coloring(f, jacobian_coloring_from_sparsity(sparsity))
 
     for x in [
@@ -181,7 +191,7 @@ def test_single_output():
         return jnp.array([jnp.sum(x**2)])
 
     x = np.array([1.0, 2.0, 3.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -196,7 +206,7 @@ def test_single_input():
         return jnp.array([x[0], x[0] ** 2, jnp.sin(x[0])])
 
     x = np.array([2.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -219,7 +229,7 @@ def test_tridiagonal_pattern():
         return jnp.array(out)
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -235,7 +245,7 @@ def test_block_diagonal():
         return jnp.array([x[0] + x[1], x[0] * x[1], x[2] + x[3], x[2] * x[3]])
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -256,7 +266,7 @@ def test_nonlinear_functions():
         )
 
     x = np.array([0.5, 1.0, 0.3])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -273,7 +283,7 @@ def test_wide_jacobian():
         return jnp.array([jnp.sum(x[:2]), jnp.sum(x[2:])])
 
     x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -288,7 +298,7 @@ def test_tall_jacobian():
         return jnp.array([x[0], x[1], x[0] + x[1], x[0] * x[1], x[0] - x[1]])
 
     x = np.array([2.0, 3.0])
-    result = jacobian(f, input_shape=x.shape)(x).todense()
+    result = jacobian(f, x)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -302,7 +312,7 @@ def test_empty_output():
         return jnp.array([])
 
     x = np.array([1.0, 2.0, 3.0])
-    result = jacobian(f, input_shape=x.shape)(x)
+    result = jacobian(f, x)(x)
 
     assert result.shape == (0, 3)
 
@@ -315,9 +325,73 @@ def test_bcoo_format():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0])
-    result = jacobian(f, input_shape=x.shape)(x)
+    result = jacobian(f, x)(x)
 
     assert isinstance(result, BCOO)
+
+
+@pytest.mark.jacobian
+def test_jacobian_jit_bcoo():
+    """BCOO Jacobian works under jax.jit."""
+
+    def f(x):
+        return (x[1:] - x[:-1]) ** 2
+
+    x = jnp.ones(10)
+    jac_fn = jax.jit(jacobian(f, x, output_format="bcoo"))
+    result = jac_fn(x)
+
+    assert isinstance(result, BCOO)
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result.todense(), expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_jit_dense():
+    """Dense Jacobian works under jax.jit."""
+
+    def f(x):
+        return (x[1:] - x[:-1]) ** 2
+
+    x = jnp.ones(10)
+    jac_fn = jax.jit(jacobian(f, x, output_format="dense"))
+    result = jac_fn(x)
+
+    assert isinstance(result, jax.Array)
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_jit_bcoo():
+    """BCOO Hessian works under jax.jit."""
+
+    def f(x):
+        return jnp.sum((x[1:] - x[:-1]) ** 2)
+
+    x = jnp.ones(10)
+    hess_fn = jax.jit(hessian(f, x, output_format="bcoo"))
+    result = hess_fn(x)
+
+    assert isinstance(result, BCOO)
+    expected = jax.hessian(f)(x)
+    assert_allclose(result.todense(), expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_jit_dense():
+    """Dense Hessian works under jax.jit."""
+
+    def f(x):
+        return jnp.sum((x[1:] - x[:-1]) ** 2)
+
+    x = jnp.ones(10)
+    hess_fn = jax.jit(hessian(f, x, output_format="dense"))
+    result = hess_fn(x)
+
+    assert isinstance(result, jax.Array)
+    expected = jax.hessian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
 
 
 # Column coloring (JVP) Jacobian tests
@@ -331,7 +405,7 @@ def test_column_partition_diagonal():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    sparsity = jacobian_sparsity(f, input_shape=x.shape)
+    sparsity = jacobian_sparsity(f, x)
     result = jacobian_from_coloring(
         f, jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     )(x).todense()
@@ -348,7 +422,7 @@ def test_column_partition_mixed():
         return jnp.array([x[0] ** 2, 2 * x[0] * x[1] ** 2, jnp.sin(x[2])])
 
     x = np.array([1.0, 2.0, 0.5])
-    sparsity = jacobian_sparsity(f, input_shape=x.shape)
+    sparsity = jacobian_sparsity(f, x)
     result = jacobian_from_coloring(
         f, jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     )(x).todense()
@@ -374,7 +448,7 @@ def test_column_partition_tridiagonal():
         return jnp.array(out)
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    sparsity = jacobian_sparsity(f, input_shape=x.shape)
+    sparsity = jacobian_sparsity(f, x)
     result = jacobian_from_coloring(
         f, jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     )(x).todense()
@@ -391,9 +465,7 @@ def test_precomputed_col_colors():
         return (x[1:] - x[:-1]) ** 2
 
     x = np.array([1.0, 2.0, 4.0, 3.0, 5.0])
-    coloring = jacobian_coloring_from_sparsity(
-        jacobian_sparsity(f, input_shape=5), mode="fwd"
-    )
+    coloring = jacobian_coloring_from_sparsity(jacobian_sparsity(f, x), mode="fwd")
 
     result = jacobian_from_coloring(f, coloring)(x).todense()
     expected = jax.jacobian(f)(x)
@@ -415,10 +487,10 @@ def test_auto_picks_column_for_tall():
         return jnp.array([x[0], x[1], x[0] + x[1], x[0] * x[1], x[0] - x[1]])
 
     x = np.array([2.0, 3.0])
-    sparsity = jacobian_sparsity(f, input_shape=x.shape)
+    sparsity = jacobian_sparsity(f, x)
 
     # Auto should give same result as explicit column
-    result_auto = jacobian(f, input_shape=x.shape)(x).todense()
+    result_auto = jacobian(f, x)(x).todense()
     result_col = jacobian_from_coloring(
         f, jacobian_coloring_from_sparsity(sparsity, mode="fwd")
     )(x).todense()
@@ -442,10 +514,10 @@ def test_auto_picks_row_for_wide():
         return jnp.array([jnp.sum(x[:3]), jnp.sum(x[2:])])
 
     x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    sparsity = jacobian_sparsity(f, input_shape=x.shape)
+    sparsity = jacobian_sparsity(f, x)
 
     # Auto and row should give same result
-    result_auto = jacobian(f, input_shape=x.shape)(x).todense()
+    result_auto = jacobian(f, x)(x).todense()
     result_row = jacobian_from_coloring(
         f, jacobian_coloring_from_sparsity(sparsity, mode="rev")
     )(x).todense()
@@ -463,7 +535,7 @@ def test_precomputed_auto_coloring():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = jacobian_coloring_from_sparsity(jacobian_sparsity(f, input_shape=3))
+    coloring = jacobian_coloring_from_sparsity(jacobian_sparsity(f, x))
 
     result = jacobian_from_coloring(f, coloring)(x).todense()
     expected = jax.jacobian(f)(x)
@@ -481,10 +553,11 @@ def test_jacobian_shape_mismatch_raises():
     def f(x):
         return x**2
 
-    coloring = jacobian_sparsity(f, (2, 3))
+    x = np.ones((2, 3))
+    coloring = jacobian_sparsity(f, x)
     colored = jacobian_coloring_from_sparsity(coloring)
 
-    with pytest.raises(ValueError, match=r"Input shape .* does not match"):
+    with pytest.raises(ValueError, match=r"shape .* does not match expected"):
         jacobian_from_coloring(f, colored)(np.ones(6))
 
 
@@ -495,10 +568,11 @@ def test_value_and_jacobian_shape_mismatch_raises():
     def f(x):
         return x**2
 
-    coloring = jacobian_sparsity(f, (2, 3))
+    x = np.ones((2, 3))
+    coloring = jacobian_sparsity(f, x)
     colored = jacobian_coloring_from_sparsity(coloring)
 
-    with pytest.raises(ValueError, match=r"Input shape .* does not match"):
+    with pytest.raises(ValueError, match=r"shape .* does not match expected"):
         value_and_jacobian_from_coloring(f, colored)(np.ones(6))
 
 
@@ -509,10 +583,11 @@ def test_hessian_shape_mismatch_raises():
     def f(x):
         return jnp.sum(x**2)
 
-    coloring = hessian_sparsity(f, (2, 3))
+    x = np.ones((2, 3))
+    coloring = hessian_sparsity(f, x)
     colored = hessian_coloring_from_sparsity(coloring)
 
-    with pytest.raises(ValueError, match=r"Input shape .* does not match"):
+    with pytest.raises(ValueError, match=r"shape .* does not match expected"):
         hessian_from_coloring(f, colored)(np.ones(6))
 
 
@@ -523,10 +598,11 @@ def test_value_and_hessian_shape_mismatch_raises():
     def f(x):
         return jnp.sum(x**2)
 
-    coloring = hessian_sparsity(f, (2, 3))
+    x = np.ones((2, 3))
+    coloring = hessian_sparsity(f, x)
     colored = hessian_coloring_from_sparsity(coloring)
 
-    with pytest.raises(ValueError, match=r"Input shape .* does not match"):
+    with pytest.raises(ValueError, match=r"shape .* does not match expected"):
         value_and_hessian_from_coloring(f, colored)(np.ones(6))
 
 
@@ -542,7 +618,7 @@ def test_hessian_quadratic():
         return jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    result = hessian(f, input_shape=x.shape)(x).todense()
+    result = hessian(f, x)(x).todense()
     expected = jax.hessian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -556,7 +632,7 @@ def test_hessian_rosenbrock():
         return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
 
     x = np.array([1.0, 1.0, 1.0, 1.0])
-    result = hessian(f, input_shape=x.shape)(x).todense()
+    result = hessian(f, x)(x).todense()
     expected = jax.hessian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -570,12 +646,12 @@ def test_hessian_precomputed_sparsity():
         return jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    sparsity = hessian_sparsity(f, input_shape=3)
+    sparsity = hessian_sparsity(f, x)
 
     result1 = hessian_from_coloring(f, hessian_coloring_from_sparsity(sparsity))(
         x
     ).todense()
-    result2 = hessian(f, input_shape=x.shape)(x).todense()
+    result2 = hessian(f, x)(x).todense()
 
     assert_allclose(result1, result2, rtol=1e-10)
 
@@ -588,7 +664,7 @@ def test_hessian_zero():
         return jnp.sum(x)  # Linear, Hessian is zero
 
     x = np.array([1.0, 2.0, 3.0])
-    result = hessian(f, input_shape=x.shape)(x)
+    result = hessian(f, x)(x)
 
     assert result.shape == (3, 3)
     assert result.nse == 0  # All-zero Hessian
@@ -603,7 +679,7 @@ def test_hessian_single_input():
         return x[0] ** 3
 
     x = np.array([2.0])
-    result = hessian(f, input_shape=x.shape)(x).todense()
+    result = hessian(f, x)(x).todense()
     expected = jax.hessian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -620,7 +696,7 @@ def test_hessian_star_coloring_default():
         return x[0] ** 2 * x[1] + jnp.sin(x[1]) * x[2] + x[2] ** 3
 
     x = np.array([1.0, 2.0, 0.5])
-    result = hessian(f, input_shape=x.shape)(x).todense()
+    result = hessian(f, x)(x).todense()
     expected = jax.hessian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -634,7 +710,7 @@ def test_hessian_squeeze_1d_output():
         return jnp.sum(x**2, keepdims=True)
 
     x = np.array([1.0, 2.0, 3.0])
-    result = hessian(f, input_shape=x.shape)(x).todense()
+    result = hessian(f, x)(x).todense()
     expected = jax.hessian(lambda x: jnp.sum(x**2))(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -647,8 +723,9 @@ def test_hessian_sparsity_squeeze_1d_output():
     def f(x):
         return jnp.sum(x**2, keepdims=True)
 
-    pattern = hessian_sparsity(f, input_shape=3)
-    expected = hessian_sparsity(lambda x: jnp.sum(x**2), input_shape=3)
+    x = np.ones(3)
+    pattern = hessian_sparsity(f, x)
+    expected = hessian_sparsity(lambda x: jnp.sum(x**2), x)
 
     assert pattern.shape == expected.shape
     assert pattern.nnz == expected.nnz
@@ -661,8 +738,9 @@ def test_hessian_squeeze_non_scalar_raises():
     def f(x):
         return x**2
 
+    x = np.ones(3)
     with pytest.raises(ValueError, match="output shape"):
-        hessian_coloring(f, 3)
+        hessian_coloring(f, x)
 
 
 @pytest.mark.hessian
@@ -677,7 +755,7 @@ def test_hessian_arrow_pattern():
         return x[0] * jnp.sum(x) + jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    result = hessian(f, input_shape=x.shape)(x).todense()
+    result = hessian(f, x)(x).todense()
     expected = jax.hessian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -695,7 +773,7 @@ def test_hessian_ad_modes(mode):
         return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
 
     x = np.array([1.0, 2.0, 0.5, -1.0])
-    result = hessian(f, input_shape=x.shape, mode=mode)(x).todense()
+    result = hessian(f, x, mode=mode)(x).todense()
     expected = jax.hessian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -713,7 +791,7 @@ def test_jacobian_ad_mode(mode):
         return (x[1:] - x[:-1]) ** 2
 
     x = np.array([1.0, 2.0, 4.0, 3.0, 5.0])
-    result = jacobian(f, input_shape=x.shape, mode=mode)(x).todense()
+    result = jacobian(f, x, mode=mode)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -730,7 +808,7 @@ def test_jacobian_symmetric_coloring():
         return jax.grad(lambda y: jnp.sum(y**3))(x)
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    result = jacobian(f, input_shape=x.shape, symmetric=True)(x).todense()
+    result = jacobian(f, x, symmetric=True)(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -744,7 +822,7 @@ def test_jacobian_symmetric_coloring_rev():
         return jax.grad(lambda y: jnp.sum(y**3))(x)
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    result = jacobian(f, input_shape=x.shape, symmetric=True, mode="rev")(x).todense()
+    result = jacobian(f, x, symmetric=True, mode="rev")(x).todense()
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -762,7 +840,7 @@ def test_hessian_non_symmetric_coloring(mode):
         return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
 
     x = np.array([1.0, 2.0, 0.5, -1.0])
-    result = hessian(f, input_shape=x.shape, symmetric=False, mode=mode)(x).todense()
+    result = hessian(f, x, symmetric=False, mode=mode)(x).todense()
     expected = jax.hessian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
@@ -779,7 +857,7 @@ def test_jacobian_from_coloring_rejects_hessian_coloring():
         return jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = hessian_coloring(f, input_shape=x.shape)
+    coloring = hessian_coloring(f, x)
     with pytest.raises(ValueError, match="Expected 'fwd' or 'rev'"):
         jacobian_from_coloring(jax.grad(f), coloring)(x)
 
@@ -792,7 +870,7 @@ def test_hessian_from_coloring_rejects_jacobian_coloring():
         return jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    coloring = jacobian_coloring(jax.grad(f), input_shape=x.shape)
+    coloring = jacobian_coloring(jax.grad(f), x)
     with pytest.raises(ValueError, match="Expected 'fwd_over_rev'"):
         hessian_from_coloring(f, coloring)(x)
 
@@ -809,7 +887,7 @@ def test_value_and_jacobian_diagonal(mode):
         return x**2
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    value, jac = value_and_jacobian(f, input_shape=x.shape, mode=mode)(x)
+    value, jac = value_and_jacobian(f, x, mode=mode)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
     assert_allclose(jac.todense(), jax.jacobian(f)(x), rtol=1e-5)
@@ -824,7 +902,7 @@ def test_value_and_jacobian_mixed(mode):
         return jnp.array([x[0] ** 2, 2 * x[0] * x[1] ** 2, jnp.sin(x[2])])
 
     x = np.array([1.0, 2.0, 0.5])
-    value, jac = value_and_jacobian(f, input_shape=x.shape, mode=mode)(x)
+    value, jac = value_and_jacobian(f, x, mode=mode)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
     assert_allclose(jac.todense(), jax.jacobian(f)(x), rtol=1e-5)
@@ -839,9 +917,7 @@ def test_value_and_jacobian_from_coloring(mode):
         return (x[1:] - x[:-1]) ** 2
 
     x = np.array([1.0, 2.0, 4.0, 3.0, 5.0])
-    coloring = jacobian_coloring_from_sparsity(
-        jacobian_sparsity(f, input_shape=5), mode=mode
-    )
+    coloring = jacobian_coloring_from_sparsity(jacobian_sparsity(f, x), mode=mode)
     value, jac = value_and_jacobian_from_coloring(f, coloring)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
@@ -857,7 +933,7 @@ def test_value_and_jacobian_zero(mode):
         return jnp.array([1.0, 2.0, 3.0])
 
     x = np.array([1.0, 2.0])
-    value, jac = value_and_jacobian(f, input_shape=x.shape, mode=mode)(x)
+    value, jac = value_and_jacobian(f, x, mode=mode)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
     assert jac.shape == (3, 2)
@@ -872,7 +948,7 @@ def test_value_and_jacobian_empty_output(mode):
         return jnp.array([])
 
     x = np.array([1.0, 2.0, 3.0])
-    value, jac = value_and_jacobian(f, input_shape=x.shape, mode=mode)(x)
+    value, jac = value_and_jacobian(f, x, mode=mode)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
     assert jac.shape == (0, 3)
@@ -890,7 +966,7 @@ def test_value_and_hessian_quadratic(mode):
         return jnp.sum(x**2)
 
     x = np.array([1.0, 2.0, 3.0])
-    value, hess = value_and_hessian(f, input_shape=x.shape, mode=mode)(x)
+    value, hess = value_and_hessian(f, x, mode=mode)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
     assert_allclose(hess.todense(), jax.hessian(f)(x), rtol=1e-5)
@@ -905,7 +981,7 @@ def test_value_and_hessian_rosenbrock(mode):
         return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
 
     x = np.array([1.0, 2.0, 0.5, -1.0])
-    value, hess = value_and_hessian(f, input_shape=x.shape, mode=mode)(x)
+    value, hess = value_and_hessian(f, x, mode=mode)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
     assert_allclose(hess.todense(), jax.hessian(f)(x), rtol=1e-5)
@@ -920,9 +996,7 @@ def test_value_and_hessian_from_coloring(mode):
         return x[0] ** 2 * x[1] + jnp.sin(x[1]) * x[2] + x[2] ** 3
 
     x = np.array([1.0, 2.0, 0.5])
-    coloring = hessian_coloring_from_sparsity(
-        hessian_sparsity(f, input_shape=3), mode=mode
-    )
+    coloring = hessian_coloring_from_sparsity(hessian_sparsity(f, x), mode=mode)
     value, hess = value_and_hessian_from_coloring(f, coloring)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
@@ -938,7 +1012,7 @@ def test_value_and_hessian_zero(mode):
         return jnp.sum(x)
 
     x = np.array([1.0, 2.0, 3.0])
-    value, hess = value_and_hessian(f, input_shape=x.shape, mode=mode)(x)
+    value, hess = value_and_hessian(f, x, mode=mode)(x)
 
     assert_allclose(value, f(x), rtol=1e-5)
     assert hess.shape == (3, 3)
@@ -954,7 +1028,7 @@ def test_value_and_hessian_squeeze(mode):
         return jnp.sum(x**2, keepdims=True)
 
     x = np.array([1.0, 2.0, 3.0])
-    value, hess = value_and_hessian(f, input_shape=x.shape, mode=mode)(x)
+    value, hess = value_and_hessian(f, x, mode=mode)(x)
 
     assert_allclose(value, jnp.sum(x**2), rtol=1e-5)
     assert_allclose(hess.todense(), jax.hessian(lambda x: jnp.sum(x**2))(x), rtol=1e-5)
@@ -971,7 +1045,7 @@ def test_jacobian_dense_output():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0, 4.0])
-    result = jacobian(f, input_shape=x.shape, output_format="dense")(x)
+    result = jacobian(f, x, output_format="dense")(x)
 
     assert isinstance(result, jax.Array)
     assert not isinstance(result, BCOO)
@@ -986,7 +1060,7 @@ def test_hessian_dense_output():
         return jnp.sum(x**3)
 
     x = np.array([1.0, 2.0, 3.0])
-    result = hessian(f, input_shape=x.shape, output_format="dense")(x)
+    result = hessian(f, x, output_format="dense")(x)
 
     assert isinstance(result, jax.Array)
     assert not isinstance(result, BCOO)
@@ -1001,7 +1075,7 @@ def test_value_and_jacobian_dense_output():
         return x**2
 
     x = np.array([1.0, 2.0, 3.0])
-    value, jac = value_and_jacobian(f, input_shape=x.shape, output_format="dense")(x)
+    value, jac = value_and_jacobian(f, x, output_format="dense")(x)
 
     assert isinstance(jac, jax.Array)
     assert not isinstance(jac, BCOO)
@@ -1017,9 +1091,659 @@ def test_value_and_hessian_dense_output():
         return jnp.sum(x**3)
 
     x = np.array([1.0, 2.0, 3.0])
-    value, hess = value_and_hessian(f, input_shape=x.shape, output_format="dense")(x)
+    value, hess = value_and_hessian(f, x, output_format="dense")(x)
 
     assert isinstance(hess, jax.Array)
     assert not isinstance(hess, BCOO)
     assert_allclose(value, f(x), rtol=1e-5)
     assert_allclose(hess, jax.hessian(f)(x), rtol=1e-5)
+
+
+# --- Empty result with has_aux tests ---
+
+
+@pytest.mark.jacobian
+def test_jacobian_empty_output_with_has_aux():
+    """Empty Jacobian (zero output dim) with has_aux returns (empty_jac, aux)."""
+
+    def f(x):
+        aux = jnp.sum(x)
+        return jnp.zeros((0,)), aux
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac, aux = jacobian(f, x, has_aux=True, output_format="dense")(x)
+
+    assert jac.shape == (0, 3)
+    assert_allclose(aux, 6.0)
+
+
+@pytest.mark.jacobian
+def test_value_and_jacobian_empty_output_with_has_aux():
+    """Empty value_and_jacobian with has_aux returns ((value, aux), empty_jac)."""
+
+    def f(x):
+        aux = jnp.sum(x)
+        return jnp.zeros((0,)), aux
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    (value, aux), jac = value_and_jacobian(f, x, has_aux=True, output_format="dense")(x)
+
+    assert jac.shape == (0, 3)
+    assert value.shape == (0,)
+    assert_allclose(aux, 6.0)
+
+
+@pytest.mark.hessian
+def test_hessian_empty_with_has_aux():
+    """Empty Hessian (zero input dim via empty sparsity) with has_aux."""
+
+    def f(x):
+        aux = "metadata"
+        return jnp.array(0.0), aux
+
+    # Create an empty sparsity pattern (no nonzeros)
+    sparsity = SparsityPattern.from_coo([], [], (3, 3))
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.zeros(3, dtype=np.int32),
+        num_colors=1,
+        symmetric=True,
+        mode="fwd_over_rev",
+    )
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    hess, aux = hessian_from_coloring(f, coloring, has_aux=True, output_format="dense")(
+        x
+    )
+
+    assert hess.shape == (3, 3)
+    assert_allclose(hess, jnp.zeros((3, 3)))
+    assert aux == "metadata"
+
+
+@pytest.mark.hessian
+def test_value_and_hessian_empty_with_has_aux():
+    """Empty value_and_hessian with has_aux returns ((value, aux), empty_hess)."""
+
+    def f(x):
+        aux = 42
+        return jnp.sum(x), aux
+
+    # Create an empty sparsity pattern (no nonzeros)
+    sparsity = SparsityPattern.from_coo([], [], (3, 3))
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.zeros(3, dtype=np.int32),
+        num_colors=1,
+        symmetric=True,
+        mode="fwd_over_rev",
+    )
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    (value, aux), hess = value_and_hessian_from_coloring(
+        f, coloring, has_aux=True, output_format="dense"
+    )(x)
+
+    assert hess.shape == (3, 3)
+    assert_allclose(hess, jnp.zeros((3, 3)))
+    assert_allclose(value, 6.0)
+    assert aux == 42
+
+
+# --- Empty bcoo output format ---
+
+
+@pytest.mark.jacobian
+def test_jacobian_empty_bcoo_format():
+    """Empty Jacobian with bcoo format returns proper BCOO."""
+
+    def f(x):
+        return jnp.zeros((0,))
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac = jacobian(f, x, output_format="bcoo")(x)
+
+    assert isinstance(jac, BCOO)
+    assert jac.shape == (0, 3)
+
+
+# --- Argument validation tests ---
+
+
+@pytest.mark.jacobian
+def test_jacobian_wrong_number_of_args():
+    """Calling jacobian with wrong number of args raises ValueError."""
+
+    def f(x, y):
+        return x + y
+
+    x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1))
+    jac_fn = jacobian_from_coloring(f, coloring, output_format="dense")
+
+    # Call with only one arg instead of two
+    with pytest.raises(ValueError, match="positional argument"):
+        jac_fn(x)
+
+
+@pytest.mark.jacobian
+def test_jacobian_pytree_structure_mismatch():
+    """Calling jacobian with mismatched pytree structure raises ValueError."""
+
+    def f(params):
+        return params["a"] + params["b"]
+
+    inputs = {"a": jnp.zeros(2), "b": jnp.zeros(2)}
+    coloring = jacobian_coloring(f, inputs)
+    jac_fn = jacobian_from_coloring(f, coloring, output_format="dense")
+
+    # Call with a list instead of dict
+    with pytest.raises(ValueError, match="pytree structure"):
+        jac_fn([jnp.zeros(2), jnp.zeros(2)])
+
+
+@pytest.mark.jacobian
+def test_jacobian_shape_mismatch():
+    """Calling jacobian with wrong input shapes raises ValueError."""
+
+    def f(x):
+        return x**2
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    coloring = jacobian_coloring(f, x)
+    jac_fn = jacobian_from_coloring(f, coloring, output_format="dense")
+
+    # Call with a different shape
+    with pytest.raises(ValueError, match="shape"):
+        jac_fn(jnp.array([1.0, 2.0]))
+
+
+# --- Internal function edge cases ---
+
+
+def test_flatten_selected_cotangents_empty():
+    """_flatten_selected_cotangents with empty pytree returns zeros."""
+    # Create a sparsity pattern that selects an empty tuple
+    sparsity = SparsityPattern.from_coo([0], [0], (1, 1))
+    # Cotangents tuple where selected position is empty dict (no leaves)
+    cotangents = ({},)
+    result = _flatten_selected_cotangents(cotangents, sparsity)
+    assert result.shape == (0,)
+
+
+def test_flatten_grad_output_empty():
+    """_flatten_grad_output with empty pytree returns zeros."""
+    # Empty dict has no leaves
+    result = _flatten_grad_output({})
+    assert result.shape == (0,)
+
+
+def test_selected_dtype_no_leaves():
+    """_selected_dtype with no leaves returns jnp.float_ fallback."""
+    # Create sparsity that selects an empty tuple
+    sparsity = SparsityPattern.from_coo([0], [0], (1, 1))
+    # Args where selected position has no dtype (empty dict)
+    args = ({},)
+    result = _selected_dtype(args, sparsity)
+    assert result == jnp.float_
+
+
+def test_gather_indices_empty_symmetric():
+    """_gather_indices with nnz=0 symmetric pattern returns empty array."""
+    # Create empty symmetric colored pattern
+    sparsity = SparsityPattern.from_coo([], [], (3, 3))
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.zeros(3, dtype=np.int32),
+        num_colors=1,
+        symmetric=True,
+        mode="fwd_over_rev",
+        star_set=StarSet(
+            star=np.array([], dtype=np.intp),
+            hub=np.array([], dtype=np.intp),
+            edge_index={},
+        ),
+    )
+    indices = coloring._gather_indices
+    assert indices.shape == (0, 2)
+
+
+# PyTree output tests
+
+
+@pytest.mark.jacobian
+def test_jacobian_pytree_output_dict():
+    """asdex.jacobian matches jax.jacobian for dict output."""
+
+    def f(x):
+        return {"a": x[:2], "b": jnp.sum(x**2)}
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, output_format="dense")(x)
+    expected = jax.jacobian(f)(x)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_pytree_output_tuple():
+    """asdex.jacobian matches jax.jacobian for tuple output."""
+
+    def f(x):
+        return (x**2, x[:2])
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, output_format="dense")(x)
+    expected = jax.jacobian(f)(x)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_pytree_output_nested():
+    """asdex.jacobian matches jax.jacobian for nested PyTree output."""
+
+    def f(x):
+        return {"out": [x[:2], jnp.sum(x)]}
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, output_format="dense")(x)
+    expected = jax.jacobian(f)(x)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+# PyTree input tests
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_pytree_input_dict(mode):
+    """asdex.jacobian matches jax.jacobian for dict input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    result = jacobian(f, params, mode=mode, output_format="dense")(params)
+    expected = jax.jacobian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_pytree_input_tuple(mode):
+    """asdex.jacobian matches jax.jacobian for tuple input."""
+
+    def f(params):
+        return params[0] ** 2 + params[1]
+
+    params = (jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]))
+    result = jacobian(f, params, mode=mode, output_format="dense")(params)
+    expected = jax.jacobian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_from_coloring_pytree_input(mode):
+    """jacobian_from_coloring works with PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    coloring = jacobian_coloring(f, params, mode=mode)
+    result = jacobian_from_coloring(f, coloring, output_format="dense")(params)
+    expected = jax.jacobian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_value_and_jacobian_pytree_input(mode):
+    """value_and_jacobian works with PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    val, jac = value_and_jacobian(f, params, mode=mode, output_format="dense")(params)
+    expected_val = f(params)
+    expected_jac = jax.jacobian(f)(params)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_value_and_jacobian_from_coloring_pytree_input(mode):
+    """value_and_jacobian_from_coloring works with PyTree input."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    coloring = jacobian_coloring(f, params, mode=mode)
+    val, jac = value_and_jacobian_from_coloring(f, coloring, output_format="dense")(
+        params
+    )
+    expected_val = f(params)
+    expected_jac = jax.jacobian(f)(params)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_from_sparsity_pytree_input(mode):
+    """jacobian_coloring_from_sparsity works with PyTree-derived sparsity."""
+
+    def f(params):
+        return params["a"] + params["b"] * 2
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    sparsity = jacobian_sparsity(f, params)
+    coloring = jacobian_coloring_from_sparsity(sparsity, mode=mode)
+    result = jacobian_from_coloring(f, coloring, output_format="dense")(params)
+    expected = jax.jacobian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_pytree_input_dict(mode):
+    """asdex.hessian matches jax.hessian for dict input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    result = hessian(f, params, mode=mode, output_format="dense")(params)
+    expected = jax.hessian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_from_coloring_pytree_input(mode):
+    """hessian_from_coloring works with PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    coloring = hessian_coloring(f, params, mode=mode)
+    result = hessian_from_coloring(f, coloring, output_format="dense")(params)
+    expected = jax.hessian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_value_and_hessian_pytree_input(mode):
+    """value_and_hessian works with PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    val, hess = value_and_hessian(f, params, mode=mode, output_format="dense")(params)
+    expected_val = f(params)
+    expected_hess = jax.hessian(f)(params)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected_hess, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_value_and_hessian_from_coloring_pytree_input(mode):
+    """value_and_hessian_from_coloring works with PyTree input."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    coloring = hessian_coloring(f, params, mode=mode)
+    val, hess = value_and_hessian_from_coloring(f, coloring, output_format="dense")(
+        params
+    )
+    expected_val = f(params)
+    expected_hess = jax.hessian(f)(params)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected_hess, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_from_sparsity_pytree_input(mode):
+    """hessian_coloring_from_sparsity works with PyTree-derived sparsity."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.dot(params["a"], params["b"])
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    sparsity = hessian_sparsity(f, params)
+    coloring = hessian_coloring_from_sparsity(sparsity, mode=mode)
+    result = hessian_from_coloring(f, coloring, output_format="dense")(params)
+    expected = jax.hessian(f)(params)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+# Multi-arg and argnums tests
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_multi_arg_all_argnums(mode):
+    """asdex.jacobian matches jax.jacobian for multi-arg with argnums=(0, 1)."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = jacobian(f, x, y, argnums=(0, 1), mode=mode, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_multi_arg_single_argnum_int(mode):
+    """asdex.jacobian with argnums=0 (int) matches jax.jacobian."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = jacobian(f, x, y, argnums=0, mode=mode, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=0)(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_multi_arg_single_argnum_tuple(mode):
+    """asdex.jacobian with argnums=(1,) (tuple) matches jax.jacobian."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = jacobian(f, x, y, argnums=(1,), mode=mode, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=(1,))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_from_coloring_multi_arg(mode):
+    """jacobian_from_coloring works with multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+    result = jacobian_from_coloring(f, coloring, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_value_and_jacobian_multi_arg(mode):
+    """value_and_jacobian works with multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    val, jac = value_and_jacobian(
+        f, x, y, argnums=(0, 1), mode=mode, output_format="dense"
+    )(x, y)
+    expected_val = f(x, y)
+    expected_jac = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_value_and_jacobian_from_coloring_multi_arg(mode):
+    """value_and_jacobian_from_coloring works with multi-arg function."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    coloring = jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+    val, jac = value_and_jacobian_from_coloring(f, coloring, output_format="dense")(
+        x, y
+    )
+    expected_val = f(x, y)
+    expected_jac = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(jac, expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_coloring_from_sparsity_multi_arg(mode):
+    """jacobian_coloring_from_sparsity works with multi-arg sparsity."""
+
+    def f(x, y):
+        return x + y * 2
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    sparsity = jacobian_sparsity(f, x, y, argnums=(0, 1))
+    coloring = jacobian_coloring_from_sparsity(sparsity, mode=mode)
+    result = jacobian_from_coloring(f, coloring, output_format="dense")(x, y)
+    expected = jax.jacobian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_multi_arg_all_argnums(mode):
+    """asdex.hessian matches jax.hessian for multi-arg with argnums=(0, 1)."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = hessian(f, x, y, argnums=(0, 1), mode=mode, output_format="dense")(x, y)
+    expected = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_multi_arg_single_argnum(mode):
+    """asdex.hessian with argnums=0 matches jax.hessian."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    result = hessian(f, x, y, argnums=0, mode=mode, output_format="dense")(x, y)
+    expected = jax.hessian(f, argnums=0)(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_from_coloring_multi_arg(mode):
+    """hessian_from_coloring works with multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    coloring = hessian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+    result = hessian_from_coloring(f, coloring, output_format="dense")(x, y)
+    expected = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_value_and_hessian_multi_arg(mode):
+    """value_and_hessian works with multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    val, hess = value_and_hessian(
+        f, x, y, argnums=(0, 1), mode=mode, output_format="dense"
+    )(x, y)
+    expected_val = f(x, y)
+    expected_hess = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected_hess, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_value_and_hessian_from_coloring_multi_arg(mode):
+    """value_and_hessian_from_coloring works with multi-arg function."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    coloring = hessian_coloring(f, x, y, argnums=(0, 1), mode=mode)
+    val, hess = value_and_hessian_from_coloring(f, coloring, output_format="dense")(
+        x, y
+    )
+    expected_val = f(x, y)
+    expected_hess = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert _allclose_pytree(hess, expected_hess, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_coloring_from_sparsity_multi_arg(mode):
+    """hessian_coloring_from_sparsity works with multi-arg sparsity."""
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y)
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+    sparsity = hessian_sparsity(f, x, y, argnums=(0, 1))
+    coloring = hessian_coloring_from_sparsity(sparsity, mode=mode)
+    result = hessian_from_coloring(f, coloring, output_format="dense")(x, y)
+    expected = jax.hessian(f, argnums=(0, 1))(x, y)
+    assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)

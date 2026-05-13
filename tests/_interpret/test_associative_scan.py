@@ -29,7 +29,7 @@ def test_associative_scan_cumsum_1d():
     def f(x):
         return jax.lax.associative_scan(jnp.add, x)
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.tril(np.ones((4, 4), dtype=int))
     np.testing.assert_array_equal(result, expected)
 
@@ -45,7 +45,7 @@ def test_associative_scan_cumprod_1d():
     def f(x):
         return jax.lax.associative_scan(jnp.multiply, x)
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.tril(np.ones((4, 4), dtype=int))
     np.testing.assert_array_equal(result, expected)
 
@@ -62,7 +62,7 @@ def test_associative_scan_cummax_1d():
     def f(x):
         return jax.lax.associative_scan(jnp.maximum, x)
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.tril(np.ones((4, 4), dtype=int))
     np.testing.assert_array_equal(result, expected)
 
@@ -78,7 +78,7 @@ def test_associative_scan_2d_axis0():
     def f(x):
         return jax.lax.associative_scan(jnp.add, x.reshape(3, 2), axis=0).ravel()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     # 3x2 array scanned along axis 0: columns are independent
     expected = np.array(
         [
@@ -106,7 +106,7 @@ def test_associative_scan_2d_axis1():
     def f(x):
         return jax.lax.associative_scan(jnp.add, x.reshape(2, 3), axis=1).ravel()
 
-    result = jacobian_sparsity(f, input_shape=6).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
     # 2x3 array scanned along axis 1: rows are independent
     expected = np.array(
         [
@@ -134,7 +134,7 @@ def test_associative_scan_reverse():
     def f(x):
         return jax.lax.associative_scan(jnp.add, x, reverse=True)
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.triu(np.ones((4, 4), dtype=int))
     np.testing.assert_array_equal(result, expected)
 
@@ -148,7 +148,7 @@ def test_associative_scan_jacobian_values():
         return jax.lax.associative_scan(jnp.add, x)
 
     x = jnp.array([1.0, 2.0, 3.0, 4.0])
-    sparse_jac = jacobian(f, input_shape=x.shape)(x).todense()
+    sparse_jac = jacobian(f, x)(x).todense()
     dense_jac = np.array(jax.jacobian(f)(x))
     np.testing.assert_allclose(sparse_jac, dense_jac)
 
@@ -160,6 +160,6 @@ def test_associative_scan_length_one():
     def f(x):
         return jax.lax.associative_scan(jnp.add, x)
 
-    result = jacobian_sparsity(f, input_shape=1).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(1)).todense().astype(int)
     expected = np.array([[1]], dtype=int)
     np.testing.assert_array_equal(result, expected)

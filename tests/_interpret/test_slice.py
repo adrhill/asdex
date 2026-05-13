@@ -23,7 +23,7 @@ def test_multidim_slice():
         sliced = mat[0:2, 1:3]  # 2D slice extracts 2x2 submatrix
         return sliced.flatten()
 
-    result = jacobian_sparsity(f, input_shape=12).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
     # Input (3x4): indices 0-11 in row-major order
     # Slice [0:2, 1:3] extracts: [0,1]=1, [0,2]=2, [1,1]=5, [1,2]=6
     expected = np.zeros((4, 12), dtype=int)
@@ -44,7 +44,7 @@ def test_roll():
     def f(x):
         return jnp.roll(x, shift=1)
 
-    result = jacobian_sparsity(f, input_shape=3).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     # Precise: cyclic permutation matrix
     # output[0] <- input[2], output[1] <- input[0], output[2] <- input[1]
     expected = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=int)
@@ -59,7 +59,7 @@ def test_slice_constant_array():
         const = jnp.array([1.0, 2.0, 3.0, 4.0])
         return const[1:3]  # Slice constant, no input dependency
 
-    result = jacobian_sparsity(f, input_shape=2).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(2)).todense().astype(int)
     expected = np.zeros((2, 2), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -74,7 +74,7 @@ def test_slice_mixed_with_constant():
         sliced_const = const[:1]  # const[0]
         return jnp.concatenate([sliced_const, sliced_x])
 
-    result = jacobian_sparsity(f, input_shape=4).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     # Output: [const[0], x[1], x[2]]
     expected = np.array(
         [
@@ -97,6 +97,6 @@ def test_slice_to_zero_size():
     def f(x):
         return x[:0]
 
-    result = jacobian_sparsity(f, input_shape=3)
+    result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0

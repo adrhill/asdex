@@ -35,7 +35,7 @@ def f(x):
 
 x = jnp.ones(50)
 
-coloring = jacobian_coloring(f, input_shape=x.shape)
+coloring = jacobian_coloring(f, x)
 ```
 
 ```python exec="true" session="gs"
@@ -103,7 +103,7 @@ import timeit
 n = 5000
 x = jnp.ones(n)
 
-jac_fn_asdex = jax.jit(asdex.jacobian(f, input_shape=n))
+jac_fn_asdex = jax.jit(asdex.jacobian(f, x))
 jac_fn_jax = jax.jit(jax.jacobian(f))
 
 # Warm up JIT caches
@@ -131,7 +131,8 @@ print("```\n" + "\n".join(lines) + "\n```")
     precompute the coloring once and reuse it:
 
     ```python
-    jac_fn = jax.jit(jacobian(f, input_shape=5000))
+    x_sample = jnp.zeros(5000)  # sample input for sparsity detection
+    jac_fn = jax.jit(jacobian(f, x_sample))
 
     for x in inputs:
         J = jac_fn(x)
@@ -149,7 +150,8 @@ from asdex import hessian
 def g(x):
     return jnp.sum(x ** 2)
 
-hess_fn = jax.jit(hessian(g, input_shape=20))
+x = jnp.zeros(20)
+hess_fn = jax.jit(hessian(g, x))
 
 for x in inputs:
     H = hess_fn(x)
