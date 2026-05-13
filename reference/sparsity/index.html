@@ -1221,10 +1221,10 @@
 <h1 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">¶</a></h1>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
-<p>Detect global Jacobian sparsity pattern for f: R^n -&gt; R^m.</p>
+<p>Detect global Jacobian sparsity pattern for <code>f</code>.</p>
 <p>Analyzes the computation graph structure directly,
 without evaluating any derivatives.
 The result is valid for all inputs.</p>
@@ -1248,7 +1248,7 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Function taking an array and returning an array.</p>
+<p>Function whose Jacobian sparsity pattern is to be detected.</p>
 </div>
 </td>
 <td>
@@ -1257,19 +1257,54 @@ The result is valid for all inputs.</p>
 </tr>
 <tr class="doc-section-item">
 <td>
-<code>input_shape</code>
+<code>*args</code>
 </td>
 <td>
-<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+<code><span title="typing.Any">Any</span></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Shape of the input array.
-An integer is treated as a 1D length.</p>
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
 </div>
 </td>
 <td>
-<em>required</em>
+<code>()</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>argnums</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Specifies which positional argument(s) to differentiate
+with respect to (default <code>0</code>).</p>
+</div>
+</td>
+<td>
+<code>0</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>has_aux</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
+When True, only <code>output</code> is analyzed for sparsity;
+the auxiliary branch of the computation is not traced.</p>
+</div>
+</td>
+<td>
+<code>False</code>
 </td>
 </tr>
 </tbody>
@@ -1294,9 +1329,9 @@ An integer is treated as a 1D length.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>SparsityPattern of shape <code>(m, n)</code>
-where <code>n = prod(input_shape)</code> and <code>m = prod(output_shape)</code>.
-Entry <code>(i, j)</code> is present if output <code>i</code> depends on input <code>j</code>.</p>
+<p>SparsityPattern of shape <code>(m, n_selected)</code>
+where <code>m = prod(output_shape)</code> and <code>n_selected</code> is the total
+flat size of the selected inputs.</p>
 </div>
 </td>
 </tr>
@@ -1306,10 +1341,10 @@ Entry <code>(i, j)</code> is present if output <code>i</code> depends on input <
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
-<p>Detect global Hessian sparsity pattern for f: R^n -&gt; R.</p>
+<p>Detect global Hessian sparsity pattern for a scalar-valued <code>f</code>.</p>
 <p>Analyzes the Jacobian sparsity of the gradient function,
 without evaluating any derivatives.
 The result is valid for all inputs.</p>
@@ -1335,7 +1370,7 @@ it is automatically squeezed to scalar.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Scalar-valued function taking an array.</p>
+<p>Scalar-valued function taking one or more positional arrays.</p>
 </div>
 </td>
 <td>
@@ -1344,19 +1379,53 @@ it is automatically squeezed to scalar.</p>
 </tr>
 <tr class="doc-section-item">
 <td>
-<code>input_shape</code>
+<code>*args</code>
 </td>
 <td>
-<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+<code><span title="typing.Any">Any</span></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Shape of the input array.
-An integer is treated as a 1D length.</p>
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
 </div>
 </td>
 <td>
-<em>required</em>
+<code>()</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>argnums</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Specifies which positional argument(s) to differentiate
+with respect to (default <code>0</code>).</p>
+</div>
+</td>
+<td>
+<code>0</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>has_aux</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> returns <code>(scalar_output, auxiliary_data)</code>.
+When True, aux is stripped before detection.</p>
+</div>
+</td>
+<td>
+<code>False</code>
 </td>
 </tr>
 </tbody>
@@ -1381,9 +1450,7 @@ An integer is treated as a 1D length.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>SparsityPattern of shape <code>(n, n)</code>
-where <code>n = prod(input_shape)</code>.
-Entry <code>(i, j)</code> is present if <code>H[i, j]</code> may be nonzero.</p>
+<p>Square SparsityPattern over the combined, selected input space.</p>
 </div>
 </td>
 </tr>

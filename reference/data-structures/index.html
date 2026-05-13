@@ -1157,6 +1157,61 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.dyn_avals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dyn_avals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.example_input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        example_input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.leaf_shapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        leaf_shapes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.leaf_sizes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        leaf_sizes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.input_treedef" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        input_treedef
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#asdex.SparsityPattern.nnz" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1480,6 +1535,61 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.dyn_avals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dyn_avals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.example_input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        example_input
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.leaf_shapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        leaf_shapes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.leaf_sizes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        leaf_sizes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.input_treedef" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        input_treedef
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#asdex.SparsityPattern.nnz" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1793,6 +1903,7 @@ Present only for symmetric colorings produced by
 <a class="headerlink" href="#asdex.ColoredPattern.save" title="Permanent link">¶</a></h3>
 <div class="doc doc-contents">
 <p>Save colored pattern to an <code>.npz</code> file.</p>
+<p>Supports multi-input and PyTree-structured patterns.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
 <thead>
@@ -1911,7 +2022,7 @@ by the coloring and decompression stages.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Row indices of non-zero entries, shape <code>(nnz,)</code></p>
+<p>Row indices of non-zero entries, shape <code>(nnz,)</code>.</p>
 </div>
 </td>
 </tr>
@@ -1922,7 +2033,7 @@ by the coloring and decompression stages.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Column indices of non-zero entries, shape <code>(nnz,)</code></p>
+<p>Column indices of non-zero entries, shape <code>(nnz,)</code>.</p>
 </div>
 </td>
 </tr>
@@ -1933,25 +2044,107 @@ by the coloring and decompression stages.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Matrix dimensions <code>(m, n)</code></p>
+<p>Matrix dimensions <code>(m, n)</code>.</p>
 </div>
 </td>
 </tr>
 <tr class="doc-section-item">
-<td><code><span title="asdex.SparsityPattern.input_shape">input_shape</span></code></td>
+<td><code><span title="asdex.SparsityPattern.input_avals">input_avals</span></code></td>
 <td>
-<code><span title="tuple">tuple</span>[<span title="int">int</span>, ...] | None</code>
+<code><span title="tuple">tuple</span>[<span title="typing.Any">Any</span>, ...]</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Shape of the function input that produced this pattern.
-Defaults to <code>(n,)</code> if not specified.</p>
+<p>One pytree of <code>jax.ShapeDtypeStruct</code> per positional
+argument of the traced function, in the same order
+<code>jax.eval_shape(fun, *args)</code> expects.
+Positions not in <code>argnums</code> are still stored (so the full input
+structure is preserved), but they do not contribute columns to
+the Jacobian / rows to the Hessian.</p>
+</div>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td><code><span title="asdex.SparsityPattern.argnums">argnums</span></code></td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Positions of <code>input_avals</code> that were differentiated,
+mirroring <code>jax.grad</code> / <code>jax.jacfwd</code>.
+An <code>int</code> stays <code>int</code> and a sequence becomes <code>tuple[int, ...]</code>
+— that distinction drives whether
+<a class="autorefs autorefs-internal" title="example_input
+
+  
+      property
+  " href="#asdex.SparsityPattern.example_input"><code>example_input</code></a>
+is a single aval or a tuple of avals.</p>
 </div>
 </td>
 </tr>
 </tbody>
 </table>
 <div class="doc doc-children">
+<div class="doc doc-object doc-attribute">
+<h3 class="doc doc-heading" id="asdex.SparsityPattern.dyn_avals">
+<code class="highlight language-python"><span class="n">dyn_avals</span></code>
+<span class="doc doc-labels">
+<small class="doc doc-label doc-label-property"><code>property</code></small>
+</span>
+<a class="headerlink" href="#asdex.SparsityPattern.dyn_avals" title="Permanent link">¶</a></h3>
+<div class="doc doc-contents">
+<p>Sub-tuple of <code>input_avals</code> selected by <code>argnums</code>.</p>
+</div>
+</div>
+<div class="doc doc-object doc-attribute">
+<h3 class="doc doc-heading" id="asdex.SparsityPattern.example_input">
+<code class="highlight language-python"><span class="n">example_input</span></code>
+<span class="doc doc-labels">
+<small class="doc doc-label doc-label-property"><code>property</code></small>
+</span>
+<a class="headerlink" href="#asdex.SparsityPattern.example_input" title="Permanent link">¶</a></h3>
+<div class="doc doc-contents">
+<p>The aval structure the returned Jacobian / Hessian mirrors.</p>
+<p>When <code>argnums</code> is an <code>int</code> this is the single selected aval;
+when <code>argnums</code> is a tuple this is the tuple of selected avals.
+Matches <code>jax/_src/api.py:746</code> (<code>jacfwd</code>) and line 840 (<code>jacrev</code>).</p>
+</div>
+</div>
+<div class="doc doc-object doc-attribute">
+<h3 class="doc doc-heading" id="asdex.SparsityPattern.leaf_shapes">
+<code class="highlight language-python"><span class="n">leaf_shapes</span></code>
+<span class="doc doc-labels">
+<small class="doc doc-label doc-label-property"><code>property</code></small>
+</span>
+<a class="headerlink" href="#asdex.SparsityPattern.leaf_shapes" title="Permanent link">¶</a></h3>
+<div class="doc doc-contents">
+<p>Per-leaf shapes of the selected (differentiated) inputs.</p>
+</div>
+</div>
+<div class="doc doc-object doc-attribute">
+<h3 class="doc doc-heading" id="asdex.SparsityPattern.leaf_sizes">
+<code class="highlight language-python"><span class="n">leaf_sizes</span></code>
+<span class="doc doc-labels">
+<small class="doc doc-label doc-label-property"><code>property</code></small>
+</span>
+<a class="headerlink" href="#asdex.SparsityPattern.leaf_sizes" title="Permanent link">¶</a></h3>
+<div class="doc doc-contents">
+<p>Per-leaf flat sizes (<code>prod(shape)</code>) of the selected inputs.</p>
+</div>
+</div>
+<div class="doc doc-object doc-attribute">
+<h3 class="doc doc-heading" id="asdex.SparsityPattern.input_treedef">
+<code class="highlight language-python"><span class="n">input_treedef</span></code>
+<span class="doc doc-labels">
+<small class="doc doc-label doc-label-property"><code>property</code></small>
+</span>
+<a class="headerlink" href="#asdex.SparsityPattern.input_treedef" title="Permanent link">¶</a></h3>
+<div class="doc doc-contents">
+<p>Pytree structure of <code>dyn_avals</code>.</p>
+</div>
+</div>
 <div class="doc doc-object doc-attribute">
 <h3 class="doc doc-heading" id="asdex.SparsityPattern.nnz">
 <code class="highlight language-python"><span class="n">nnz</span></code>
@@ -2027,12 +2220,12 @@ Defaults to <code>(n,)</code> if not specified.</p>
 <code class="highlight language-python"><span class="n">__post_init__</span><span class="p">()</span></code>
 <a class="headerlink" href="#asdex.SparsityPattern.__post_init__" title="Permanent link">¶</a></h3>
 <div class="doc doc-contents">
-<p>Validate inputs and set defaults.</p>
+<p>Validate inputs and fill in the default single-leaf aval.</p>
 </div>
 </div>
 <div class="doc doc-object doc-function">
 <h3 class="doc doc-heading" id="asdex.SparsityPattern.from_coo">
-<code class="highlight language-python"><span class="n">from_coo</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">from_coo</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">input_avals</span><span class="o">=</span><span class="p">(),</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
 <span class="doc doc-labels">
 <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
 </span>
@@ -2100,19 +2293,37 @@ Defaults to <code>(n,)</code> if not specified.</p>
 </tr>
 <tr class="doc-section-item">
 <td>
-<code>input_shape</code>
+<code>input_avals</code>
 </td>
 <td>
-<code><span title="tuple">tuple</span>[<span title="int">int</span>, ...] | None</code>
+<code><span title="tuple">tuple</span>[<span title="typing.Any">Any</span>, ...]</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Shape of the function input.
-Defaults to <code>(n,)</code> if not specified.</p>
+<p>One pytree of <code>ShapeDtypeStruct</code> per positional
+argument of the traced function.
+Defaults to a single 1-D aval of size <code>n</code>.</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code>()</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>argnums</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Positions of <code>input_avals</code> that were differentiated,
+mirroring <code>jax.grad</code> / <code>jax.jacfwd</code>.</p>
+</div>
+</td>
+<td>
+<code>0</code>
 </td>
 </tr>
 </tbody>
@@ -2194,6 +2405,7 @@ If None, uses all 1s.</p>
 <a class="headerlink" href="#asdex.SparsityPattern.save" title="Permanent link">¶</a></h3>
 <div class="doc doc-contents">
 <p>Save sparsity pattern to an <code>.npz</code> file.</p>
+<p>Supports multi-input and PyTree-structured patterns.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
 <thead>

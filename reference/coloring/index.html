@@ -1398,7 +1398,7 @@
 <h2 id="sparsity-detection-and-coloring">Sparsity Detection and Coloring<a class="headerlink" href="#sparsity-detection-and-coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Jacobian sparsity and color in one step.</p>
@@ -1422,7 +1422,7 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>Function taking an array and returning an array.</p>
+<p>Function whose Jacobian is to be computed.</p>
 </div>
 </td>
 <td>
@@ -1431,18 +1431,53 @@
 </tr>
 <tr class="doc-section-item">
 <td>
-<code>input_shape</code>
+<code>*args</code>
 </td>
 <td>
-<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+<code><span title="typing.Any">Any</span></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Shape of the input array.</p>
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
 </div>
 </td>
 <td>
-<em>required</em>
+<code>()</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>argnums</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Specifies which positional argument(s) to differentiate
+with respect to (default <code>0</code>).</p>
+</div>
+</td>
+<td>
+<code>0</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>has_aux</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>If <code>True</code>, <code>f</code> is assumed to return <code>(output, aux)</code>
+where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
+</div>
+</td>
+<td>
+<code>False</code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1532,7 +1567,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-  " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo')" href="../#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
+  " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="../#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -1542,7 +1577,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Hessian sparsity and color in one step.</p>
@@ -1566,7 +1601,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Scalar-valued function taking an array.</p>
+<p>Scalar-valued function taking one or more positional arrays.</p>
 </div>
 </td>
 <td>
@@ -1575,18 +1610,53 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </tr>
 <tr class="doc-section-item">
 <td>
-<code>input_shape</code>
+<code>*args</code>
 </td>
 <td>
-<code><span title="int">int</span> | <span title="tuple">tuple</span>[<span title="int">int</span>, ...]</code>
+<code><span title="typing.Any">Any</span></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Shape of the input array.</p>
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
 </div>
 </td>
 <td>
-<em>required</em>
+<code>()</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>argnums</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Specifies which positional argument(s) to differentiate
+with respect to (default <code>0</code>).</p>
+</div>
+</td>
+<td>
+<code>0</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>has_aux</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>If <code>True</code>, <code>f</code> is assumed to return <code>(output, aux)</code>
+where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
+</div>
+</td>
+<td>
+<code>False</code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1676,7 +1746,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-  " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo')" href="../#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
+  " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="../#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -1817,7 +1887,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-  " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo')" href="../#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
+  " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="../#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -1958,7 +2028,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-  " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo')" href="../#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
+  " href="../#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="../#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
