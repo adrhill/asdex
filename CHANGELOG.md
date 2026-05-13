@@ -1,5 +1,21 @@
 # asdex
 
+## Version `v0.3.0`
+* ![BREAKING][badge-breaking] API now requires sample inputs instead of `input_shape` parameter ([#105])
+* ![Feature][badge-feature] Support pytree / multi-positional-input functions via `argnums` ([#105])
+* ![Feature][badge-feature] Add `has_aux`, `holomorphic`, `allow_int` kwargs matching JAX semantics ([#105])
+* ![Feature][badge-feature] Support PyTree outputs in Jacobian/Hessian computation ([#105])
+* ![Enhancement][badge-enhancement] Support scalar inputs (0-dimensional arrays) ([#105])
+
+```python
+# Before (v0.2)
+J = asdex.jacobian(f, input_shape=x.shape)(x)
+
+# After (v0.3) — sample inputs like jax.jacobian
+J = asdex.jacobian(f, x)(x)
+J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
+```
+
 ## Version `v0.2.0`
 * ![BREAKING][badge-breaking] `color_symmetric` now returns `(colors, num_colors, star_set)` instead of `(colors, num_colors)` ([#104])
 * ![Feature][badge-feature] Promote `check_coloring_rows`, `check_coloring_cols`, `check_coloring_symmetric` to public API in `verify.py` ([#104])
