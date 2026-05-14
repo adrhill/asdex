@@ -12,10 +12,14 @@ Test asdex functions against JAX reference implementations to find correctness b
 
 1. Write test functions comparing `asdex.jacobian`/`asdex.hessian` against `jax.jacobian`/`jax.hessian`
 2. Focus on edge cases: unusual primitives, PyTree structures, argnums combinations, control flow
-3. When a test fails, minimize to an MWE
-4. Check open issues: `gh issue list --state open`
-5. If a similar issue exists, comment only if you have additional findings to add
-6. If no similar issue exists, file a new one with label "bug", title prefixed "Bug:", including description, MWE, pytest, and root cause
+3. When a test fails or a `NotImplementedError` is raised, **immediately**:
+   a. Minimize to an MWE
+   b. Check open issues: `gh issue list --state open`
+   c. If a similar issue exists, comment only if you have additional findings
+   d. If no similar issue exists, file a new one:
+      - Bugs: label "bug", title prefixed "Bug:", include MWE and root cause
+      - Missing primitives: label "enhancement", title prefixed "Feature:", include MWE
+4. Only after filing the issue, continue testing other edge cases
 
 ## Test Pattern
 
@@ -49,4 +53,24 @@ assert jnp.allclose(J_asdex, J_jax)
 - Control flow: `cond`, `scan`, `while_loop`, `fori_loop`
 - Index ops: `gather`, `scatter`, `dynamic_slice`, `dynamic_update_slice`
 - Reductions: `reduce`, `reduce_window`, `reduce_max`, `reduce_min`
+- Reduction edge cases: empty axis `axis=()`, `keepdims=True`, partial axis subsets
 - Elementwise: `clamp`, `select`, `select_n`
+
+## Sparsity Precision Testing
+
+Check if asdex detects exact sparsity (not overly conservative):
+
+```python
+import numpy as np
+
+pattern = asdex.jacobian_sparsity(f, x)
+detected_nnz = pattern.nnz
+
+J_jax = jax.jacobian(f)(x)
+true_nnz = np.sum(np.abs(np.asarray(J_jax)) > 1e-10)
+
+if detected_nnz > true_nnz:
+    print(f"Conservative pattern: detected {detected_nnz}, true {true_nnz}")
+```
+
+Conservative patterns are correct but suboptimal. Document these with a `TODO(primitive)` comment showing the precise expected pattern.
