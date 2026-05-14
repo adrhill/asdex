@@ -10,16 +10,15 @@ Test asdex functions against JAX reference implementations to find correctness b
 
 ## Workflow
 
-1. Write test functions comparing `asdex.jacobian`/`asdex.hessian` against `jax.jacobian`/`jax.hessian`
-2. Focus on edge cases: unusual primitives, PyTree structures, argnums combinations, control flow
-3. When a test fails or a `NotImplementedError` is raised, **immediately**:
-   a. Minimize to an MWE
-   b. Check open issues: `gh issue list --state open`
-   c. If a similar issue exists, comment only if you have additional findings
-   d. If no similar issue exists, file a new one:
+1. **First**, check open issues: `gh issue list --state open`
+2. Write test functions comparing `asdex.jacobian`/`asdex.hessian` against `jax.jacobian`/`jax.hessian`
+3. Focus on edge cases not covered by open issues
+4. When a test fails or a `NotImplementedError` is raised:
+   a. Skip if it matches an open issue (no need to re-confirm known bugs)
+   b. For new bugs, minimize to an MWE and file an issue:
       - Bugs: label "bug", title prefixed "Bug:", include MWE and root cause
       - Missing primitives: label "enhancement", title prefixed "Feature:", include MWE
-4. Only after filing the issue, continue testing other edge cases
+5. Continue testing other edge cases after filing
 
 ## Test Pattern
 
