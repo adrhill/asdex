@@ -14,7 +14,8 @@ Test asdex functions against JAX reference implementations to find correctness b
 2. Focus on edge cases: unusual primitives, PyTree structures, argnums combinations, control flow
 3. When a test fails, minimize to an MWE
 4. Check open issues: `gh issue list --state open`
-5. File new issue with label "bug", title prefixed "Bug:", including description, MWE, pytest, and root cause
+5. If a similar issue exists, comment only if you have additional findings to add
+6. If no similar issue exists, file a new one with label "bug", title prefixed "Bug:", including description, MWE, pytest, and root cause
 
 ## Test Pattern
 
