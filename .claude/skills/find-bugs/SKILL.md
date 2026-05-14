@@ -73,3 +73,4 @@ if detected_nnz > true_nnz:
 ```
 
 Conservative patterns are correct but suboptimal. Document these with a `TODO(primitive)` comment showing the precise expected pattern.
+Note that asdex computes global sparisty patterns that must be valid over the entire input domain: https://adrianhill.de/asdex/explanation/global-sparsity/
