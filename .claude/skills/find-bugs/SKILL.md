@@ -10,12 +10,15 @@ Test asdex functions against JAX reference implementations to find correctness b
 
 ## Workflow
 
-1. Write test functions comparing `asdex.jacobian`/`asdex.hessian` against `jax.jacobian`/`jax.hessian`
-2. Focus on edge cases: unusual primitives, PyTree structures, argnums combinations, control flow
-3. When a test fails, minimize to an MWE
-4. Check open issues: `gh issue list --state open`
-5. If a similar issue exists, comment only if you have additional findings to add
-6. If no similar issue exists, file a new one with label "bug", title prefixed "Bug:", including description, MWE, pytest, and root cause
+1. **First**, check open issues: `gh issue list --state open`
+2. Write test functions comparing `asdex.jacobian`/`asdex.hessian` against `jax.jacobian`/`jax.hessian`
+3. Focus on edge cases not covered by open issues
+4. When a test fails or a `NotImplementedError` is raised:
+   a. Skip if it matches an open issue (no need to re-confirm known bugs)
+   b. For new bugs, minimize to an MWE and file an issue:
+      - Bugs: label "bug", title prefixed "Bug:", include MWE and root cause
+      - Missing primitives: label "enhancement", title prefixed "Feature:", include MWE
+5. Continue testing other edge cases after filing
 
 ## Test Pattern
 
@@ -49,4 +52,25 @@ assert jnp.allclose(J_asdex, J_jax)
 - Control flow: `cond`, `scan`, `while_loop`, `fori_loop`
 - Index ops: `gather`, `scatter`, `dynamic_slice`, `dynamic_update_slice`
 - Reductions: `reduce`, `reduce_window`, `reduce_max`, `reduce_min`
+- Reduction edge cases: empty axis `axis=()`, `keepdims=True`, partial axis subsets
 - Elementwise: `clamp`, `select`, `select_n`
+
+## Sparsity Precision Testing
+
+Check if asdex detects exact sparsity (not overly conservative):
+
+```python
+import numpy as np
+
+pattern = asdex.jacobian_sparsity(f, x)
+detected_nnz = pattern.nnz
+
+J_jax = jax.jacobian(f)(x)
+true_nnz = np.sum(np.abs(np.asarray(J_jax)) > 1e-10)
+
+if detected_nnz > true_nnz:
+    print(f"Conservative pattern: detected {detected_nnz}, true {true_nnz}")
+```
+
+Conservative patterns are correct but suboptimal. Document these with a `TODO(primitive)` comment showing the precise expected pattern.
+Note that asdex computes global sparisty patterns that must be valid over the entire input domain: https://adrianhill.de/asdex/explanation/global-sparsity/
