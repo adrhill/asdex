@@ -7,7 +7,10 @@ import pytest
 from jax import lax
 
 from asdex import jacobian_sparsity
-from tests._utils import numerical_jacobian_sparsity
+from tests._utils import (
+    assert_jacobian_sparsity_conservative,
+    assert_jacobian_sparsity_exact,
+)
 
 
 @pytest.mark.array_ops
@@ -550,14 +553,8 @@ def test_integer_pow_zero_bounds():
 )
 def test_unary_any_input(op):
     """Unary elementwise ops on R with nonzero derivative almost everywhere."""
-    x = jax.random.normal(jax.random.key(0), (12,))
-
-    def f(x):
-        return op(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(op, x)
 
 
 @pytest.mark.elementwise
@@ -573,14 +570,8 @@ def test_unary_any_input(op):
 )
 def test_unary_positive_input(op):
     """Unary elementwise ops on R+ with nonzero derivative."""
-    x = jnp.abs(jax.random.normal(jax.random.key(0), (12,))) + 0.1
-
-    def f(x):
-        return op(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+    assert_jacobian_sparsity_exact(op, x)
 
 
 @pytest.mark.elementwise
@@ -593,14 +584,8 @@ def test_unary_positive_input(op):
 )
 def test_unary_bounded_input(op):
     """Unary elementwise ops on [-1,1] with nonzero derivative in interior."""
-    x = jnp.tanh(jax.random.normal(jax.random.key(0), (12,)))  # maps to (-1, 1)
-
-    def f(x):
-        return op(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    x = jnp.tanh(jax.random.normal(jax.random.key(0), (4,)))  # maps to (-1, 1)
+    assert_jacobian_sparsity_exact(op, x)
 
 
 @pytest.mark.elementwise
@@ -614,61 +599,33 @@ def test_unary_bounded_input(op):
 def test_unary_open_interval_input(op):
     """Unary elementwise ops on (-1,1) with nonzero derivative."""
     x = 0.9 * jnp.tanh(
-        jax.random.normal(jax.random.key(0), (12,))
+        jax.random.normal(jax.random.key(0), (4,))
     )  # maps to (-0.9, 0.9)
-
-    def f(x):
-        return op(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    assert_jacobian_sparsity_exact(op, x)
 
 
 @pytest.mark.elementwise
 def test_unary_arccosh():
     """∂arccosh(x)/∂x = 1/√(x²-1), defined for x > 1."""
-    x = jnp.abs(jax.random.normal(jax.random.key(0), (12,))) + 1.1
-
-    def f(x):
-        return jnp.arccosh(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 1.1
+    assert_jacobian_sparsity_exact(jnp.arccosh, x)
 
 
 @pytest.mark.elementwise
-@pytest.mark.parametrize("op", [jnp.abs])  # ∂|x|/∂x = sign(x)
-def test_unary_abs(op):
+def test_unary_abs():
     """∂|x|/∂x = sign(x), nonzero away from x=0."""
-    x = jax.random.normal(jax.random.key(0), (12,))
+    x = jax.random.normal(jax.random.key(0), (4,))
     x = jnp.where(jnp.abs(x) < 0.1, 0.5, x)  # avoid zero where derivative undefined
-
-    def f(x):
-        return op(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    assert_jacobian_sparsity_exact(jnp.abs, x)
 
 
 @pytest.mark.elementwise
 def test_unary_conj():
-    """∂conj(z)/∂z = 1 (Wirtinger derivative, holomorphic)."""
-    x_real = jax.random.normal(jax.random.key(0), (12,))
-    x_imag = jax.random.normal(jax.random.key(1), (12,))
-    x = x_real + 1j * x_imag
-
-    def f(x):
-        return jnp.conj(x)
-
-    detected = (
-        jacobian_sparsity(f, np.zeros(12, dtype=np.complex64)).todense().astype(int)
+    """∂conj(z)/∂z = 1 (Wirtinger derivative)."""
+    x = jax.random.normal(jax.random.key(0), (4,)) + 1j * jax.random.normal(
+        jax.random.key(1), (4,)
     )
-    J = jax.jacobian(f, holomorphic=True)(x)
-    expected = (~np.isclose(np.asarray(J), 0, atol=1e-10)).astype(int)
-    np.testing.assert_array_equal(detected, expected)
+    assert_jacobian_sparsity_exact(jnp.conj, x, holomorphic=True)
 
 
 @pytest.mark.elementwise
@@ -681,40 +638,17 @@ def test_unary_conj():
 )
 def test_unary_real_imag(op):
     """Real/imag projections (Wirtinger derivatives)."""
-    x_real = jax.random.normal(jax.random.key(0), (12,))
-    x_imag = jax.random.normal(jax.random.key(1), (12,))
-    x = x_real + 1j * x_imag
-
-    def f(x):
-        return op(x)
-
-    detected = (
-        jacobian_sparsity(f, np.zeros(12, dtype=np.complex64)).todense().astype(int)
+    x = jax.random.normal(jax.random.key(0), (4,)) + 1j * jax.random.normal(
+        jax.random.key(1), (4,)
     )
-    # real/imag return real outputs, use vjp to get the pattern
-    _, vjp_fn = jax.vjp(f, x)
-    # Probe each output dimension
-    J_rows = []
-    for i in range(12):
-        v = np.zeros(12)
-        v[i] = 1.0
-        (g,) = vjp_fn(v)
-        J_rows.append((~np.isclose(np.asarray(g), 0, atol=1e-10)).astype(int))
-    expected = np.array(J_rows)
-    np.testing.assert_array_equal(detected, expected)
+    assert_jacobian_sparsity_exact(op, x)
 
 
 @pytest.mark.elementwise
 def test_unary_copy():
     """∂copy(x)/∂x = 1 (identity)."""
-    x = jax.random.normal(jax.random.key(0), (12,))
-
-    def f(x):
-        return lax.copy_p.bind(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(lax.copy_p.bind, x)
 
 
 @pytest.mark.elementwise
@@ -727,14 +661,8 @@ def test_unary_copy():
 )
 def test_unary_bessel(op):
     """Scaled Bessel functions with nonzero derivative."""
-    x = jax.random.normal(jax.random.key(0), (12,))
-
-    def f(x):
-        return op(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(op, x)
 
 
 # Zero-derivative primitives (piecewise constant, ∂f/∂x = 0 a.e.)
@@ -751,27 +679,15 @@ def test_unary_bessel(op):
 )
 def test_zero_derivative(op):
     """Piecewise constant ops with zero derivative almost everywhere."""
-    x = jax.random.normal(jax.random.key(0), (12,))
-
-    def f(x):
-        return op(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(op, x)
 
 
 @pytest.mark.elementwise
 def test_round():
     """∂round(x)/∂x = 0 (piecewise constant)."""
-    x = jax.random.normal(jax.random.key(0), (12,))
-
-    def f(x):
-        return jnp.round(x)
-
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(jnp.round, x)
 
 
 # Binary elementwise primitives
@@ -791,54 +707,44 @@ def test_binary_minmax(op):
     Sparsity detection doesn't know which will win,
     so it conservatively marks both as dependencies.
     """
-    x = jax.random.normal(jax.random.key(0), (12,))
-    y = jax.random.normal(jax.random.key(1), (12,))
+    x = jax.random.normal(jax.random.key(0), (4,))
+    y = jax.random.normal(jax.random.key(1), (4,))
 
     def f(inputs):
-        x, y = inputs[:6], inputs[6:]
-        return op(x, y)
+        a, b = inputs[:4], inputs[4:]
+        return op(a, b)
 
-    inputs = jnp.concatenate([x[:6], y[:6]])
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    numerical = numerical_jacobian_sparsity(f, inputs)
-    # Detected must be superset of numerical (conservative).
-    assert np.all(detected >= numerical), "Detected pattern must cover numerical"
-    # Each output should depend on exactly 2 inputs (one from x, one from y).
-    assert np.all(detected.sum(axis=1) == 2)
+    inputs = jnp.concatenate([x, y])
+    assert_jacobian_sparsity_conservative(f, inputs, nnz_per_row=2)
 
 
 @pytest.mark.elementwise
 def test_binary_power():
     """∂(x^y)/∂x = y·x^(y-1), ∂(x^y)/∂y = x^y·ln(x)."""
-    base = jnp.abs(jax.random.normal(jax.random.key(0), (6,))) + 0.1
-    exp = jax.random.normal(jax.random.key(1), (6,))
+    base = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+    exp = jax.random.normal(jax.random.key(1), (4,))
 
     def f(inputs):
-        base, exp = inputs[:6], inputs[6:]
-        return jnp.power(base, exp)
+        a, b = inputs[:4], inputs[4:]
+        return jnp.power(a, b)
 
     inputs = jnp.concatenate([base, exp])
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, inputs)
-    np.testing.assert_array_equal(detected, expected)
+    assert_jacobian_sparsity_exact(f, inputs)
 
 
 @pytest.mark.elementwise
 def test_binary_arctan2():
     """∂atan2(y,x)/∂y = x/(x²+y²), ∂atan2(y,x)/∂x = -y/(x²+y²)."""
-    y = jax.random.normal(jax.random.key(0), (6,))
-    x = jax.random.normal(jax.random.key(1), (6,))
-    # Avoid both being zero
-    x = jnp.where(jnp.abs(x) < 0.1, 0.5, x)
+    y = jax.random.normal(jax.random.key(0), (4,))
+    x = jax.random.normal(jax.random.key(1), (4,))
+    x = jnp.where(jnp.abs(x) < 0.1, 0.5, x)  # avoid both being zero
 
     def f(inputs):
-        y, x = inputs[:6], inputs[6:]
-        return jnp.arctan2(y, x)
+        a, b = inputs[:4], inputs[4:]
+        return jnp.arctan2(a, b)
 
     inputs = jnp.concatenate([y, x])
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = numerical_jacobian_sparsity(f, inputs)
-    np.testing.assert_array_equal(detected, expected)
+    assert_jacobian_sparsity_exact(f, inputs)
 
 
 @pytest.mark.elementwise
@@ -848,18 +754,13 @@ def test_binary_remainder():
     When ⌊x/y⌋ = 0, the derivative wrt y is zero at that point.
     Sparsity detection doesn't know this, so it conservatively marks both.
     """
-    dividend = jax.random.normal(jax.random.key(0), (6,))
-    divisor = jax.random.normal(jax.random.key(1), (6,))
+    dividend = jax.random.normal(jax.random.key(0), (4,))
+    divisor = jax.random.normal(jax.random.key(1), (4,))
     divisor = jnp.where(jnp.abs(divisor) < 0.1, 0.5, divisor)  # avoid zero
 
     def f(inputs):
-        dividend, divisor = inputs[:6], inputs[6:]
-        return jnp.remainder(dividend, divisor)
+        a, b = inputs[:4], inputs[4:]
+        return jnp.remainder(a, b)
 
     inputs = jnp.concatenate([dividend, divisor])
-    detected = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    numerical = numerical_jacobian_sparsity(f, inputs)
-    # Detected must be superset of numerical (conservative).
-    assert np.all(detected >= numerical), "Detected pattern must cover numerical"
-    # Each output should depend on exactly 2 inputs (one dividend, one divisor).
-    assert np.all(detected.sum(axis=1) == 2)
+    assert_jacobian_sparsity_conservative(f, inputs, nnz_per_row=2)
