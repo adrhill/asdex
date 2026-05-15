@@ -449,7 +449,8 @@ def prop_clamp(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     The derivative w.r.t. lo and hi is always zero.
     The derivative w.r.t. x is 1 when lo < x < hi, and 0 otherwise.
-    Since d(clamp)/dx can be non-zero, we propagate dependencies from x.
+    Since we compute global sparsity patterns (not runtime-dependent),
+    we conservatively propagate all dependencies from x.
 
     For clamp(lo, x, hi):
         ∂clamp/∂lo = 0
