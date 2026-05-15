@@ -3,13 +3,45 @@
 https://docs.jax.dev/en/latest/_autosummary/jax.lax.squeeze.html
 """
 
+import jax.lax as lax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
 
+_SHAPES_AND_DIMS = [
+    pytest.param((5,), (), id="1d_empty"),
+    pytest.param((1,), (0,), id="1d_squeeze"),
+    pytest.param((3, 1), (), id="2d_empty"),
+    pytest.param((3, 1), (1,), id="2d_squeeze_dim1"),
+    pytest.param((1, 4), (0,), id="2d_squeeze_dim0"),
+    pytest.param((1, 1), (0,), id="2d_squeeze_first"),
+    pytest.param((1, 1), (1,), id="2d_squeeze_second"),
+    pytest.param((1, 1), (0, 1), id="2d_squeeze_both"),
+    pytest.param((2, 1, 3), (), id="3d_empty"),
+    pytest.param((2, 1, 3), (1,), id="3d_squeeze_middle"),
+    pytest.param((1, 2, 1), (0, 2), id="3d_squeeze_outer"),
+    pytest.param((1, 1, 1), (0, 1, 2), id="3d_squeeze_all"),
+]
 
+
+# Core squeeze tests
+@pytest.mark.array_ops
+@pytest.mark.parametrize(("shape", "dimensions"), _SHAPES_AND_DIMS)
+def test_squeeze(shape, dimensions):
+    """Squeeze is identity for sparsity: each output depends on exactly one input."""
+    n = int(np.prod(shape))
+
+    def f(x):
+        return lax.squeeze(x.reshape(shape), dimensions=dimensions).flatten()
+
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
+    expected = np.eye(n, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+# Const propagation tests
 @pytest.mark.array_ops
 def test_squeeze_constant():
     """Squeezing a constant array produces zero sparsity."""
