@@ -37,7 +37,7 @@ def prop_reduce(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     Jaxpr:
         invars[0]: input array
-        axes: tuple of axes to reduce (empty = full reduction)
+        axes: tuple of axes to reduce
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.reduce_sum.html
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.reduce_max.html
@@ -49,7 +49,7 @@ def prop_reduce(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     in_shape = atom_shape(eqn.invars[0])
 
     # Full reduction: single output depends on all inputs
-    if not axes or len(axes) == len(in_shape):
+    if len(axes) == len(in_shape):
         state_indices[eqn.outvars[0]] = [union_all(in_indices)]
         return
 

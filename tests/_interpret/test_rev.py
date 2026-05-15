@@ -33,137 +33,36 @@ def _rev_jacobian(shape: tuple[int, ...], dimensions: tuple[int, ...]):
     return expected
 
 
-# 1D
+_SHAPES_AND_DIMS = [
+    pytest.param((5,), (), id="1d_empty"),
+    pytest.param((5,), (0,), id="1d_full"),
+    pytest.param((1,), (0,), id="1d_size_one"),
+    pytest.param((3, 4), (), id="2d_empty"),
+    pytest.param((3, 4), (0,), id="2d_dim0"),
+    pytest.param((3, 4), (1,), id="2d_dim1"),
+    pytest.param((3, 4), (0, 1), id="2d_both"),
+    pytest.param((1, 5), (0,), id="2d_size_one_reversed"),
+    pytest.param((1, 5), (1,), id="2d_size_one_kept"),
+    pytest.param((2, 3, 4), (), id="3d_empty"),
+    pytest.param((2, 3, 4), (1,), id="3d_single_dim"),
+    pytest.param((2, 3, 4), (0, 2), id="3d_two_dims"),
+    pytest.param((2, 3, 4), (0, 1, 2), id="3d_all_dims"),
+    pytest.param((2, 3, 2, 4), (1, 3), id="4d"),
+]
+
+
+# Core rev tests
 @pytest.mark.array_ops
-def test_rev_1d():
-    """1D reversal: output[i] = input[n-1-i]."""
-    shape = (5,)
+@pytest.mark.parametrize(("shape", "dimensions"), _SHAPES_AND_DIMS)
+def test_rev(shape, dimensions):
+    """Each output reads from one input with flipped coordinates along reversed dims."""
+    n = int(np.prod(shape))
 
     def f(x):
-        return lax.rev(x, dimensions=(0,))
+        return lax.rev(x.reshape(shape), dimensions=dimensions).flatten()
 
-    result = jacobian_sparsity(f, np.zeros(shape)).todense().astype(int)
-    expected = _rev_jacobian(shape, (0,))
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_rev_1d_size_one():
-    """Reversing a single-element array is the identity."""
-    shape = (1,)
-
-    def f(x):
-        return lax.rev(x, dimensions=(0,))
-
-    result = jacobian_sparsity(f, np.zeros(shape)).todense().astype(int)
-    expected = np.eye(1, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-# 2D
-@pytest.mark.array_ops
-def test_rev_2d_dim0():
-    """Reverse along dim 0 (flip rows)."""
-    shape = (3, 4)
-
-    def f(x):
-        return lax.rev(x.reshape(shape), dimensions=(0,)).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = _rev_jacobian(shape, (0,))
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_rev_2d_dim1():
-    """Reverse along dim 1 (flip columns)."""
-    shape = (3, 4)
-
-    def f(x):
-        return lax.rev(x.reshape(shape), dimensions=(1,)).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = _rev_jacobian(shape, (1,))
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_rev_2d_both_dims():
-    """Reverse along both dimensions."""
-    shape = (3, 4)
-
-    def f(x):
-        return lax.rev(x.reshape(shape), dimensions=(0, 1)).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = _rev_jacobian(shape, (0, 1))
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_rev_2d_size_one_dim():
-    """Reversing a size-1 dimension is a no-op."""
-    shape = (1, 5)
-
-    def f(x):
-        return lax.rev(x.reshape(shape), dimensions=(0,)).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
-    expected = np.eye(5, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-# 3D
-@pytest.mark.array_ops
-def test_rev_3d_single_dim():
-    """Reverse a single dimension of a 3D array."""
-    shape = (2, 3, 4)
-
-    def f(x):
-        return lax.rev(x.reshape(shape), dimensions=(1,)).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
-    expected = _rev_jacobian(shape, (1,))
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_rev_3d_two_dims():
-    """Reverse two of three dimensions."""
-    shape = (2, 3, 4)
-
-    def f(x):
-        return lax.rev(x.reshape(shape), dimensions=(0, 2)).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
-    expected = _rev_jacobian(shape, (0, 2))
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_rev_3d_all_dims():
-    """Reverse all three dimensions."""
-    shape = (2, 3, 4)
-
-    def f(x):
-        return lax.rev(x.reshape(shape), dimensions=(0, 1, 2)).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
-    expected = _rev_jacobian(shape, (0, 1, 2))
-    np.testing.assert_array_equal(result, expected)
-
-
-# 4D
-@pytest.mark.array_ops
-def test_rev_4d():
-    """Reverse selected dimensions of a 4D array."""
-    shape = (2, 3, 2, 4)
-
-    def f(x):
-        return lax.rev(x.reshape(shape), dimensions=(1, 3)).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(48)).todense().astype(int)
-    expected = _rev_jacobian(shape, (1, 3))
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
+    expected = _rev_jacobian(shape, dimensions)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -220,18 +119,6 @@ def test_jnp_fliplr():
 
 
 # Edge cases
-@pytest.mark.array_ops
-def test_rev_empty_dimensions():
-    """Reversing no dimensions is the identity."""
-
-    def f(x):
-        return lax.rev(x, dimensions=())
-
-    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
-    expected = np.eye(4, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
 @pytest.mark.array_ops
 def test_rev_2d_square():
     """Reverse both dims of a square matrix; result is full reversal of flat order."""

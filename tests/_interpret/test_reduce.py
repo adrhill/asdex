@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 def _reduction_jacobian(in_shape: tuple[int, ...], axes: tuple[int, ...]) -> np.ndarray:
@@ -58,13 +59,16 @@ _REDUCES = [
 ]
 
 _SHAPES_AND_AXES = [
+    pytest.param((5,), (), id="1d_empty"),
     pytest.param((5,), (0,), id="1d_full"),
     pytest.param((1,), (0,), id="1d_size_one"),
+    pytest.param((3, 4), (), id="2d_empty"),
     pytest.param((3, 4), (0,), id="2d_axis0"),
     pytest.param((3, 4), (1,), id="2d_axis1"),
     pytest.param((3, 4), (0, 1), id="2d_both"),
     pytest.param((3, 1), (1,), id="2d_size_one_reduced"),
     pytest.param((1, 5), (1,), id="2d_size_one_kept"),
+    pytest.param((2, 3, 4), (), id="3d_empty"),
     pytest.param((2, 3, 4), (1,), id="3d_single_axis"),
     pytest.param((2, 3, 4), (0, 2), id="3d_two_axes"),
     pytest.param((2, 3, 4), (0, 1, 2), id="3d_full"),
@@ -134,6 +138,26 @@ def test_reduce_after_reduce_sum(reduce_fn):
 
 # Edge cases
 @pytest.mark.reduction
+def test_reduce_sum_scalar_empty_axis():
+    """Scalar input with empty axis tuple is identity."""
+
+    def f(x):
+        return jnp.sum(x, axis=())
+
+    assert_jacobian_sparsity_exact(f, np.array(1.0))
+
+
+@pytest.mark.reduction
+def test_reduce_sum_scalar_full():
+    """Scalar input with axis=None is full reduction (trivially identity)."""
+
+    def f(x):
+        return jnp.sum(x, axis=None)
+
+    assert_jacobian_sparsity_exact(f, np.array(1.0))
+
+
+@pytest.mark.reduction
 def test_reduce_sum_zero_size_input():
     """Zero-size input exercises empty union edge case."""
 
@@ -143,6 +167,39 @@ def test_reduce_sum_zero_size_input():
     result = jacobian_sparsity(f, np.zeros(0))
     assert result.shape == (1, 0)
     assert result.nnz == 0
+
+
+@pytest.mark.reduction
+def test_reduce_sum_zero_size_partial():
+    """Zero-size axis in partial reduction."""
+    shape = (2, 0, 3)
+    n_in = int(np.prod(shape))
+    n_out = 2 * 3  # reduce axis 1
+
+    def f(x):
+        return jnp.sum(x.reshape(shape), axis=1).flatten()
+
+    result = jacobian_sparsity(f, np.zeros(n_in))
+    assert result.shape == (n_out, n_in)
+    assert result.nnz == 0
+
+
+@pytest.mark.reduction
+@pytest.mark.parametrize(
+    ("shape", "axes"),
+    [
+        pytest.param((3, 4), (-1,), id="2d_neg1"),
+        pytest.param((3, 4), (-2,), id="2d_neg2"),
+        pytest.param((2, 3, 4), (-1, -3), id="3d_neg_multiple"),
+    ],
+)
+def test_reduce_negative_axis(shape, axes):
+    """Negative axis indices work correctly."""
+
+    def f(x):
+        return jnp.sum(x.reshape(shape), axis=axes).flatten()
+
+    assert_jacobian_sparsity_exact(f, np.ones(int(np.prod(shape))))
 
 
 # High-level API
@@ -248,9 +305,84 @@ def test_jnp_prod_with_axis():
 
 
 # argmax / argmin (zero derivative)
+#
+# Note: Unlike reduce_sum where axis=() means identity (no reduction),
+# argmax/argmin always reduce exactly one axis. JAX's jnp.argmax with axis=None
+# flattens the array first, then reduces axis 0. The jaxpr always has axes=(N,)
+# with exactly one element - empty axes is not a valid case for argmax.
+
+_SHAPES_AND_AXES_ARGMAX = [
+    pytest.param((5,), 0, id="1d"),
+    pytest.param((1,), 0, id="1d_size_one"),
+    pytest.param((3, 4), 0, id="2d_axis0"),
+    pytest.param((3, 4), 1, id="2d_axis1"),
+    pytest.param((1, 5), 0, id="2d_size_one_axis0"),
+    pytest.param((5, 1), 1, id="2d_size_one_axis1"),
+    pytest.param((2, 3, 4), 0, id="3d_axis0"),
+    pytest.param((2, 3, 4), 1, id="3d_axis1"),
+    pytest.param((2, 3, 4), 2, id="3d_axis2"),
+    pytest.param((2, 3, 2, 4), 2, id="4d"),
+]
+
+
 @pytest.mark.reduction
-def test_argmax():
-    """Argmax has zero derivative (returns integer index, not differentiable).
+@pytest.mark.parametrize(("in_shape", "axis"), _SHAPES_AND_AXES_ARGMAX)
+def test_argmax_zero_derivative(in_shape, axis):
+    """Argmax has zero derivative - output depends on no inputs structurally."""
+    n_in = int(np.prod(in_shape))
+    out_shape = tuple(s for i, s in enumerate(in_shape) if i != axis)
+    n_out = int(np.prod(out_shape)) if out_shape else 1
+
+    def f(x):
+        return (
+            lax.argmax(x.reshape(in_shape), axis=axis, index_dtype=jnp.int32)
+            .astype(float)
+            .flatten()
+        )
+
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
+    expected = np.zeros((n_out, n_in), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+@pytest.mark.parametrize(("in_shape", "axis"), _SHAPES_AND_AXES_ARGMAX)
+def test_argmin_zero_derivative(in_shape, axis):
+    """Argmin has zero derivative - same as argmax."""
+    n_in = int(np.prod(in_shape))
+    out_shape = tuple(s for i, s in enumerate(in_shape) if i != axis)
+    n_out = int(np.prod(out_shape)) if out_shape else 1
+
+    def f(x):
+        return (
+            lax.argmin(x.reshape(in_shape), axis=axis, index_dtype=jnp.int32)
+            .astype(float)
+            .flatten()
+        )
+
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
+    expected = np.zeros((n_out, n_in), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+def test_argmax_no_axis():
+    """jnp.argmax with axis=None flattens first, then reduces axis 0.
+
+    This is how JAX handles "full array" argmax - it never produces empty axes.
+    """
+
+    def f(x):
+        return jnp.argmax(x.reshape(2, 3), axis=None).astype(float).reshape(1)
+
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
+    expected = np.zeros((1, 6), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+def test_argmax_as_index():
+    """Argmax used as index: only indexed elements contribute.
 
     Only x[0] contributes because argmax output has empty dependency sets.
     """
