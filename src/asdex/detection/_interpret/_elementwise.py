@@ -442,3 +442,32 @@ def prop_convert_element_type(
                 )
             else:
                 state_bounds[eqn.outvars[0]] = (lo, hi)
+
+
+def prop_clamp(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+    """Clamp(lo, x, hi) = min(max(x, lo), hi) has non-zero derivative w.r.t. x.
+
+    The derivative w.r.t. lo and hi is always zero.
+    The derivative w.r.t. x is 1 when lo < x < hi, and 0 otherwise.
+    Since d(clamp)/dx can be non-zero, we propagate dependencies from x.
+
+    For clamp(lo, x, hi):
+        ∂clamp/∂lo = 0
+        ∂clamp/∂x  = 1 if lo < x < hi, else 0
+        ∂clamp/∂hi = 0
+
+    Example: y = clamp(1.0, x, 3.0) where x = [0.5, 2.0, 4.0]
+        Input state_indices for x: [{0}, {1}, {2}]
+        Output state_indices:      [{0}, {1}, {2}]
+
+    Jaxpr:
+        invars[0]: lo (lower bound)
+        invars[1]: x (value to clamp)
+        invars[2]: hi (upper bound)
+
+    https://docs.jax.dev/en/latest/_autosummary/jax.lax.clamp.html
+    """
+    # Only propagate from the middle operand x (invars[1]).
+    state_indices[eqn.outvars[0]] = copy_index_sets(
+        index_sets(state_indices, eqn.invars[1])
+    )

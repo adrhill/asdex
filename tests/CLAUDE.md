@@ -76,6 +76,8 @@ Use these fixtures in test function signatures to automatically run tests across
 - **Whenever you discover a conservative pattern** (the handler produces a correct but overly dense result), you **must** document it with a `TODO(primitive)` comment showing the true precise pattern.
   Catching these is extremely valuable — each one is a concrete roadmap entry for improving sparsity detection.
 - Tests documenting **known bugs** should use the `bug` marker and `pytest.raises` to assert the current (broken) behavior.
+- When calling `assert_jacobian_sparsity_conservative`, also verify the detected pattern against a manually defined `expected` matrix using `np.testing.assert_array_equal`.
+  This ensures both correctness (covers numerical) and precision (matches intent).
 
 ## Writing handler tests
 

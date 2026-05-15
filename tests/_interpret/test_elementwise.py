@@ -846,3 +846,46 @@ def test_binary_minmax_second_arg_active(op):
         return op(const, x)
 
     assert_jacobian_sparsity_conservative(f, x)
+
+
+# Clamp
+
+
+@pytest.mark.elementwise
+def test_clamp_sparsity():
+    """clamp(lo, x, hi) has non-zero derivative w.r.t. x when lo < x < hi.
+
+    d(clamp)/d(lo) = 0, d(clamp)/d(x) = 1 when in bounds, d(clamp)/d(hi) = 0.
+    Since d/dx can be non-zero, clamp should propagate dependencies from x.
+    """
+
+    def f(x):
+        return lax.clamp(1.5, x, 3.5)
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # Each output depends on the corresponding input element.
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_clamp_conservative():
+    """Clamp sparsity is conservative: covers the true Jacobian as a superset.
+
+    Detection doesn't know runtime values,
+    so it marks all positions where d/dx could be non-zero.
+    When x is clamped (x <= lo or x >= hi), the actual derivative is 0,
+    but we conservatively report it as potentially 1.
+    """
+
+    def f(x):
+        return lax.clamp(1.5, x, 3.5)
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # Detected: diagonal (all positions could have non-zero derivative).
+    # Actual JAX Jacobian has zeros at [0,0] and [3,3] because x[0] < lo and x[3] > hi.
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, x)

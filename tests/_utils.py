@@ -23,7 +23,12 @@ def assert_jacobian_sparsity_exact(f, x, holomorphic=False):
 
 
 def assert_jacobian_sparsity_conservative(f, x):
-    """Assert detected sparsity is a superset of numerical Jacobian."""
+    """Assert detected sparsity is a superset of numerical Jacobian.
+
+    When calling this function, also verify the detected pattern against
+    a manually defined ``expected`` matrix using ``np.testing.assert_array_equal``.
+    This ensures both correctness (covers numerical) and precision (matches intent).
+    """
     detected = jacobian_sparsity(f, x).todense().astype(int)
     numerical = numerical_jacobian_sparsity(f, x)
     assert np.all(detected >= numerical), "Detected pattern must cover numerical"
