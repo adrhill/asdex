@@ -215,6 +215,11 @@ def prop_dispatch(
             prop_div(eqn, state_indices, state_consts, state_bounds)
         case "pow" | "max" | "min" | "atan2" | "rem" | "nextafter" | "complex":
             prop_binary_const(eqn, state_indices, state_consts)
+        case "polygamma":
+            # ∂ψₙ/∂n = 0 (n is integer order), ∂ψₙ/∂x = ψₙ₊₁(x).
+            prop_binary_const(
+                eqn, state_indices, state_consts, is_der1_zero_globally=True
+            )
         case (
             "neg"
             | "exp"
@@ -244,7 +249,13 @@ def prop_dispatch(
             | "imag"
             | "rsqrt"
             | "erf"
+            | "erfc"
+            | "erf_inv"
             | "square"
+            | "digamma"
+            | "lgamma"
+            | "bessel_i0e"
+            | "bessel_i1e"
         ):
             prop_unary_elementwise(eqn, state_indices)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":

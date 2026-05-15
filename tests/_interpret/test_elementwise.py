@@ -121,6 +121,113 @@ def test_erf():
 
 
 @pytest.mark.elementwise
+def test_erfc():
+    """Erfc (complementary error function) is unary elementwise with diagonal Jacobian."""
+
+    def f(x):
+        return jax.scipy.special.erfc(x)
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_erf_inv():
+    """Inverse error function is unary elementwise with diagonal Jacobian."""
+
+    def f(x):
+        return jax.scipy.special.erfinv(x)
+
+    # erfinv domain is (-1, 1)
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_digamma():
+    """Digamma (psi function) is unary elementwise with diagonal Jacobian."""
+
+    def f(x):
+        return jax.scipy.special.digamma(x)
+
+    result = jacobian_sparsity(f, np.ones(4)).todense().astype(int)
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_lgamma():
+    """Log-gamma function is unary elementwise with diagonal Jacobian."""
+
+    def f(x):
+        return jax.lax.lgamma(x)
+
+    result = jacobian_sparsity(f, np.ones(4)).todense().astype(int)
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_bessel_i0e():
+    """Scaled Bessel I0 is unary elementwise with diagonal Jacobian."""
+
+    def f(x):
+        return jax.scipy.special.i0e(x)
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_bessel_i1e():
+    """Scaled Bessel I1 is unary elementwise with diagonal Jacobian."""
+
+    def f(x):
+        return jax.scipy.special.i1e(x)
+
+    result = jacobian_sparsity(f, np.ones(4)).todense().astype(int)
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_polygamma():
+    """Polygamma is elementwise in x with diagonal Jacobian.
+
+    The order n is a literal parameter, not differentiated.
+    """
+
+    def f(x):
+        return jax.scipy.special.polygamma(0, x)
+
+    result = jacobian_sparsity(f, np.ones(4)).todense().astype(int)
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_polygamma_variable_order():
+    """Polygamma with variable order only depends on x, not on n.
+
+    The order n has zero derivative (∂ψₙ/∂n = 0),
+    so only the second input contributes to sparsity.
+    """
+
+    def f(x):
+        n = x[0].astype(jnp.int32)
+        return jax.scipy.special.polygamma(n, x[1])
+
+    x = jnp.ones(2)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    J = jax.jacobian(f)(x)
+    expected = (np.abs(J) > 1e-10).astype(int).reshape(result.shape)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
 def test_convert_element_type_propagates_const():
     """convert_element_type propagates const values for downstream gather.
 
