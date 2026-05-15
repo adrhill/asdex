@@ -7,6 +7,10 @@ import pytest
 from jax import lax
 
 from asdex import jacobian_sparsity
+from tests._utils import (
+    assert_jacobian_sparsity_conservative,
+    assert_jacobian_sparsity_exact,
+)
 
 
 @pytest.mark.array_ops
@@ -519,3 +523,326 @@ def test_integer_pow_zero_bounds():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+# Parametrized tests verifying detected sparsity matches numerical Jacobian
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.negative,  # ∂(-x)/∂x = -1
+        jnp.exp,  # ∂eˣ/∂x = eˣ
+        jnp.sin,  # ∂sin(x)/∂x = cos(x)
+        jnp.cos,  # ∂cos(x)/∂x = -sin(x)
+        jnp.tan,  # ∂tan(x)/∂x = sec²(x)
+        jnp.sinh,  # ∂sinh(x)/∂x = cosh(x)
+        jnp.cosh,  # ∂cosh(x)/∂x = sinh(x)
+        jnp.tanh,  # ∂tanh(x)/∂x = sech²(x)
+        jnp.arctan,  # ∂arctan(x)/∂x = 1/(1+x²)
+        jnp.arcsinh,  # ∂arcsinh(x)/∂x = 1/√(x²+1)
+        jnp.log1p,  # ∂log(1+x)/∂x = 1/(1+x)
+        jnp.expm1,  # ∂(eˣ-1)/∂x = eˣ
+        jnp.cbrt,  # ∂x^(1/3)/∂x = 1/(3x^(2/3))
+        jnp.exp2,  # ∂2ˣ/∂x = 2ˣ·ln(2)
+        jax.nn.sigmoid,  # ∂σ(x)/∂x = σ(x)(1-σ(x))
+        jnp.square,  # ∂x²/∂x = 2x
+        lax.erf,  # ∂erf(x)/∂x = 2e^(-x²)/√π
+    ],
+)
+def test_unary_any_input(op):
+    """Unary elementwise ops on R with nonzero derivative almost everywhere."""
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(op, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.log,  # ∂log(x)/∂x = 1/x
+        jnp.sqrt,  # ∂√x/∂x = 1/(2√x)
+        lax.rsqrt,  # ∂(1/√x)/∂x = -1/(2x^(3/2))
+        lax.lgamma,  # ∂log(Γ(x))/∂x = ψ(x)
+        jax.scipy.special.digamma,  # ∂ψ(x)/∂x = ψ₁(x)
+    ],
+)
+def test_unary_positive_input(op):
+    """Unary elementwise ops on R+ with nonzero derivative."""
+    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+    assert_jacobian_sparsity_exact(op, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.arcsin,  # ∂arcsin(x)/∂x = 1/√(1-x²)
+        jnp.arccos,  # ∂arccos(x)/∂x = -1/√(1-x²)
+    ],
+)
+def test_unary_bounded_input(op):
+    """Unary elementwise ops on [-1,1] with nonzero derivative in interior."""
+    x = jnp.tanh(jax.random.normal(jax.random.key(0), (4,)))  # maps to (-1, 1)
+    assert_jacobian_sparsity_exact(op, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.arctanh,  # ∂arctanh(x)/∂x = 1/(1-x²)
+        jax.scipy.special.erfinv,  # ∂erf⁻¹(x)/∂x = (√π/2)·exp(erf⁻¹(x)²)
+    ],
+)
+def test_unary_open_interval_input(op):
+    """Unary elementwise ops on (-1,1) with nonzero derivative."""
+    x = 0.9 * jnp.tanh(
+        jax.random.normal(jax.random.key(0), (4,))
+    )  # maps to (-0.9, 0.9)
+    assert_jacobian_sparsity_exact(op, x)
+
+
+@pytest.mark.elementwise
+def test_unary_arccosh():
+    """∂arccosh(x)/∂x = 1/√(x²-1), defined for x > 1."""
+    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 1.1
+    assert_jacobian_sparsity_exact(jnp.arccosh, x)
+
+
+@pytest.mark.elementwise
+def test_unary_abs():
+    """∂|x|/∂x = sign(x), nonzero away from x=0."""
+    x = jax.random.normal(jax.random.key(0), (4,))
+    x = jnp.where(jnp.abs(x) < 0.1, 0.5, x)  # avoid zero where derivative undefined
+    assert_jacobian_sparsity_exact(jnp.abs, x)
+
+
+@pytest.mark.elementwise
+def test_unary_conj():
+    """∂conj(z)/∂z = 1 (Wirtinger derivative)."""
+    x = jax.random.normal(jax.random.key(0), (4,)) + 1j * jax.random.normal(
+        jax.random.key(1), (4,)
+    )
+    assert_jacobian_sparsity_exact(jnp.conj, x, holomorphic=True)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.real,  # ∂Re(z)/∂z = 1/2
+        jnp.imag,  # ∂Im(z)/∂z = -i/2
+    ],
+)
+def test_unary_real_imag(op):
+    """Real/imag projections (Wirtinger derivatives)."""
+    x = jax.random.normal(jax.random.key(0), (4,)) + 1j * jax.random.normal(
+        jax.random.key(1), (4,)
+    )
+    assert_jacobian_sparsity_exact(op, x)
+
+
+@pytest.mark.elementwise
+def test_unary_copy():
+    """∂copy(x)/∂x = 1 (identity)."""
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(lax.copy_p.bind, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jax.scipy.special.i0e,  # ∂(I₀(x)e^(-|x|))/∂x = (I₁ - sign(x)I₀)e^(-|x|)
+        jax.scipy.special.i1e,  # ∂(I₁(x)e^(-|x|))/∂x = ((I₀+I₂)/2 - sign(x)I₁)e^(-|x|)
+    ],
+)
+def test_unary_bessel(op):
+    """Scaled Bessel functions with nonzero derivative."""
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(op, x)
+
+
+# Zero-derivative primitives (piecewise constant, ∂f/∂x = 0 a.e.)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.floor,  # ∂⌊x⌋/∂x = 0
+        jnp.ceil,  # ∂⌈x⌉/∂x = 0
+        jnp.sign,  # ∂sign(x)/∂x = 0
+    ],
+)
+def test_zero_derivative(op):
+    """Piecewise constant ops with zero derivative almost everywhere."""
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(op, x)
+
+
+@pytest.mark.elementwise
+def test_round():
+    """∂round(x)/∂x = 0 (piecewise constant)."""
+    x = jax.random.normal(jax.random.key(0), (4,))
+    assert_jacobian_sparsity_exact(jnp.round, x)
+
+
+# Binary elementwise primitives
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.maximum,  # ∂max(x,y)/∂x = 1 if x>y else 0, ∂max/∂y = 1 if y>x else 0
+        jnp.minimum,  # ∂min(x,y)/∂x = 1 if x<y else 0, ∂min/∂y = 1 if y<x else 0
+    ],
+)
+def test_binary_minmax(op):
+    """max/min subgradients: winner gets 1, loser gets 0.
+
+    Sparsity detection doesn't know which will win,
+    so it conservatively marks both as dependencies.
+    """
+    x = jax.random.normal(jax.random.key(0), (4,))
+    y = jax.random.normal(jax.random.key(1), (4,))
+
+    def f(inputs):
+        a, b = inputs[:4], inputs[4:]
+        return op(a, b)
+
+    inputs = jnp.concatenate([x, y])
+    assert_jacobian_sparsity_conservative(f, inputs)
+
+
+@pytest.mark.elementwise
+def test_binary_power():
+    """∂(x^y)/∂x = y·x^(y-1), ∂(x^y)/∂y = x^y·ln(x)."""
+    base = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+    exp = jax.random.normal(jax.random.key(1), (4,))
+
+    def f(inputs):
+        a, b = inputs[:4], inputs[4:]
+        return jnp.power(a, b)
+
+    inputs = jnp.concatenate([base, exp])
+    assert_jacobian_sparsity_exact(f, inputs)
+
+
+@pytest.mark.elementwise
+def test_binary_arctan2():
+    """∂atan2(y,x)/∂y = x/(x²+y²), ∂atan2(y,x)/∂x = -y/(x²+y²)."""
+    y = jax.random.normal(jax.random.key(0), (4,))
+    x = jax.random.normal(jax.random.key(1), (4,))
+    x = jnp.where(jnp.abs(x) < 0.1, 0.5, x)  # avoid both being zero
+
+    def f(inputs):
+        a, b = inputs[:4], inputs[4:]
+        return jnp.arctan2(a, b)
+
+    inputs = jnp.concatenate([y, x])
+    assert_jacobian_sparsity_exact(f, inputs)
+
+
+@pytest.mark.elementwise
+def test_binary_remainder():
+    """∂(x mod y)/∂x = 1, ∂(x mod y)/∂y = -⌊x/y⌋.
+
+    When ⌊x/y⌋ = 0, the derivative wrt y is zero at that point.
+    Sparsity detection doesn't know this, so it conservatively marks both.
+    """
+    dividend = jax.random.normal(jax.random.key(0), (4,))
+    divisor = jax.random.normal(jax.random.key(1), (4,))
+    divisor = jnp.where(jnp.abs(divisor) < 0.1, 0.5, divisor)  # avoid zero
+
+    def f(inputs):
+        a, b = inputs[:4], inputs[4:]
+        return jnp.remainder(a, b)
+
+    inputs = jnp.concatenate([dividend, divisor])
+    assert_jacobian_sparsity_conservative(f, inputs)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.power,  # ∂(x^y)/∂x = y·x^(y-1)
+        jnp.arctan2,  # ∂atan2(y,x)/∂y = x/(x²+y²)
+    ],
+)
+def test_binary_first_arg_active(op):
+    """Binary op with first argument active, second constant."""
+    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+    const = jnp.array([1.0, 2.0, 0.5, 1.5])
+
+    def f(x):
+        return op(x, const)
+
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.power,  # ∂(x^y)/∂y = x^y·ln(x)
+        jnp.arctan2,  # ∂atan2(y,x)/∂x = -y/(x²+y²)
+    ],
+)
+def test_binary_second_arg_active(op):
+    """Binary op with first argument constant, second active."""
+    const = jnp.array([2.0, 1.5, 3.0, 0.5])
+    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+
+    def f(x):
+        return op(const, x)
+
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.maximum,  # ∂max(x,y)/∂x = 1 if x>y else 0
+        jnp.minimum,  # ∂min(x,y)/∂x = 1 if x<y else 0
+    ],
+)
+def test_binary_minmax_first_arg_active(op):
+    """max/min with first argument active, second constant.
+
+    Detection is conservative — it doesn't know which argument wins.
+    """
+    x = jax.random.normal(jax.random.key(0), (4,))
+    const = jnp.array([0.0, 0.0, 0.0, 0.0])
+
+    def f(x):
+        return op(x, const)
+
+    assert_jacobian_sparsity_conservative(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.maximum,  # ∂max(x,y)/∂y = 1 if y>x else 0
+        jnp.minimum,  # ∂min(x,y)/∂y = 1 if y<x else 0
+    ],
+)
+def test_binary_minmax_second_arg_active(op):
+    """max/min with first argument constant, second active.
+
+    Detection is conservative — it doesn't know which argument wins.
+    """
+    const = jnp.array([0.0, 0.0, 0.0, 0.0])
+    x = jax.random.normal(jax.random.key(0), (4,))
+
+    def f(x):
+        return op(const, x)
+
+    assert_jacobian_sparsity_conservative(f, x)

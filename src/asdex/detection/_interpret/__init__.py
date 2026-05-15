@@ -158,11 +158,12 @@ def prop_dispatch(
     match eqn.primitive.name:
         case "argmax" | "argmin":
             prop_argmax(eqn, state_indices, state_bounds)
+        # Zero derivative (piecewise constant, ∂f/∂x = 0 a.e.)
         case (
-            "floor"
-            | "ceil"
-            | "round"
-            | "sign"
+            "floor"  # ∂⌊x⌋/∂x = 0
+            | "ceil"  # ∂⌈x⌉/∂x = 0
+            | "round"  # ∂round(x)/∂x = 0
+            | "sign"  # ∂sign(x)/∂x = 0
             | "is_finite"
             | "clz"
             | "clamp"
@@ -213,49 +214,59 @@ def prop_dispatch(
             prop_sub(eqn, state_indices, state_consts, state_bounds)
         case "div":
             prop_div(eqn, state_indices, state_consts, state_bounds)
-        case "pow" | "max" | "min" | "atan2" | "rem" | "nextafter" | "complex":
+        # Binary elementwise with nonzero partials wrt both operands
+        case (
+            "pow"  # ∂(x^y)/∂x = y·x^(y-1), ∂(x^y)/∂y = x^y·ln(x)
+            | "max"  # ∂max/∂x = 1 if x>y else 0, ∂max/∂y = 1 if y>x else 0
+            | "min"  # ∂min/∂x = 1 if x<y else 0, ∂min/∂y = 1 if y<x else 0
+            | "atan2"  # ∂atan2(y,x)/∂y = x/(x²+y²), ∂/∂x = -y/(x²+y²)
+            | "rem"  # ∂(x mod y)/∂x = 1, ∂(x mod y)/∂y = -⌊x/y⌋
+            | "nextafter"
+            | "complex"
+        ):
             prop_binary_const(eqn, state_indices, state_consts)
         case "polygamma":
             # ∂ψₙ/∂n = 0 (n is integer order), ∂ψₙ/∂x = ψₙ₊₁(x).
             prop_binary_const(
                 eqn, state_indices, state_consts, is_der1_zero_globally=True
             )
+        # Unary elementwise with nonzero derivative (diagonal Jacobian)
         case (
-            "neg"
-            | "exp"
-            | "log"
-            | "sin"
-            | "cos"
-            | "tan"
-            | "sqrt"
-            | "abs"
-            | "sinh"
-            | "cosh"
-            | "tanh"
-            | "log1p"
-            | "expm1"
-            | "acos"
-            | "acosh"
-            | "asin"
-            | "asinh"
-            | "atan"
-            | "atanh"
-            | "cbrt"
-            | "conj"
-            | "copy"
-            | "exp2"
-            | "logistic"
-            | "real"
-            | "imag"
-            | "rsqrt"
-            | "erf"
-            | "erfc"
-            | "erf_inv"
-            | "square"
-            | "digamma"
-            | "lgamma"
-            | "bessel_i0e"
-            | "bessel_i1e"
+            "neg"  # ∂(-x)/∂x = -1
+            | "exp"  # ∂eˣ/∂x = eˣ
+            | "log"  # ∂log(x)/∂x = 1/x
+            | "sin"  # ∂sin(x)/∂x = cos(x)
+            | "cos"  # ∂cos(x)/∂x = -sin(x)
+            | "tan"  # ∂tan(x)/∂x = sec²(x)
+            | "sqrt"  # ∂√x/∂x = 1/(2√x)
+            | "abs"  # ∂|x|/∂x = sign(x)
+            | "sinh"  # ∂sinh(x)/∂x = cosh(x)
+            | "cosh"  # ∂cosh(x)/∂x = sinh(x)
+            | "tanh"  # ∂tanh(x)/∂x = sech²(x)
+            | "log1p"  # ∂log(1+x)/∂x = 1/(1+x)
+            | "expm1"  # ∂(eˣ-1)/∂x = eˣ
+            | "acos"  # ∂arccos(x)/∂x = -1/√(1-x²)
+            | "acosh"  # ∂arccosh(x)/∂x = 1/√(x²-1)
+            | "asin"  # ∂arcsin(x)/∂x = 1/√(1-x²)
+            | "asinh"  # ∂arcsinh(x)/∂x = 1/√(x²+1)
+            | "atan"  # ∂arctan(x)/∂x = 1/(1+x²)
+            | "atanh"  # ∂arctanh(x)/∂x = 1/(1-x²)
+            | "cbrt"  # ∂x^(1/3)/∂x = 1/(3x^(2/3))
+            | "conj"  # ∂conj(z)/∂z = 1 (Wirtinger)
+            | "copy"  # ∂x/∂x = 1
+            | "exp2"  # ∂2ˣ/∂x = 2ˣ·ln(2)
+            | "logistic"  # ∂σ(x)/∂x = σ(x)(1-σ(x))
+            | "real"  # ∂Re(z)/∂z = 1/2
+            | "imag"  # ∂Im(z)/∂z = -i/2
+            | "rsqrt"  # ∂(1/√x)/∂x = -1/(2x^(3/2))
+            | "erf"  # ∂erf(x)/∂x = 2e^(-x²)/√π
+            | "erfc"  # ∂erfc(x)/∂x = -2e^(-x²)/√π
+            | "erf_inv"  # ∂erf⁻¹(x)/∂x = (√π/2)·exp(erf⁻¹(x)²)
+            | "square"  # ∂x²/∂x = 2x
+            | "digamma"  # ∂ψ(x)/∂x = ψ₁(x)
+            | "lgamma"  # ∂log(Γ(x))/∂x = ψ(x)
+            | "bessel_i0e"  # nonzero derivative
+            | "bessel_i1e"  # nonzero derivative
         ):
             prop_unary_elementwise(eqn, state_indices)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
