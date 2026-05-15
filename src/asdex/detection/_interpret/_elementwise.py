@@ -17,6 +17,7 @@ from ._commons import (
     index_sets,
     numel,
     propagate_const_binary,
+    union_elementwise,
 )
 
 # Ufuncs for evaluating constant values during tracing.
@@ -442,3 +443,34 @@ def prop_convert_element_type(
                 )
             else:
                 state_bounds[eqn.outvars[0]] = (lo, hi)
+
+
+def prop_clamp(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+    """Clamp(lo, x, hi) returns lo when x < lo, hi when x > hi, else x.
+
+    All three operands can contribute to the output depending on runtime values:
+        ∂clamp/∂lo = 1 if x < lo, else 0
+        ∂clamp/∂x  = 1 if lo ≤ x ≤ hi, else 0
+        ∂clamp/∂hi = 1 if x > hi, else 0
+
+    Since we compute global sparsity patterns (not runtime-dependent),
+    we conservatively propagate dependencies from all three operands.
+
+    Example: y = clamp(x[0], x[1], x[2]) where x = [lo, val, hi]
+        Input state_indices: lo=[{0}], val=[{1}], hi=[{2}]
+        Output state_indices: [{0, 1, 2}]
+
+    Jaxpr:
+        invars[0]: lo (lower bound)
+        invars[1]: x (value to clamp)
+        invars[2]: hi (upper bound)
+
+    https://docs.jax.dev/en/latest/_autosummary/jax.lax.clamp.html
+    """
+    lo = index_sets(state_indices, eqn.invars[0])
+    x = index_sets(state_indices, eqn.invars[1])
+    hi = index_sets(state_indices, eqn.invars[2])
+
+    state_indices[eqn.outvars[0]] = union_elementwise(
+        [lo, x, hi], atom_numel(eqn.outvars[0])
+    )

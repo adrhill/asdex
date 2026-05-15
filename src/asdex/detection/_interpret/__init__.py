@@ -37,6 +37,7 @@ from ._dynamic_slice import prop_dynamic_slice, prop_dynamic_update_slice
 from ._elementwise import (
     prop_add,
     prop_binary_const,
+    prop_clamp,
     prop_convert_element_type,
     prop_integer_pow,
     prop_sub,
@@ -166,7 +167,6 @@ def prop_dispatch(
             | "sign"  # ∂sign(x)/∂x = 0
             | "is_finite"
             | "clz"
-            | "clamp"
             | "population_count"
             | "reduce_and"
             | "reduce_or"
@@ -174,6 +174,8 @@ def prop_dispatch(
             | "not"
         ):
             prop_zero_derivative(eqn, state_indices)
+        case "clamp":
+            prop_clamp(eqn, state_indices)
         case "eq" | "ne" | "lt_to" | "le_to":
             prop_zero_derivative_const(eqn, state_indices, state_consts)
         case "lt":

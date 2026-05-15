@@ -846,3 +846,86 @@ def test_binary_minmax_second_arg_active(op):
         return op(const, x)
 
     assert_jacobian_sparsity_conservative(f, x)
+
+
+# Clamp
+
+
+@pytest.mark.elementwise
+def test_clamp_sparsity():
+    """Clamp propagates dependencies from x (see prop_clamp docstring)."""
+
+    def f(x):
+        return lax.clamp(1.5, x, 3.5)
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.eye(4, dtype=int)  # out[i] depends on x[i]
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_clamp_conservative():
+    """Clamp is conservative: detected pattern covers numerical Jacobian.
+
+    See prop_clamp docstring for why detection is conservative here.
+    """
+
+    def f(x):
+        return lax.clamp(1.5, x, 3.5)
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # Detected: diagonal. Actual: zeros at [0,0] and [3,3] (x out of bounds).
+    expected = np.eye(4, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, x)
+
+
+@pytest.mark.elementwise
+def test_clamp_variable_bounds():
+    """Clamp with variable lo/hi bounds propagates dependencies from all operands.
+
+    clamp(lo, x, hi) returns lo when x < lo, hi when x > hi, else x.
+    All three operands can contribute to the output.
+    """
+
+    def f(x):
+        # lo=x[0], value=x[1], hi=x[2]
+        return lax.clamp(x[0], x[1], x[2]).reshape(1)
+
+    x = jnp.array([0.0, 0.5, 1.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array([[1, 1, 1]])  # all three inputs can affect output
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, x)
+
+
+@pytest.mark.elementwise
+def test_clamp_variable_lo_bound():
+    """Clamp with variable lower bound propagates from both lo and x."""
+
+    def f(x):
+        # lo=x[0], value=x[1], hi=constant
+        return lax.clamp(x[0], x[1], 10.0).reshape(1)
+
+    x = jnp.array([0.0, 0.5])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array([[1, 1]])  # both lo and x can affect output
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, x)
+
+
+@pytest.mark.elementwise
+def test_clamp_variable_hi_bound():
+    """Clamp with variable upper bound propagates from both x and hi."""
+
+    def f(x):
+        # lo=constant, value=x[0], hi=x[1]
+        return lax.clamp(0.0, x[0], x[1]).reshape(1)
+
+    x = jnp.array([0.5, 1.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array([[1, 1]])  # both x and hi can affect output
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, x)
