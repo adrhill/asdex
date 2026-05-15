@@ -826,6 +826,82 @@ def test_gather_batching_dims():
     np.testing.assert_array_equal(result, expected)
 
 
+# Data-dependent indices
+
+
+@pytest.mark.array_ops
+def test_gather_argsort_conservative():
+    """Gather with argsort indices falls back to conservative.
+
+    When indices are computed from inputs (data-dependent),
+    the output depends on all inputs.
+    This is the MWE from issue #115.
+    """
+
+    def f(x):
+        idx = jnp.argsort(x)
+        return x[idx]
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.ones((3, 3), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_gather_data_dependent_two_inputs():
+    """Gather with data-dependent indices includes both operand and index dependencies.
+
+    When x[argsort(y)] is computed,
+    each output depends on all elements of both x (the operand) and y (the index source).
+    """
+
+    def f(x, y):
+        idx = jnp.argsort(y)
+        return x[idx]
+
+    result_x = jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=0)
+    result_y = jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=1)
+    # Each output depends on all elements of x (because index could point anywhere).
+    expected_x = np.ones((3, 3), dtype=int)
+    # Each output depends on all elements of y (because argsort depends on all of y).
+    expected_y = np.ones((3, 3), dtype=int)
+    np.testing.assert_array_equal(result_x.todense().astype(int), expected_x)
+    np.testing.assert_array_equal(result_y.todense().astype(int), expected_y)
+
+
+@pytest.mark.array_ops
+def test_gather_argmax_bounded_enumeration():
+    """Gather with bounded argmax indices uses bounded enumeration.
+
+    argmax over a small axis produces bounded indices [0, 1],
+    so gather uses bounded enumeration.
+    argmax has zero derivative (piecewise constant),
+    so it doesn't contribute index sets.
+    The result is the union of all possible selection patterns.
+    """
+
+    def f(x):
+        # argmax over first 2 elements → index is 0 or 1, bounded but data-dependent.
+        idx = jnp.argmax(x[:2])
+        # jnp.take emits gather, not dynamic_slice.
+        indices = jnp.array([0, 1]) + idx
+        return jnp.take(x, indices)
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    # Bounded enumeration:
+    #   idx=0: indices=[0,1] → out = [x[0], x[1]] → deps [{0}, {1}]
+    #   idx=1: indices=[1,2] → out = [x[1], x[2]] → deps [{1}, {2}]
+    # Union: out[0] depends on {0,1}, out[1] depends on {1,2}.
+    expected = np.array(
+        [
+            [1, 1, 0, 0],  # out[0] = x[idx] depends on {0, 1}
+            [0, 1, 1, 0],  # out[1] = x[idx+1] depends on {1, 2}
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
 # Size-0 dimension
 
 

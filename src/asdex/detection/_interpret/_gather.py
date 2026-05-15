@@ -1,4 +1,7 @@
-"""Propagation rule for gather operations."""
+"""Propagation rule for gather operations.
+
+Naming: ``si_`` is short for ``start_indices``, the second input to ``lax.gather``.
+"""
 
 import numpy as np
 from jax._src.core import JaxprEqn
@@ -11,12 +14,12 @@ from ._commons import (
     atom_numel,
     atom_shape,
     atom_value_bounds,
-    check_no_index_sets,
     conservative_indices,
     enumerate_bounded_patterns,
     index_sets,
     permute_indices,
     position_map,
+    union_all,
 )
 
 
@@ -136,9 +139,10 @@ def prop_gather(
     Example: x.shape = (3, 4), y = x[:, idx] where idx = [2, 0]
         Each output row selects columns 2 and 0 from the corresponding input row.
 
-    Example with dynamic start_indices: x[traced_idx]
-        Cannot determine which inputs each output depends on.
-        Conservative: all outputs depend on all inputs.
+    Example with data-dependent start_indices: y = x[argsort(x)]
+        The indices depend on x, so each output depends on all inputs
+        (both from the operand and from the index computation).
+        Conservative fallback: all outputs depend on all inputs.
 
     Jaxpr:
         invars[0]: operand — array to gather from
@@ -149,8 +153,7 @@ def prop_gather(
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.gather.html
     """
     operand_indices = index_sets(state_indices, eqn.invars[0])
-    # TODO: include start_indices index sets in output dependencies.
-    check_no_index_sets(state_indices, eqn.invars[1], eqn.primitive.name)
+    si_index_sets = index_sets(state_indices, eqn.invars[1])
     operand_shape = atom_shape(eqn.invars[0])
     out_size = atom_numel(eqn.outvars[0])
 
@@ -182,8 +185,14 @@ def prop_gather(
 
         result = enumerate_bounded_patterns(ranges, out_size, _make)
         if result is not None:
+            if any(si_index_sets):
+                combined_si = union_all(si_index_sets)
+                result = [iset | combined_si for iset in result]
             state_indices[eqn.outvars[0]] = result
             return
 
-    # Conservative fallback: every output depends on every input.
-    state_indices[eqn.outvars[0]] = conservative_indices(operand_indices, out_size)
+    # Conservative fallback: every output depends on all inputs.
+    # Include both operand and start_indices dependencies.
+    state_indices[eqn.outvars[0]] = conservative_indices(
+        operand_indices + si_index_sets, out_size
+    )
