@@ -764,3 +764,85 @@ def test_binary_remainder():
 
     inputs = jnp.concatenate([dividend, divisor])
     assert_jacobian_sparsity_conservative(f, inputs)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.power,  # ∂(x^y)/∂x = y·x^(y-1)
+        jnp.arctan2,  # ∂atan2(y,x)/∂y = x/(x²+y²)
+    ],
+)
+def test_binary_first_arg_active(op):
+    """Binary op with first argument active, second constant."""
+    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+    const = jnp.array([1.0, 2.0, 0.5, 1.5])
+
+    def f(x):
+        return op(x, const)
+
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.power,  # ∂(x^y)/∂y = x^y·ln(x)
+        jnp.arctan2,  # ∂atan2(y,x)/∂x = -y/(x²+y²)
+    ],
+)
+def test_binary_second_arg_active(op):
+    """Binary op with first argument constant, second active."""
+    const = jnp.array([2.0, 1.5, 3.0, 0.5])
+    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+
+    def f(x):
+        return op(const, x)
+
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.maximum,  # ∂max(x,y)/∂x = 1 if x>y else 0
+        jnp.minimum,  # ∂min(x,y)/∂x = 1 if x<y else 0
+    ],
+)
+def test_binary_minmax_first_arg_active(op):
+    """max/min with first argument active, second constant.
+
+    Detection is conservative — it doesn't know which argument wins.
+    """
+    x = jax.random.normal(jax.random.key(0), (4,))
+    const = jnp.array([0.0, 0.0, 0.0, 0.0])
+
+    def f(x):
+        return op(x, const)
+
+    assert_jacobian_sparsity_conservative(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "op",
+    [
+        jnp.maximum,  # ∂max(x,y)/∂y = 1 if y>x else 0
+        jnp.minimum,  # ∂min(x,y)/∂y = 1 if y<x else 0
+    ],
+)
+def test_binary_minmax_second_arg_active(op):
+    """max/min with first argument constant, second active.
+
+    Detection is conservative — it doesn't know which argument wins.
+    """
+    const = jnp.array([0.0, 0.0, 0.0, 0.0])
+    x = jax.random.normal(jax.random.key(0), (4,))
+
+    def f(x):
+        return op(const, x)
+
+    assert_jacobian_sparsity_conservative(f, x)
