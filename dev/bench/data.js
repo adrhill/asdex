@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778872481259,
+  "lastUpdate": 1778872950707,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -14859,6 +14859,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000005899846171092902",
             "extra": "mean: 21.05807307070506 usec\nrounds: 15615"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8817e357abee512b0e850407e853f6ad4a97e63d",
+          "message": "fix(detection): handle empty `axis=()` as identity in `reduce` (#130)\n\n* fix(detection): handle empty axis tuple as identity in reduce\n\nThe condition `not axes` evaluated True for an empty tuple `()`,\nincorrectly treating `axis=()` as a full reduction.\nIn JAX, `axis=()` means no reduction (identity operation).\n\nCloses #108\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(detection): add edge case tests for reduce handler\n\n- Add empty axis `()` to parametrized shape/axes combinations\n- Add scalar input tests (empty and full axis)\n- Add zero-size partial reduction test\n- Add negative axis tests\n- Use assert_jacobian_sparsity_exact to verify against JAX\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(detection): add parametrized shape/dimensions tests for rev and squeeze\n\nConsolidate individual rev tests into parametrized `_SHAPES_AND_DIMS`,\ncovering empty, single, and multiple dimension combinations.\nAdd similar parametrization to squeeze tests.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(detection): add parametrized tests for broadcast, argmax, reshape\n\n- broadcast_in_dim: add _SHAPES_AND_BROADCAST with 17 cases covering\n  scalar inputs, size-1 dims, and various dimensionalities\n- argmax/argmin: add _SHAPES_AND_AXES_ARGMAX with 10 cases each,\n  verifying zero derivative across shapes and axes\n- reshape: add _SHAPES_RESHAPE (16 cases) and _SHAPES_AND_DIMS_RESHAPE\n  (11 cases) with helper for dimensions permutation\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(detection): document argmax empty axes behavior\n\nAdd comment explaining that argmax always reduces exactly one axis\n(JAX flattens first for axis=None). Add test for axis=None case.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-05-15T21:21:48+02:00",
+          "tree_id": "8494c86701e760e44a8aba3137b8ba85e53b9a72",
+          "url": "https://github.com/adrhill/asdex/commit/8817e357abee512b0e850407e853f6ad4a97e63d"
+        },
+        "date": 1778872949077,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 997.7281018487705,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000049960773303270745",
+            "extra": "mean: 1.0022770714255915 msec\nrounds: 14"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27168.7647116445,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000036903065773667107",
+            "extra": "mean: 36.80697339807287 usec\nrounds: 8458"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 82120.86289355288,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002496693388816578",
+            "extra": "mean: 12.177173555716593 usec\nrounds: 19959"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 46121.025164665916,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004133292213021076",
+            "extra": "mean: 21.682085262192235 usec\nrounds: 9289"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 79804.56973023368,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000024646247437049526",
+            "extra": "mean: 12.530610758009683 usec\nrounds: 25321"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 23.476601099658378,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004040417885577458",
+            "extra": "mean: 42.595603842097546 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2868.69024537482,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009591202792742116",
+            "extra": "mean: 348.5911389744141 usec\nrounds: 2317"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1978.192498732588,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000023284237222106473",
+            "extra": "mean: 505.51197653448384 usec\nrounds: 1321"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1977.5700546978878,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000022059122938937977",
+            "extra": "mean: 505.67108741579796 usec\nrounds: 1041"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4147.658109509146,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000031204299225202174",
+            "extra": "mean: 241.0999107441729 usec\nrounds: 3630"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 139.79914763349356,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008055709532453168",
+            "extra": "mean: 7.153119435475131 msec\nrounds: 62"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27072.302749656687,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003631011835189505",
+            "extra": "mean: 36.9381211952013 usec\nrounds: 19415"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 45993.58689938899,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007733623210341728",
+            "extra": "mean: 21.74216162326067 usec\nrounds: 15660"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 41485.95820744727,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007517401837392743",
+            "extra": "mean: 24.10454146917804 usec\nrounds: 14348"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 45309.44647870637,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007805247348516407",
+            "extra": "mean: 22.070452802153742 usec\nrounds: 13454"
           }
         ]
       }
