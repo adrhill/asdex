@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778843661816,
+  "lastUpdate": 1778854133705,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -14601,6 +14601,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000007314300727119564",
             "extra": "mean: 21.341807251754688 usec\nrounds: 12659"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "46fc6d78c1579d395fc1cabdbad58ee101fce419",
+          "message": "test(detection): add parametrized tests for elementwise handlers (#128)\n\n* test(detection): add parametrized tests for elementwise handlers\n\nAdd `numerical_jacobian_sparsity` helper in `tests/_utils.py` that\ncomputes expected sparsity from `jax.jacobian` using `np.isclose`.\n\nAdd 38 new tests covering:\n- Unary ops: `neg`, `exp`, `sin`, `cos`, `tan`, `sinh`, `cosh`, `tanh`,\n  `arctan`, `arcsinh`, `log1p`, `expm1`, `cbrt`, `exp2`, `sigmoid`,\n  `square`, `erf`, `log`, `sqrt`, `rsqrt`, `lgamma`, `digamma`,\n  `arcsin`, `arccos`, `arctanh`, `erfinv`, `arccosh`, `abs`, `conj`,\n  `real`, `imag`, `copy`, `i0e`, `i1e`\n- Zero-derivative ops: `floor`, `ceil`, `sign`, `round`\n- Binary ops: `maximum`, `minimum`, `power`, `arctan2`, `remainder`\n\nDocument analytical derivatives inline in both tests and dispatch code.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* refactor(tests): extract sparsity assertion helpers to _utils.py\n\nAdd `assert_jacobian_sparsity_exact` and `assert_jacobian_sparsity_conservative`\nhelpers to reduce boilerplate in elementwise handler tests.\nReduce test array sizes from 12 to 4 elements.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* refactor(tests): simplify sparsity assertion helpers\n\nRemove unnecessary input_proto and nnz_per_row parameters.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(detection): add binary op tests with mixed active/constant args\n\nTest combinations: first arg active with second constant, and vice versa.\nSeparate exact tests (power, arctan2) from conservative tests (max, min).\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-05-15T16:08:12+02:00",
+          "tree_id": "e76303bb5319da49ea27980a06ff1c1067dbe3e1",
+          "url": "https://github.com/adrhill/asdex/commit/46fc6d78c1579d395fc1cabdbad58ee101fce419"
+        },
+        "date": 1778854132456,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1071.4796433294969,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000653632498152028",
+            "extra": "mean: 933.2888461535468 usec\nrounds: 13"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27186.640664651106,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027969496522446133",
+            "extra": "mean: 36.782771815578904 usec\nrounds: 7529"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 93124.3834572992,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001257136013105864",
+            "extra": "mean: 10.738326127641265 usec\nrounds: 28866"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 65601.08788526806,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000016746313035496693",
+            "extra": "mean: 15.243649644178667 usec\nrounds: 12787"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 90115.29278594503,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000011610426731737024",
+            "extra": "mean: 11.096895644286986 usec\nrounds: 30971"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 22.46949137990627,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001013531832956669",
+            "extra": "mean: 44.504790210528185 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2875.5673551373648,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010324160005967651",
+            "extra": "mean: 347.75746018031646 usec\nrounds: 2549"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1906.0997406944407,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017648026833774072",
+            "extra": "mean: 524.6315177796911 usec\nrounds: 1153"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1911.0415096765064,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000016067984854754363",
+            "extra": "mean: 523.274871286954 usec\nrounds: 1111"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4520.60746340112,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000020681264173231105",
+            "extra": "mean: 221.20920873931422 usec\nrounds: 3181"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 151.28982735836763,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010829475992701875",
+            "extra": "mean: 6.6098297384612055 msec\nrounds: 65"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27463.321380741316,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000024281334681237705",
+            "extra": "mean: 36.4122017922148 usec\nrounds: 17632"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 62059.155962255565,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003718119709359413",
+            "extra": "mean: 16.113657759190296 usec\nrounds: 15717"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 54749.21136542341,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003948785363828489",
+            "extra": "mean: 18.265103278392516 usec\nrounds: 11164"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 64884.764663199734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029210218575422155",
+            "extra": "mean: 15.411938460295648 usec\nrounds: 14186"
           }
         ]
       }
