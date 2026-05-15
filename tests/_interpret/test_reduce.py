@@ -305,6 +305,12 @@ def test_jnp_prod_with_axis():
 
 
 # argmax / argmin (zero derivative)
+#
+# Note: Unlike reduce_sum where axis=() means identity (no reduction),
+# argmax/argmin always reduce exactly one axis. JAX's jnp.argmax with axis=None
+# flattens the array first, then reduces axis 0. The jaxpr always has axes=(N,)
+# with exactly one element - empty axes is not a valid case for argmax.
+
 _SHAPES_AND_AXES_ARGMAX = [
     pytest.param((5,), 0, id="1d"),
     pytest.param((1,), 0, id="1d_size_one"),
@@ -356,6 +362,21 @@ def test_argmin_zero_derivative(in_shape, axis):
 
     result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
     expected = np.zeros((n_out, n_in), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+def test_argmax_no_axis():
+    """jnp.argmax with axis=None flattens first, then reduces axis 0.
+
+    This is how JAX handles "full array" argmax - it never produces empty axes.
+    """
+
+    def f(x):
+        return jnp.argmax(x.reshape(2, 3), axis=None).astype(float).reshape(1)
+
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
+    expected = np.zeros((1, 6), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
 
