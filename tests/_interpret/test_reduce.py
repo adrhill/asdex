@@ -134,6 +134,19 @@ def test_reduce_after_reduce_sum(reduce_fn):
 
 # Edge cases
 @pytest.mark.reduction
+@pytest.mark.parametrize("reduce_fn", _REDUCES)
+def test_reduce_empty_axis(reduce_fn):
+    """Empty axis tuple means no reduction (identity operation)."""
+
+    def f(x):
+        return reduce_fn(x, ())
+
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
+    expected = np.eye(5, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
 def test_reduce_sum_zero_size_input():
     """Zero-size input exercises empty union edge case."""
 
