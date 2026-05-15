@@ -715,7 +715,7 @@ def test_binary_minmax(op):
         return op(a, b)
 
     inputs = jnp.concatenate([x, y])
-    assert_jacobian_sparsity_conservative(f, inputs, nnz_per_row=2)
+    assert_jacobian_sparsity_conservative(f, inputs)
 
 
 @pytest.mark.elementwise
@@ -763,4 +763,4 @@ def test_binary_remainder():
         return jnp.remainder(a, b)
 
     inputs = jnp.concatenate([dividend, divisor])
-    assert_jacobian_sparsity_conservative(f, inputs, nnz_per_row=2)
+    assert_jacobian_sparsity_conservative(f, inputs)
