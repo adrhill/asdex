@@ -3,7 +3,6 @@
 https://docs.jax.dev/en/latest/_autosummary/jax.lax.reshape.html
 """
 
-import jax
 import jax.lax as lax
 import jax.numpy as jnp
 import numpy as np
@@ -12,164 +11,93 @@ import pytest
 from asdex import jacobian_sparsity
 
 
-# Identity reshape (no dimensions param)
-@pytest.mark.array_ops
-def test_reshape_1d_to_2d():
-    """Reshaping 1D to 2D without permutation is the identity on flat indices."""
+def _reshape_with_dims_jacobian(
+    in_shape: tuple[int, ...],
+    new_sizes: tuple[int, ...],
+    dimensions: tuple[int, ...],
+) -> np.ndarray:
+    """Build expected Jacobian for reshape with dimensions param.
 
-    def f(x):
-        return x.reshape(2, 3).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
-    expected = np.eye(6, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_2d_to_1d():
-    """Reshaping 2D back to 1D is the identity on flat indices."""
-
-    def f(x):
-        return x.reshape(3, 2).reshape(6)
-
-    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
-    expected = np.eye(6, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_2d_to_3d():
-    """Reshaping 2D to 3D without permutation preserves flat element order."""
-
-    def f(x):
-        return x.reshape(3, 4).reshape(2, 2, 3).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = np.eye(12, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_same_shape():
-    """Reshaping to the same shape is a no-op."""
-
-    def f(x):
-        return lax.reshape(x, (4,))
-
-    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
-    expected = np.eye(4, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_size_one_dims():
-    """Reshaping with size-1 dimensions preserves element identity."""
-
-    def f(x):
-        return x.reshape(1, 3, 1).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
-    expected = np.eye(3, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_scalar_to_1d():
-    """Reshaping a scalar-like (1,) to (1,) is identity."""
-
-    def f(x):
-        return x.reshape(1)
-
-    result = jacobian_sparsity(f, np.zeros(1)).todense().astype(int)
-    expected = np.eye(1, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_4d():
-    """Reshape through a 4D intermediate preserves flat ordering."""
-
-    def f(x):
-        return x.reshape(2, 3, 2, 2).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
-    expected = np.eye(24, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-# Reshape with dimensions param
-@pytest.mark.array_ops
-def test_reshape_with_dimensions_2d():
-    """Reshape with dimensions=(1,0) permutes a 2D array before flattening.
-
-    ravel(order='F') on a (2, 3) matrix emits dimensions=(1, 0).
-    Each output element still depends on exactly one input element.
+    The dimensions param transposes the input before flattening.
     """
-
-    def f(x):
-        mat = x.reshape(2, 3)
-        return mat.ravel(order="F")  # column-major: [a, d, b, e, c, f]
-
-    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
-    # Input flat: [a=0, b=1, c=2, d=3, e=4, f=5] in (2,3)
-    # F-order ravel: [a, d, b, e, c, f] = [0, 3, 1, 4, 2, 5]
-    expected = np.zeros((6, 6), dtype=int)
-    expected[0, 0] = 1  # out[0] <- a
-    expected[1, 3] = 1  # out[1] <- d
-    expected[2, 1] = 1  # out[2] <- b
-    expected[3, 4] = 1  # out[3] <- e
-    expected[4, 2] = 1  # out[4] <- c
-    expected[5, 5] = 1  # out[5] <- f
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_with_dimensions_3d():
-    """Reshape with dimensions=(2,1,0) permutes a 3D array before flattening.
-
-    ravel(order='F') on a (2, 3, 4) tensor emits dimensions=(2, 1, 0).
-    Verifies correct handling with higher-rank permutations.
-    """
-
-    def f(x):
-        tensor = x.reshape(2, 3, 4)
-        return tensor.ravel(order="F")
-
-    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
-    x_test = jax.random.normal(jax.random.key(42), (24,))
-    actual_jac = jax.jacobian(f)(x_test)
-    actual_nonzero = (np.abs(actual_jac) > 1e-10).astype(int)
-    np.testing.assert_array_equal(result, actual_nonzero)
-
-
-@pytest.mark.array_ops
-def test_reshape_with_dimensions_identity_perm():
-    """dimensions=(0, 1) on a 2D array is equivalent to no permutation."""
-
-    def f(x):
-        return lax.reshape(x.reshape(2, 3), (6,), dimensions=(0, 1))
-
-    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
-    expected = np.eye(6, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_with_dimensions_3d_partial_perm():
-    """Non-reversal permutation on a 3D array: dimensions=(0, 2, 1).
-
-    Swaps last two axes before flattening.
-    """
-
-    def f(x):
-        return lax.reshape(x.reshape(2, 3, 4), (24,), dimensions=(0, 2, 1))
-
-    result = jacobian_sparsity(f, np.zeros(24)).todense().astype(int)
-    # Build expected via numpy: transpose then ravel
-    perm = np.arange(24).reshape(2, 3, 4).transpose(0, 2, 1).ravel()
-    expected = np.zeros((24, 24), dtype=int)
+    n = int(np.prod(in_shape))
+    perm = np.arange(n).reshape(in_shape).transpose(dimensions).ravel()
+    expected = np.zeros((n, n), dtype=int)
     for out_idx, in_idx in enumerate(perm):
         expected[out_idx, in_idx] = 1
+    return expected
+
+
+_SHAPES_RESHAPE = [
+    # 1D to other
+    pytest.param((6,), (6,), id="1d_identity"),
+    pytest.param((6,), (2, 3), id="1d_to_2d"),
+    pytest.param((6,), (3, 2), id="1d_to_2d_alt"),
+    pytest.param((12,), (2, 2, 3), id="1d_to_3d"),
+    pytest.param((24,), (2, 3, 2, 2), id="1d_to_4d"),
+    # 2D to other
+    pytest.param((2, 3), (6,), id="2d_to_1d"),
+    pytest.param((3, 4), (2, 6), id="2d_to_2d"),
+    pytest.param((3, 4), (2, 2, 3), id="2d_to_3d"),
+    # 3D to other
+    pytest.param((2, 3, 4), (24,), id="3d_to_1d"),
+    pytest.param((2, 3, 4), (6, 4), id="3d_to_2d"),
+    pytest.param((2, 2, 6), (3, 4, 2), id="3d_to_3d"),
+    # Size-1 dimensions
+    pytest.param((1,), (1,), id="scalar_like"),
+    pytest.param((3,), (1, 3, 1), id="1d_add_ones"),
+    pytest.param((6,), (1, 2, 1, 3, 1), id="1d_many_ones"),
+    pytest.param((1, 6, 1), (6,), id="remove_ones"),
+]
+
+_SHAPES_AND_DIMS_RESHAPE = [
+    # 2D permutations
+    pytest.param((2, 3), (6,), (0, 1), id="2d_identity_perm"),
+    pytest.param((2, 3), (6,), (1, 0), id="2d_transpose"),
+    pytest.param((3, 4), (12,), (1, 0), id="2d_transpose_larger"),
+    # 3D permutations
+    pytest.param((2, 3, 4), (24,), (0, 1, 2), id="3d_identity_perm"),
+    pytest.param((2, 3, 4), (24,), (2, 1, 0), id="3d_full_reverse"),
+    pytest.param((2, 3, 4), (24,), (0, 2, 1), id="3d_swap_last_two"),
+    pytest.param((2, 3, 4), (24,), (1, 0, 2), id="3d_swap_first_two"),
+    pytest.param((2, 3, 4), (24,), (1, 2, 0), id="3d_cyclic"),
+    pytest.param((2, 3, 4), (24,), (2, 0, 1), id="3d_cyclic_reverse"),
+    # 4D permutations
+    pytest.param((2, 3, 2, 2), (24,), (3, 2, 1, 0), id="4d_full_reverse"),
+    pytest.param((2, 3, 2, 2), (24,), (0, 2, 1, 3), id="4d_swap_middle"),
+]
+
+
+# Core reshape tests
+@pytest.mark.array_ops
+@pytest.mark.parametrize(("in_shape", "new_sizes"), _SHAPES_RESHAPE)
+def test_reshape(in_shape, new_sizes):
+    """Reshape is identity for sparsity: each output depends on exactly one input."""
+    n = int(np.prod(in_shape))
+
+    def f(x):
+        return lax.reshape(x.reshape(in_shape), new_sizes).flatten()
+
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
+    expected = np.eye(n, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize(
+    ("in_shape", "new_sizes", "dimensions"), _SHAPES_AND_DIMS_RESHAPE
+)
+def test_reshape_with_dimensions(in_shape, new_sizes, dimensions):
+    """Reshape with dimensions transposes before flattening."""
+    n = int(np.prod(in_shape))
+
+    def f(x):
+        return lax.reshape(
+            x.reshape(in_shape), new_sizes, dimensions=dimensions
+        ).flatten()
+
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
+    expected = _reshape_with_dims_jacobian(in_shape, new_sizes, dimensions)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -198,31 +126,6 @@ def test_reshape_then_slice_constant():
 
     result = jacobian_sparsity(f, np.zeros(2)).todense().astype(int)
     expected = np.zeros((3, 2), dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-# Chained reshapes
-@pytest.mark.array_ops
-def test_reshape_roundtrip():
-    """Reshape to 2D and back to 1D is identity."""
-
-    def f(x):
-        return x.reshape(2, 3).reshape(6)
-
-    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
-    expected = np.eye(6, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_chain_different_shapes():
-    """Chaining multiple reshapes still tracks 1-to-1 dependencies."""
-
-    def f(x):
-        return x.reshape(2, 6).reshape(3, 4).reshape(12)
-
-    result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    expected = np.eye(12, dtype=int)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -311,30 +214,6 @@ def test_jnp_flatten():
 
 
 # Edge cases
-@pytest.mark.array_ops
-def test_reshape_size_one_input():
-    """Reshaping a single element to various shapes with size-1 dims."""
-
-    def f(x):
-        return x.reshape(1, 1, 1).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(1)).todense().astype(int)
-    expected = np.eye(1, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_reshape_all_size_one_dims():
-    """Reshape adding multiple size-1 dimensions."""
-
-    def f(x):
-        return x.reshape(1, 2, 1, 3, 1).flatten()
-
-    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
-    expected = np.eye(6, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
 @pytest.mark.array_ops
 def test_reshape_with_dimensions_size_one():
     """Dimensions param with size-1 dims in the original shape."""

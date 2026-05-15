@@ -305,9 +305,63 @@ def test_jnp_prod_with_axis():
 
 
 # argmax / argmin (zero derivative)
+_SHAPES_AND_AXES_ARGMAX = [
+    pytest.param((5,), 0, id="1d"),
+    pytest.param((1,), 0, id="1d_size_one"),
+    pytest.param((3, 4), 0, id="2d_axis0"),
+    pytest.param((3, 4), 1, id="2d_axis1"),
+    pytest.param((1, 5), 0, id="2d_size_one_axis0"),
+    pytest.param((5, 1), 1, id="2d_size_one_axis1"),
+    pytest.param((2, 3, 4), 0, id="3d_axis0"),
+    pytest.param((2, 3, 4), 1, id="3d_axis1"),
+    pytest.param((2, 3, 4), 2, id="3d_axis2"),
+    pytest.param((2, 3, 2, 4), 2, id="4d"),
+]
+
+
 @pytest.mark.reduction
-def test_argmax():
-    """Argmax has zero derivative (returns integer index, not differentiable).
+@pytest.mark.parametrize(("in_shape", "axis"), _SHAPES_AND_AXES_ARGMAX)
+def test_argmax_zero_derivative(in_shape, axis):
+    """Argmax has zero derivative - output depends on no inputs structurally."""
+    n_in = int(np.prod(in_shape))
+    out_shape = tuple(s for i, s in enumerate(in_shape) if i != axis)
+    n_out = int(np.prod(out_shape)) if out_shape else 1
+
+    def f(x):
+        return (
+            lax.argmax(x.reshape(in_shape), axis=axis, index_dtype=jnp.int32)
+            .astype(float)
+            .flatten()
+        )
+
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
+    expected = np.zeros((n_out, n_in), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+@pytest.mark.parametrize(("in_shape", "axis"), _SHAPES_AND_AXES_ARGMAX)
+def test_argmin_zero_derivative(in_shape, axis):
+    """Argmin has zero derivative - same as argmax."""
+    n_in = int(np.prod(in_shape))
+    out_shape = tuple(s for i, s in enumerate(in_shape) if i != axis)
+    n_out = int(np.prod(out_shape)) if out_shape else 1
+
+    def f(x):
+        return (
+            lax.argmin(x.reshape(in_shape), axis=axis, index_dtype=jnp.int32)
+            .astype(float)
+            .flatten()
+        )
+
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
+    expected = np.zeros((n_out, n_in), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+def test_argmax_as_index():
+    """Argmax used as index: only indexed elements contribute.
 
     Only x[0] contributes because argmax output has empty dependency sets.
     """
