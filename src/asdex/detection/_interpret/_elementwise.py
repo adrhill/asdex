@@ -66,8 +66,19 @@ def _zero_derivative(eqn: JaxprEqn, state_indices: StateIndices) -> None:
         state_indices[outvar] = empty_index_sets(atom_numel(outvar))
 
 
-def _binary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
-    """Union per-element index sets from two inputs."""
+def _binary_elementwise(
+    eqn: JaxprEqn,
+    state_indices: StateIndices,
+    *,
+    is_der1_zero_globally: bool = False,
+    is_der2_zero_globally: bool = False,
+) -> None:
+    """Union per-element index sets from two inputs.
+
+    If ``is_der1_zero_globally`` is True, ∂f/∂x₁ = 0 everywhere,
+    so the first input doesn't contribute to output dependencies.
+    Likewise for ``is_der2_zero_globally`` and the second input.
+    """
     in1 = index_sets(state_indices, eqn.invars[0])
     in2 = index_sets(state_indices, eqn.invars[1])
     out_size = 0 if len(in1) == 0 or len(in2) == 0 else max(len(in1), len(in2))
@@ -80,7 +91,13 @@ def _binary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     # i % len == i for same size, i % 1 == 0 for scalar.
     if in1_shape == in2_shape or len(in1) <= 1 or len(in2) <= 1:
         state_indices[eqn.outvars[0]] = [
-            in1[i % len(in1)] | in2[i % len(in2)] for i in range(out_size)
+            _union_with_zero_derivs(
+                in1[i % len(in1)],
+                in2[i % len(in2)],
+                is_der1_zero_globally,
+                is_der2_zero_globally,
+            )
+            for i in range(out_size)
         ]
         return
 
@@ -104,8 +121,30 @@ def _binary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     in2_flat = _broadcast_flat(in2_shape)
 
     state_indices[eqn.outvars[0]] = [
-        in1[in1_flat[i]] | in2[in2_flat[i]] for i in range(out_size)
+        _union_with_zero_derivs(
+            in1[in1_flat[i]],
+            in2[in2_flat[i]],
+            is_der1_zero_globally,
+            is_der2_zero_globally,
+        )
+        for i in range(out_size)
     ]
+
+
+def _union_with_zero_derivs(
+    s1: set[int],
+    s2: set[int],
+    is_der1_zero: bool,
+    is_der2_zero: bool,
+) -> set[int]:
+    """Union index sets, excluding inputs with zero derivatives."""
+    if is_der1_zero and is_der2_zero:
+        return set()
+    if is_der1_zero:
+        return s2.copy()
+    if is_der2_zero:
+        return s1.copy()
+    return s1 | s2
 
 
 def _propagate_bounds_add(
@@ -174,7 +213,12 @@ def prop_zero_derivative_const(
 
 
 def prop_binary_const(
-    eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
+    eqn: JaxprEqn,
+    state_indices: StateIndices,
+    state_consts: StateConsts,
+    *,
+    is_der1_zero_globally: bool = False,
+    is_der2_zero_globally: bool = False,
 ) -> None:
     """Binary elementwise primitives (div, pow, max, min, ...) with const propagation.
 
@@ -185,6 +229,10 @@ def prop_binary_const(
         ∂f/∂x[i] and ∂f/∂y[i] are generally nonzero.
     So out[i] depends on {x[i], y[i]} (union of dependencies).
 
+    If ``is_der1_zero_globally`` is True, ∂f/∂x₁ = 0 everywhere,
+    so only the second input contributes.
+    Likewise for ``is_der2_zero_globally``.
+
     Example: z = x + y where x = [a, b], y = [c, d]
         Input state_indices:  [{0}, {1}], [{2}, {3}]
         Output state_indices: [{0, 2}, {1, 3}]
@@ -193,7 +241,12 @@ def prop_binary_const(
         invars[0]: first input array
         invars[1]: second input array
     """
-    _binary_elementwise(eqn, state_indices)
+    _binary_elementwise(
+        eqn,
+        state_indices,
+        is_der1_zero_globally=is_der1_zero_globally,
+        is_der2_zero_globally=is_der2_zero_globally,
+    )
     _propagate_const(eqn, state_consts)
 
 
