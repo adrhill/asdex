@@ -17,6 +17,7 @@ from ._commons import (
     index_sets,
     numel,
     propagate_const_binary,
+    union_elementwise,
 )
 
 # Ufuncs for evaluating constant values during tracing.
@@ -445,21 +446,19 @@ def prop_convert_element_type(
 
 
 def prop_clamp(eqn: JaxprEqn, state_indices: StateIndices) -> None:
-    """Clamp(lo, x, hi) = min(max(x, lo), hi) has non-zero derivative w.r.t. x.
+    """Clamp(lo, x, hi) returns lo when x < lo, hi when x > hi, else x.
 
-    The derivative w.r.t. lo and hi is always zero.
-    The derivative w.r.t. x is 1 when lo < x < hi, and 0 otherwise.
+    All three operands can contribute to the output depending on runtime values:
+        ∂clamp/∂lo = 1 if x < lo, else 0
+        ∂clamp/∂x  = 1 if lo ≤ x ≤ hi, else 0
+        ∂clamp/∂hi = 1 if x > hi, else 0
+
     Since we compute global sparsity patterns (not runtime-dependent),
-    we conservatively propagate all dependencies from x.
+    we conservatively propagate dependencies from all three operands.
 
-    For clamp(lo, x, hi):
-        ∂clamp/∂lo = 0
-        ∂clamp/∂x  = 1 if lo < x < hi, else 0
-        ∂clamp/∂hi = 0
-
-    Example: y = clamp(1.0, x, 3.0) where x = [0.5, 2.0, 4.0]
-        Input state_indices for x: [{0}, {1}, {2}]
-        Output state_indices:      [{0}, {1}, {2}]
+    Example: y = clamp(x[0], x[1], x[2]) where x = [lo, val, hi]
+        Input state_indices: lo=[{0}], val=[{1}], hi=[{2}]
+        Output state_indices: [{0, 1, 2}]
 
     Jaxpr:
         invars[0]: lo (lower bound)
@@ -468,7 +467,10 @@ def prop_clamp(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.clamp.html
     """
-    # Only propagate from the middle operand x (invars[1]).
-    state_indices[eqn.outvars[0]] = copy_index_sets(
-        index_sets(state_indices, eqn.invars[1])
+    lo = index_sets(state_indices, eqn.invars[0])
+    x = index_sets(state_indices, eqn.invars[1])
+    hi = index_sets(state_indices, eqn.invars[2])
+
+    state_indices[eqn.outvars[0]] = union_elementwise(
+        [lo, x, hi], atom_numel(eqn.outvars[0])
     )

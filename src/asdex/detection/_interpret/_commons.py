@@ -279,6 +279,19 @@ def union_all(sets: Sequence[IndexSet]) -> IndexSet:
     return result
 
 
+def union_elementwise(
+    inputs: Sequence[list[IndexSet]], out_size: int
+) -> list[IndexSet]:
+    """Union multiple index set lists element-wise with scalar broadcasting.
+
+    Each input list represents per-element index sets for one operand.
+    Scalars (length 1) broadcast to match the output size via modular indexing.
+
+    TODO: use in more places (e.g. _binary_elementwise, select_n).
+    """
+    return [union_all([inp[i % len(inp)] for inp in inputs]) for i in range(out_size)]
+
+
 def check_no_index_sets(
     state_indices: StateIndices, atom: Atom, primitive_name: str
 ) -> None:
