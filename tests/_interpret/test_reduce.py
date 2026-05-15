@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 def _reduction_jacobian(in_shape: tuple[int, ...], axes: tuple[int, ...]) -> np.ndarray:
@@ -58,13 +59,16 @@ _REDUCES = [
 ]
 
 _SHAPES_AND_AXES = [
+    pytest.param((5,), (), id="1d_empty"),
     pytest.param((5,), (0,), id="1d_full"),
     pytest.param((1,), (0,), id="1d_size_one"),
+    pytest.param((3, 4), (), id="2d_empty"),
     pytest.param((3, 4), (0,), id="2d_axis0"),
     pytest.param((3, 4), (1,), id="2d_axis1"),
     pytest.param((3, 4), (0, 1), id="2d_both"),
     pytest.param((3, 1), (1,), id="2d_size_one_reduced"),
     pytest.param((1, 5), (1,), id="2d_size_one_kept"),
+    pytest.param((2, 3, 4), (), id="3d_empty"),
     pytest.param((2, 3, 4), (1,), id="3d_single_axis"),
     pytest.param((2, 3, 4), (0, 2), id="3d_two_axes"),
     pytest.param((2, 3, 4), (0, 1, 2), id="3d_full"),
@@ -134,16 +138,23 @@ def test_reduce_after_reduce_sum(reduce_fn):
 
 # Edge cases
 @pytest.mark.reduction
-@pytest.mark.parametrize("reduce_fn", _REDUCES)
-def test_reduce_empty_axis(reduce_fn):
-    """Empty axis tuple means no reduction (identity operation)."""
+def test_reduce_sum_scalar_empty_axis():
+    """Scalar input with empty axis tuple is identity."""
 
     def f(x):
-        return reduce_fn(x, ())
+        return jnp.sum(x, axis=())
 
-    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
-    expected = np.eye(5, dtype=int)
-    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, np.array(1.0))
+
+
+@pytest.mark.reduction
+def test_reduce_sum_scalar_full():
+    """Scalar input with axis=None is full reduction (trivially identity)."""
+
+    def f(x):
+        return jnp.sum(x, axis=None)
+
+    assert_jacobian_sparsity_exact(f, np.array(1.0))
 
 
 @pytest.mark.reduction
@@ -156,6 +167,39 @@ def test_reduce_sum_zero_size_input():
     result = jacobian_sparsity(f, np.zeros(0))
     assert result.shape == (1, 0)
     assert result.nnz == 0
+
+
+@pytest.mark.reduction
+def test_reduce_sum_zero_size_partial():
+    """Zero-size axis in partial reduction."""
+    shape = (2, 0, 3)
+    n_in = int(np.prod(shape))
+    n_out = 2 * 3  # reduce axis 1
+
+    def f(x):
+        return jnp.sum(x.reshape(shape), axis=1).flatten()
+
+    result = jacobian_sparsity(f, np.zeros(n_in))
+    assert result.shape == (n_out, n_in)
+    assert result.nnz == 0
+
+
+@pytest.mark.reduction
+@pytest.mark.parametrize(
+    ("shape", "axes"),
+    [
+        pytest.param((3, 4), (-1,), id="2d_neg1"),
+        pytest.param((3, 4), (-2,), id="2d_neg2"),
+        pytest.param((2, 3, 4), (-1, -3), id="3d_neg_multiple"),
+    ],
+)
+def test_reduce_negative_axis(shape, axes):
+    """Negative axis indices work correctly."""
+
+    def f(x):
+        return jnp.sum(x.reshape(shape), axis=axes).flatten()
+
+    assert_jacobian_sparsity_exact(f, np.ones(int(np.prod(shape))))
 
 
 # High-level API
