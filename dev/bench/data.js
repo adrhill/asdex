@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779282005872,
+  "lastUpdate": 1779286867012,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -15375,6 +15375,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000004954743425295889",
             "extra": "mean: 20.600354776740005 usec\nrounds: 16120"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d9f5d8ec020544860073a9e9cc412b38537876c5",
+          "message": "docs: add Zenodo citation request and funding acknowledgment (#135)\n\n* docs: add CITATION.cff and citation section in README\n\nAdd CFF file for GitHub's \"Cite this repository\" feature with Zenodo DOI.\nAdd funding acknowledgement and bibtex citation block to README.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* docs: update index.md with funding and citation\n\nMirror README changes: add funding acknowledgement, shorten author names,\nand add bibtex citation block.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-05-20T16:20:14+02:00",
+          "tree_id": "0e60e06a19f77a4953a1982d919af851e2bb2822",
+          "url": "https://github.com/adrhill/asdex/commit/d9f5d8ec020544860073a9e9cc412b38537876c5"
+        },
+        "date": 1779286866303,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1013.9363523755188,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000043898886331721286",
+            "extra": "mean: 986.2552000006038 usec\nrounds: 15"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 26724.421258048547,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000037637429734732487",
+            "extra": "mean: 37.41895812613085 usec\nrounds: 8239"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 79050.72647490655,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023365925382808647",
+            "extra": "mean: 12.650105123542854 usec\nrounds: 25646"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 46867.140205623364,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000036613477577657757",
+            "extra": "mean: 21.336911012974817 usec\nrounds: 10642"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 77868.9477099748,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002384407582172014",
+            "extra": "mean: 12.842089554420713 usec\nrounds: 26442"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 23.47359695806154,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006718756403602784",
+            "extra": "mean: 42.601055210525374 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2880.7497301183103,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010745786194197344",
+            "extra": "mean: 347.13185583078433 usec\nrounds: 2504"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1967.740119787787,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025895134850632453",
+            "extra": "mean: 508.19719024067365 usec\nrounds: 1414"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1941.5786131178538,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002820649877914877",
+            "extra": "mean: 515.044816235468 usec\nrounds: 1121"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4036.6698198858358,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000018941552847405378",
+            "extra": "mean: 247.72895595119093 usec\nrounds: 3201"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 113.43852004061401,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01228215813008826",
+            "extra": "mean: 8.815347728813576 msec\nrounds: 59"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26928.90983633679,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004018664081995126",
+            "extra": "mean: 37.1348118463615 usec\nrounds: 19314"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 41109.59038762824,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000755137839345186",
+            "extra": "mean: 24.325224128259517 usec\nrounds: 14282"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 39039.053308095405,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000804133963769623",
+            "extra": "mean: 25.615375252776253 usec\nrounds: 13844"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 46180.26768112965,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008346489872092716",
+            "extra": "mean: 21.65427032395968 usec\nrounds: 14601"
           }
         ]
       }
