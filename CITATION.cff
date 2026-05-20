@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+title: 'asdex: Automatic Sparse Differentiation in JAX'
+message: 'If you use this software, please cite it as below.'
+type: software
+authors:
+  - family-names: Hill
+    given-names: Adrian
+    orcid: 'https://orcid.org/0009-0009-5977-301X'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.18788242
+    description: Zenodo DOI
+repository-code: 'https://github.com/adrhill/asdex'
+url: 'https://adrianhill.de/asdex/'
+abstract: >-
+  asdex (pronounced Aztecs) exploits sparsity structure to
+  efficiently materialize Jacobians and Hessians. It
+  implements a custom Jaxpr interpreter that uses abstract
+  interpretation to detect sparsity patterns from the
+  computation graph, then uses graph coloring to minimize
+  the number of AD passes needed.
+keywords:
+  - automatic-differentiation
+  - algorithmic-differentiation
+  - sparse-matrices
+  - sparsity
+  - jacobian
+  - hessian
+  - jax
+license: MIT
+doi: 10.5281/zenodo.18788242
+preferred-citation:
+  type: software
+  authors:
+    - family-names: Hill
+      given-names: Adrian
+  title: 'asdex: Automatic Sparse Differentiation in JAX'
+  year: 2026
+  url: 'https://github.com/adrhill/asdex'
+  doi: 10.5281/zenodo.18788242
