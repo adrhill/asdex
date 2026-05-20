@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778872950707,
+  "lastUpdate": 1779275543271,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -14988,6 +14988,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000007805247348516407",
             "extra": "mean: 22.070452802153742 usec\nrounds: 13454"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "12139393706d59fbbc7d0fdf953a69a573a46883",
+          "message": "fix(detection): handle data-dependent indices in `gather` (#132)\n\nWhen indices are computed from function inputs (e.g., `x[jnp.argsort(x)]`),\nthe handler no longer raises an error but falls back to a conservative\npattern where each output depends on all inputs.\n\nFor bounded enumeration with data-dependent indices,\nthe index dependencies are now included via union.\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-05-20T13:11:45+02:00",
+          "tree_id": "724382a3ef4047908a15996f171587c17f0fca55",
+          "url": "https://github.com/adrhill/asdex/commit/12139393706d59fbbc7d0fdf953a69a573a46883"
+        },
+        "date": 1779275542051,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1369.7523076928987,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006988017689633095",
+            "extra": "mean: 730.0589999985618 usec\nrounds: 12"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 35044.638394051806,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017986695147088543",
+            "extra": "mean: 28.53503548119737 usec\nrounds: 8427"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 119707.08465821395,
+            "unit": "iter/sec",
+            "range": "stddev: 8.899479306574261e-7",
+            "extra": "mean: 8.353724450438222 usec\nrounds: 31116"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 85230.40370527298,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010606051861882457",
+            "extra": "mean: 11.732902303947819 usec\nrounds: 13716"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 119059.98160969428,
+            "unit": "iter/sec",
+            "range": "stddev: 9.012080662337409e-7",
+            "extra": "mean: 8.399127788195262 usec\nrounds: 33086"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 26.17612598199826,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02288298247154131",
+            "extra": "mean: 38.20275012000309 msec\nrounds: 25"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3723.7199992199107,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005625648440742376",
+            "extra": "mean: 268.5486557016886 usec\nrounds: 3192"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2582.088434744849,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000013493379274462905",
+            "extra": "mean: 387.28340460531734 usec\nrounds: 1520"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2535.0251259382253,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000155071531970536",
+            "extra": "mean: 394.4734076865984 usec\nrounds: 1327"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5885.479495350967,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001281194108013725",
+            "extra": "mean: 169.90969058509435 usec\nrounds: 3930"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 127.54163068433435,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01623137120760141",
+            "extra": "mean: 7.840577187498887 msec\nrounds: 80"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 35236.661775099165,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001534670092711932",
+            "extra": "mean: 28.379532839477832 usec\nrounds: 26325"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 81796.40327087438,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017649167449559345",
+            "extra": "mean: 12.225476426982146 usec\nrounds: 13087"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 65810.97754472712,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000321192154714577",
+            "extra": "mean: 15.195033371451897 usec\nrounds: 15732"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 81417.44698344998,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000016376445070893287",
+            "extra": "mean: 12.282379723884903 usec\nrounds: 20428"
           }
         ]
       }
