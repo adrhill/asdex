@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Sequence
 from typing import Any, assert_never
 
@@ -48,12 +49,38 @@ class _BCOOLeaf:
         self.array = array
 
 
+# Sample input merging
+
+
+def _merge_sample_inputs(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> tuple[Any, ...]:
+    """Merge positional and keyword sample inputs into a single tuple.
+
+    Uses ``inspect.signature(f).bind()`` to resolve argument positions,
+    mirroring the call-time kwargs handling.
+    """
+    if not kwargs:
+        return args
+    try:
+        sig = inspect.signature(f)
+        bound = sig.bind(*args, **kwargs)
+        return tuple(bound.arguments.values())
+    except (ValueError, TypeError) as e:
+        raise TypeError(
+            f"Cannot bind sample arguments: {e}. "
+            f"Got {len(args)} positional and {set(kwargs.keys())} keyword."
+        ) from None
+
+
 # Public API: one-shot entry points
 
 
 def jacobian(
     f: Callable[..., Any],
-    *args: Any,
+    *sample_args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -61,6 +88,7 @@ def jacobian(
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = "bcoo",
+    **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing sparse Jacobians.
 
@@ -70,7 +98,7 @@ def jacobian(
 
     Args:
         f: Function whose Jacobian is to be computed.
-        *args: Sample arguments of ``f``.
+        *sample_args: Sample arguments of ``f``.
             Only structure and dtypes are used, values are ignored.
         argnums: Specifies which positional argument(s) to differentiate
             with respect to (default ``0``).
@@ -91,6 +119,8 @@ def jacobian(
         output_format: Type of the output matrix.
             ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
             ``"dense"`` returns a dense matrix of type ``jax.Array``.
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -101,6 +131,7 @@ def jacobian(
             when ``"dense"``).
     """
     argnums = _ensure_index(argnums)
+    args = _merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _jacobian_coloring(
         f,
         *args,
@@ -128,7 +159,7 @@ def jacobian(
 
 def value_and_jacobian(
     f: Callable[..., Any],
-    *args: Any,
+    *sample_args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -136,6 +167,7 @@ def value_and_jacobian(
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = "bcoo",
+    **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Jacobian.
 
@@ -149,6 +181,7 @@ def value_and_jacobian(
             matching ``jax.value_and_grad`` ordering.
     """
     argnums = _ensure_index(argnums)
+    args = _merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _jacobian_coloring(
         f,
         *args,
@@ -176,7 +209,7 @@ def value_and_jacobian(
 
 def hessian(
     f: Callable[..., Any],
-    *args: Any,
+    *sample_args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -184,13 +217,34 @@ def hessian(
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = "bcoo",
+    **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing sparse Hessians.
 
     If ``f`` returns a squeezable shape like ``(1,)`` or ``(1, 1)``,
     it is automatically squeezed to scalar.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        *sample_args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        mode: AD mode for Hessian computation.
+        symmetric: Whether to use symmetric (star) coloring.
+        output_format: Type of the output matrix (``"bcoo"`` or ``"dense"``).
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            the sparse Hessian.
     """
     argnums = _ensure_index(argnums)
+    args = _merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _hessian_coloring(
         f,
         *args,
@@ -218,7 +272,7 @@ def hessian(
 
 def value_and_hessian(
     f: Callable[..., Any],
-    *args: Any,
+    *sample_args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -226,13 +280,34 @@ def value_and_hessian(
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = "bcoo",
+    **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Hessian.
 
     Like [`hessian`][asdex.hessian], but also returns the primal value
     ``f(*args)`` without an extra forward pass.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        *sample_args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        mode: AD mode for Hessian computation.
+        symmetric: Whether to use symmetric (star) coloring.
+        output_format: Type of the output matrix (``"bcoo"`` or ``"dense"``).
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            ``(value, hessian)``.
     """
     argnums = _ensure_index(argnums)
+    args = _merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _hessian_coloring(
         f,
         *args,

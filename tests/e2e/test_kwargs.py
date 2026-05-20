@@ -545,7 +545,7 @@ def test_jacobian_with_kwargs():
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_positional_args_as_kwargs(mode, output_format, assert_trees_allclose):
-    """Positional args can be passed as kwargs at call time, matching JAX semantics.
+    """Positional args can be passed as kwargs at both detection and call time.
 
     Mirrors ``jax/_src/api.py`` which uses ``inspect.signature(fn).bind(...)``
     to resolve argument positions.
@@ -558,8 +558,8 @@ def test_jacobian_positional_args_as_kwargs(mode, output_format, assert_trees_al
     x = jnp.array([1.0, 2.0])
     y = jnp.array([3.0, 4.0])
 
-    # Detection uses positional args, call uses kwargs
-    J = asdex.jacobian(f, x, y, argnums=0, mode=mode, output_format=output_format)(
+    # Kwargs at both detection time and call time
+    J = asdex.jacobian(f, x, y=y, argnums=0, mode=mode, output_format=output_format)(
         x, y=y
     )
     J_jax = jax.jacobian(f)(x, y=y)
