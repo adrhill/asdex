@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Callable, Sequence
 from typing import Any, assert_never
 
@@ -16,6 +15,7 @@ from asdex._api_utils import (
     _ensure_index,
     flatten_pytree,
     merge_args_kwargs,
+    merge_sample_inputs,
     unflatten_to_pytree,
     validate_input_dtypes,
     validate_output_dtypes,
@@ -47,85 +47,6 @@ class _BCOOLeaf:
 
     def __init__(self, array: BCOO) -> None:
         self.array = array
-
-
-# Sample input merging
-
-
-def _is_jax_traceable(x: Any) -> bool:
-    """Check if a value should be traced by JAX (array-like) vs bound statically."""
-    # JAX arrays and numpy arrays should be traced
-    if hasattr(x, "shape") and hasattr(x, "dtype"):
-        return True
-    # Pytrees of arrays should be traced - check if any leaf is array-like
-    leaves = jax.tree_util.tree_leaves(x)
-    return any(hasattr(leaf, "shape") and hasattr(leaf, "dtype") for leaf in leaves)
-
-
-def _merge_sample_inputs(
-    f: Callable[..., Any],
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-) -> tuple[tuple[Any, ...], Callable[..., Any]]:
-    """Merge sample inputs, resolving kwargs to positions for traceable values.
-
-    Uses ``inspect.signature(f).bind()`` to resolve kwargs to signature positions.
-    JAX-traceable values (arrays, pytrees of arrays) are passed positionally for
-    tracing by ``make_jaxpr``. Non-traceable values (bools, strings, ints) are
-    bound to the function statically.
-
-    This matches JAX's behavior where ``jacrev(f)(x, flag=True)`` works even if
-    ``flag`` controls a Python ``if`` branch - the flag is not traced.
-
-    Returns:
-        A tuple of ``(positional_args, f_bound)`` where ``positional_args``
-        contains traceable values in signature order, and ``f_bound`` has
-        non-traceable values pre-bound.
-    """
-    if not kwargs:
-        return args, f
-
-    try:
-        sig = inspect.signature(f)
-        bound = sig.bind(*args, **kwargs)
-    except (ValueError, TypeError) as e:
-        raise TypeError(
-            f"Cannot bind sample arguments: {e}. "
-            f"Got {len(args)} positional and {set(kwargs.keys())} keyword."
-        ) from None
-
-    # Split into traceable (positional) vs non-traceable (bind statically)
-    positional_args: list[Any] = []
-    bind_kwargs: dict[str, Any] = {}
-
-    for name, value in bound.arguments.items():
-        param = sig.parameters[name]
-        match param.kind:
-            case inspect.Parameter.VAR_POSITIONAL:
-                # *args: expand, trace each traceable element
-                positional_args.extend(v for v in value if _is_jax_traceable(v))
-            case inspect.Parameter.VAR_KEYWORD:
-                # **kwargs: bind all (static values like scale=2.0)
-                bind_kwargs.update(value)
-            case inspect.Parameter.KEYWORD_ONLY:
-                # Keyword-only: always bind
-                bind_kwargs[name] = value
-            case _:
-                # POSITIONAL_ONLY or POSITIONAL_OR_KEYWORD
-                if _is_jax_traceable(value):
-                    positional_args.append(value)
-                else:
-                    # Non-traceable (bool, int, string): bind statically
-                    bind_kwargs[name] = value
-
-    if bind_kwargs:
-
-        def f_bound(*xs: Any) -> Any:
-            return f(*xs, **bind_kwargs)
-    else:
-        f_bound = f
-
-    return tuple(positional_args), f_bound
 
 
 # Public API: one-shot entry points
@@ -184,7 +105,7 @@ def jacobian(
             when ``"dense"``).
     """
     argnums = _ensure_index(argnums)
-    args, f_detect = _merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect = merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _jacobian_coloring(
         f_detect,
         *args,
@@ -234,7 +155,7 @@ def value_and_jacobian(
             matching ``jax.value_and_grad`` ordering.
     """
     argnums = _ensure_index(argnums)
-    args, f_detect = _merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect = merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _jacobian_coloring(
         f_detect,
         *args,
@@ -297,7 +218,7 @@ def hessian(
             the sparse Hessian.
     """
     argnums = _ensure_index(argnums)
-    args, f_detect = _merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect = merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _hessian_coloring(
         f_detect,
         *args,
@@ -360,7 +281,7 @@ def value_and_hessian(
             ``(value, hessian)``.
     """
     argnums = _ensure_index(argnums)
-    args, f_detect = _merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect = merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _hessian_coloring(
         f_detect,
         *args,

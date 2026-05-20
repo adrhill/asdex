@@ -1296,6 +1296,57 @@ def test_jacobian_bool_kwarg_at_detection(mode, output_format, assert_trees_allc
 
 
 @pytest.mark.jacobian
+def test_jacobian_sparsity_bool_kwarg():
+    """jacobian_sparsity should handle bool kwargs that control Python branches.
+
+    Regression test: bool kwargs were incorrectly traced by make_jaxpr.
+    """
+
+    def f(x, use_first_half=True):
+        if use_first_half:
+            return x[:2]
+        return x[2:]
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+
+    # Sparsity should differ based on flag value
+    pattern_true = asdex.jacobian_sparsity(f, x, use_first_half=True)
+    pattern_false = asdex.jacobian_sparsity(f, x, use_first_half=False)
+
+    # flag=True: output depends on x[0], x[1]
+    expected_true = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
+    np.testing.assert_array_equal(pattern_true.todense(), expected_true)
+
+    # flag=False: output depends on x[2], x[3]
+    expected_false = np.array([[0, 0, 1, 0], [0, 0, 0, 1]])
+    np.testing.assert_array_equal(pattern_false.todense(), expected_false)
+
+
+@pytest.mark.hessian
+def test_hessian_sparsity_bool_kwarg():
+    """hessian_sparsity should handle bool kwargs that control Python branches."""
+
+    def f(x, use_quadratic=True):
+        if use_quadratic:
+            return jnp.sum(x**2)
+        return jnp.sum(x)
+
+    x = jnp.array([1.0, 2.0, 3.0])
+
+    # Sparsity should differ based on flag value
+    pattern_quad = asdex.hessian_sparsity(f, x, use_quadratic=True)
+    pattern_linear = asdex.hessian_sparsity(f, x, use_quadratic=False)
+
+    # Quadratic: Hessian is 2*I (diagonal)
+    expected_quad = np.eye(3, dtype=int)
+    np.testing.assert_array_equal(pattern_quad.todense(), expected_quad)
+
+    # Linear: Hessian is zero (no second derivatives)
+    expected_linear = np.zeros((3, 3), dtype=int)
+    np.testing.assert_array_equal(pattern_linear.todense(), expected_linear)
+
+
+@pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_function_param_named_mode(output_format, assert_trees_allclose):
     """Function with param named 'mode' should work (name collides with API option).
