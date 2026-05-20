@@ -57,16 +57,19 @@ def _merge_sample_inputs(
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
 ) -> tuple[tuple[Any, ...], Callable[..., Any]]:
-    """Merge positional and keyword sample inputs, binding keyword-only args.
+    """Merge positional and keyword sample inputs, binding non-positional args.
 
     Uses ``inspect.signature(f).bind()`` to resolve argument positions.
     Positional-or-keyword args are merged into a tuple; keyword-only args
-    are bound to the function since they cannot be passed positionally.
+    and VAR_KEYWORD (**kwargs) are bound to the function.
+
+    Mirrors ``jax/_src/linear_util.py:wrap_init`` which uses
+    ``functools.partial(f, **kwargs)`` to bind kwargs.
 
     Returns:
         A tuple of ``(merged_args, f_bound)`` where ``merged_args`` contains
-        all positional-or-keyword arguments, and ``f_bound`` has any
-        keyword-only arguments pre-bound.
+        all positional arguments, and ``f_bound`` has any keyword-only
+        or VAR_KEYWORD arguments pre-bound.
     """
     if not kwargs:
         return args, f
@@ -79,20 +82,30 @@ def _merge_sample_inputs(
             f"Got {len(args)} positional and {set(kwargs.keys())} keyword."
         ) from None
 
-    # Split into positional-or-keyword vs keyword-only arguments.
+    # Split into positional vs keyword-only/VAR_KEYWORD arguments.
     positional_args: list[Any] = []
-    keyword_only_kwargs: dict[str, Any] = {}
+    bind_kwargs: dict[str, Any] = {}
+
     for name, value in bound.arguments.items():
         param = sig.parameters[name]
-        if param.kind == inspect.Parameter.KEYWORD_ONLY:
-            keyword_only_kwargs[name] = value
-        else:
-            positional_args.append(value)
+        match param.kind:
+            case inspect.Parameter.VAR_POSITIONAL:
+                # *args: expand the tuple into positional args
+                positional_args.extend(value)
+            case inspect.Parameter.VAR_KEYWORD:
+                # **kwargs: merge into bind_kwargs (never positional)
+                bind_kwargs.update(value)
+            case inspect.Parameter.KEYWORD_ONLY:
+                # Keyword-only: must be bound, cannot be positional
+                bind_kwargs[name] = value
+            case _:
+                # POSITIONAL_ONLY or POSITIONAL_OR_KEYWORD: pass positionally
+                positional_args.append(value)
 
-    if keyword_only_kwargs:
+    if bind_kwargs:
 
         def f_bound(*xs: Any) -> Any:
-            return f(*xs, **keyword_only_kwargs)
+            return f(*xs, **bind_kwargs)
     else:
         f_bound = f
 

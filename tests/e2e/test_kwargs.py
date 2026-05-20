@@ -1197,15 +1197,12 @@ def test_jacobian_no_sample_inputs_raises():
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-@pytest.mark.xfail(reason="VAR_KEYWORD (**kwargs) not forwarded correctly at call time")
 def test_jacobian_function_with_var_keyword(mode, output_format, assert_trees_allclose):
     """Functions with **kwargs in signature should work correctly.
 
     Regression test for Copilot review: VAR_KEYWORD handling in merge_args_kwargs.
-    The kwargs dict is not properly forwarded - values use defaults instead.
     """
 
     def f(x, **kw):
@@ -1222,19 +1219,14 @@ def test_jacobian_function_with_var_keyword(mode, output_format, assert_trees_al
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-@pytest.mark.xfail(
-    reason="VAR_KEYWORD (**kwargs) passed as positional arg at detection"
-)
 def test_jacobian_function_with_var_keyword_at_detection(
     mode, output_format, assert_trees_allclose
 ):
     """Functions with **kwargs should work when kwargs passed at detection time.
 
     Regression test for Copilot review: VAR_KEYWORD handling in _merge_sample_inputs.
-    The kwargs dict is passed as a positional argument, causing TypeError.
     """
 
     def f(x, **kw):

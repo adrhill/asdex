@@ -225,8 +225,8 @@ def merge_args_kwargs(
     accept keyword arguments at call time that get mapped to positional
     parameters.
 
-    Mirrors ``jax/_src/api.py`` which uses ``inspect.signature(fn).bind(...)``
-    to resolve argument positions.
+    Mirrors ``jax/_src/api.py`` which uses ``functools.partial(f, **kwargs)``
+    to bind kwargs (see ``jax/_src/linear_util.py:wrap_init``).
 
     Returns:
         A tuple of ``(merged_args, f_bound)`` where ``merged_args`` has exactly
@@ -245,11 +245,30 @@ def merge_args_kwargs(
             f"keyword argument(s) {set(kwargs.keys())}."
         ) from None
 
-    # Split bound arguments: first expected_nargs become positional,
-    # the rest become kwargs to bind
-    all_args = list(bound.arguments.items())
-    merged_args = tuple(v for _, v in all_args[:expected_nargs])
-    extra_kwargs = dict(all_args[expected_nargs:])
+    # Extract positional args and remaining kwargs, handling VAR_POSITIONAL/VAR_KEYWORD
+    positional_args: list[Any] = []
+    extra_kwargs: dict[str, Any] = {}
+    param_count = 0
+
+    for name, value in bound.arguments.items():
+        param = sig.parameters[name]
+        match param.kind:
+            case inspect.Parameter.VAR_POSITIONAL:
+                # *args: expand the tuple into positional args
+                positional_args.extend(value)
+                param_count += len(value)
+            case inspect.Parameter.VAR_KEYWORD:
+                # **kwargs: merge into extra_kwargs (never positional)
+                extra_kwargs.update(value)
+            case _:
+                # Regular parameter
+                if param_count < expected_nargs:
+                    positional_args.append(value)
+                    param_count += 1
+                else:
+                    extra_kwargs[name] = value
+
+    merged_args = tuple(positional_args[:expected_nargs])
 
     if extra_kwargs:
 
