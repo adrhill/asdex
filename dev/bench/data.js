@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779275543271,
+  "lastUpdate": 1779281841683,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -15117,6 +15117,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000016376445070893287",
             "extra": "mean: 12.282379723884903 usec\nrounds: 20428"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4d799a31b2448a7d8b5f06c21354772d2835c2c7",
+          "message": "fix(api): reject `allow_int=True` in forward mode (#113) (#133)\n\nJAX's `jacfwd` doesn't support integer inputs, only `jacrev` does.\nRaise a clear error when `allow_int=True` is used with `mode='fwd'`,\nguiding users to use `mode='rev'` instead.\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-05-20T14:56:34+02:00",
+          "tree_id": "d1ebe609310ddc093306f1b9197f97ea8c36ae61",
+          "url": "https://github.com/adrhill/asdex/commit/4d799a31b2448a7d8b5f06c21354772d2835c2c7"
+        },
+        "date": 1779281840254,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1029.8628177012804,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011251739260160407",
+            "extra": "mean: 971.0031111056752 usec\nrounds: 9"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27734.13852429824,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027107134565137986",
+            "extra": "mean: 36.05664546327577 usec\nrounds: 7263"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 92973.94098656756,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013101157703904839",
+            "extra": "mean: 10.755701967548898 usec\nrounds: 23380"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 65597.43359757964,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000016950167379788538",
+            "extra": "mean: 15.244498834126603 usec\nrounds: 11579"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 92225.32880268413,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013027429145908106",
+            "extra": "mean: 10.843008238436292 usec\nrounds: 19664"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 18.69072547926328,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03463413092359722",
+            "extra": "mean: 53.50247111111154 msec\nrounds: 18"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2847.3916156319365,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009344540253615669",
+            "extra": "mean: 351.19861788946963 usec\nrounds: 2549"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1732.4521023133166,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009530780283656252",
+            "extra": "mean: 577.2165352593098 usec\nrounds: 1177"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1682.4179037163094,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007761985787077171",
+            "extra": "mean: 594.3826428565044 usec\nrounds: 728"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4094.4000288479574,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000026682106376379344",
+            "extra": "mean: 244.23602797828482 usec\nrounds: 3467"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 122.1308584963278,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011416958020987553",
+            "extra": "mean: 8.187938841272189 msec\nrounds: 63"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27636.947904000543,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000021059154176425977",
+            "extra": "mean: 36.183445562570476 usec\nrounds: 20969"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 41470.34174665539,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012238745704052986",
+            "extra": "mean: 24.113618501363103 usec\nrounds: 9329"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 50835.78913284388,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000052579654136858274",
+            "extra": "mean: 19.67118081686121 usec\nrounds: 11531"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 62883.4840022257,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000279876093608861",
+            "extra": "mean: 15.902426779734503 usec\nrounds: 14033"
           }
         ]
       }
