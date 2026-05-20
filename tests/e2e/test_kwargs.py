@@ -1415,3 +1415,111 @@ def test_scalar_sample_input():
     pattern = asdex.jacobian_sparsity(f, 3.0)
     assert pattern.shape == (1, 1)
     np.testing.assert_array_equal(pattern.todense(), [[1]])
+
+
+# Adversarial edge cases
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_different_bool_kwarg_at_call_time(mode, output_format, assert_trees_allclose):
+    """Bug: Different bool kwarg at call time uses wrong sparsity pattern.
+
+    The sparsity pattern is computed at detection time with flag=True,
+    but we call with flag=False. The decompressed Jacobian is WRONG because
+    it uses the detection-time sparsity pattern (x[0:2]) but the actual
+    computation at call time uses x[2:4].
+
+    This is a known limitation of sparse autodiff: the sparsity pattern is
+    fixed at detection time. Users must ensure bool kwargs don't change
+    the structural computation path between detection and call time.
+    """
+
+    def f(x, flag=True):
+        if flag:
+            return x[:2]
+        return x[2:]
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+
+    # Detect with flag=True (sparsity says output depends on x[0:2])
+    # but call with flag=False (actual output depends on x[2:4])
+    jac_fn = asdex.jacobian(f, x, flag=True, mode=mode, output_format=output_format)
+    J = jac_fn(x, flag=False)
+
+    # The actual Jacobian for flag=False - WRONG RESULT expected
+    J_jax = jax.jacobian(f)(x, flag=False)
+
+    # BUG: asdex returns wrong Jacobian because sparsity pattern was fixed at detection
+    # The actual Jacobian should be [[0,0,1,0], [0,0,0,1]] (depends on x[2:4])
+    # but asdex uses the pattern for flag=True which has nonzeros at x[0:2]
+    with pytest.raises(AssertionError):
+        assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_nested_pytree_kwarg_with_non_traceable_leaves(mode, output_format):
+    """Bug: Nested pytree kwarg with non-traceable leaves causes TracerBoolConversionError.
+
+    The `_is_jax_traceable` function checks if any leaf is array-like, but this
+    fails for nested pytrees where some leaves are arrays and others are bools/ints.
+    The outer dict contains an array (scale), so it's treated as traceable, but
+    the nested bools cause TracerBoolConversionError during make_jaxpr.
+    """
+
+    def f(x, config=None):
+        if config is None:
+            config = {"scale": 1.0, "options": {"use_bias": True, "n_repeats": 1}}
+        result = x * config["scale"]
+        if config["options"]["use_bias"]:  # ty: ignore[not-subscriptable]
+            result = result + 0.5
+        for _ in range(config["options"]["n_repeats"]):  # ty: ignore[not-subscriptable]
+            result = result * 1.1
+        return result
+
+    x = jnp.array([1.0, 2.0])
+    config = {"scale": jnp.array(2.0), "options": {"use_bias": True, "n_repeats": 2}}
+
+    # BUG: This should work (bools should be bound statically) but fails because
+    # _is_jax_traceable sees the array inside config and decides to trace the
+    # whole config dict, including the nested bools
+    with pytest.raises(jax.errors.TracerBoolConversionError):
+        asdex.jacobian(f, x, config=config, mode=mode, output_format=output_format)(
+            x, config=config
+        )
+
+
+@pytest.mark.hessian
+@pytest.mark.bug
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_hessian_different_bool_kwarg_at_call_time(
+    mode, output_format, assert_trees_allclose
+):
+    """Bug: Hessian with different bool kwarg at call vs detection time."""
+
+    def f(x, coupled=False):
+        if coupled:
+            # Coupled: Hessian has off-diagonal terms
+            return (x[0] * x[1]) ** 2
+        # Uncoupled: Hessian is diagonal
+        return jnp.sum(x**2)
+
+    x = jnp.array([1.0, 2.0])
+
+    # Detect with coupled=False (diagonal Hessian)
+    # but call with coupled=True (dense Hessian with off-diagonals)
+    hess_fn = asdex.hessian(f, x, coupled=False, mode=mode, output_format=output_format)
+    H = hess_fn(x, coupled=True)
+
+    H_jax = jax.hessian(f)(x, coupled=True)
+
+    # BUG: asdex returns wrong Hessian because sparsity was fixed at detection
+    # The diagonal pattern from detection misses the off-diagonal entries
+    with pytest.raises(AssertionError):
+        assert_trees_allclose(H, H_jax, atol=1e-5)

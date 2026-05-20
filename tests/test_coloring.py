@@ -1723,3 +1723,44 @@ def test_hessian_coloring_multi_arg_single_argnum(mode):
 
     assert coloring.sparsity.shape == (2, 2)
     check_coloring_symmetric(coloring.sparsity, coloring.colors)
+
+
+# Known bugs
+
+
+@pytest.mark.coloring
+@pytest.mark.bug
+def test_jacobian_coloring_missing_kwargs_support():
+    """Bug: jacobian_coloring doesn't accept kwargs, unlike jacobian().
+
+    The high-level API (jacobian, hessian) accepts **sample_kwargs,
+    but the mid-level API (jacobian_coloring, hessian_coloring) does not.
+    This is an API inconsistency.
+    """
+
+    def f(x, scale=1.0):
+        return x * scale
+
+    x = np.zeros(3)
+
+    # BUG: jacobian_coloring should accept kwargs like jacobian does
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        jacobian_coloring(f, x, scale=1.0)  # ty: ignore[unknown-argument]
+
+
+@pytest.mark.coloring
+@pytest.mark.bug
+def test_hessian_coloring_missing_kwargs_support():
+    """Bug: hessian_coloring doesn't accept kwargs, unlike hessian().
+
+    Same issue as test_jacobian_coloring_missing_kwargs_support.
+    """
+
+    def f(x, scale=1.0):
+        return scale * jnp.sum(x**2)
+
+    x = np.zeros(2)
+
+    # BUG: hessian_coloring should accept kwargs like hessian does
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        hessian_coloring(f, x, scale=1.0)  # ty: ignore[unknown-argument]
