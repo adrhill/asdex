@@ -602,7 +602,7 @@ def test_jacobian_kwargs_with_pytree_input(mode, output_format, assert_trees_all
 def test_jacobian_multiple_pytree_args_as_kwargs(
     mode, output_format, assert_trees_allclose
 ):
-    """Multiple pytree positional args can be passed as kwargs at call time."""
+    """Multiple pytree positional args can be passed as kwargs."""
 
     def f(params, data):
         return params["w"] * data["x"] + params["b"]
@@ -610,9 +610,8 @@ def test_jacobian_multiple_pytree_args_as_kwargs(
     params = {"w": jnp.array([1.0, 2.0]), "b": jnp.array([0.1, 0.2])}
     data = {"x": jnp.array([3.0, 4.0])}
 
-    # Detection with positional args, call with all kwargs
     J = asdex.jacobian(
-        f, params, data, argnums=0, mode=mode, output_format=output_format
+        f, params, data=data, argnums=0, mode=mode, output_format=output_format
     )(params=params, data=data)
     J_jax = jax.jacobian(f, argnums=0)(params, data)
     assert_trees_allclose(J, J_jax)
@@ -624,7 +623,7 @@ def test_jacobian_multiple_pytree_args_as_kwargs(
 def test_jacobian_mixed_positional_and_kwarg_pytrees(
     mode, output_format, assert_trees_allclose
 ):
-    """Mix of positional pytree args and pytree kwargs at call time."""
+    """Mix of positional pytree args and pytree kwargs."""
 
     def f(params, data, config):
         scale = config["scale"]
@@ -634,9 +633,14 @@ def test_jacobian_mixed_positional_and_kwarg_pytrees(
     data = {"x": jnp.array([2.0, 3.0, 4.0])}
     config = {"scale": jnp.array([0.5, 0.5, 0.5])}
 
-    # Detection with all positional, call with mixed
     J = asdex.jacobian(
-        f, params, data, config, argnums=0, mode=mode, output_format=output_format
+        f,
+        params,
+        data=data,
+        config=config,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
     )(params, data=data, config=config)
     J_jax = jax.jacobian(f, argnums=0)(params, data, config)
     assert_trees_allclose(J, J_jax)
@@ -659,9 +663,14 @@ def test_jacobian_pytree_args_with_pytree_default_kwargs(
     data = {"x": jnp.array([2.0, 3.0, 4.0])}
     config = {"scale": jnp.array([0.5, 0.5, 0.5]), "bias": jnp.array([1.0, 1.0, 1.0])}
 
-    # Detection with 2 positional args, call with kwargs for both positional and default
     J = asdex.jacobian(
-        f, params, data, argnums=0, mode=mode, output_format=output_format
+        f,
+        params,
+        data=data,
+        config=config,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
     )(params, data=data, config=config)
     J_jax = jax.jacobian(f, argnums=0)(params, data, config)
     assert_trees_allclose(J, J_jax)
@@ -680,9 +689,8 @@ def test_jacobian_multi_argnums_with_kwargs(mode, output_format, assert_trees_al
     y = {"b": jnp.array([3.0, 4.0])}
     z = {"c": jnp.array([0.1, 0.2])}
 
-    # Differentiate w.r.t. x and z, pass y as kwarg
     J = asdex.jacobian(
-        f, x, y, z, argnums=(0, 2), mode=mode, output_format=output_format
+        f, x, y=y, z=z, argnums=(0, 2), mode=mode, output_format=output_format
     )(x, y=y, z=z)
     J_jax = jax.jacobian(f, argnums=(0, 2))(x, y, z)
     assert_trees_allclose(J, J_jax)
@@ -705,9 +713,15 @@ def test_jacobian_keyword_only_pytree_args(mode, output_format, assert_trees_all
     data = {"x": jnp.array([2.0, 3.0, 4.0])}
     config = {"scale": jnp.array([0.5, 0.5, 0.5])}
 
-    J = asdex.jacobian(f, params, argnums=0, mode=mode, output_format=output_format)(
-        params, data=data, config=config
-    )
+    J = asdex.jacobian(
+        f,
+        params,
+        data=data,
+        config=config,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
+    )(params, data=data, config=config)
     J_jax = jax.jacobian(f, argnums=0)(params, data=data, config=config)
     assert_trees_allclose(J, J_jax)
 
@@ -732,9 +746,15 @@ def test_jacobian_mixed_positional_and_keyword_only_pytrees(
     scale = {"s": jnp.array([0.5, 0.5])}
     bias = {"b": jnp.array([0.1, 0.2])}
 
-    # Detection with positional args only, call with keyword-only args
     J = asdex.jacobian(
-        f, params, data, argnums=0, mode=mode, output_format=output_format
+        f,
+        params,
+        data,
+        scale=scale,
+        bias=bias,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
     )(params, data, scale=scale, bias=bias)
     J_jax = jax.jacobian(f, argnums=0)(params, data, scale=scale, bias=bias)
     assert_trees_allclose(J, J_jax)
@@ -759,9 +779,15 @@ def test_jacobian_keyword_only_with_defaults(
     scale = {"s": jnp.array([2.0, 2.0, 2.0])}
     bias = {"b": jnp.array([0.5, 0.5, 0.5])}
 
-    J = asdex.jacobian(f, params, argnums=0, mode=mode, output_format=output_format)(
-        params, scale=scale, bias=bias
-    )
+    J = asdex.jacobian(
+        f,
+        params,
+        scale=scale,
+        bias=bias,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
+    )(params, scale=scale, bias=bias)
     J_jax = jax.jacobian(f, argnums=0)(params, scale=scale, bias=bias)
     assert_trees_allclose(J, J_jax)
 
@@ -779,7 +805,7 @@ def test_hessian_pytree_args_as_kwargs(mode, output_format, assert_trees_allclos
     data = {"x": jnp.array([1.0, 1.0, 1.0])}
 
     H = asdex.hessian(
-        f, params, data, argnums=0, mode=mode, output_format=output_format
+        f, params, data=data, argnums=0, mode=mode, output_format=output_format
     )(params=params, data=data)
     H_jax = jax.hessian(f, argnums=0)(params, data)
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -800,7 +826,13 @@ def test_hessian_mixed_args_kwargs_with_defaults(
     data = {"x": jnp.array([2.0, 3.0])}
 
     H = asdex.hessian(
-        f, params, data, argnums=0, mode=mode, output_format=output_format
+        f,
+        params,
+        data=data,
+        scale=2.0,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
     )(params, data=data, scale=2.0)
     H_jax = jax.hessian(lambda p, d: f(p, d, scale=2.0), argnums=0)(params, data)
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -820,9 +852,9 @@ def test_hessian_keyword_only_pytree_args(mode, output_format, assert_trees_allc
     params = {"w": jnp.array([1.0, 2.0])}
     data = {"x": jnp.array([2.0, 3.0])}
 
-    H = asdex.hessian(f, params, argnums=0, mode=mode, output_format=output_format)(
-        params, data=data
-    )
+    H = asdex.hessian(
+        f, params, data=data, argnums=0, mode=mode, output_format=output_format
+    )(params, data=data)
     H_jax = jax.hessian(f, argnums=0)(params, data=data)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -843,9 +875,9 @@ def test_hessian_keyword_only_with_pytree_defaults(
     params = {"w": jnp.array([1.0, 2.0])}
     scale = {"s": jnp.array([2.0, 3.0])}
 
-    H = asdex.hessian(f, params, argnums=0, mode=mode, output_format=output_format)(
-        params, scale=scale
-    )
+    H = asdex.hessian(
+        f, params, scale=scale, argnums=0, mode=mode, output_format=output_format
+    )(params, scale=scale)
     H_jax = jax.hessian(f, argnums=0)(params, scale=scale)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -862,7 +894,7 @@ def test_value_and_jacobian_pytree_kwargs(output_format, assert_trees_allclose):
     data = {"x": jnp.array([2.0, 3.0, 4.0])}
 
     val, J = asdex.value_and_jacobian(
-        f, params, data, argnums=0, output_format=output_format
+        f, params, data=data, argnums=0, output_format=output_format
     )(params=params, data=data)
 
     val_expected = f(params, data)
@@ -886,7 +918,7 @@ def test_value_and_jacobian_keyword_only_pytrees(output_format, assert_trees_all
     data = {"x": jnp.array([2.0, 3.0, 4.0])}
 
     val, J = asdex.value_and_jacobian(
-        f, params, argnums=0, output_format=output_format
+        f, params, data=data, argnums=0, output_format=output_format
     )(params, data=data)
 
     val_expected = f(params, data=data)
@@ -908,7 +940,7 @@ def test_value_and_hessian_pytree_kwargs(output_format, assert_trees_allclose):
     data = {"x": jnp.array([1.0, 2.0])}
 
     val, H = asdex.value_and_hessian(
-        f, params, data, argnums=0, output_format=output_format
+        f, params, data=data, argnums=0, output_format=output_format
     )(params=params, data=data)
 
     val_expected = f(params, data)
@@ -931,9 +963,9 @@ def test_value_and_hessian_keyword_only_pytrees(output_format, assert_trees_allc
     params = {"w": jnp.array([1.0, 2.0])}
     data = {"x": jnp.array([1.0, 2.0])}
 
-    val, H = asdex.value_and_hessian(f, params, argnums=0, output_format=output_format)(
-        params, data=data
-    )
+    val, H = asdex.value_and_hessian(
+        f, params, data=data, argnums=0, output_format=output_format
+    )(params, data=data)
 
     val_expected = f(params, data=data)
     H_jax = jax.hessian(f, argnums=0)(params, data=data)
@@ -963,7 +995,7 @@ def test_jacobian_pytree_output_with_positional_as_kwargs(
     data = {"x": jnp.array([2.0, 3.0, 4.0])}
 
     J = asdex.jacobian(
-        f, params, data, argnums=0, mode=mode, output_format=output_format
+        f, params, data=data, argnums=0, mode=mode, output_format=output_format
     )(params=params, data=data)
     J_jax = jax.jacobian(f, argnums=0)(params, data)
     assert_trees_allclose(J, J_jax)
@@ -988,9 +1020,9 @@ def test_jacobian_pytree_output_with_keyword_only_args(
     params = {"w": jnp.array([1.0, 2.0, 3.0])}
     scale = {"s": jnp.array([0.5, 0.5, 0.5])}
 
-    J = asdex.jacobian(f, params, argnums=0, mode=mode, output_format=output_format)(
-        params, scale=scale
-    )
+    J = asdex.jacobian(
+        f, params, scale=scale, argnums=0, mode=mode, output_format=output_format
+    )(params, scale=scale)
     J_jax = jax.jacobian(f, argnums=0)(params, scale=scale)
     assert_trees_allclose(J, J_jax)
 
@@ -1019,7 +1051,13 @@ def test_jacobian_nested_pytree_output_with_kwargs(
     config = {"scale": jnp.array([0.5, 0.5])}
 
     J = asdex.jacobian(
-        f, params, data, argnums=0, mode=mode, output_format=output_format
+        f,
+        params,
+        data,
+        config=config,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
     )(params, data=data, config=config)
     J_jax = jax.jacobian(f, argnums=0)(params, data, config=config)
     assert_trees_allclose(J, J_jax)
@@ -1042,7 +1080,7 @@ def test_value_and_jacobian_pytree_output_with_kwargs(
     data = {"x": jnp.array([3.0, 4.0])}
 
     val, J = asdex.value_and_jacobian(
-        f, params, data, argnums=0, output_format=output_format
+        f, params, data=data, argnums=0, output_format=output_format
     )(params=params, data=data)
 
     val_expected = f(params, data)

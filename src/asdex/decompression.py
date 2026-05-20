@@ -56,23 +56,47 @@ def _merge_sample_inputs(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
-) -> tuple[Any, ...]:
-    """Merge positional and keyword sample inputs into a single tuple.
+) -> tuple[tuple[Any, ...], Callable[..., Any]]:
+    """Merge positional and keyword sample inputs, binding keyword-only args.
 
-    Uses ``inspect.signature(f).bind()`` to resolve argument positions,
-    mirroring the call-time kwargs handling.
+    Uses ``inspect.signature(f).bind()`` to resolve argument positions.
+    Positional-or-keyword args are merged into a tuple; keyword-only args
+    are bound to the function since they cannot be passed positionally.
+
+    Returns:
+        A tuple of ``(merged_args, f_bound)`` where ``merged_args`` contains
+        all positional-or-keyword arguments, and ``f_bound`` has any
+        keyword-only arguments pre-bound.
     """
     if not kwargs:
-        return args
+        return args, f
     try:
         sig = inspect.signature(f)
         bound = sig.bind(*args, **kwargs)
-        return tuple(bound.arguments.values())
     except (ValueError, TypeError) as e:
         raise TypeError(
             f"Cannot bind sample arguments: {e}. "
             f"Got {len(args)} positional and {set(kwargs.keys())} keyword."
         ) from None
+
+    # Split into positional-or-keyword vs keyword-only arguments.
+    positional_args: list[Any] = []
+    keyword_only_kwargs: dict[str, Any] = {}
+    for name, value in bound.arguments.items():
+        param = sig.parameters[name]
+        if param.kind == inspect.Parameter.KEYWORD_ONLY:
+            keyword_only_kwargs[name] = value
+        else:
+            positional_args.append(value)
+
+    if keyword_only_kwargs:
+
+        def f_bound(*xs: Any) -> Any:
+            return f(*xs, **keyword_only_kwargs)
+    else:
+        f_bound = f
+
+    return tuple(positional_args), f_bound
 
 
 # Public API: one-shot entry points
@@ -131,9 +155,9 @@ def jacobian(
             when ``"dense"``).
     """
     argnums = _ensure_index(argnums)
-    args = _merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect = _merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _jacobian_coloring(
-        f,
+        f_detect,
         *args,
         argnums=argnums,
         has_aux=has_aux,
@@ -181,9 +205,9 @@ def value_and_jacobian(
             matching ``jax.value_and_grad`` ordering.
     """
     argnums = _ensure_index(argnums)
-    args = _merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect = _merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _jacobian_coloring(
-        f,
+        f_detect,
         *args,
         argnums=argnums,
         has_aux=has_aux,
@@ -244,9 +268,9 @@ def hessian(
             the sparse Hessian.
     """
     argnums = _ensure_index(argnums)
-    args = _merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect = _merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _hessian_coloring(
-        f,
+        f_detect,
         *args,
         argnums=argnums,
         has_aux=has_aux,
@@ -307,9 +331,9 @@ def value_and_hessian(
             ``(value, hessian)``.
     """
     argnums = _ensure_index(argnums)
-    args = _merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect = _merge_sample_inputs(f, sample_args, sample_kwargs)
     coloring = _hessian_coloring(
-        f,
+        f_detect,
         *args,
         argnums=argnums,
         has_aux=has_aux,
