@@ -181,6 +181,12 @@ def validate_input_dtypes(
 ) -> None:
     """Run input-dtype validation over every leaf of the selected args."""
     if mode == "fwd":
+        if allow_int:
+            # Match JAX: jacfwd doesn't support allow_int, only jacrev does.
+            raise TypeError(
+                "`allow_int=True` is not supported in forward mode. "
+                "Use `mode='rev'` for differentiating with respect to integer inputs."
+            )
         check = lambda a: _check_input_dtype_fwd(holomorphic, a)  # noqa: E731
     else:
         # "rev" and all Hessian modes use the reverse-mode / grad-style check.

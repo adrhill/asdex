@@ -410,6 +410,20 @@ def test_allow_int_false_rejects_int_input():
 
 
 @pytest.mark.jacobian
+def test_allow_int_fwd_mode_raises():
+    """``allow_int=True`` with forward mode raises TypeError (matches JAX's jacfwd)."""
+
+    def f(x):
+        return x.astype(jnp.float32) * 2
+
+    x = jnp.array([1, 2], dtype=jnp.int32)
+    with pytest.raises(TypeError, match="not supported in forward mode"):
+        asdex.jacobian(
+            f, np.zeros(2), mode="fwd", allow_int=True, output_format="dense"
+        )(x)
+
+
+@pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_allow_int_pytree_input(output_format, assert_trees_allclose):
     """allow_int=True with PyTree containing integer leaf matches jax.jacobian."""
