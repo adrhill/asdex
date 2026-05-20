@@ -1460,16 +1460,15 @@ def test_different_bool_kwarg_at_call_time(mode, output_format, assert_trees_all
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_nested_pytree_kwarg_with_non_traceable_leaves(mode, output_format):
-    """Bug: Nested pytree kwarg with non-traceable leaves causes TracerBoolConversionError.
+def test_nested_pytree_kwarg_with_non_traceable_leaves(
+    mode, output_format, assert_trees_allclose
+):
+    """Nested pytree kwargs with mixed array/non-traceable leaves are bound statically.
 
-    The `_is_jax_traceable` function checks if any leaf is array-like, but this
-    fails for nested pytrees where some leaves are arrays and others are bools/ints.
-    The outer dict contains an array (scale), so it's treated as traceable, but
-    the nested bools cause TracerBoolConversionError during make_jaxpr.
+    When a pytree contains both array leaves and non-traceable leaves (bools, ints),
+    the entire pytree is bound statically to avoid TracerBoolConversionError.
     """
 
     def f(x, config=None):
@@ -1485,13 +1484,11 @@ def test_nested_pytree_kwarg_with_non_traceable_leaves(mode, output_format):
     x = jnp.array([1.0, 2.0])
     config = {"scale": jnp.array(2.0), "options": {"use_bias": True, "n_repeats": 2}}
 
-    # BUG: This should work (bools should be bound statically) but fails because
-    # _is_jax_traceable sees the array inside config and decides to trace the
-    # whole config dict, including the nested bools
-    with pytest.raises(jax.errors.TracerBoolConversionError):
-        asdex.jacobian(f, x, config=config, mode=mode, output_format=output_format)(
-            x, config=config
-        )
+    J = asdex.jacobian(f, x, config=config, mode=mode, output_format=output_format)(
+        x, config=config
+    )
+    J_jax = jax.jacobian(lambda x: f(x, config=config))(x)
+    assert_trees_allclose(J, J_jax)
 
 
 @pytest.mark.hessian

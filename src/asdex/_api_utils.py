@@ -281,13 +281,21 @@ def merge_args_kwargs(
 
 
 def _is_jax_traceable(x: Any) -> bool:
-    """Check if a value should be traced by JAX (array-like) vs bound statically."""
-    # JAX arrays and numpy arrays should be traced
-    if hasattr(x, "shape") and hasattr(x, "dtype"):
-        return True
-    # Pytrees of arrays should be traced - check if any leaf is array-like
+    """Check if a value should be traced by JAX (array-like) vs bound statically.
+
+    Returns True only if ALL leaves are array-like.
+    Returns False if any leaf is non-traceable (bool, int, str, None), since
+    these cannot be traced and will cause errors if used in Python control flow.
+    """
     leaves = jax.tree_util.tree_leaves(x)
-    return any(hasattr(leaf, "shape") and hasattr(leaf, "dtype") for leaf in leaves)
+    if not leaves:
+        return False
+    for leaf in leaves:
+        if isinstance(leaf, bool | int | str | type(None)):
+            return False
+        if not (hasattr(leaf, "shape") and hasattr(leaf, "dtype")):
+            return False
+    return True
 
 
 def merge_sample_inputs(
