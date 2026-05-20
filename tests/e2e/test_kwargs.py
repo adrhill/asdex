@@ -542,7 +542,9 @@ def test_jacobian_with_kwargs():
 
 
 @pytest.mark.jacobian
-def test_jacobian_positional_args_as_kwargs():
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_positional_args_as_kwargs(mode, output_format, assert_trees_allclose):
     """Positional args can be passed as kwargs at call time, matching JAX semantics.
 
     Mirrors ``jax/_src/api.py`` which uses ``inspect.signature(fn).bind(...)``
@@ -557,10 +559,11 @@ def test_jacobian_positional_args_as_kwargs():
     y = jnp.array([3.0, 4.0])
 
     # Detection uses positional args, call uses kwargs
-    jac_asdex = asdex.jacobian(f, x, y, argnums=0, output_format="dense")(x, y=y)
-    jac_jax = jax.jacobian(f)(x, y=y)
-
-    np.testing.assert_allclose(jac_asdex, jac_jax)
+    J = asdex.jacobian(f, x, y, argnums=0, mode=mode, output_format=output_format)(
+        x, y=y
+    )
+    J_jax = jax.jacobian(f)(x, y=y)
+    assert_trees_allclose(J, J_jax)
 
 
 @pytest.mark.hessian
@@ -937,6 +940,116 @@ def test_value_and_hessian_keyword_only_pytrees(output_format, assert_trees_allc
 
     np.testing.assert_allclose(val, val_expected)
     assert_trees_allclose(H, H_jax, atol=1e-6)
+
+
+# Multi-pytree output with kwargs
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_pytree_output_with_positional_as_kwargs(
+    mode, output_format, assert_trees_allclose
+):
+    """Jacobian of pytree-output function with positional args passed as kwargs."""
+
+    def f(params, data):
+        return {
+            "y": params["w"] * data["x"],
+            "z": params["w"] + data["x"],
+        }
+
+    params = {"w": jnp.array([1.0, 2.0, 3.0])}
+    data = {"x": jnp.array([2.0, 3.0, 4.0])}
+
+    J = asdex.jacobian(
+        f, params, data, argnums=0, mode=mode, output_format=output_format
+    )(params=params, data=data)
+    J_jax = jax.jacobian(f, argnums=0)(params, data)
+    assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_pytree_output_with_keyword_only_args(
+    mode, output_format, assert_trees_allclose
+):
+    """Jacobian of pytree-output function with keyword-only args."""
+
+    def f(params, *, scale=None):
+        if scale is None:
+            scale = {"s": jnp.ones(3)}
+        return {
+            "y": params["w"] * scale["s"],
+            "z": params["w"] ** 2,
+        }
+
+    params = {"w": jnp.array([1.0, 2.0, 3.0])}
+    scale = {"s": jnp.array([0.5, 0.5, 0.5])}
+
+    J = asdex.jacobian(f, params, argnums=0, mode=mode, output_format=output_format)(
+        params, scale=scale
+    )
+    J_jax = jax.jacobian(f, argnums=0)(params, scale=scale)
+    assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_nested_pytree_output_with_kwargs(
+    mode, output_format, assert_trees_allclose
+):
+    """Jacobian of nested pytree-output function with mixed kwargs."""
+
+    def f(params, data, *, config=None):
+        if config is None:
+            config = {"scale": jnp.ones(2)}
+        return {
+            "outputs": {
+                "y": params["w"] * data["x"] * config["scale"],
+                "z": params["w"] + data["x"],
+            },
+            "norm": jnp.sum(params["w"] ** 2),
+        }
+
+    params = {"w": jnp.array([1.0, 2.0])}
+    data = {"x": jnp.array([3.0, 4.0])}
+    config = {"scale": jnp.array([0.5, 0.5])}
+
+    J = asdex.jacobian(
+        f, params, data, argnums=0, mode=mode, output_format=output_format
+    )(params, data=data, config=config)
+    J_jax = jax.jacobian(f, argnums=0)(params, data, config=config)
+    assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_value_and_jacobian_pytree_output_with_kwargs(
+    output_format, assert_trees_allclose
+):
+    """value_and_jacobian with pytree output and kwargs."""
+
+    def f(params, data):
+        return {
+            "product": params["w"] * data["x"],
+            "sum": params["w"] + data["x"],
+        }
+
+    params = {"w": jnp.array([1.0, 2.0])}
+    data = {"x": jnp.array([3.0, 4.0])}
+
+    val, J = asdex.value_and_jacobian(
+        f, params, data, argnums=0, output_format=output_format
+    )(params=params, data=data)
+
+    val_expected = f(params, data)
+    J_jax = jax.jacobian(f, argnums=0)(params, data)
+
+    assert_trees_allclose(val, val_expected)
+    assert_trees_allclose(J, J_jax)
 
 
 # Extended dtype validation
