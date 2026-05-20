@@ -16,6 +16,7 @@ Handles everything that runs at the public API boundary before AD kicks in:
 
 from __future__ import annotations
 
+import inspect
 import operator
 from collections.abc import Callable
 from typing import Any
@@ -205,17 +206,59 @@ def validate_output_dtypes(y: Any, mode: str, holomorphic: bool) -> None:
         check(leaf)
 
 
-# Kwargs binding
+# Kwargs handling
 
 
-def bind_kwargs(f: Callable[..., Any], kwargs: dict[str, Any]) -> Callable[..., Any]:
-    """Close over runtime ``**kwargs`` so downstream AD only sees positional args.
+def merge_args_kwargs(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    expected_nargs: int,
+) -> tuple[tuple[Any, ...], Callable[..., Any]]:
+    """Merge kwargs that correspond to expected positional args, bind the rest.
 
-    Matches ``jax/_src/api.py:731`` (``f = lu.wrap_init(fun, kwargs, ...)``).
+    Uses the function's signature to map keyword arguments to their
+    corresponding positional indices up to ``expected_nargs``.
+    Remaining kwargs are bound to the function.
+
+    This matches JAX's behavior where ``jax.jacrev``, ``jax.jacfwd``, etc.
+    accept keyword arguments at call time that get mapped to positional
+    parameters.
+
+    Mirrors ``jax/_src/api.py`` which uses ``inspect.signature(fn).bind(...)``
+    to resolve argument positions.
+
+    Returns:
+        A tuple of ``(merged_args, f_bound)`` where ``merged_args`` has exactly
+        ``expected_nargs`` elements, and ``f_bound`` has any extra kwargs bound.
     """
     if not kwargs:
-        return f
-    return lambda *xs: f(*xs, **kwargs)
+        return args, f
+
+    try:
+        sig = inspect.signature(f)
+        bound = sig.bind(*args, **kwargs)
+    except (ValueError, TypeError) as e:
+        raise TypeError(
+            f"Cannot bind arguments: {e}. "
+            f"Got {len(args)} positional argument(s) and "
+            f"keyword argument(s) {set(kwargs.keys())}."
+        ) from None
+
+    # Split bound arguments: first expected_nargs become positional,
+    # the rest become kwargs to bind
+    all_args = list(bound.arguments.items())
+    merged_args = tuple(v for _, v in all_args[:expected_nargs])
+    extra_kwargs = dict(all_args[expected_nargs:])
+
+    if extra_kwargs:
+
+        def f_bound(*xs: Any) -> Any:
+            return f(*xs, **extra_kwargs)
+    else:
+        f_bound = f
+
+    return merged_args, f_bound
 
 
 # Output PyTree utilities

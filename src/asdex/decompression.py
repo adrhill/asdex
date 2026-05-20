@@ -13,8 +13,8 @@ from jax.experimental.sparse import BCOO
 
 from asdex._api_utils import (
     _ensure_index,
-    bind_kwargs,
     flatten_pytree,
+    merge_args_kwargs,
     unflatten_to_pytree,
     validate_input_dtypes,
     validate_output_dtypes,
@@ -111,10 +111,11 @@ def jacobian(
     )
 
     def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_jacobian(
             f_bound,
-            call_args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -158,10 +159,11 @@ def value_and_jacobian(
     )
 
     def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_value_and_jacobian(
             f_bound,
-            call_args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -199,10 +201,11 @@ def hessian(
     )
 
     def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_hessian(
             f_bound,
-            call_args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -240,10 +243,11 @@ def value_and_hessian(
     )
 
     def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_value_and_hessian(
             f_bound,
-            call_args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -277,10 +281,11 @@ def jacobian_from_coloring(
     _assert_output_format(output_format)
 
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_jacobian(
             f_bound,
-            args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -307,10 +312,11 @@ def hessian_from_coloring(
     _assert_output_format(output_format)
 
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_hessian(
             f_bound,
-            args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -334,10 +340,11 @@ def value_and_jacobian_from_coloring(
     _assert_output_format(output_format)
 
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_value_and_jacobian(
             f_bound,
-            args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -361,10 +368,11 @@ def value_and_hessian_from_coloring(
     _assert_output_format(output_format)
 
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_value_and_hessian(
             f_bound,
-            args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,

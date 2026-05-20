@@ -530,7 +530,7 @@ def test_rev_rejects_non_floating_output():
 
 @pytest.mark.jacobian
 def test_jacobian_with_kwargs():
-    """Functions with kwargs work correctly via bind_kwargs."""
+    """Functions with default kwargs work correctly."""
 
     def f(x, scale=1.0, offset=0.0):
         return x * scale + offset
@@ -539,6 +539,28 @@ def test_jacobian_with_kwargs():
     jac = asdex.jacobian(f, x, output_format="dense")(x, scale=2.0, offset=1.0)
     expected = jnp.diag(jnp.full(3, 2.0))
     np.testing.assert_allclose(jac, expected)
+
+
+@pytest.mark.jacobian
+def test_jacobian_positional_args_as_kwargs():
+    """Positional args can be passed as kwargs at call time, matching JAX semantics.
+
+    Mirrors ``jax/_src/api.py`` which uses ``inspect.signature(fn).bind(...)``
+    to resolve argument positions.
+    Regression test for https://github.com/adrhill/asdex/issues/123.
+    """
+
+    def f(x, y):
+        return x * y
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([3.0, 4.0])
+
+    # Detection uses positional args, call uses kwargs
+    jac_asdex = asdex.jacobian(f, x, y, argnums=0, output_format="dense")(x, y=y)
+    jac_jax = jax.jacobian(f)(x, y=y)
+
+    np.testing.assert_allclose(jac_asdex, jac_jax)
 
 
 @pytest.mark.hessian
