@@ -52,27 +52,39 @@ class _BCOOLeaf:
 # Sample input merging
 
 
+def _is_jax_traceable(x: Any) -> bool:
+    """Check if a value should be traced by JAX (array-like) vs bound statically."""
+    # JAX arrays and numpy arrays should be traced
+    if hasattr(x, "shape") and hasattr(x, "dtype"):
+        return True
+    # Pytrees of arrays should be traced - check if any leaf is array-like
+    leaves = jax.tree_util.tree_leaves(x)
+    return any(hasattr(leaf, "shape") and hasattr(leaf, "dtype") for leaf in leaves)
+
+
 def _merge_sample_inputs(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
 ) -> tuple[tuple[Any, ...], Callable[..., Any]]:
-    """Merge positional and keyword sample inputs, binding non-positional args.
+    """Merge sample inputs, resolving kwargs to positions for traceable values.
 
-    Uses ``inspect.signature(f).bind()`` to resolve argument positions.
-    Positional-or-keyword args are merged into a tuple; keyword-only args
-    and VAR_KEYWORD (**kwargs) are bound to the function.
+    Uses ``inspect.signature(f).bind()`` to resolve kwargs to signature positions.
+    JAX-traceable values (arrays, pytrees of arrays) are passed positionally for
+    tracing by ``make_jaxpr``. Non-traceable values (bools, strings, ints) are
+    bound to the function statically.
 
-    Mirrors ``jax/_src/linear_util.py:wrap_init`` which uses
-    ``functools.partial(f, **kwargs)`` to bind kwargs.
+    This matches JAX's behavior where ``jacrev(f)(x, flag=True)`` works even if
+    ``flag`` controls a Python ``if`` branch - the flag is not traced.
 
     Returns:
-        A tuple of ``(merged_args, f_bound)`` where ``merged_args`` contains
-        all positional arguments, and ``f_bound`` has any keyword-only
-        or VAR_KEYWORD arguments pre-bound.
+        A tuple of ``(positional_args, f_bound)`` where ``positional_args``
+        contains traceable values in signature order, and ``f_bound`` has
+        non-traceable values pre-bound.
     """
     if not kwargs:
         return args, f
+
     try:
         sig = inspect.signature(f)
         bound = sig.bind(*args, **kwargs)
@@ -82,7 +94,7 @@ def _merge_sample_inputs(
             f"Got {len(args)} positional and {set(kwargs.keys())} keyword."
         ) from None
 
-    # Split into positional vs keyword-only/VAR_KEYWORD arguments.
+    # Split into traceable (positional) vs non-traceable (bind statically)
     positional_args: list[Any] = []
     bind_kwargs: dict[str, Any] = {}
 
@@ -90,17 +102,21 @@ def _merge_sample_inputs(
         param = sig.parameters[name]
         match param.kind:
             case inspect.Parameter.VAR_POSITIONAL:
-                # *args: expand the tuple into positional args
-                positional_args.extend(value)
+                # *args: expand, trace each traceable element
+                positional_args.extend(v for v in value if _is_jax_traceable(v))
             case inspect.Parameter.VAR_KEYWORD:
-                # **kwargs: merge into bind_kwargs (never positional)
+                # **kwargs: bind all (static values like scale=2.0)
                 bind_kwargs.update(value)
             case inspect.Parameter.KEYWORD_ONLY:
-                # Keyword-only: must be bound, cannot be positional
+                # Keyword-only: always bind
                 bind_kwargs[name] = value
             case _:
-                # POSITIONAL_ONLY or POSITIONAL_OR_KEYWORD: pass positionally
-                positional_args.append(value)
+                # POSITIONAL_ONLY or POSITIONAL_OR_KEYWORD
+                if _is_jax_traceable(value):
+                    positional_args.append(value)
+                else:
+                    # Non-traceable (bool, int, string): bind statically
+                    bind_kwargs[name] = value
 
     if bind_kwargs:
 

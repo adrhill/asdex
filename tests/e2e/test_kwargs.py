@@ -1267,7 +1267,32 @@ def test_jacobian_function_with_var_positional(
     assert_trees_allclose(J, J_jax)
 
 
-# API option name collisions
+# Non-traceable kwargs (bools, strings, ints)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_bool_kwarg_at_detection(mode, output_format, assert_trees_allclose):
+    """Bool kwargs at detection time should not be traced.
+
+    Regression test: bool kwargs were incorrectly passed to make_jaxpr,
+    causing TracerBoolConversionError when used in Python if-statements.
+    """
+
+    def f(x, flag=True):
+        if flag:
+            return x * 2
+        return x * 3
+
+    x = jnp.array([1.0, 2.0, 3.0])
+
+    # Bool kwarg at detection time - should work without TracerBoolConversionError
+    J = asdex.jacobian(f, x, flag=True, mode=mode, output_format=output_format)(
+        x, flag=True
+    )
+    J_jax = jax.jacobian(f)(x, flag=True)
+    assert_trees_allclose(J, J_jax)
 
 
 @pytest.mark.jacobian
