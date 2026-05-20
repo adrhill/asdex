@@ -566,6 +566,37 @@ def test_jacobian_positional_args_as_kwargs(mode, output_format, assert_trees_al
     assert_trees_allclose(J, J_jax)
 
 
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_argnums_refers_to_signature_order(
+    mode, output_format, assert_trees_allclose
+):
+    """Argnums indexes into signature order, not call-site kwarg order.
+
+    Even when kwargs are passed in a different order than the signature,
+    argnums=1 still refers to the second parameter in the signature (b).
+    """
+
+    def f(a, b, c):
+        return a + b * c
+
+    a = jnp.array([1.0, 2.0])
+    b = jnp.array([3.0, 4.0])
+    c = jnp.array([5.0, 6.0])
+
+    # Pass kwargs in reverse order: c, a, b - but argnums=1 still means "b"
+    J = asdex.jacobian(
+        f, c=c, a=a, b=b, argnums=1, mode=mode, output_format=output_format
+    )(c=c, a=a, b=b)
+    J_jax = jax.jacobian(f, argnums=1)(a, b, c)
+    assert_trees_allclose(J, J_jax)
+
+    # Verify the Jacobian is w.r.t. b (diagonal of c values), not a or c
+    expected = jnp.diag(c)
+    np.testing.assert_allclose(J if output_format == "dense" else J.todense(), expected)
+
+
 @pytest.mark.hessian
 def test_hessian_with_kwargs():
     """Hessian with kwargs works correctly."""
@@ -836,6 +867,33 @@ def test_hessian_mixed_args_kwargs_with_defaults(
     )(params, data=data, scale=2.0)
     H_jax = jax.hessian(lambda p, d: f(p, d, scale=2.0), argnums=0)(params, data)
     assert_trees_allclose(H, H_jax, atol=1e-6)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_hessian_argnums_refers_to_signature_order(
+    mode, output_format, assert_trees_allclose
+):
+    """Argnums indexes into signature order for Hessians, not call-site kwarg order."""
+
+    def f(a, b, c):
+        return jnp.sum(a**2) + jnp.sum(b**2) + jnp.sum(c**2)
+
+    a = jnp.array([1.0, 2.0])
+    b = jnp.array([3.0, 4.0])
+    c = jnp.array([5.0, 6.0])
+
+    # Pass kwargs in reverse order: c, a, b - but argnums=1 still means "b"
+    H = asdex.hessian(
+        f, c=c, a=a, b=b, argnums=1, mode=mode, output_format=output_format
+    )(c=c, a=a, b=b)
+    H_jax = jax.hessian(f, argnums=1)(a, b, c)
+    assert_trees_allclose(H, H_jax, atol=1e-6)
+
+    # Verify Hessian is 2*I (d^2/db^2 of sum(b^2) = 2)
+    expected = 2.0 * jnp.eye(2)
+    np.testing.assert_allclose(H if output_format == "dense" else H.todense(), expected)
 
 
 @pytest.mark.hessian
