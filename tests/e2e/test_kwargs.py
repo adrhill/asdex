@@ -1193,6 +1193,128 @@ def test_jacobian_no_sample_inputs_raises():
         avals_from_args(())
 
 
+# VAR_KEYWORD and VAR_POSITIONAL signatures
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.xfail(reason="VAR_KEYWORD (**kwargs) not forwarded correctly at call time")
+def test_jacobian_function_with_var_keyword(mode, output_format, assert_trees_allclose):
+    """Functions with **kwargs in signature should work correctly.
+
+    Regression test for Copilot review: VAR_KEYWORD handling in merge_args_kwargs.
+    The kwargs dict is not properly forwarded - values use defaults instead.
+    """
+
+    def f(x, **kw):
+        scale = kw.get("scale", 1.0)
+        offset = kw.get("offset", 0.0)
+        return x * scale + offset
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    J = asdex.jacobian(f, x, mode=mode, output_format=output_format)(
+        x, scale=2.0, offset=1.0
+    )
+    J_jax = jax.jacobian(f)(x, scale=2.0, offset=1.0)
+    assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.xfail(
+    reason="VAR_KEYWORD (**kwargs) passed as positional arg at detection"
+)
+def test_jacobian_function_with_var_keyword_at_detection(
+    mode, output_format, assert_trees_allclose
+):
+    """Functions with **kwargs should work when kwargs passed at detection time.
+
+    Regression test for Copilot review: VAR_KEYWORD handling in _merge_sample_inputs.
+    The kwargs dict is passed as a positional argument, causing TypeError.
+    """
+
+    def f(x, **kw):
+        scale = kw.get("scale", 1.0)
+        return x * scale
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    # Pass scale at detection time to ensure correct sparsity
+    J = asdex.jacobian(f, x, scale=2.0, mode=mode, output_format=output_format)(
+        x, scale=2.0
+    )
+    J_jax = jax.jacobian(f)(x, scale=2.0)
+    assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_function_with_var_positional(
+    mode, output_format, assert_trees_allclose
+):
+    """Functions with *args in signature should work correctly.
+
+    Regression test for Copilot review: VAR_POSITIONAL handling.
+    """
+
+    def f(x, *extra):
+        if extra:
+            return x * extra[0]
+        return x
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    scale = jnp.array([2.0, 2.0, 2.0])
+    J = asdex.jacobian(f, x, scale, argnums=0, mode=mode, output_format=output_format)(
+        x, scale
+    )
+    J_jax = jax.jacobian(f, argnums=0)(x, scale)
+    assert_trees_allclose(J, J_jax)
+
+
+# API option name collisions
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_function_param_named_mode(output_format, assert_trees_allclose):
+    """Function with param named 'mode' should work (name collides with API option).
+
+    Regression test for Copilot review: name collisions with API options.
+    """
+
+    def f(x, mode="multiply"):
+        if mode == "multiply":
+            return x * 2
+        return x + 2
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    # The API's mode="rev" should not collide with the function's mode param
+    J = asdex.jacobian(f, x, mode="rev", output_format=output_format)(
+        x, mode="multiply"
+    )
+    J_jax = jax.jacobian(f)(x, mode="multiply")
+    assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacobian_function_param_named_argnums(output_format, assert_trees_allclose):
+    """Function with param named 'argnums' should work (name collides with API option)."""
+
+    def f(x, argnums=0):
+        return x * (argnums + 1)
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    # The function's argnums param (value 2) should not collide with API's argnums
+    J = asdex.jacobian(f, x, argnums=0, output_format=output_format)(x, argnums=2)
+    J_jax = jax.jacobian(f)(x, argnums=2)
+    assert_trees_allclose(J, J_jax)
+
+
 # Known limitations
 
 
