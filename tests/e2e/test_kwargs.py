@@ -1520,3 +1520,276 @@ def test_hessian_different_bool_kwarg_at_call_time(
     # The diagonal pattern from detection misses the off-diagonal entries
     with pytest.raises(AssertionError):
         assert_trees_allclose(H, H_jax, atol=1e-5)
+
+
+# Copilot review: Silent truncation of extra positional args
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+def test_var_positional_extra_args_at_call_time():
+    """Bug: Extra *args passed at call time but not detection time raises.
+
+    Copilot concern: merge_args_kwargs() silently truncates extra positional
+    arguments via positional_args[:expected_nargs], potentially dropping
+    user-supplied call-time positional arguments without raising.
+
+    Finding: Does NOT silently truncate - raises ValueError. But still doesn't
+    work for the use case where you want to pass extra args only at call time.
+    The sparsity pattern is fixed at detection time, so you must provide all
+    args at detection time.
+    """
+
+    def f(x, *extra):
+        if extra:
+            return x * extra[0]
+        return x * 2
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    scale = jnp.array([3.0, 3.0, 3.0])
+
+    # Detection with just x (no extra args), call with extra scale
+    # Raises because the number of args doesn't match
+    with pytest.raises(ValueError, match="Expected 1 positional argument"):
+        asdex.jacobian(f, x, argnums=0)(x, scale)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_var_positional_multiple_extra_args(mode, output_format, assert_trees_allclose):
+    """Multiple extra *args should all be passed through.
+
+    Copilot concern: truncation could drop some but not all extra args.
+    """
+
+    def f(x, *extra):
+        result = x.copy()
+        for e in extra:
+            result = result + e
+        return result
+
+    x = jnp.array([1.0, 2.0])
+    y = jnp.array([0.5, 0.5])
+    z = jnp.array([0.1, 0.1])
+
+    # Call with extra y and z
+    J = asdex.jacobian(f, x, y, z, argnums=0, mode=mode, output_format=output_format)(
+        x, y, z
+    )
+    J_jax = jax.jacobian(f, argnums=0)(x, y, z)
+    assert_trees_allclose(J, J_jax)
+
+
+# Copilot review: VAR_POSITIONAL non-traceable elements dropped
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+def test_var_positional_with_non_traceable_args_at_detection():
+    """Bug: *args containing non-traceable values (bools) at detection time.
+
+    Copilot concern: non-traceable elements in VAR_POSITIONAL are dropped,
+    changing the function being analyzed and yielding incorrect sparsity.
+
+    Finding: Validated - bools in VAR_POSITIONAL are incorrectly traced instead
+    of being bound statically, causing TracerBoolConversionError.
+    """
+
+    def f(x, *extra):
+        # extra[0] is a flag, extra[1] is a scale
+        if extra and extra[0]:
+            return x * extra[1]
+        return x
+
+    x = jnp.array([1.0, 2.0])
+    flag = True
+    scale = jnp.array([2.0, 2.0])
+
+    # Detection with flag=True and scale fails because bool is traced
+    with pytest.raises(jax.errors.TracerBoolConversionError):
+        asdex.jacobian(f, x, flag, scale, argnums=0)(x, flag, scale)
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+def test_var_positional_mixed_traceable_nontraceable():
+    """Bug: *args with interleaved traceable and non-traceable values.
+
+    Copilot concern: non-traceable elements dropped changes function.
+
+    Finding: Validated - bools in VAR_POSITIONAL are incorrectly traced,
+    causing TracerBoolConversionError when used in Python if-statements.
+    """
+
+    def f(x, *extra):
+        # extra = (int, array, bool, array)
+        n = extra[0] if len(extra) > 0 else 1
+        y = extra[1] if len(extra) > 1 else jnp.ones_like(x)
+        flag = extra[2] if len(extra) > 2 else False
+        z = extra[3] if len(extra) > 3 else jnp.ones_like(x)
+        result = x * y
+        if flag:
+            result = result + z
+        return result[:n]
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    n = 2
+    y = jnp.array([2.0, 2.0, 2.0])
+    flag = True
+    z = jnp.array([0.5, 0.5, 0.5])
+
+    with pytest.raises(jax.errors.TracerBoolConversionError):
+        asdex.jacobian(f, x, n, y, flag, z, argnums=0)(x, n, y, flag, z)
+
+
+# Copilot review: Python scalar numerics treated as non-traceable
+
+
+@pytest.mark.jacobian
+def test_python_float_scalar_kwarg_at_detection():
+    """Python float scalar as kwarg should be traced, not bound statically.
+
+    Copilot concern: _is_jax_traceable() treats Python/NumPy scalars as
+    non-traceable because they lack shape/dtype, so they get bound statically.
+    This contradicts the docstring saying only bool/int/str/None are non-traceable.
+    """
+
+    def f(x, scale=1.0):
+        return x * scale
+
+    x = jnp.array([1.0, 2.0, 3.0])
+
+    # Detection with scale=2.0 (Python float)
+    pattern = asdex.jacobian_sparsity(f, x, scale=2.0)
+    # Expected: diagonal (x affects output element-wise)
+    expected = np.eye(3, dtype=int)
+    np.testing.assert_array_equal(pattern.todense(), expected)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_python_float_scalar_changes_jacobian_value(
+    mode, output_format, assert_trees_allclose
+):
+    """Python float kwarg value should affect the computed Jacobian.
+
+    If scalars are incorrectly bound statically at detection time, then
+    changing the scale at call time would have no effect. This test verifies
+    that call-time scale values are actually used.
+    """
+
+    def f(x, scale=1.0):
+        return x * scale
+
+    x = jnp.array([1.0, 2.0, 3.0])
+
+    # Detection with scale=1.0, call with scale=3.0
+    J = asdex.jacobian(f, x, scale=1.0, mode=mode, output_format=output_format)(
+        x, scale=3.0
+    )
+    J_jax = jax.jacobian(f)(x, scale=3.0)
+    assert_trees_allclose(J, J_jax)
+
+    # Should be 3 * I, not 1 * I
+    expected = 3.0 * jnp.eye(3)
+    np.testing.assert_allclose(J if output_format == "dense" else J.todense(), expected)
+
+
+@pytest.mark.jacobian
+def test_numpy_scalar_treated_as_traceable():
+    """NumPy scalar (np.float64) should be traceable.
+
+    Copilot concern: np.float64 lacks .shape/.dtype attributes in the way
+    _is_jax_traceable checks, potentially making it non-traceable.
+    """
+
+    def f(x, scale):
+        return x * scale
+
+    x = jnp.array([1.0, 2.0])
+    scale = np.float64(2.0)
+
+    # If scale is traceable, it would be in argnums and affect sparsity
+    # We pass scale as positional, but only differentiate w.r.t. x
+    J = asdex.jacobian(f, x, scale, argnums=0, output_format="dense")(x, scale)
+    J_jax = jax.jacobian(f, argnums=0)(x, scale)
+    np.testing.assert_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+def test_zero_dim_array_is_traceable():
+    """0-D JAX arrays should be treated as traceable.
+
+    Copilot concern: 0-D arrays might be incorrectly treated as scalars.
+    """
+
+    def f(x, scale):
+        return x * scale
+
+    x = jnp.array([1.0, 2.0])
+    scale = jnp.array(2.0)  # 0-D array
+
+    # Differentiate w.r.t. both x and scale
+    Jx, Jscale = asdex.jacobian(f, x, scale, argnums=(0, 1), output_format="dense")(
+        x, scale
+    )
+    Jx_jax, Jscale_jax = jax.jacobian(f, argnums=(0, 1))(x, scale)
+    np.testing.assert_allclose(Jx, Jx_jax)
+    np.testing.assert_allclose(Jscale, Jscale_jax)
+
+
+# Copilot review (low confidence): non-prefix traced args
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+def test_non_traceable_positional_before_traceable():
+    """Bug: Non-traceable arg before a traceable arg in signature.
+
+    Copilot suppressed concern: merge_args_kwargs() assumes traced positional
+    arguments form a prefix. But merge_sample_inputs() can drop non-traceable
+    POSITIONAL_OR_KEYWORD params that appear before later traceable params.
+
+    Finding: Validated - bools in positional args are incorrectly traced,
+    causing TracerBoolConversionError when used in Python if-statements.
+    """
+
+    def f(flag, x, scale):
+        if flag:
+            return x * scale
+        return x + scale
+
+    flag = True
+    x = jnp.array([1.0, 2.0])
+    scale = jnp.array([2.0, 2.0])
+
+    # flag is non-traceable (bool), x and scale are traceable
+    # argnums=1 means we differentiate w.r.t. x (the second positional param)
+    with pytest.raises(jax.errors.TracerBoolConversionError):
+        asdex.jacobian(f, flag, x, scale, argnums=1)(flag, x, scale)
+
+
+@pytest.mark.jacobian
+@pytest.mark.bug
+def test_interleaved_traceable_nontraceable_positional():
+    """Bug: Interleaved traceable and non-traceable positional args.
+
+    The traced args are at positions 1 and 3 (non-prefix subset of signature).
+
+    Finding: Validated - bools passed positionally are traced, causing
+    TracerBoolConversionError. Workaround: pass bools as kwargs (not positional).
+    """
+
+    def f(flag1, x, flag2, y):
+        result = x * 2 if flag1 else x
+        return result + y if flag2 else result - y
+
+    flag1 = True
+    x = jnp.array([1.0, 2.0])
+    flag2 = False
+    y = jnp.array([0.5, 0.5])
+
+    with pytest.raises(jax.errors.TracerBoolConversionError):
+        asdex.jacobian(f, flag1, x, flag2, y, argnums=1)(flag1, x, flag2, y)
