@@ -53,7 +53,7 @@ def jacobian_sparsity(
             flat size of the selected inputs.
     """
     argnums = _ensure_index(argnums)
-    args, f = merge_sample_inputs(f, args, kwargs)
+    args, f, argnums = merge_sample_inputs(f, args, kwargs, argnums)
     avals = avals_from_args(args)
     selected = _argnums_tuple(argnums, len(args))
 
@@ -110,7 +110,7 @@ def hessian_sparsity(
         Square SparsityPattern over the combined, selected input space.
     """
     argnums = _ensure_index(argnums)
-    args, f = merge_sample_inputs(f, args, kwargs)
+    args, f, argnums = merge_sample_inputs(f, args, kwargs, argnums)
 
     f_out = _strip_aux(f) if has_aux else f
     f_scalar = _ensure_scalar(f_out, args)

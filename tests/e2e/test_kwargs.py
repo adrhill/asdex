@@ -1585,15 +1585,18 @@ def test_var_positional_multiple_extra_args(mode, output_format, assert_trees_al
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-def test_var_positional_with_non_traceable_args_at_detection():
-    """Bug: *args containing non-traceable values (bools) at detection time.
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_var_positional_with_non_traceable_args_at_detection(
+    mode, output_format, assert_trees_allclose
+):
+    """*args containing non-traceable values (bools) at detection time.
 
     Copilot concern: non-traceable elements in VAR_POSITIONAL are dropped,
     changing the function being analyzed and yielding incorrect sparsity.
 
-    Finding: Validated - bools in VAR_POSITIONAL are incorrectly traced instead
-    of being bound statically, causing TracerBoolConversionError.
+    Finding: Fixed - bools in positional args are now bound statically,
+    preserving their original positions.
     """
 
     def f(x, *extra):
@@ -1606,20 +1609,24 @@ def test_var_positional_with_non_traceable_args_at_detection():
     flag = True
     scale = jnp.array([2.0, 2.0])
 
-    # Detection with flag=True and scale fails because bool is traced
-    with pytest.raises(jax.errors.TracerBoolConversionError):
-        asdex.jacobian(f, x, flag, scale, argnums=0)(x, flag, scale)
+    J = asdex.jacobian(
+        f, x, flag, scale, argnums=0, mode=mode, output_format=output_format
+    )(x, flag, scale)
+    J_jax = jax.jacobian(f, argnums=0)(x, flag, scale)
+    assert_trees_allclose(J, J_jax)
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-def test_var_positional_mixed_traceable_nontraceable():
-    """Bug: *args with interleaved traceable and non-traceable values.
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_var_positional_mixed_traceable_nontraceable(
+    mode, output_format, assert_trees_allclose
+):
+    """*args with interleaved traceable and non-traceable values.
 
     Copilot concern: non-traceable elements dropped changes function.
 
-    Finding: Validated - bools in VAR_POSITIONAL are incorrectly traced,
-    causing TracerBoolConversionError when used in Python if-statements.
+    Finding: Fixed - bools in positional args are now bound statically.
     """
 
     def f(x, *extra):
@@ -1639,8 +1646,11 @@ def test_var_positional_mixed_traceable_nontraceable():
     flag = True
     z = jnp.array([0.5, 0.5, 0.5])
 
-    with pytest.raises(jax.errors.TracerBoolConversionError):
-        asdex.jacobian(f, x, n, y, flag, z, argnums=0)(x, n, y, flag, z)
+    J = asdex.jacobian(
+        f, x, n, y, flag, z, argnums=0, mode=mode, output_format=output_format
+    )(x, n, y, flag, z)
+    J_jax = jax.jacobian(f, argnums=0)(x, n, y, flag, z)
+    assert_trees_allclose(J, J_jax)
 
 
 # Copilot review: Python scalar numerics treated as non-traceable
@@ -1744,16 +1754,19 @@ def test_zero_dim_array_is_traceable():
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-def test_non_traceable_positional_before_traceable():
-    """Bug: Non-traceable arg before a traceable arg in signature.
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_non_traceable_positional_before_traceable(
+    mode, output_format, assert_trees_allclose
+):
+    """Non-traceable arg before a traceable arg in signature.
 
     Copilot suppressed concern: merge_args_kwargs() assumes traced positional
     arguments form a prefix. But merge_sample_inputs() can drop non-traceable
     POSITIONAL_OR_KEYWORD params that appear before later traceable params.
 
-    Finding: Validated - bools in positional args are incorrectly traced,
-    causing TracerBoolConversionError when used in Python if-statements.
+    Finding: Fixed - bools in positional args are now bound statically,
+    preserving their original positions like JAX's argnums_partial.
     """
 
     def f(flag, x, scale):
@@ -1767,19 +1780,25 @@ def test_non_traceable_positional_before_traceable():
 
     # flag is non-traceable (bool), x and scale are traceable
     # argnums=1 means we differentiate w.r.t. x (the second positional param)
-    with pytest.raises(jax.errors.TracerBoolConversionError):
-        asdex.jacobian(f, flag, x, scale, argnums=1)(flag, x, scale)
+    J = asdex.jacobian(
+        f, flag, x, scale, argnums=1, mode=mode, output_format=output_format
+    )(flag, x, scale)
+    J_jax = jax.jacobian(f, argnums=1)(flag, x, scale)
+    assert_trees_allclose(J, J_jax)
 
 
 @pytest.mark.jacobian
-@pytest.mark.bug
-def test_interleaved_traceable_nontraceable_positional():
-    """Bug: Interleaved traceable and non-traceable positional args.
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_interleaved_traceable_nontraceable_positional(
+    mode, output_format, assert_trees_allclose
+):
+    """Interleaved traceable and non-traceable positional args.
 
     The traced args are at positions 1 and 3 (non-prefix subset of signature).
 
-    Finding: Validated - bools passed positionally are traced, causing
-    TracerBoolConversionError. Workaround: pass bools as kwargs (not positional).
+    Finding: Fixed - bools passed positionally are now bound statically,
+    preserving their original positions.
     """
 
     def f(flag1, x, flag2, y):
@@ -1791,5 +1810,8 @@ def test_interleaved_traceable_nontraceable_positional():
     flag2 = False
     y = jnp.array([0.5, 0.5])
 
-    with pytest.raises(jax.errors.TracerBoolConversionError):
-        asdex.jacobian(f, flag1, x, flag2, y, argnums=1)(flag1, x, flag2, y)
+    J = asdex.jacobian(
+        f, flag1, x, flag2, y, argnums=1, mode=mode, output_format=output_format
+    )(flag1, x, flag2, y)
+    J_jax = jax.jacobian(f, argnums=1)(flag1, x, flag2, y)
+    assert_trees_allclose(J, J_jax)

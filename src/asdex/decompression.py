@@ -105,11 +105,13 @@ def jacobian(
             when ``"dense"``).
     """
     argnums = _ensure_index(argnums)
-    args, f_detect = merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
     coloring = _jacobian_coloring(
         f_detect,
         *args,
-        argnums=argnums,
+        argnums=remapped_argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
@@ -155,11 +157,13 @@ def value_and_jacobian(
             matching ``jax.value_and_grad`` ordering.
     """
     argnums = _ensure_index(argnums)
-    args, f_detect = merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
     coloring = _jacobian_coloring(
         f_detect,
         *args,
-        argnums=argnums,
+        argnums=remapped_argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
@@ -218,11 +222,13 @@ def hessian(
             the sparse Hessian.
     """
     argnums = _ensure_index(argnums)
-    args, f_detect = merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
     coloring = _hessian_coloring(
         f_detect,
         *args,
-        argnums=argnums,
+        argnums=remapped_argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
@@ -281,11 +287,13 @@ def value_and_hessian(
             ``(value, hessian)``.
     """
     argnums = _ensure_index(argnums)
-    args, f_detect = merge_sample_inputs(f, sample_args, sample_kwargs)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
     coloring = _hessian_coloring(
         f_detect,
         *args,
-        argnums=argnums,
+        argnums=remapped_argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
