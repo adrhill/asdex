@@ -11,7 +11,12 @@ import numpy as np
 from jax._src.core import ClosedJaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 
-from asdex._api_utils import _ensure_inbounds, _ensure_index, avals_from_args
+from asdex._api_utils import (
+    _ensure_inbounds,
+    _ensure_index,
+    avals_from_args,
+    merge_sample_inputs,
+)
 from asdex.detection._interpret import prop_jaxpr
 from asdex.detection._interpret._commons import empty_index_sets
 from asdex.pattern import SparsityPattern
@@ -22,6 +27,7 @@ def jacobian_sparsity(
     *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
+    **kwargs: Any,
 ) -> SparsityPattern:
     """Detect global Jacobian sparsity pattern for ``f``.
 
@@ -38,6 +44,8 @@ def jacobian_sparsity(
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
             When True, only ``output`` is analyzed for sparsity;
             the auxiliary branch of the computation is not traced.
+        **kwargs: Sample keyword arguments of ``f``.
+            Non-traceable values (bools, strings) are bound statically.
 
     Returns:
         SparsityPattern of shape ``(m, n_selected)``
@@ -45,6 +53,7 @@ def jacobian_sparsity(
             flat size of the selected inputs.
     """
     argnums = _ensure_index(argnums)
+    args, f, argnums = merge_sample_inputs(f, args, kwargs, argnums)
     avals = avals_from_args(args)
     selected = _argnums_tuple(argnums, len(args))
 
@@ -75,6 +84,7 @@ def hessian_sparsity(
     *args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
+    **kwargs: Any,
 ) -> SparsityPattern:
     """Detect global Hessian sparsity pattern for a scalar-valued ``f``.
 
@@ -93,11 +103,14 @@ def hessian_sparsity(
             with respect to (default ``0``).
         has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``.
             When True, aux is stripped before detection.
+        **kwargs: Sample keyword arguments of ``f``.
+            Non-traceable values (bools, strings) are bound statically.
 
     Returns:
         Square SparsityPattern over the combined, selected input space.
     """
     argnums = _ensure_index(argnums)
+    args, f, argnums = merge_sample_inputs(f, args, kwargs, argnums)
 
     f_out = _strip_aux(f) if has_aux else f
     f_scalar = _ensure_scalar(f_out, args)

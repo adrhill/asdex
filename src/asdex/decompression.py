@@ -13,8 +13,9 @@ from jax.experimental.sparse import BCOO
 
 from asdex._api_utils import (
     _ensure_index,
-    bind_kwargs,
     flatten_pytree,
+    merge_args_kwargs,
+    merge_sample_inputs,
     unflatten_to_pytree,
     validate_input_dtypes,
     validate_output_dtypes,
@@ -53,7 +54,7 @@ class _BCOOLeaf:
 
 def jacobian(
     f: Callable[..., Any],
-    *args: Any,
+    *sample_args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -61,6 +62,7 @@ def jacobian(
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = "bcoo",
+    **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing sparse Jacobians.
 
@@ -70,7 +72,7 @@ def jacobian(
 
     Args:
         f: Function whose Jacobian is to be computed.
-        *args: Sample arguments of ``f``.
+        *sample_args: Sample arguments of ``f``.
             Only structure and dtypes are used, values are ignored.
         argnums: Specifies which positional argument(s) to differentiate
             with respect to (default ``0``).
@@ -91,6 +93,8 @@ def jacobian(
         output_format: Type of the output matrix.
             ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
             ``"dense"`` returns a dense matrix of type ``jax.Array``.
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -101,20 +105,24 @@ def jacobian(
             when ``"dense"``).
     """
     argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
     coloring = _jacobian_coloring(
-        f,
+        f_detect,
         *args,
-        argnums=argnums,
+        argnums=remapped_argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
 
     def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_jacobian(
             f_bound,
-            call_args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -127,7 +135,7 @@ def jacobian(
 
 def value_and_jacobian(
     f: Callable[..., Any],
-    *args: Any,
+    *sample_args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -135,6 +143,7 @@ def value_and_jacobian(
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = "bcoo",
+    **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Jacobian.
 
@@ -148,20 +157,24 @@ def value_and_jacobian(
             matching ``jax.value_and_grad`` ordering.
     """
     argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
     coloring = _jacobian_coloring(
-        f,
+        f_detect,
         *args,
-        argnums=argnums,
+        argnums=remapped_argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
 
     def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_value_and_jacobian(
             f_bound,
-            call_args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -174,7 +187,7 @@ def value_and_jacobian(
 
 def hessian(
     f: Callable[..., Any],
-    *args: Any,
+    *sample_args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -182,27 +195,51 @@ def hessian(
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = "bcoo",
+    **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing sparse Hessians.
 
     If ``f`` returns a squeezable shape like ``(1,)`` or ``(1, 1)``,
     it is automatically squeezed to scalar.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        *sample_args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        mode: AD mode for Hessian computation.
+        symmetric: Whether to use symmetric (star) coloring.
+        output_format: Type of the output matrix (``"bcoo"`` or ``"dense"``).
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            the sparse Hessian.
     """
     argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
     coloring = _hessian_coloring(
-        f,
+        f_detect,
         *args,
-        argnums=argnums,
+        argnums=remapped_argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
 
     def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_hessian(
             f_bound,
-            call_args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -215,7 +252,7 @@ def hessian(
 
 def value_and_hessian(
     f: Callable[..., Any],
-    *args: Any,
+    *sample_args: Any,
     argnums: int | Sequence[int] = 0,
     has_aux: bool = False,
     holomorphic: bool = False,
@@ -223,27 +260,51 @@ def value_and_hessian(
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = "bcoo",
+    **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Hessian.
 
     Like [`hessian`][asdex.hessian], but also returns the primal value
     ``f(*args)`` without an extra forward pass.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        *sample_args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        mode: AD mode for Hessian computation.
+        symmetric: Whether to use symmetric (star) coloring.
+        output_format: Type of the output matrix (``"bcoo"`` or ``"dense"``).
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            ``(value, hessian)``.
     """
     argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
     coloring = _hessian_coloring(
-        f,
+        f_detect,
         *args,
-        argnums=argnums,
+        argnums=remapped_argnums,
         has_aux=has_aux,
         mode=mode,
         symmetric=symmetric,
     )
 
     def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_value_and_hessian(
             f_bound,
-            call_args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -277,10 +338,11 @@ def jacobian_from_coloring(
     _assert_output_format(output_format)
 
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_jacobian(
             f_bound,
-            args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -307,10 +369,11 @@ def hessian_from_coloring(
     _assert_output_format(output_format)
 
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_hessian(
             f_bound,
-            args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -334,10 +397,11 @@ def value_and_jacobian_from_coloring(
     _assert_output_format(output_format)
 
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_value_and_jacobian(
             f_bound,
-            args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,
@@ -361,10 +425,11 @@ def value_and_hessian_from_coloring(
     _assert_output_format(output_format)
 
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
-        f_bound = bind_kwargs(f, kwargs)
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_value_and_hessian(
             f_bound,
-            args,
+            merged_args,
             coloring,
             output_format,
             has_aux=has_aux,

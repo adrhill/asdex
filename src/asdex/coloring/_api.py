@@ -42,6 +42,7 @@ def jacobian_coloring(
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     postprocess: bool = False,
+    **kwargs: Any,
 ) -> ColoredPattern:
     """Detect Jacobian sparsity and color in one step.
 
@@ -64,11 +65,15 @@ def jacobian_coloring(
             Prune colors never used as hubs and compact the remaining ones
             (reduces the number of VJPs/JVPs during decompression).
             Defaults to ``False``, matching SparseMatrixColorings.jl.
+        **kwargs: Sample keyword arguments to pass to ``f`` during sparsity detection.
+            Non-traceable values (bools, strings, ints) are bound statically.
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
     """
-    sparsity = _detect_jacobian_sparsity(f, *args, argnums=argnums, has_aux=has_aux)
+    sparsity = _detect_jacobian_sparsity(
+        f, *args, argnums=argnums, has_aux=has_aux, **kwargs
+    )
     return jacobian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )
@@ -82,6 +87,7 @@ def hessian_coloring(
     mode: HessianMode | None = None,
     symmetric: bool = True,
     postprocess: bool = False,
+    **kwargs: Any,
 ) -> ColoredPattern:
     """Detect Hessian sparsity and color in one step.
 
@@ -104,11 +110,15 @@ def hessian_coloring(
             Prune colors never used as hubs and compact the remaining ones
             (reduces the number of HVPs during decompression).
             Defaults to ``False``, matching SparseMatrixColorings.jl.
+        **kwargs: Sample keyword arguments to pass to ``f`` during sparsity detection.
+            Non-traceable values (bools, strings, ints) are bound statically.
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
     """
-    sparsity = _detect_hessian_sparsity(f, *args, argnums=argnums, has_aux=has_aux)
+    sparsity = _detect_hessian_sparsity(
+        f, *args, argnums=argnums, has_aux=has_aux, **kwargs
+    )
     return hessian_coloring_from_sparsity(
         sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
     )

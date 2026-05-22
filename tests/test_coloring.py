@@ -1723,3 +1723,32 @@ def test_hessian_coloring_multi_arg_single_argnum(mode):
 
     assert coloring.sparsity.shape == (2, 2)
     check_coloring_symmetric(coloring.sparsity, coloring.colors)
+
+
+# kwargs support
+
+
+@pytest.mark.coloring
+def test_jacobian_coloring_with_kwargs():
+    """jacobian_coloring accepts kwargs, matching jacobian() API."""
+
+    def f(x, scale=1.0):
+        return x * scale
+
+    x = np.zeros(3)
+    coloring = jacobian_coloring(f, x, scale=2.0)
+    assert coloring.sparsity.shape == (3, 3)
+    assert coloring.sparsity.nnz == 3
+
+
+@pytest.mark.coloring
+def test_hessian_coloring_with_kwargs():
+    """hessian_coloring accepts kwargs, matching hessian() API."""
+
+    def f(x, scale=1.0):
+        return scale * jnp.sum(x**2)
+
+    x = np.zeros(2)
+    coloring = hessian_coloring(f, x, scale=2.0)
+    assert coloring.sparsity.shape == (2, 2)
+    assert coloring.sparsity.nnz == 2

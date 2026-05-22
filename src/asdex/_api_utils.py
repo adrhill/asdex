@@ -16,6 +16,8 @@ Handles everything that runs at the public API boundary before AD kicks in:
 
 from __future__ import annotations
 
+import functools
+import inspect
 import operator
 from collections.abc import Callable
 from typing import Any
@@ -205,17 +207,272 @@ def validate_output_dtypes(y: Any, mode: str, holomorphic: bool) -> None:
         check(leaf)
 
 
-# Kwargs binding
+# Kwargs handling
 
 
-def bind_kwargs(f: Callable[..., Any], kwargs: dict[str, Any]) -> Callable[..., Any]:
-    """Close over runtime ``**kwargs`` so downstream AD only sees positional args.
+def merge_args_kwargs(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    expected_nargs: int,
+) -> tuple[tuple[Any, ...], Callable[..., Any]]:
+    """Merge call-time args/kwargs, filtering to only traceable values.
 
-    Matches ``jax/_src/api.py:731`` (``f = lu.wrap_init(fun, kwargs, ...)``).
+    Mirrors ``merge_sample_inputs`` to ensure consistent handling:
+    1. Kwargs that were present at detection time are resolved to positions
+    2. Kwargs only present at call time (not detection) are bound statically
+    3. Non-traceable positional args are bound preserving their positions
+
+    The heuristic: if resolving all kwargs gives more traceable args than
+    expected, the extra kwargs weren't at detection time - bind them statically.
+
+    Returns:
+        A tuple of ``(traceable_args, f_bound)`` where ``traceable_args``
+        has exactly ``expected_nargs`` elements (only JAX-traceable values),
+        and ``f_bound`` has kwargs and non-traceables pre-bound.
     """
-    if not kwargs:
-        return f
-    return lambda *xs: f(*xs, **kwargs)
+    if kwargs:
+        # Try resolving kwargs to positions (like merge_sample_inputs)
+        try:
+            sig = inspect.signature(f)
+            bound = sig.bind(*args, **kwargs)
+        except (ValueError, TypeError) as e:
+            raise TypeError(
+                f"Cannot bind arguments: {e}. "
+                f"Got {len(args)} positional and {set(kwargs.keys())} keyword."
+            ) from None
+
+        # Reconstruct full positional args list and collect extra kwargs
+        all_args: list[Any] = []
+        extra_kwargs: dict[str, Any] = {}
+
+        for name, value in bound.arguments.items():
+            param = sig.parameters[name]
+            match param.kind:
+                case inspect.Parameter.VAR_POSITIONAL:
+                    all_args.extend(value)
+                case inspect.Parameter.VAR_KEYWORD:
+                    extra_kwargs.update(value)
+                case inspect.Parameter.KEYWORD_ONLY:
+                    extra_kwargs[name] = value
+                case _:
+                    all_args.append(value)
+
+        resolved_args = tuple(all_args)
+        resolved_traceable = sum(1 for a in resolved_args if _is_jax_traceable(a))
+
+        if resolved_traceable > expected_nargs:
+            # More traceable args than expected: some kwargs weren't at detection.
+            # Fall back to binding ALL kwargs statically
+            f = functools.partial(f, **kwargs)
+            if extra_kwargs:
+                f = functools.partial(f, **extra_kwargs)
+            # Continue with just positional args
+        else:
+            # Count matches: kwargs were at detection time, use resolved version
+            args = resolved_args
+            if extra_kwargs:
+                f = functools.partial(f, **extra_kwargs)
+
+    if not args:
+        if expected_nargs != 0:
+            raise ValueError(
+                f"Expected {expected_nargs} positional argument(s), got 0."
+            )
+        return (), f
+
+    # Separate traceable vs non-traceable positional args
+    traceable_args: list[Any] = []
+    static_positions: dict[int, Any] = {}
+
+    for i, arg in enumerate(args):
+        if _is_jax_traceable(arg):
+            traceable_args.append(arg)
+        else:
+            static_positions[i] = arg
+
+    # Validate count matches detection time
+    if len(traceable_args) != expected_nargs:
+        raise ValueError(
+            f"Expected {expected_nargs} positional argument(s), got {len(traceable_args)}. "
+            f"(Total args: {len(args)}, non-traceable: {len(static_positions)})"
+        )
+
+    if not static_positions:
+        return tuple(traceable_args), f
+
+    # Create wrapper that injects static args at original positions
+    total_nargs = len(args)
+    f_original = f
+
+    def f_bound(*xs: Any) -> Any:
+        full_args: list[Any] = [None] * total_nargs
+        for pos, val in static_positions.items():
+            full_args[pos] = val
+        xs_iter = iter(xs)
+        for i in range(total_nargs):
+            if full_args[i] is None:
+                full_args[i] = next(xs_iter)
+        return f_original(*full_args)
+
+    return tuple(traceable_args), f_bound
+
+
+def _is_jax_traceable(x: Any) -> bool:
+    """Check if a value should be traced by JAX vs bound statically.
+
+    Returns True for values that JAX can trace: arrays, pytrees of arrays,
+    and numeric scalars (Python floats, numpy floats).
+
+    Returns False for non-traceable values (bool, int, str, None) which
+    cannot be traced and would cause errors if used in Python control flow.
+    Python ints are excluded because they're commonly used in control flow
+    (array indexing, loop bounds), not as numeric computation inputs.
+    """
+    leaves = jax.tree_util.tree_leaves(x)
+    if not leaves:
+        return False
+    for leaf in leaves:
+        # Non-traceables: bools, ints (control flow), strings, None
+        if isinstance(leaf, bool | int | str | type(None)):
+            return False
+        # Accept floats (Python float, numpy float) and arrays
+        if isinstance(leaf, float):
+            continue
+        if hasattr(leaf, "shape") and hasattr(leaf, "dtype"):
+            continue
+        # numpy scalar types (np.float64, etc.) have dtype but not shape
+        if hasattr(leaf, "dtype"):
+            continue
+        return False
+    return True
+
+
+def merge_sample_inputs(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    argnums: int | tuple[int, ...],
+) -> tuple[tuple[Any, ...], Callable[..., Any], int | tuple[int, ...]]:
+    """Merge sample inputs, resolving kwargs to positions and binding non-traceables.
+
+    Mirrors JAX's approach with two additions:
+    1. Uses ``inspect.signature().bind()`` to resolve kwargs to their
+       signature positions (so ``f(a=x, b=y)`` becomes ``f(x, y)``)
+    2. Non-traceable positional args (bools, ints, strings) are bound
+       statically, preserving their positions (like ``argnums_partial``)
+
+    Args:
+        f: The function to be traced.
+        args: Positional arguments to merge.
+        kwargs: Keyword arguments to resolve to positions.
+        argnums: Already-validated argnums (via ``_ensure_index``).
+
+    Returns:
+        A tuple of ``(traceable_args, f_bound, remapped_argnums)`` where:
+        - ``traceable_args`` contains only JAX-traceable values in signature order
+        - ``f_bound`` has non-traceable values pre-bound at their positions
+        - ``remapped_argnums`` maps original argnums to new positions
+    """
+    if not kwargs and not args:
+        return (), f, argnums
+
+    # Step 1: Use signature binding to resolve kwargs to positional order
+    if kwargs:
+        try:
+            sig = inspect.signature(f)
+            bound = sig.bind(*args, **kwargs)
+        except (ValueError, TypeError) as e:
+            raise TypeError(
+                f"Cannot bind sample arguments: {e}. "
+                f"Got {len(args)} positional and {set(kwargs.keys())} keyword."
+            ) from None
+
+        # Reconstruct full positional args list and collect extra kwargs
+        all_args: list[Any] = []
+        extra_kwargs: dict[str, Any] = {}
+
+        for name, value in bound.arguments.items():
+            param = sig.parameters[name]
+            match param.kind:
+                case inspect.Parameter.VAR_POSITIONAL:
+                    # *args: expand into positional
+                    all_args.extend(value)
+                case inspect.Parameter.VAR_KEYWORD:
+                    # **kwargs: bind statically
+                    extra_kwargs.update(value)
+                case inspect.Parameter.KEYWORD_ONLY:
+                    # Keyword-only: bind statically
+                    extra_kwargs[name] = value
+                case _:
+                    # POSITIONAL_ONLY or POSITIONAL_OR_KEYWORD
+                    all_args.append(value)
+
+        args = tuple(all_args)
+        if extra_kwargs:
+            f = functools.partial(f, **extra_kwargs)
+
+    if not args:
+        return (), f, argnums
+
+    # Step 2: Separate traceable vs non-traceable positional args
+    traceable_args: list[Any] = []
+    static_positions: dict[int, Any] = {}
+    old_to_new: dict[int, int] = {}
+
+    for i, arg in enumerate(args):
+        if _is_jax_traceable(arg):
+            old_to_new[i] = len(traceable_args)
+            traceable_args.append(arg)
+        else:
+            static_positions[i] = arg
+
+    # Step 3: Remap argnums from original indices to new indices
+    # First ensure bounds (this also resolves negative indices)
+    num_args = len(args)
+    argnums_tup = (argnums,) if isinstance(argnums, int) else argnums
+    resolved_tup = _ensure_inbounds(num_args, argnums_tup)
+
+    remapped_argnums: int | tuple[int, ...]
+    if isinstance(argnums, int):
+        resolved = resolved_tup[0]
+        if resolved not in old_to_new:
+            raise ValueError(
+                f"argnums={argnums} refers to a non-traceable argument "
+                f"(bool, int, str, or None). Cannot differentiate with respect "
+                f"to non-traceable arguments."
+            )
+        remapped_argnums = old_to_new[resolved]
+    else:
+        remapped = []
+        for orig_idx, resolved in zip(argnums, resolved_tup, strict=True):
+            if resolved not in old_to_new:
+                raise ValueError(
+                    f"argnums index {orig_idx} refers to a non-traceable argument "
+                    f"(bool, int, str, or None). Cannot differentiate with respect "
+                    f"to non-traceable arguments."
+                )
+            remapped.append(old_to_new[resolved])
+        remapped_argnums = tuple(remapped)
+
+    if not static_positions:
+        return tuple(traceable_args), f, remapped_argnums
+
+    # Step 4: Create wrapper that injects static args at original positions
+    total_nargs = len(args)
+    f_original = f
+
+    def f_bound(*xs: Any) -> Any:
+        full_args: list[Any] = [None] * total_nargs
+        for pos, val in static_positions.items():
+            full_args[pos] = val
+        xs_iter = iter(xs)
+        for i in range(total_nargs):
+            if full_args[i] is None:
+                full_args[i] = next(xs_iter)
+        return f_original(*full_args)
+
+    return tuple(traceable_args), f_bound, remapped_argnums
 
 
 # Output PyTree utilities
