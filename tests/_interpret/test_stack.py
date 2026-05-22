@@ -103,8 +103,7 @@ def test_stack_2d_axis0():
         return jnp.stack([a, b], axis=0)  # (2, 2, 3)
 
     result = jacobian_sparsity(f, np.zeros(12)).todense().astype(int)
-    # Output shape (2, 2, 3): [[[a], [a]], [[b], [b]]]
-    # First 6 outputs from a, next 6 from b
+    # Output shape (2, 2, 3): first 6 outputs from a, next 6 from b
     expected = np.eye(12, dtype=int)
     np.testing.assert_array_equal(result, expected)
 

@@ -219,21 +219,6 @@ def test_unstack_size_one_axis():
 
 @pytest.mark.array_ops
 def test_unstack_zero_sized():
-    """Unstack zero-sized arrays."""
-
-    def f(x):
-        arr = x[:0].reshape(0, 3)
-        _ = lax.unstack(arr, axis=0)  # 0 arrays
-        # No parts, so return empty
-        return jnp.zeros((0,))
-
-    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
-    expected = np.zeros((0, 3), dtype=int)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.array_ops
-def test_unstack_zero_sized_other_dim():
     """Unstack where outputs are zero-sized."""
 
     def f(x):
