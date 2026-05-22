@@ -60,9 +60,11 @@ from ._slice import prop_slice
 from ._sort import prop_sort
 from ._split import prop_split
 from ._squeeze import prop_squeeze
+from ._stack import prop_stack
 from ._tile import prop_tile
 from ._top_k import prop_top_k
 from ._transpose import prop_transpose
+from ._unstack import prop_unstack
 from ._while import prop_while
 
 
@@ -316,6 +318,10 @@ def prop_dispatch(
             prop_dot_general(eqn, state_indices, state_consts)
         case "split":
             prop_split(eqn, state_indices)
+        case "stack":
+            prop_stack(eqn, state_indices, state_consts)
+        case "unstack":
+            prop_unstack(eqn, state_indices, state_consts)
         case "tile":
             prop_tile(eqn, state_indices, state_consts)
         case "sort":
