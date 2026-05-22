@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779460270132,
+  "lastUpdate": 1779465900380,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -15633,6 +15633,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002963096475932945",
             "extra": "mean: 20.57251975174666 usec\nrounds: 14986"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "66e3a88b9417c24c35664b3c094461e9d1127ca7",
+          "message": "feat(detection): add precise handlers for `stack` and `unstack` primitives (#137)\n\n* feat(detection): add precise handler for `stack` primitive\n\nJAX 0.10 introduced a new `stack` primitive (previously `jnp.stack`\nlowered to `broadcast_in_dim` + `concatenate` + `reshape`).\nThis adds a precise handler that tracks per-element dependencies.\n\nCloses #136\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* feat(detection): add precise handler for `unstack` primitive\n\nSplits an array along an axis into multiple sub-arrays.\nEach output element maps to exactly one input element (permutation Jacobian).\nPropagates const values for downstream gather/scatter precision.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* test(stack): add edge case tests for stack/unstack handlers\n\nCovers cases not in the main test files:\n- vmap interaction (stack/unstack inside batched computation)\n- 5D arrays (extends dimensionality coverage)\n- Deeply nested stack/unstack (triple nesting)\n- lax.stack direct (vs jnp.stack)\n- Aliased inputs (same array stacked twice)\n- Prime number dimensions (7x11, no common factors)\n- Conservative fallbacks (cond branches, mixed const/non-const)\n- Const propagation chains (stack->unstack->gather)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* fix(tests): address Copilot review feedback\n\n- Remove misleading comment in test_stack_2d_axis0\n- Remove test_unstack_zero_sized (DCE prevents handler execution when\n  unstack produces 0 outputs; test_unstack_zero_sized covers the\n  meaningful zero-sized case where outputs exist but are empty)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-05-22T18:04:16+02:00",
+          "tree_id": "4a2b392e01aedaad3eb2ca95ada6a679575a2c3b",
+          "url": "https://github.com/adrhill/asdex/commit/66e3a88b9417c24c35664b3c094461e9d1127ca7"
+        },
+        "date": 1779465898988,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1346.8817666780556,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007868915971951602",
+            "extra": "mean: 742.4556666665675 usec\nrounds: 12"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 35242.37538286514,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022747520085425087",
+            "extra": "mean: 28.37493185791899 usec\nrounds: 8585"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 116001.63921463894,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010035635607528115",
+            "extra": "mean: 8.62056783654316 usec\nrounds: 32055"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 82338.37640243833,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015075221027571654",
+            "extra": "mean: 12.14500508380666 usec\nrounds: 14556"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 114515.60977375256,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000011739998951410304",
+            "extra": "mean: 8.732433962284189 usec\nrounds: 33655"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 25.9979680768096,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021982424528578234",
+            "extra": "mean: 38.46454449999914 msec\nrounds: 24"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3667.036406606273,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001697029794271681",
+            "extra": "mean: 272.69977418235356 usec\nrounds: 2874"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2503.419254795688,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003130924910144149",
+            "extra": "mean: 399.45366645412855 usec\nrounds: 1568"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2517.2929136093076,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000037983902374464795",
+            "extra": "mean: 397.25214121633337 usec\nrounds: 1480"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5693.697401268323,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027352250323676662",
+            "extra": "mean: 175.63279702522317 usec\nrounds: 4370"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 155.7944020351071,
+            "unit": "iter/sec",
+            "range": "stddev: 0.012547599741708479",
+            "extra": "mean: 6.418715864865655 msec\nrounds: 74"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 35415.18386796476,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000018646537149043889",
+            "extra": "mean: 28.236476301470294 usec\nrounds: 26605"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 79988.12783258127,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022007267163597403",
+            "extra": "mean: 12.501855301489801 usec\nrounds: 17844"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 68369.46241834677,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029743637749722587",
+            "extra": "mean: 14.626413088947332 usec\nrounds: 18168"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 79699.16197002321,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023817459853777304",
+            "extra": "mean: 12.547183374100275 usec\nrounds: 20859"
           }
         ]
       }
