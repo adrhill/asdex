@@ -1,5 +1,16 @@
 # asdex
 
+## Version `v0.3.1`
+* ![Feature][badge-feature] Add precise handlers for `stack` and `unstack` primitives ([#137])
+* ![Feature][badge-feature] Add handlers for scalar special functions (`erfc`, `erf_inv`, `digamma`, `lgamma`, `bessel_i0e`, `bessel_i1e`, `polygamma`) ([#127])
+* ![Bugfix][badge-bugfix] Support keyword arguments at detection and call time ([#134])
+* ![Bugfix][badge-bugfix] Reject `allow_int=True` in forward mode ([#133])
+* ![Bugfix][badge-bugfix] Handle data-dependent indices in `gather` ([#132])
+* ![Bugfix][badge-bugfix] Handle empty `axis=()` as identity in `reduce` ([#130])
+* ![Bugfix][badge-bugfix] Handle `clamp` primitive with non-zero derivative ([#129])
+* ![Maintenance][badge-maintenance] Add parametrized tests for elementwise handlers ([#128])
+* ![Documentation][badge-docs] Add Zenodo citation request and funding acknowledgment ([#135])
+
 ## Version `v0.3.0`
 * ![BREAKING][badge-breaking] API now requires sample inputs instead of `input_shape` parameter ([#105])
 * ![Feature][badge-feature] Support pytree / multi-positional-input functions via `argnums` ([#105])
@@ -75,6 +86,15 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#137]: https://github.com/adrhill/asdex/pull/137
+[#135]: https://github.com/adrhill/asdex/pull/135
+[#134]: https://github.com/adrhill/asdex/pull/134
+[#133]: https://github.com/adrhill/asdex/pull/133
+[#132]: https://github.com/adrhill/asdex/pull/132
+[#130]: https://github.com/adrhill/asdex/pull/130
+[#129]: https://github.com/adrhill/asdex/pull/129
+[#128]: https://github.com/adrhill/asdex/pull/128
+[#127]: https://github.com/adrhill/asdex/pull/127
 [#105]: https://github.com/adrhill/asdex/pull/105
 [#104]: https://github.com/adrhill/asdex/pull/104
 [#103]: https://github.com/adrhill/asdex/pull/103
