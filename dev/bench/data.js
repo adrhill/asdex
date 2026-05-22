@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779286867012,
+  "lastUpdate": 1779460270132,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -15504,6 +15504,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000008346489872092716",
             "extra": "mean: 21.65427032395968 usec\nrounds: 14601"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2547c009bc6e7a62a4d27e5066079d0d8bdf098",
+          "message": "fix(api): support keyword arguments at detection and call time (#134)\n\n* fix(api): support keyword arguments at call time (#123)\n\nUse `inspect.signature(fn).bind(...)` to merge kwargs that correspond\nto expected positional args, mirroring JAX's internal approach.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(api): add comprehensive kwargs tests with pytrees\n\nTest both positional args passed as kwargs and keyword-only args\nwith defaults, covering Jacobian, Hessian, and value_and_* variants.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(api): use assert_trees_allclose fixture, add pytree output tests\n\n- Parametrize test_jacobian_positional_args_as_kwargs across modes/formats\n- Add tests for multi-pytree-output functions with kwargs\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* fix(api): support keyword arguments at detection time (#123)\n\nExtend kwargs support to the detection phase for `hessian` and\n`value_and_hessian`, matching the existing `jacobian` API.\nUses `_merge_sample_inputs` to merge positional and keyword sample\ninputs via `inspect.signature(f).bind()`.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(api): use kwargs at both detection and call time\n\nUpdate all kwargs tests to pass kwargs at detection time, not just\ncall time. This ensures sparsity detection sees the same code paths\nas the actual computation, avoiding bugs where branching on None\ndefaults would detect a different sparsity pattern.\n\nAlso fix `_merge_sample_inputs` to properly handle keyword-only args\nby binding them to the function instead of trying to pass them\npositionally.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(kwargs): add argnums-signature-order tests\n\nVerify that argnums indexes into signature order regardless of\ncall-site kwarg order. Tests pass kwargs in reverse order (c=c, a=a, b=b)\nbut argnums=1 still differentiates w.r.t. the second signature parameter.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(kwargs): add VAR_KEYWORD and name collision tests\n\nAdd tests based on Copilot's code review of PR #134:\n\n- test_jacobian_function_with_var_keyword: Tests **kwargs at call time (xfail)\n- test_jacobian_function_with_var_keyword_at_detection: Tests **kwargs at detection time (xfail)\n- test_jacobian_function_with_var_positional: Tests *args (passes)\n- test_jacobian_function_param_named_mode: Tests API name collision (passes)\n- test_jacobian_function_param_named_argnums: Tests API name collision (passes)\n\nThe VAR_KEYWORD tests are marked xfail+bug to document the known issue:\nkwargs dicts are not properly forwarded for functions with **kwargs signatures.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* fix(kwargs): handle VAR_KEYWORD (**kwargs) in function signatures\n\nFix kwargs handling for functions with **kwargs signatures by properly\nunpacking the VAR_KEYWORD dict instead of passing it positionally.\n\nThe fix mirrors JAX's approach in `jax/_src/linear_util.py:wrap_init`\nwhich uses `functools.partial(f, **kwargs)` to bind kwargs.\n\nChanges:\n- `_api_utils.py:merge_args_kwargs`: Handle VAR_KEYWORD by merging into\n  extra_kwargs, and VAR_POSITIONAL by expanding into positional args\n- `decompression.py:_merge_sample_inputs`: Same fix for detection time\n\nFixes bugs identified in Copilot's PR review.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* fix(kwargs): handle non-traceable kwargs (bools, strings) at detection\n\nNon-JAX values like bools and strings were incorrectly being passed to\nmake_jaxpr, causing TracerBoolConversionError when used in Python\nif-statements.\n\nThe fix distinguishes traceable values (arrays, pytrees) from non-traceable\nvalues (bools, strings, ints):\n- Traceable values: passed positionally for tracing\n- Non-traceable values: bound to the function statically\n\nThis matches JAX's behavior where `jacrev(f)(x, flag=True)` works even\nwhen `flag` controls a Python `if` branch.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* feat(detection): add kwargs support to jacobian_sparsity and hessian_sparsity\n\nMove `merge_sample_inputs` to `_api_utils.py` and add kwargs support to\nthe detection functions. Non-traceable kwargs (bools, strings) are bound\nstatically, allowing Python if-branches controlled by kwargs.\n\nTests verify that sparsity patterns differ based on bool kwarg values,\ndemonstrating that detection correctly traces different code paths.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(kwargs): add adversarial tests documenting edge case bugs\n\nAdd tests targeting edge cases in kwargs handling:\n- Different bool kwarg at call vs detection uses wrong sparsity pattern\n- Nested pytree kwargs with non-traceable leaves cause TracerBoolConversionError\n- jacobian_coloring/hessian_coloring don't accept kwargs (API inconsistency)\n\nThese are marked with @pytest.mark.bug to document known limitations.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* fix(kwargs): handle nested pytrees and add coloring API kwargs support\n\nTwo fixes for kwargs handling:\n\n1. _is_jax_traceable() now returns False if ANY leaf is non-traceable\n   (bool, int, str, None). This prevents TracerBoolConversionError for\n   nested pytrees with mixed array/non-traceable leaves by binding the\n   entire mixed pytree statically.\n\n2. jacobian_coloring() and hessian_coloring() now accept **kwargs,\n   matching the high-level jacobian()/hessian() API consistency.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(kwargs): add tests for Copilot review edge cases\n\nAdd 16 tests verifying Copilot's concerns from PR #134 review:\n\nValidated bugs (5 tests with pytest.raises):\n- VAR_POSITIONAL extra args at call time raises ValueError\n- Non-traceable elements (bools) in *args incorrectly traced\n- Non-traceable positional args before traceable ones traced\n\nInvalidated concerns (11 passing tests):\n- Python float scalars handled correctly\n- NumPy scalars handled correctly\n- 0-D arrays traced correctly\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* fix(kwargs): handle non-traceable positional args and kwargs at call time\n\n- Filter non-traceable positional args (bools, ints, strings, None) and bind\n  them statically at their original positions (mirrors JAX's argnums_partial)\n- Use heuristic at call time: if resolving kwargs gives more traceable args\n  than expected, bind extra kwargs statically (they weren't at detection)\n- Resolve negative argnums indices before remapping check\n- Update merge_sample_inputs to return remapped argnums after filtering\n- Accept Python floats as traceable values\n\nFixes bugs identified by Copilot review on PR #134.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-05-22T16:30:29+02:00",
+          "tree_id": "f749f3cec339df068e3a1710b14e827c298d746a",
+          "url": "https://github.com/adrhill/asdex/commit/d2547c009bc6e7a62a4d27e5066079d0d8bdf098"
+        },
+        "date": 1779460268787,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1066.7718266673535,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006730285309387923",
+            "extra": "mean: 937.407583329275 usec\nrounds: 12"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27185.844815162087,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000019912210319428923",
+            "extra": "mean: 36.78384860941603 usec\nrounds: 8019"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 84281.39392487262,
+            "unit": "iter/sec",
+            "range": "stddev: 9.525159268285654e-7",
+            "extra": "mean: 11.86501496274952 usec\nrounds: 24327"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 52853.97186471847,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017912231599367093",
+            "extra": "mean: 18.920053966039372 usec\nrounds: 12267"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 83964.40430674932,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000011753628150179962",
+            "extra": "mean: 11.909808784525813 usec\nrounds: 25636"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 21.71453202408335,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021386618808977152",
+            "extra": "mean: 46.05210920000076 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3491.5498116950625,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006426013573832936",
+            "extra": "mean: 286.40576647380675 usec\nrounds: 2595"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1745.552779279073,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003172887708725315",
+            "extra": "mean: 572.8844248485043 usec\nrounds: 1151"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1751.0106710932303,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003704445014181",
+            "extra": "mean: 571.0987468600963 usec\nrounds: 1035"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4270.777925904439,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000018994095700831044",
+            "extra": "mean: 234.1493791879207 usec\nrounds: 3104"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 122.12555863405655,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011245215652386795",
+            "extra": "mean: 8.188294171873167 msec\nrounds: 64"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27467.78085769537,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000020858229667062032",
+            "extra": "mean: 36.40629016158181 usec\nrounds: 15033"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 48813.073114901315,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004136248432579234",
+            "extra": "mean: 20.486315164916896 usec\nrounds: 15503"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 39895.59157503626,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000037344110110637473",
+            "extra": "mean: 25.065426041350563 usec\nrounds: 13325"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 48608.53274500307,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002963096475932945",
+            "extra": "mean: 20.57251975174666 usec\nrounds: 14986"
           }
         ]
       }
