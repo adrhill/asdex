@@ -49,6 +49,12 @@ class _BCOOLeaf:
         self.array = array
 
 
+def _assert_chunk_size(chunk_size: int | None) -> None:
+    """Validate chunk_size parameter."""
+    if chunk_size is not None and chunk_size <= 0:
+        raise ValueError(f"chunk_size must be positive, got {chunk_size}")
+
+
 def _chunked_vmap(
     fn: Callable[..., Any],
     seeds: jax.Array,
@@ -68,9 +74,6 @@ def _chunked_vmap(
     n = seeds.shape[0]
     if chunk_size is None or chunk_size >= n:
         return jax.vmap(fn)(seeds)
-
-    if chunk_size <= 0:
-        raise ValueError(f"chunk_size must be positive, got {chunk_size}")
 
     n_chunks = (n + chunk_size - 1) // chunk_size
     padded_n = n_chunks * chunk_size
@@ -146,6 +149,7 @@ def jacobian(
             (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
             when ``"dense"``).
     """
+    _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
     args, f_detect, remapped_argnums = merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
@@ -200,6 +204,7 @@ def value_and_jacobian(
             ``(value, jac)`` — or ``((value, aux), jac)`` when ``has_aux=True``,
             matching ``jax.value_and_grad`` ordering.
     """
+    _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
     args, f_detect, remapped_argnums = merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
@@ -271,6 +276,7 @@ def hessian(
         A function that takes the same positional args as ``f`` and returns
             the sparse Hessian.
     """
+    _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
     args, f_detect, remapped_argnums = merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
@@ -342,6 +348,7 @@ def value_and_hessian(
         A function that takes the same positional args as ``f`` and returns
             ``(value, hessian)``.
     """
+    _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
     args, f_detect, remapped_argnums = merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
@@ -394,6 +401,7 @@ def jacobian_from_coloring(
     to ``f`` at call time (matching ``jax.jacfwd`` / ``jax.jacrev``).
     """
     _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
 
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -427,6 +435,7 @@ def hessian_from_coloring(
     Uses symmetric (star) coloring and Hessian-vector products by default.
     """
     _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
 
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -457,6 +466,7 @@ def value_and_jacobian_from_coloring(
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Jacobian from a pre-computed coloring."""
     _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
 
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -487,6 +497,7 @@ def value_and_hessian_from_coloring(
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Hessian from a pre-computed coloring."""
     _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
 
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
