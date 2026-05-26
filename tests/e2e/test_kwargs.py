@@ -168,7 +168,9 @@ def test_hessian_has_aux_multi_input():
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_has_aux_pytree_output(mode, output_format, assert_trees_allclose):
+def test_jacobian_has_aux_pytree_output(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """has_aux with PyTree main output matches jax.jacobian structure."""
 
     def f(x):
@@ -177,9 +179,14 @@ def test_jacobian_has_aux_pytree_output(mode, output_format, assert_trees_allclo
         return main, aux
 
     x = jnp.array([1.0, 2.0, 3.0])
-    J, aux = asdex.jacobian(f, x, has_aux=True, mode=mode, output_format=output_format)(
-        x
-    )
+    J, aux = asdex.jacobian(
+        f,
+        x,
+        has_aux=True,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x)
     J_jax = jax.jacobian(lambda x: f(x)[0])(x)
     assert_trees_allclose(J, J_jax)
     assert aux["metadata"] == "info"
@@ -189,7 +196,9 @@ def test_jacobian_has_aux_pytree_output(mode, output_format, assert_trees_allclo
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_has_aux_pytree_input(mode, output_format, assert_trees_allclose):
+def test_jacobian_has_aux_pytree_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """has_aux with PyTree input matches jax.jacobian."""
 
     def f(params):
@@ -209,7 +218,9 @@ def test_jacobian_has_aux_pytree_input(mode, output_format, assert_trees_allclos
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_has_aux_nested_dict(mode, output_format, assert_trees_allclose):
+def test_hessian_has_aux_nested_dict(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian has_aux with nested dict input matches jax.hessian."""
 
     def f(params):
@@ -229,7 +240,9 @@ def test_hessian_has_aux_nested_dict(mode, output_format, assert_trees_allclose)
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_has_aux_pytree_aux(mode, output_format, assert_trees_allclose):
+def test_jacobian_has_aux_pytree_aux(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """has_aux where aux itself is a PyTree."""
 
     def f(x):
@@ -238,9 +251,14 @@ def test_jacobian_has_aux_pytree_aux(mode, output_format, assert_trees_allclose)
         return main, aux
 
     x = jnp.array([1.0, 2.0, 3.0])
-    J, aux = asdex.jacobian(f, x, has_aux=True, mode=mode, output_format=output_format)(
-        x
-    )
+    J, aux = asdex.jacobian(
+        f,
+        x,
+        has_aux=True,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x)
     J_jax = jax.jacobian(lambda x: f(x)[0])(x)
     assert_trees_allclose(J, J_jax)
     np.testing.assert_allclose(aux["stats"]["mean"], jnp.mean(x))
@@ -249,7 +267,9 @@ def test_jacobian_has_aux_pytree_aux(mode, output_format, assert_trees_allclose)
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_has_aux_pytree_aux(mode, output_format, assert_trees_allclose):
+def test_hessian_has_aux_pytree_aux(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian has_aux where aux itself is a PyTree."""
 
     def f(x):
@@ -258,9 +278,14 @@ def test_hessian_has_aux_pytree_aux(mode, output_format, assert_trees_allclose):
         return main, aux
 
     x = jnp.array([1.0, 2.0, 3.0])
-    H, aux = asdex.hessian(f, x, has_aux=True, mode=mode, output_format=output_format)(
-        x
-    )
+    H, aux = asdex.hessian(
+        f,
+        x,
+        has_aux=True,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x)
     H_jax = jax.hessian(lambda x: f(x)[0])(x)
     assert_trees_allclose(H, H_jax, atol=1e-6)
     np.testing.assert_allclose(aux["norm"], jnp.linalg.norm(x))
@@ -269,7 +294,9 @@ def test_hessian_has_aux_pytree_aux(mode, output_format, assert_trees_allclose):
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_jacobian_has_aux_pytree(mode, output_format, assert_trees_allclose):
+def test_value_and_jacobian_has_aux_pytree(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_jacobian with has_aux and PyTree input matches JAX."""
 
     def f(params):
@@ -290,7 +317,9 @@ def test_value_and_jacobian_has_aux_pytree(mode, output_format, assert_trees_all
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_hessian_has_aux_pytree(mode, output_format, assert_trees_allclose):
+def test_value_and_hessian_has_aux_pytree(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_hessian with has_aux and PyTree input matches JAX."""
 
     def f(params):
@@ -338,21 +367,27 @@ def test_holomorphic_false_rejects_complex_input():
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_holomorphic_pytree_input(output_format, assert_trees_allclose):
+def test_jacobian_holomorphic_pytree_input(
+    output_format, chunk_size, assert_trees_allclose
+):
     """holomorphic=True with PyTree complex input matches jax.jacobian."""
 
     def f(params):
         return params["z"] ** 2
 
     params = {"z": jnp.array([1.0 + 2.0j, 3.0 + 0.5j])}
-    J = asdex.jacobian(f, params, holomorphic=True, output_format=output_format)(params)
+    J = asdex.jacobian(
+        f, params, holomorphic=True, output_format=output_format, chunk_size=chunk_size
+    )(params)
     J_jax = jax.jacobian(f, holomorphic=True)(params)
     assert_trees_allclose(J, J_jax)
 
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_holomorphic_multi_leaf_pytree(output_format, assert_trees_allclose):
+def test_jacobian_holomorphic_multi_leaf_pytree(
+    output_format, chunk_size, assert_trees_allclose
+):
     """holomorphic=True with multi-leaf complex PyTree matches jax.jacobian."""
 
     def f(params):
@@ -362,7 +397,9 @@ def test_jacobian_holomorphic_multi_leaf_pytree(output_format, assert_trees_allc
         "z1": jnp.array([1.0 + 1.0j, 2.0 + 0.5j]),
         "z2": jnp.array([0.5 + 0.5j, 1.0 + 1.0j]),
     }
-    J = asdex.jacobian(f, params, holomorphic=True, output_format=output_format)(params)
+    J = asdex.jacobian(
+        f, params, holomorphic=True, output_format=output_format, chunk_size=chunk_size
+    )(params)
     J_jax = jax.jacobian(f, holomorphic=True)(params)
     assert_trees_allclose(J, J_jax)
 
@@ -425,7 +462,9 @@ def test_allow_int_fwd_mode_raises():
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_allow_int_pytree_input(output_format, assert_trees_allclose):
+def test_jacobian_allow_int_pytree_input(
+    output_format, chunk_size, assert_trees_allclose
+):
     """allow_int=True with PyTree containing integer leaf matches jax.jacobian."""
 
     def f(params):
@@ -544,7 +583,9 @@ def test_jacobian_with_kwargs():
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_positional_args_as_kwargs(mode, output_format, assert_trees_allclose):
+def test_jacobian_positional_args_as_kwargs(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Positional args can be passed as kwargs at both detection and call time.
 
     Mirrors ``jax/_src/api.py`` which uses ``inspect.signature(fn).bind(...)``
@@ -559,9 +600,15 @@ def test_jacobian_positional_args_as_kwargs(mode, output_format, assert_trees_al
     y = jnp.array([3.0, 4.0])
 
     # Kwargs at both detection time and call time
-    J = asdex.jacobian(f, x, y=y, argnums=0, mode=mode, output_format=output_format)(
-        x, y=y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y=y,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y=y)
     J_jax = jax.jacobian(f)(x, y=y)
     assert_trees_allclose(J, J_jax)
 
@@ -570,7 +617,7 @@ def test_jacobian_positional_args_as_kwargs(mode, output_format, assert_trees_al
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_argnums_refers_to_signature_order(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Argnums indexes into signature order, not call-site kwarg order.
 
@@ -613,16 +660,18 @@ def test_hessian_with_kwargs():
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_kwargs_with_pytree_input(mode, output_format, assert_trees_allclose):
+def test_jacobian_kwargs_with_pytree_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Kwargs work correctly with PyTree inputs."""
 
     def f(params, scale=1.0, offset=0.0):
         return params["w"] * scale + offset
 
     params = {"w": jnp.array([1.0, 2.0, 3.0])}
-    J = asdex.jacobian(f, params, mode=mode, output_format=output_format)(
-        params, scale=2.0, offset=1.0
-    )
+    J = asdex.jacobian(
+        f, params, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(params, scale=2.0, offset=1.0)
     J_jax = jax.jacobian(lambda p: f(p, scale=2.0, offset=1.0))(params)
     assert_trees_allclose(J, J_jax)
 
@@ -631,7 +680,7 @@ def test_jacobian_kwargs_with_pytree_input(mode, output_format, assert_trees_all
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_multiple_pytree_args_as_kwargs(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Multiple pytree positional args can be passed as kwargs."""
 
@@ -652,7 +701,7 @@ def test_jacobian_multiple_pytree_args_as_kwargs(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_mixed_positional_and_kwarg_pytrees(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Mix of positional pytree args and pytree kwargs."""
 
@@ -681,7 +730,7 @@ def test_jacobian_mixed_positional_and_kwarg_pytrees(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_pytree_args_with_pytree_default_kwargs(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Pytree positional args combined with pytree default kwargs."""
 
@@ -710,7 +759,9 @@ def test_jacobian_pytree_args_with_pytree_default_kwargs(
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_multi_argnums_with_kwargs(mode, output_format, assert_trees_allclose):
+def test_jacobian_multi_argnums_with_kwargs(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Multiple argnums with some args passed as kwargs."""
 
     def f(x, y, z):
@@ -730,7 +781,9 @@ def test_jacobian_multi_argnums_with_kwargs(mode, output_format, assert_trees_al
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_keyword_only_pytree_args(mode, output_format, assert_trees_allclose):
+def test_jacobian_keyword_only_pytree_args(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Keyword-only pytree args with defaults in function signature."""
 
     def f(params, *, data=None, config=None):
@@ -761,7 +814,7 @@ def test_jacobian_keyword_only_pytree_args(mode, output_format, assert_trees_all
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_mixed_positional_and_keyword_only_pytrees(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Mix of positional pytree args and keyword-only pytree args with defaults."""
 
@@ -795,7 +848,7 @@ def test_jacobian_mixed_positional_and_keyword_only_pytrees(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_keyword_only_with_defaults(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Keyword-only args with default values."""
 
@@ -826,7 +879,9 @@ def test_jacobian_keyword_only_with_defaults(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_pytree_args_as_kwargs(mode, output_format, assert_trees_allclose):
+def test_hessian_pytree_args_as_kwargs(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian with pytree positional args passed as kwargs."""
 
     def f(params, data):
@@ -846,7 +901,7 @@ def test_hessian_pytree_args_as_kwargs(mode, output_format, assert_trees_allclos
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_mixed_args_kwargs_with_defaults(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Hessian with mixed positional/kwarg pytrees and default kwargs."""
 
@@ -873,7 +928,7 @@ def test_hessian_mixed_args_kwargs_with_defaults(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_argnums_refers_to_signature_order(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Argnums indexes into signature order for Hessians, not call-site kwarg order."""
 
@@ -899,7 +954,9 @@ def test_hessian_argnums_refers_to_signature_order(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_keyword_only_pytree_args(mode, output_format, assert_trees_allclose):
+def test_hessian_keyword_only_pytree_args(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian with keyword-only pytree args with defaults in function signature."""
 
     def f(params, *, data=None):
@@ -921,7 +978,7 @@ def test_hessian_keyword_only_pytree_args(mode, output_format, assert_trees_allc
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_keyword_only_with_pytree_defaults(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Hessian with keyword-only args with pytree default values."""
 
@@ -942,7 +999,9 @@ def test_hessian_keyword_only_with_pytree_defaults(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_jacobian_pytree_kwargs(output_format, assert_trees_allclose):
+def test_value_and_jacobian_pytree_kwargs(
+    output_format, chunk_size, assert_trees_allclose
+):
     """value_and_jacobian with pytree args passed as kwargs."""
 
     def f(params, data):
@@ -964,7 +1023,9 @@ def test_value_and_jacobian_pytree_kwargs(output_format, assert_trees_allclose):
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_jacobian_keyword_only_pytrees(output_format, assert_trees_allclose):
+def test_value_and_jacobian_keyword_only_pytrees(
+    output_format, chunk_size, assert_trees_allclose
+):
     """value_and_jacobian with keyword-only pytree args with defaults."""
 
     def f(params, *, data=None):
@@ -988,7 +1049,9 @@ def test_value_and_jacobian_keyword_only_pytrees(output_format, assert_trees_all
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_hessian_pytree_kwargs(output_format, assert_trees_allclose):
+def test_value_and_hessian_pytree_kwargs(
+    output_format, chunk_size, assert_trees_allclose
+):
     """value_and_hessian with pytree args passed as kwargs."""
 
     def f(params, data):
@@ -1010,7 +1073,9 @@ def test_value_and_hessian_pytree_kwargs(output_format, assert_trees_allclose):
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_hessian_keyword_only_pytrees(output_format, assert_trees_allclose):
+def test_value_and_hessian_keyword_only_pytrees(
+    output_format, chunk_size, assert_trees_allclose
+):
     """value_and_hessian with keyword-only pytree args with defaults."""
 
     def f(params, *, data=None):
@@ -1039,7 +1104,7 @@ def test_value_and_hessian_keyword_only_pytrees(output_format, assert_trees_allc
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_pytree_output_with_positional_as_kwargs(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Jacobian of pytree-output function with positional args passed as kwargs."""
 
@@ -1063,7 +1128,7 @@ def test_jacobian_pytree_output_with_positional_as_kwargs(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_pytree_output_with_keyword_only_args(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Jacobian of pytree-output function with keyword-only args."""
 
@@ -1089,7 +1154,7 @@ def test_jacobian_pytree_output_with_keyword_only_args(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_nested_pytree_output_with_kwargs(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Jacobian of nested pytree-output function with mixed kwargs."""
 
@@ -1124,7 +1189,7 @@ def test_jacobian_nested_pytree_output_with_kwargs(
 @pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_jacobian_pytree_output_with_kwargs(
-    output_format, assert_trees_allclose
+    output_format, chunk_size, assert_trees_allclose
 ):
     """value_and_jacobian with pytree output and kwargs."""
 
@@ -1199,7 +1264,9 @@ def test_jacobian_no_sample_inputs_raises():
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_function_with_var_keyword(mode, output_format, assert_trees_allclose):
+def test_jacobian_function_with_var_keyword(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Functions with **kwargs in signature should work correctly.
 
     Regression test for Copilot review: VAR_KEYWORD handling in merge_args_kwargs.
@@ -1211,9 +1278,9 @@ def test_jacobian_function_with_var_keyword(mode, output_format, assert_trees_al
         return x * scale + offset
 
     x = jnp.array([1.0, 2.0, 3.0])
-    J = asdex.jacobian(f, x, mode=mode, output_format=output_format)(
-        x, scale=2.0, offset=1.0
-    )
+    J = asdex.jacobian(
+        f, x, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x, scale=2.0, offset=1.0)
     J_jax = jax.jacobian(f)(x, scale=2.0, offset=1.0)
     assert_trees_allclose(J, J_jax)
 
@@ -1222,7 +1289,7 @@ def test_jacobian_function_with_var_keyword(mode, output_format, assert_trees_al
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_function_with_var_keyword_at_detection(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Functions with **kwargs should work when kwargs passed at detection time.
 
@@ -1235,9 +1302,9 @@ def test_jacobian_function_with_var_keyword_at_detection(
 
     x = jnp.array([1.0, 2.0, 3.0])
     # Pass scale at detection time to ensure correct sparsity
-    J = asdex.jacobian(f, x, scale=2.0, mode=mode, output_format=output_format)(
-        x, scale=2.0
-    )
+    J = asdex.jacobian(
+        f, x, scale=2.0, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x, scale=2.0)
     J_jax = jax.jacobian(f)(x, scale=2.0)
     assert_trees_allclose(J, J_jax)
 
@@ -1246,7 +1313,7 @@ def test_jacobian_function_with_var_keyword_at_detection(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_function_with_var_positional(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Functions with *args in signature should work correctly.
 
@@ -1260,9 +1327,15 @@ def test_jacobian_function_with_var_positional(
 
     x = jnp.array([1.0, 2.0, 3.0])
     scale = jnp.array([2.0, 2.0, 2.0])
-    J = asdex.jacobian(f, x, scale, argnums=0, mode=mode, output_format=output_format)(
-        x, scale
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        scale,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, scale)
     J_jax = jax.jacobian(f, argnums=0)(x, scale)
     assert_trees_allclose(J, J_jax)
 
@@ -1273,7 +1346,9 @@ def test_jacobian_function_with_var_positional(
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_bool_kwarg_at_detection(mode, output_format, assert_trees_allclose):
+def test_jacobian_bool_kwarg_at_detection(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Bool kwargs at detection time should not be traced.
 
     Regression test: bool kwargs were incorrectly passed to make_jaxpr,
@@ -1288,9 +1363,9 @@ def test_jacobian_bool_kwarg_at_detection(mode, output_format, assert_trees_allc
     x = jnp.array([1.0, 2.0, 3.0])
 
     # Bool kwarg at detection time - should work without TracerBoolConversionError
-    J = asdex.jacobian(f, x, flag=True, mode=mode, output_format=output_format)(
-        x, flag=True
-    )
+    J = asdex.jacobian(
+        f, x, flag=True, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x, flag=True)
     J_jax = jax.jacobian(f)(x, flag=True)
     assert_trees_allclose(J, J_jax)
 
@@ -1348,7 +1423,9 @@ def test_hessian_sparsity_bool_kwarg():
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_function_param_named_mode(output_format, assert_trees_allclose):
+def test_jacobian_function_param_named_mode(
+    output_format, chunk_size, assert_trees_allclose
+):
     """Function with param named 'mode' should work (name collides with API option).
 
     Regression test for Copilot review: name collisions with API options.
@@ -1361,16 +1438,18 @@ def test_jacobian_function_param_named_mode(output_format, assert_trees_allclose
 
     x = jnp.array([1.0, 2.0, 3.0])
     # The API's mode="rev" should not collide with the function's mode param
-    J = asdex.jacobian(f, x, mode="rev", output_format=output_format)(
-        x, mode="multiply"
-    )
+    J = asdex.jacobian(
+        f, x, mode="rev", output_format=output_format, chunk_size=chunk_size
+    )(x, mode="multiply")
     J_jax = jax.jacobian(f)(x, mode="multiply")
     assert_trees_allclose(J, J_jax)
 
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_function_param_named_argnums(output_format, assert_trees_allclose):
+def test_jacobian_function_param_named_argnums(
+    output_format, chunk_size, assert_trees_allclose
+):
     """Function with param named 'argnums' should work (name collides with API option)."""
 
     def f(x, argnums=0):
@@ -1378,7 +1457,9 @@ def test_jacobian_function_param_named_argnums(output_format, assert_trees_allcl
 
     x = jnp.array([1.0, 2.0, 3.0])
     # The function's argnums param (value 2) should not collide with API's argnums
-    J = asdex.jacobian(f, x, argnums=0, output_format=output_format)(x, argnums=2)
+    J = asdex.jacobian(
+        f, x, argnums=0, output_format=output_format, chunk_size=chunk_size
+    )(x, argnums=2)
     J_jax = jax.jacobian(f)(x, argnums=2)
     assert_trees_allclose(J, J_jax)
 
@@ -1424,7 +1505,9 @@ def test_scalar_sample_input():
 @pytest.mark.bug
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_different_bool_kwarg_at_call_time(mode, output_format, assert_trees_allclose):
+def test_different_bool_kwarg_at_call_time(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Bug: Different bool kwarg at call time uses wrong sparsity pattern.
 
     The sparsity pattern is computed at detection time with flag=True,
@@ -1463,7 +1546,7 @@ def test_different_bool_kwarg_at_call_time(mode, output_format, assert_trees_all
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_nested_pytree_kwarg_with_non_traceable_leaves(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Nested pytree kwargs with mixed array/non-traceable leaves are bound statically.
 
@@ -1484,9 +1567,14 @@ def test_nested_pytree_kwarg_with_non_traceable_leaves(
     x = jnp.array([1.0, 2.0])
     config = {"scale": jnp.array(2.0), "options": {"use_bias": True, "n_repeats": 2}}
 
-    J = asdex.jacobian(f, x, config=config, mode=mode, output_format=output_format)(
-        x, config=config
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        config=config,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, config=config)
     J_jax = jax.jacobian(lambda x: f(x, config=config))(x)
     assert_trees_allclose(J, J_jax)
 
@@ -1496,7 +1584,7 @@ def test_nested_pytree_kwarg_with_non_traceable_leaves(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_different_bool_kwarg_at_call_time(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Bug: Hessian with different bool kwarg at call vs detection time."""
 
@@ -1557,7 +1645,9 @@ def test_var_positional_extra_args_at_call_time():
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_var_positional_multiple_extra_args(mode, output_format, assert_trees_allclose):
+def test_var_positional_multiple_extra_args(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Multiple extra *args should all be passed through.
 
     Copilot concern: truncation could drop some but not all extra args.
@@ -1574,9 +1664,16 @@ def test_var_positional_multiple_extra_args(mode, output_format, assert_trees_al
     z = jnp.array([0.1, 0.1])
 
     # Call with extra y and z
-    J = asdex.jacobian(f, x, y, z, argnums=0, mode=mode, output_format=output_format)(
-        x, y, z
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        z,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y, z)
     J_jax = jax.jacobian(f, argnums=0)(x, y, z)
     assert_trees_allclose(J, J_jax)
 
@@ -1588,7 +1685,7 @@ def test_var_positional_multiple_extra_args(mode, output_format, assert_trees_al
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_var_positional_with_non_traceable_args_at_detection(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """*args containing non-traceable values (bools) at detection time.
 
@@ -1620,7 +1717,7 @@ def test_var_positional_with_non_traceable_args_at_detection(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_var_positional_mixed_traceable_nontraceable(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """*args with interleaved traceable and non-traceable values.
 
@@ -1681,7 +1778,7 @@ def test_python_float_scalar_kwarg_at_detection():
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_python_float_scalar_changes_jacobian_value(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Python float kwarg value should affect the computed Jacobian.
 
@@ -1696,9 +1793,9 @@ def test_python_float_scalar_changes_jacobian_value(
     x = jnp.array([1.0, 2.0, 3.0])
 
     # Detection with scale=1.0, call with scale=3.0
-    J = asdex.jacobian(f, x, scale=1.0, mode=mode, output_format=output_format)(
-        x, scale=3.0
-    )
+    J = asdex.jacobian(
+        f, x, scale=1.0, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x, scale=3.0)
     J_jax = jax.jacobian(f)(x, scale=3.0)
     assert_trees_allclose(J, J_jax)
 
@@ -1757,7 +1854,7 @@ def test_zero_dim_array_is_traceable():
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_non_traceable_positional_before_traceable(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Non-traceable arg before a traceable arg in signature.
 
@@ -1791,7 +1888,7 @@ def test_non_traceable_positional_before_traceable(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_interleaved_traceable_nontraceable_positional(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Interleaved traceable and non-traceable positional args.
 

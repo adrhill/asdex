@@ -50,19 +50,24 @@ class _BCOOLeaf:
 
 
 def _chunked_vmap(
-    fn: Callable[[jax.Array], jax.Array],
-    xs: jax.Array,
+    fn: Callable[..., Any],
+    seeds: jax.Array,
     chunk_size: int | None,
 ) -> jax.Array:
-    """Vmap with bounded parallelism via sequential chunk processing.
+    """Vmap over seeds with bounded parallelism via sequential chunk processing.
 
-    When ``chunk_size`` is ``None`` or exceeds the batch size, falls back to
-    regular ``jax.vmap``. Otherwise, processes ``chunk_size`` elements in
-    parallel per chunk, with chunks processed sequentially via ``jax.lax.map``.
+    When ``chunk_size`` is ``None`` or exceeds the number of seeds, falls back to
+    regular ``jax.vmap``. Otherwise, processes ``chunk_size`` seeds in parallel
+    per chunk, with chunks processed sequentially via ``jax.lax.map``.
+
+    Args:
+        fn: Function to vmap over, taking a single seed vector.
+        seeds: 2D array of shape ``(n_seeds, seed_dim)`` to process.
+        chunk_size: Maximum seeds per parallel batch.
     """
-    n = xs.shape[0]
+    n = seeds.shape[0]
     if chunk_size is None or chunk_size >= n:
-        return jax.vmap(fn)(xs)
+        return jax.vmap(fn)(seeds)
 
     if chunk_size <= 0:
         raise ValueError(f"chunk_size must be positive, got {chunk_size}")
@@ -71,15 +76,14 @@ def _chunked_vmap(
     padded_n = n_chunks * chunk_size
 
     # Pad to multiple of chunk_size
-    pad_width = [(0, padded_n - n)] + [(0, 0)] * (xs.ndim - 1)
-    xs_padded = jnp.pad(xs, pad_width)
-    chunks = xs_padded.reshape((n_chunks, chunk_size, *xs.shape[1:]))
+    seeds_padded = jnp.pad(seeds, ((0, padded_n - n), (0, 0)))
+    chunks = seeds_padded.reshape((n_chunks, chunk_size, seeds.shape[1]))
 
     def process_chunk(chunk: jax.Array) -> jax.Array:
         return jax.vmap(fn)(chunk)
 
     results = jax.lax.map(process_chunk, chunks)
-    return results.reshape((padded_n, *results.shape[2:]))[:n]
+    return results.reshape((padded_n, results.shape[2]))[:n]
 
 
 # Public API: one-shot entry points

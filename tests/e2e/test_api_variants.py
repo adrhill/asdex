@@ -21,14 +21,18 @@ warnings.filterwarnings("ignore", category=asdex.DenseColoringWarning)
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_jacobian_basic(mode, output_format, assert_trees_allclose):
+def test_value_and_jacobian_basic(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_jacobian returns matching primal and Jacobian."""
 
     def f(x):
         return jnp.array([x[0] ** 2, x[1] ** 2])
 
     x = jnp.array([2.0, 3.0])
-    val, J = asdex.value_and_jacobian(f, x, mode=mode, output_format=output_format)(x)
+    val, J = asdex.value_and_jacobian(
+        f, x, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x)
     J_jax = jax.jacobian(f)(x)
     np.testing.assert_allclose(val, f(x))
     assert_trees_allclose(J, J_jax)
@@ -37,7 +41,9 @@ def test_value_and_jacobian_basic(mode, output_format, assert_trees_allclose):
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_jacobian_dict_input(mode, output_format, assert_trees_allclose):
+def test_value_and_jacobian_dict_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_jacobian with dict input matches JAX."""
 
     def f(params):
@@ -45,7 +51,7 @@ def test_value_and_jacobian_dict_input(mode, output_format, assert_trees_allclos
 
     params = {"w": jnp.eye(2, 3), "x": jnp.array([1.0, 2.0, 3.0]), "b": jnp.zeros(2)}
     val, J = asdex.value_and_jacobian(
-        f, params, mode=mode, output_format=output_format
+        f, params, mode=mode, output_format=output_format, chunk_size=chunk_size
     )(params)
     J_jax = jax.jacobian(f)(params)
     np.testing.assert_allclose(val, f(params))
@@ -55,7 +61,9 @@ def test_value_and_jacobian_dict_input(mode, output_format, assert_trees_allclos
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_jacobian_nested_dict(mode, output_format, assert_trees_allclose):
+def test_value_and_jacobian_nested_dict(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_jacobian with nested dict matches JAX."""
 
     def f(params):
@@ -63,7 +71,7 @@ def test_value_and_jacobian_nested_dict(mode, output_format, assert_trees_allclo
 
     params = {"layer": {"w": jnp.eye(3, 2)}}
     val, J = asdex.value_and_jacobian(
-        f, params, mode=mode, output_format=output_format
+        f, params, mode=mode, output_format=output_format, chunk_size=chunk_size
     )(params)
     J_jax = jax.jacobian(f)(params)
     np.testing.assert_allclose(val, f(params))
@@ -73,7 +81,9 @@ def test_value_and_jacobian_nested_dict(mode, output_format, assert_trees_allclo
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_jacobian_multi_input(mode, output_format, assert_trees_allclose):
+def test_value_and_jacobian_multi_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_jacobian with multiple args matches JAX."""
 
     def f(x, y):
@@ -81,7 +91,13 @@ def test_value_and_jacobian_multi_input(mode, output_format, assert_trees_allclo
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     val, J = asdex.value_and_jacobian(
-        f, x, y, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y)
     J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
     np.testing.assert_allclose(val, f(x, y))
@@ -92,7 +108,7 @@ def test_value_and_jacobian_multi_input(mode, output_format, assert_trees_allclo
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_jacobian_multi_input_pytree(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """value_and_jacobian with multiple PyTree args matches JAX."""
 
@@ -102,7 +118,13 @@ def test_value_and_jacobian_multi_input_pytree(
     model = {"w": jnp.eye(2, 3)}
     data = {"x": jnp.array([1.0, 2.0, 3.0])}
     val, J = asdex.value_and_jacobian(
-        f, model, data, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        model,
+        data,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(model, data)
     J_jax = jax.jacobian(f, argnums=(0, 1))(model, data)
     np.testing.assert_allclose(val, f(model, data))
@@ -115,14 +137,18 @@ def test_value_and_jacobian_multi_input_pytree(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_hessian_basic(mode, output_format, assert_trees_allclose):
+def test_value_and_hessian_basic(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_hessian returns matching primal and Hessian."""
 
     def f(x):
         return x[0] ** 2 + x[1] ** 2
 
     x = jnp.array([2.0, 3.0])
-    val, H = asdex.value_and_hessian(f, x, mode=mode, output_format=output_format)(x)
+    val, H = asdex.value_and_hessian(
+        f, x, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x)
     H_jax = jax.hessian(f)(x)
     np.testing.assert_allclose(val, f(x))
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -131,16 +157,18 @@ def test_value_and_hessian_basic(mode, output_format, assert_trees_allclose):
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_hessian_dict_input(mode, output_format, assert_trees_allclose):
+def test_value_and_hessian_dict_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_hessian with dict input matches JAX."""
 
     def f(params):
         return jnp.sum(params["w"] ** 2) + jnp.sum(params["b"] ** 2)
 
     params = {"w": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
-    val, H = asdex.value_and_hessian(f, params, mode=mode, output_format=output_format)(
-        params
-    )
+    val, H = asdex.value_and_hessian(
+        f, params, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(params)
     H_jax = jax.hessian(f)(params)
     np.testing.assert_allclose(val, f(params))
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -149,7 +177,9 @@ def test_value_and_hessian_dict_input(mode, output_format, assert_trees_allclose
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_value_and_hessian_multi_input(mode, output_format, assert_trees_allclose):
+def test_value_and_hessian_multi_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """value_and_hessian with multiple inputs matches JAX."""
 
     def f(x, y):
@@ -157,7 +187,13 @@ def test_value_and_hessian_multi_input(mode, output_format, assert_trees_allclos
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
     val, H = asdex.value_and_hessian(
-        f, x, y, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y)
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     np.testing.assert_allclose(val, f(x, y))
@@ -170,7 +206,9 @@ def test_value_and_hessian_multi_input(mode, output_format, assert_trees_allclos
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_from_coloring_basic(mode, output_format, assert_trees_allclose):
+def test_jacobian_from_coloring_basic(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """jacobian_from_coloring matches JAX."""
 
     def f(x):
@@ -178,7 +216,9 @@ def test_jacobian_from_coloring_basic(mode, output_format, assert_trees_allclose
 
     x = jnp.array([2.0, 3.0])
     coloring = asdex.jacobian_coloring(f, x, mode=mode)
-    J = asdex.jacobian_from_coloring(f, coloring, output_format=output_format)(x)
+    J = asdex.jacobian_from_coloring(
+        f, coloring, output_format=output_format, chunk_size=chunk_size
+    )(x)
     J_jax = jax.jacobian(f)(x)
     assert_trees_allclose(J, J_jax)
 
@@ -186,7 +226,9 @@ def test_jacobian_from_coloring_basic(mode, output_format, assert_trees_allclose
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_from_coloring_dict_input(mode, output_format, assert_trees_allclose):
+def test_jacobian_from_coloring_dict_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """jacobian_from_coloring with dict input matches JAX."""
 
     def f(params):
@@ -194,7 +236,9 @@ def test_jacobian_from_coloring_dict_input(mode, output_format, assert_trees_all
 
     params = {"w": jnp.eye(2, 3), "x": jnp.array([1.0, 2.0, 3.0])}
     coloring = asdex.jacobian_coloring(f, params, mode=mode)
-    J = asdex.jacobian_from_coloring(f, coloring, output_format=output_format)(params)
+    J = asdex.jacobian_from_coloring(
+        f, coloring, output_format=output_format, chunk_size=chunk_size
+    )(params)
     J_jax = jax.jacobian(f)(params)
     assert_trees_allclose(J, J_jax)
 
@@ -202,7 +246,9 @@ def test_jacobian_from_coloring_dict_input(mode, output_format, assert_trees_all
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_from_coloring_multi_input(mode, output_format, assert_trees_allclose):
+def test_jacobian_from_coloring_multi_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """jacobian_from_coloring with multiple args matches JAX."""
 
     def f(x, y):
@@ -210,7 +256,9 @@ def test_jacobian_from_coloring_multi_input(mode, output_format, assert_trees_al
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0, 6.0])
     coloring = asdex.jacobian_coloring(f, x, y, argnums=(0, 1), mode=mode)
-    J = asdex.jacobian_from_coloring(f, coloring, output_format=output_format)(x, y)
+    J = asdex.jacobian_from_coloring(
+        f, coloring, output_format=output_format, chunk_size=chunk_size
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -222,7 +270,7 @@ def test_jacobian_from_coloring_multi_input(mode, output_format, assert_trees_al
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_jacobian_from_coloring_basic(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """value_and_jacobian_from_coloring matches JAX."""
 
@@ -232,7 +280,7 @@ def test_value_and_jacobian_from_coloring_basic(
     x = jnp.array([2.0, 3.0])
     coloring = asdex.jacobian_coloring(f, x, mode=mode)
     val, J = asdex.value_and_jacobian_from_coloring(
-        f, coloring, output_format=output_format
+        f, coloring, output_format=output_format, chunk_size=chunk_size
     )(x)
     J_jax = jax.jacobian(f)(x)
     np.testing.assert_allclose(val, f(x))
@@ -243,7 +291,7 @@ def test_value_and_jacobian_from_coloring_basic(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_jacobian_from_coloring_dict(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """value_and_jacobian_from_coloring with dict input matches JAX."""
 
@@ -253,7 +301,7 @@ def test_value_and_jacobian_from_coloring_dict(
     params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
     coloring = asdex.jacobian_coloring(f, params, mode=mode)
     val, J = asdex.value_and_jacobian_from_coloring(
-        f, coloring, output_format=output_format
+        f, coloring, output_format=output_format, chunk_size=chunk_size
     )(params)
     J_jax = jax.jacobian(f)(params)
     np.testing.assert_allclose(val, f(params))
@@ -266,7 +314,9 @@ def test_value_and_jacobian_from_coloring_dict(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_from_coloring_basic(mode, output_format, assert_trees_allclose):
+def test_hessian_from_coloring_basic(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """hessian_from_coloring matches JAX."""
 
     def f(x):
@@ -274,7 +324,9 @@ def test_hessian_from_coloring_basic(mode, output_format, assert_trees_allclose)
 
     x = jnp.array([1.0, 2.0, 3.0])
     coloring = asdex.hessian_coloring(f, x, mode=mode)
-    H = asdex.hessian_from_coloring(f, coloring, output_format=output_format)(x)
+    H = asdex.hessian_from_coloring(
+        f, coloring, output_format=output_format, chunk_size=chunk_size
+    )(x)
     H_jax = jax.hessian(f)(x)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -282,7 +334,9 @@ def test_hessian_from_coloring_basic(mode, output_format, assert_trees_allclose)
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_from_coloring_dict_input(mode, output_format, assert_trees_allclose):
+def test_hessian_from_coloring_dict_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """hessian_from_coloring with dict input matches JAX."""
 
     def f(params):
@@ -290,7 +344,9 @@ def test_hessian_from_coloring_dict_input(mode, output_format, assert_trees_allc
 
     params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
     coloring = asdex.hessian_coloring(f, params, mode=mode)
-    H = asdex.hessian_from_coloring(f, coloring, output_format=output_format)(params)
+    H = asdex.hessian_from_coloring(
+        f, coloring, output_format=output_format, chunk_size=chunk_size
+    )(params)
     H_jax = jax.hessian(f)(params)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -302,7 +358,7 @@ def test_hessian_from_coloring_dict_input(mode, output_format, assert_trees_allc
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_hessian_from_coloring_basic(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """value_and_hessian_from_coloring matches JAX."""
 
@@ -312,7 +368,7 @@ def test_value_and_hessian_from_coloring_basic(
     x = jnp.array([1.0, 2.0, 3.0])
     coloring = asdex.hessian_coloring(f, x, mode=mode)
     val, H = asdex.value_and_hessian_from_coloring(
-        f, coloring, output_format=output_format
+        f, coloring, output_format=output_format, chunk_size=chunk_size
     )(x)
     H_jax = jax.hessian(f)(x)
     np.testing.assert_allclose(val, f(x))
@@ -323,7 +379,7 @@ def test_value_and_hessian_from_coloring_basic(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_value_and_hessian_from_coloring_dict(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """value_and_hessian_from_coloring with dict input matches JAX."""
 
@@ -333,7 +389,7 @@ def test_value_and_hessian_from_coloring_dict(
     params = {"w": jnp.array([1.0, 2.0, 3.0])}
     coloring = asdex.hessian_coloring(f, params, mode=mode)
     val, H = asdex.value_and_hessian_from_coloring(
-        f, coloring, output_format=output_format
+        f, coloring, output_format=output_format, chunk_size=chunk_size
     )(params)
     H_jax = jax.hessian(f)(params)
     np.testing.assert_allclose(val, f(params))
@@ -347,7 +403,7 @@ def test_value_and_hessian_from_coloring_dict(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_coloring_reuse_changing_nondiff_arg(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Coloring built once reuses correctly when non-diff arg changes."""
 
@@ -361,7 +417,9 @@ def test_jacobian_coloring_reuse_changing_nondiff_arg(
     coloring = asdex.jacobian_coloring(
         loss, params, x_batch, y_batch, argnums=0, mode=mode
     )
-    jac = asdex.jacobian_from_coloring(loss, coloring, output_format=output_format)
+    jac = asdex.jacobian_from_coloring(
+        loss, coloring, output_format=output_format, chunk_size=chunk_size
+    )
 
     for xb, yb in [
         (jnp.array([0.5, 1.0, 1.5]), jnp.array([1.0, 2.0, 3.0])),
@@ -377,7 +435,7 @@ def test_jacobian_coloring_reuse_changing_nondiff_arg(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_coloring_reuse_pytree_nondiff_arg(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Coloring built once reuses correctly when non-diff PyTree arg changes."""
 
@@ -395,7 +453,9 @@ def test_jacobian_coloring_reuse_pytree_nondiff_arg(
     }
 
     coloring = asdex.jacobian_coloring(f, params, config1, argnums=0, mode=mode)
-    jac_fn = asdex.jacobian_from_coloring(f, coloring, output_format=output_format)
+    jac_fn = asdex.jacobian_from_coloring(
+        f, coloring, output_format=output_format, chunk_size=chunk_size
+    )
 
     for config in [config1, config2]:
         J = jac_fn(params, config)
@@ -407,7 +467,7 @@ def test_jacobian_coloring_reuse_pytree_nondiff_arg(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_coloring_reuse_pytree_nondiff_arg(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Hessian coloring reuses correctly when non-diff PyTree arg changes."""
 
@@ -419,7 +479,9 @@ def test_hessian_coloring_reuse_pytree_nondiff_arg(
     config2 = {"scale": jnp.array(3.0)}
 
     coloring = asdex.hessian_coloring(f, params, config1, argnums=0, mode=mode)
-    hess_fn = asdex.hessian_from_coloring(f, coloring, output_format=output_format)
+    hess_fn = asdex.hessian_from_coloring(
+        f, coloring, output_format=output_format, chunk_size=chunk_size
+    )
 
     for config in [config1, config2]:
         H = hess_fn(params, config)

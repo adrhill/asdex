@@ -22,7 +22,9 @@ warnings.filterwarnings("ignore", category=asdex.DenseColoringWarning)
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_argnums_all_negative(mode, output_format, assert_trees_allclose):
+def test_jacobian_argnums_all_negative(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """All negative argnums match jax.jacobian."""
 
     def f(x, y, z):
@@ -39,7 +41,9 @@ def test_jacobian_argnums_all_negative(mode, output_format, assert_trees_allclos
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_argnums_mixed_sign(mode, output_format, assert_trees_allclose):
+def test_jacobian_argnums_mixed_sign(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Mixed positive and negative argnums match jax.jacobian."""
 
     def f(x, y, z):
@@ -56,16 +60,24 @@ def test_jacobian_argnums_mixed_sign(mode, output_format, assert_trees_allclose)
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_single_negative_argnum(mode, output_format, assert_trees_allclose):
+def test_jacobian_single_negative_argnum(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Single negative argnum matches jax.jacobian."""
 
     def f(x, y):
         return y**2
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J = asdex.jacobian(f, x, y, argnums=-1, mode=mode, output_format=output_format)(
-        x, y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=-1,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=-1)(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -74,7 +86,7 @@ def test_jacobian_single_negative_argnum(mode, output_format, assert_trees_allcl
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_negative_argnums_pytree_output(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Negative argnums with PyTree output matches jax.jacobian."""
 
@@ -92,7 +104,9 @@ def test_jacobian_negative_argnums_pytree_output(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_argnums_negative(mode, output_format, assert_trees_allclose):
+def test_hessian_argnums_negative(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian with negative argnums matches jax.hessian."""
 
     def f(x, y, z):
@@ -114,16 +128,24 @@ def test_hessian_argnums_negative(mode, output_format, assert_trees_allclose):
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_argnums_reversed(mode, output_format, assert_trees_allclose):
+def test_jacobian_argnums_reversed(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Reversed argnums order matches jax.jacobian."""
 
     def f(x, y):
         return x * y
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J = asdex.jacobian(f, x, y, argnums=(1, 0), mode=mode, output_format=output_format)(
-        x, y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=(1, 0),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=(1, 0))(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -132,7 +154,7 @@ def test_jacobian_argnums_reversed(mode, output_format, assert_trees_allclose):
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_argnums_reversed_four_args(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Reversed argnums with four args matches jax.jacobian."""
 
@@ -154,7 +176,7 @@ def test_jacobian_argnums_reversed_four_args(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_argnums_pytree_args_reversed(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Reversed argnums with PyTree args matches jax.jacobian."""
 
@@ -163,9 +185,15 @@ def test_jacobian_argnums_pytree_args_reversed(
 
     p = {"a": jnp.array([1.0, 2.0, 3.0])}
     q = {"b": jnp.array([4.0, 5.0, 6.0])}
-    J = asdex.jacobian(f, p, q, argnums=(1, 0), mode=mode, output_format=output_format)(
-        p, q
-    )
+    J = asdex.jacobian(
+        f,
+        p,
+        q,
+        argnums=(1, 0),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(p, q)
     J_jax = jax.jacobian(f, argnums=(1, 0))(p, q)
     assert_trees_allclose(J, J_jax)
 
@@ -174,7 +202,7 @@ def test_jacobian_argnums_pytree_args_reversed(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_reversed_argnums_pytree_output(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Reversed argnums order with PyTree output matches jax.jacobian."""
 
@@ -182,9 +210,15 @@ def test_jacobian_reversed_argnums_pytree_output(
         return {"a": x * y, "b": x + y}
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J = asdex.jacobian(f, x, y, argnums=(1, 0), mode=mode, output_format=output_format)(
-        x, y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=(1, 0),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=(1, 0))(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -193,7 +227,7 @@ def test_jacobian_reversed_argnums_pytree_output(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_reversed_argnums_complex_pytrees(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Reversed argnums with complex PyTrees matches jax.jacobian."""
 
@@ -214,16 +248,24 @@ def test_jacobian_reversed_argnums_complex_pytrees(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_argnums_reversed(mode, output_format, assert_trees_allclose):
+def test_hessian_argnums_reversed(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian with reversed argnums matches jax.hessian."""
 
     def f(x, y):
         return jnp.dot(x, y) + jnp.sum(x**2)
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    H = asdex.hessian(f, x, y, argnums=(1, 0), mode=mode, output_format=output_format)(
-        x, y
-    )
+    H = asdex.hessian(
+        f,
+        x,
+        y,
+        argnums=(1, 0),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     H_jax = jax.hessian(f, argnums=(1, 0))(x, y)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -234,7 +276,9 @@ def test_hessian_argnums_reversed(mode, output_format, assert_trees_allclose):
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_argnums_skip_middle(mode, output_format, assert_trees_allclose):
+def test_jacobian_argnums_skip_middle(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Argnums skipping middle position matches jax.jacobian."""
 
     def f(a, b, c, d):
@@ -252,7 +296,7 @@ def test_jacobian_argnums_skip_middle(mode, output_format, assert_trees_allclose
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_subset_argnums_pytree_output(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Subset argnums (skipping middle arg) with PyTree output matches jax.jacobian."""
 
@@ -271,7 +315,7 @@ def test_jacobian_subset_argnums_pytree_output(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_argnums_noncontiguous_descending(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Non-contiguous descending argnums (4, 2, 0) matches jax.jacobian."""
 
@@ -289,7 +333,9 @@ def test_jacobian_argnums_noncontiguous_descending(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_argnums_skip_middle(mode, output_format, assert_trees_allclose):
+def test_hessian_argnums_skip_middle(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian skipping middle arg matches jax.hessian."""
 
     def f(a, b, c):
@@ -307,7 +353,7 @@ def test_hessian_argnums_skip_middle(mode, output_format, assert_trees_allclose)
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_argnums_noncontiguous_descending(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Hessian with non-contiguous descending argnums matches jax.hessian."""
 
@@ -329,7 +375,7 @@ def test_hessian_argnums_noncontiguous_descending(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_argnums_single_element_tuple(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """argnums=(0,) returns tuple of one Jacobian, not single Jacobian.
 
@@ -341,9 +387,15 @@ def test_jacobian_argnums_single_element_tuple(
         return x * y
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J = asdex.jacobian(f, x, y, argnums=(0,), mode=mode, output_format=output_format)(
-        x, y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=(0,),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=(0,))(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -352,7 +404,7 @@ def test_jacobian_argnums_single_element_tuple(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_argnums_int_vs_tuple_structure(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """argnums=0 and argnums=(0,) produce different structures."""
 
@@ -360,7 +412,9 @@ def test_jacobian_argnums_int_vs_tuple_structure(
         return x**2
 
     x = jnp.array([1.0, 2.0, 3.0])
-    J_int = asdex.jacobian(f, x, argnums=0, mode=mode, output_format=output_format)(x)
+    J_int = asdex.jacobian(
+        f, x, argnums=0, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x)
     J_tuple = asdex.jacobian(
         f, x, argnums=(0,), mode=mode, output_format=output_format
     )(x)
@@ -375,7 +429,7 @@ def test_jacobian_argnums_int_vs_tuple_structure(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_argnums_int_returns_single_block(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """argnums=int returns a single Jacobian matching jax.jacobian."""
 
@@ -383,7 +437,15 @@ def test_jacobian_argnums_int_returns_single_block(
         return jnp.array([x[0] * y[0], x[1] + y[1]])
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J = asdex.jacobian(f, x, y, argnums=0, mode=mode, output_format=output_format)(x, y)
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=0)(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -392,7 +454,7 @@ def test_jacobian_argnums_int_returns_single_block(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_argnums_single_element_tuple(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Hessian with argnums=(0,) returns tuple structure."""
 
@@ -400,9 +462,15 @@ def test_hessian_argnums_single_element_tuple(
         return jnp.sum(x**2) + jnp.dot(x, y)
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    H = asdex.hessian(f, x, y, argnums=(0,), mode=mode, output_format=output_format)(
-        x, y
-    )
+    H = asdex.hessian(
+        f,
+        x,
+        y,
+        argnums=(0,),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     H_jax = jax.hessian(f, argnums=(0,))(x, y)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -411,7 +479,7 @@ def test_hessian_argnums_single_element_tuple(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_argnums_int_returns_single_block(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Hessian with argnums=int matches jax.hessian."""
 
@@ -419,9 +487,16 @@ def test_hessian_argnums_int_returns_single_block(
         return jnp.dot(x, y) + jnp.sum(z**2)
 
     x, y, z = jnp.ones(3), jnp.ones(3), jnp.ones(3)
-    H = asdex.hessian(f, x, y, z, argnums=1, mode=mode, output_format=output_format)(
-        x, y, z
-    )
+    H = asdex.hessian(
+        f,
+        x,
+        y,
+        z,
+        argnums=1,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y, z)
     H_jax = jax.hessian(f, argnums=1)(x, y, z)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -433,7 +508,7 @@ def test_hessian_argnums_int_returns_single_block(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_argnums_selects_whole_pytree_position(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """argnums=0 with pytree positions matches jax.jacobian."""
 
@@ -443,7 +518,15 @@ def test_jacobian_argnums_selects_whole_pytree_position(
     p = {"a": jnp.array([1.0, 2.0])}
     q = {"b": jnp.array([3.0, 4.0, 5.0])}
 
-    J = asdex.jacobian(f, p, q, argnums=0, mode=mode, output_format=output_format)(p, q)
+    J = asdex.jacobian(
+        f,
+        p,
+        q,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(p, q)
     J_jax = jax.jacobian(f, argnums=0)(p, q)
     assert_trees_allclose(J, J_jax)
 
@@ -452,7 +535,7 @@ def test_jacobian_argnums_selects_whole_pytree_position(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_argnums_int_with_pytree_position(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """argnums=int on a pytree position matches jax.hessian."""
 
@@ -462,7 +545,15 @@ def test_hessian_argnums_int_with_pytree_position(
     p = {"a": jnp.array([1.0, 2.0])}
     q = {"b": jnp.array([3.0, 4.0])}
 
-    H = asdex.hessian(f, p, q, argnums=0, mode=mode, output_format=output_format)(p, q)
+    H = asdex.hessian(
+        f,
+        p,
+        q,
+        argnums=0,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(p, q)
     H_jax = jax.hessian(f, argnums=0)(p, q)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -530,7 +621,7 @@ def test_hessian_argnums_subset_returns_smaller_block_grid():
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_single_negative_argnum_pytree_output(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Single negative argnum with PyTree output matches jax.jacobian."""
 
@@ -538,9 +629,15 @@ def test_jacobian_single_negative_argnum_pytree_output(
         return {"sq": y**2, "double": 2 * y}
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J = asdex.jacobian(f, x, y, argnums=-1, mode=mode, output_format=output_format)(
-        x, y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=-1,
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=-1)(x, y)
     assert_trees_allclose(J, J_jax)
 
