@@ -2368,12 +2368,12 @@
 <h2 id="differentiation">Differentiation<a class="headerlink" href="#differentiation" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing sparse Jacobians.</p>
 <p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, *args, argnums=0, has_aux=False, mode=None, symmetric=False, postprocess=False, **kwargs)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
-and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
+and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False, chunk_size=None)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
 in one call.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
@@ -2549,6 +2549,25 @@ Requires a square Jacobian.</p>
 </tr>
 <tr class="doc-section-item">
 <td>
+<code>chunk_size</code>
+</td>
+<td>
+<code><span title="int">int</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Maximum number of colors to process in parallel.
+When <code>None</code> (default), all colors are processed in a single vmapped batch.
+When specified, colors are processed in chunks of this size to reduce
+peak memory usage.</p>
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
 <code>**sample_kwargs</code>
 </td>
 <td>
@@ -2596,11 +2615,11 @@ when <code>"dense"</code>).</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.value_and_jacobian">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.value_and_jacobian" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing value and sparse Jacobian.</p>
-<p>Like <a class="autorefs autorefs-internal" title="asdex.jacobian(f, *sample_args, argnums=0, has_aux=False, holomorphic=False, allow_int=False, mode=None, symmetric=False, output_format='bcoo', **sample_kwargs)" href="#asdex.jacobian"><code>jacobian</code></a>,
+<p>Like <a class="autorefs autorefs-internal" title="asdex.jacobian(f, *sample_args, argnums=0, has_aux=False, holomorphic=False, allow_int=False, mode=None, symmetric=False, output_format='bcoo', chunk_size=None, **sample_kwargs)" href="#asdex.jacobian"><code>jacobian</code></a>,
 but also returns the primal value <code>f(*args)</code>
 without an extra forward pass.</p>
 <p><span class="doc-section-title">Returns:</span></p>
@@ -2630,7 +2649,7 @@ matching <code>jax.value_and_grad</code> ordering.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing sparse Hessians.</p>
@@ -2799,6 +2818,25 @@ with respect to (default <code>0</code>).</p>
 </tr>
 <tr class="doc-section-item">
 <td>
+<code>chunk_size</code>
+</td>
+<td>
+<code><span title="int">int</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Maximum number of colors to process in parallel.
+When <code>None</code> (default), all colors are processed in a single vmapped batch.
+When specified, colors are processed in chunks of this size to reduce
+peak memory usage.</p>
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
 <code>**sample_kwargs</code>
 </td>
 <td>
@@ -2842,11 +2880,11 @@ the sparse Hessian.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.value_and_hessian">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.value_and_hessian" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing value and sparse Hessian.</p>
-<p>Like <a class="autorefs autorefs-internal" title="asdex.hessian(f, *sample_args, argnums=0, has_aux=False, holomorphic=False, allow_int=False, mode=None, symmetric=True, output_format='bcoo', **sample_kwargs)" href="#asdex.hessian"><code>hessian</code></a>, but also returns the primal value
+<p>Like <a class="autorefs autorefs-internal" title="asdex.hessian(f, *sample_args, argnums=0, has_aux=False, holomorphic=False, allow_int=False, mode=None, symmetric=True, output_format='bcoo', chunk_size=None, **sample_kwargs)" href="#asdex.hessian"><code>hessian</code></a>, but also returns the primal value
 <code>f(*args)</code> without an extra forward pass.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
@@ -3011,6 +3049,25 @@ with respect to (default <code>0</code>).</p>
 </tr>
 <tr class="doc-section-item">
 <td>
+<code>chunk_size</code>
+</td>
+<td>
+<code><span title="int">int</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Maximum number of colors to process in parallel.
+When <code>None</code> (default), all colors are processed in a single vmapped batch.
+When specified, colors are processed in chunks of this size to reduce
+peak memory usage.</p>
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
 <code>**sample_kwargs</code>
 </td>
 <td>
@@ -3054,7 +3111,7 @@ Merged with <code>sample_args</code> based on <code>f</code>'s signature.</p>
 </div><hr/>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_from_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_from_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Build a sparse Jacobian function from a pre-computed coloring.</p>
@@ -3066,7 +3123,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.value_and_jacobian_from_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.value_and_jacobian_from_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Build a function computing value and sparse Jacobian from a pre-computed coloring.</p>
@@ -3074,7 +3131,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_from_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_from_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Build a sparse Hessian function from a pre-computed coloring.</p>
@@ -3083,7 +3140,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.value_and_hessian_from_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_hessian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">value_and_hessian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s1">'bcoo'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.value_and_hessian_from_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Build a function computing value and sparse Hessian from a pre-computed coloring.</p>
@@ -3277,7 +3334,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 
   
       dataclass
-  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
+  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False, chunk_size=None)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -3473,7 +3530,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 
   
       dataclass
-  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
+  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False, chunk_size=None)" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -3614,7 +3671,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
+  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False, chunk_size=None)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
@@ -3755,7 +3812,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False)" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
+  " href="#asdex.ColoredPattern"><code>ColoredPattern</code></a> ready for <a class="autorefs autorefs-internal" title="asdex.hessian_from_coloring(f, coloring, output_format='bcoo', *, has_aux=False, holomorphic=False, allow_int=False, chunk_size=None)" href="#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
 </div>
 </td>
 </tr>
