@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779466037956,
+  "lastUpdate": 1779815389907,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -15891,6 +15891,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000003023582838992873",
             "extra": "mean: 15.592702673212 usec\nrounds: 17432"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ab73920932c0f1d9fdf1c5535106a6906c8fd9b1",
+          "message": "feat(decompression): add `chunk_size` parameter for bounded memory usage (#139)\n\n* feat(decompression): add `chunk_size` parameter for bounded memory usage\n\nAdd chunked evaluation of compressed Jacobians/Hessians to reduce peak\nmemory when the number of colors is large. The new `chunk_size` parameter\ncontrols how many colors are processed in parallel per chunk, with chunks\nprocessed sequentially via `jax.lax.map`.\n\nWhen `chunk_size=None` (default), behavior is unchanged (full vmap).\nWhen specified, trades parallelism for bounded memory usage.\n\nCloses #138\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(e2e): parametrize e2e tests with chunk_size fixture\n\nAdd chunk_size fixture to conftest.py (params: None, 3) and update all\ne2e tests to use it, ensuring chunked decompression is tested across\nall API variants, modes, and output formats.\n\nAlso fix _chunked_vmap to be more explicit about 2D seed array handling\nand use more flexible type annotations.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* refactor(decompression): improve chunk_size test coverage and readability\n\n- Add chunk_size=2 to fixture for even/odd coverage\n- Consolidate redundant chunk_size tests to edge cases only (chunk_size=1,\n  validation, large values) since e2e tests cover main functionality\n- Add intermediate variables J_compressed/H_compressed for clarity\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* fix(decompression): validate `chunk_size` at API entry points\n\nMove chunk_size validation to API entry points (jacobian, hessian, etc.)\nso invalid values (e.g., chunk_size=0) are rejected early, even for\nempty Jacobians where _chunked_vmap is never called.\n\nAddresses Copilot review feedback on PR #139.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(e2e): pass `chunk_size` to all parametrized tests\n\n52 tests were parametrized with the chunk_size fixture but didn't\nactually pass chunk_size to the asdex API calls. This meant the\nchunked execution path wasn't being tested.\n\nFixed in:\n- test_multi_input.py: 9 tests\n- test_argnums.py: 11 tests\n- test_kwargs.py: 32 tests\n\nAddresses Copilot review feedback on PR #139.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-05-26T19:09:09+02:00",
+          "tree_id": "587cfeb968939a3e1fdcbd53bbbefe7ccb3fce49",
+          "url": "https://github.com/adrhill/asdex/commit/ab73920932c0f1d9fdf1c5535106a6906c8fd9b1"
+        },
+        "date": 1779815389140,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1102.0930195474439,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011616342403149876",
+            "extra": "mean: 907.3644259271629 usec\nrounds: 54"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27086.322183241613,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002879729633386713",
+            "extra": "mean: 36.919002632948924 usec\nrounds: 6077"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 88223.07634000195,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007783502599569746",
+            "extra": "mean: 11.334902856324245 usec\nrounds: 22616"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 64227.09195051241,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001742120109147888",
+            "extra": "mean: 15.569753660503725 usec\nrounds: 10859"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 89911.94396219695,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000030401449607431752",
+            "extra": "mean: 11.121992873610266 usec\nrounds: 23434"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 17.09212819472186,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04317378399850435",
+            "extra": "mean: 58.50646499999955 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2864.284827905198,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008718412614340703",
+            "extra": "mean: 349.1272900856555 usec\nrounds: 2451"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1881.4691773343775,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000020768681196104798",
+            "extra": "mean: 531.499538789563 usec\nrounds: 1173"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1889.4409116833283,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012713170881669878",
+            "extra": "mean: 529.2570907174264 usec\nrounds: 948"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4468.476827027829,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001676999304284501",
+            "extra": "mean: 223.78990396715156 usec\nrounds: 3655"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 144.02898431338278,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000307756100592178",
+            "extra": "mean: 6.943046948273749 msec\nrounds: 58"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27036.57040514282,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022672710893753084",
+            "extra": "mean: 36.98693972700705 usec\nrounds: 20656"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 62849.74238747886,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000021755268892476083",
+            "extra": "mean: 15.91096418239613 usec\nrounds: 16584"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 51679.44282000421,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000401292836773996",
+            "extra": "mean: 19.350053820876674 usec\nrounds: 12746"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 63290.03069156874,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002240433804657029",
+            "extra": "mean: 15.800276743003955 usec\nrounds: 15462"
           }
         ]
       }
