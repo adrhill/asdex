@@ -174,6 +174,9 @@ def prop_dispatch(
             | "reduce_or"
             | "reduce_xor"
             | "not"
+            | "shift_left"
+            | "shift_right_arithmetic"
+            | "shift_right_logical"
         ):
             prop_zero_derivative(eqn, state_indices)
         case "clamp":
@@ -271,6 +274,7 @@ def prop_dispatch(
             | "lgamma"  # ∂log(Γ(x))/∂x = ψ(x)
             | "bessel_i0e"  # nonzero derivative
             | "bessel_i1e"  # nonzero derivative
+            | "regularized_incomplete_beta"  # ∂I_x(a,b)/∂x ≠ 0
         ):
             prop_unary_elementwise(eqn, state_indices)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
@@ -298,6 +302,10 @@ def prop_dispatch(
             prop_select_if_vmap(eqn, state_indices, state_consts)
         case "iota":
             _prop_iota(eqn, state_indices, state_consts)
+        case "random_seed" | "random_unwrap" | "random_wrap":
+            _prop_random_seed(eqn, state_indices)
+        case "random_bits":
+            prop_zero_derivative(eqn, state_indices)
         case "while":
             prop_while(eqn, state_indices, state_consts, prop_jaxpr)
         case "cond":
@@ -326,7 +334,7 @@ def prop_dispatch(
             prop_tile(eqn, state_indices, state_consts)
         case "sort":
             prop_sort(eqn, state_indices)
-        case "cumsum":
+        case "cumsum" | "cumprod" | "cummax" | "cummin":
             prop_cumsum(eqn, state_indices)
         # Conservative fallback: all outputs depend on all inputs.
         case (
@@ -334,6 +342,11 @@ def prop_dispatch(
             | "unvmap_any"  # from Equinox
             | "unvmap_max"  # from Equinox
             | "pure_callback"
+            | "lu"
+            | "cholesky"
+            | "qr"
+            | "svd"
+            | "eigh"
         ):
             prop_conservative_fallback(eqn, state_indices)
         case _:
@@ -367,6 +380,16 @@ def _prop_iota(
         ),
         shape,
     )
+
+
+def _prop_random_seed(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+    """Random seed/unwrap generates values with no input dependencies.
+
+    The output is determined by parameters (seed value, PRNG implementation),
+    not by traced inputs, so all dependency sets are empty.
+    """
+    for outvar in eqn.outvars:
+        state_indices[outvar] = empty_index_sets(atom_numel(outvar))
 
 
 def prop_conservative_fallback(eqn: JaxprEqn, state_indices: StateIndices) -> None:
