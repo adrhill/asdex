@@ -50,7 +50,7 @@ def hessian_mode(request):
     return request.param
 
 
-@pytest.fixture(params=[None, 3])
+@pytest.fixture(params=[None, 2, 3])
 def chunk_size(request):
     """Parametrize over chunk sizes for decompression."""
     return request.param

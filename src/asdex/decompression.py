@@ -741,7 +741,8 @@ def _jacobian_rows(
         grads = vjp_fn(cotangent)
         return _flatten_selected_cotangents(grads, sparsity)
 
-    return _chunked_vmap(single_vjp, seeds, chunk_size), y, aux
+    J_compressed = _chunked_vmap(single_vjp, seeds, chunk_size)
+    return J_compressed, y, aux
 
 
 def _jacobian_cols(
@@ -769,7 +770,8 @@ def _jacobian_cols(
         tangents = _build_tangents_from_seed(seed, args, sparsity)
         return flatten_pytree(jvp_fn(*tangents))
 
-    return _chunked_vmap(single_jvp, seeds, chunk_size), y, aux
+    J_compressed = _chunked_vmap(single_jvp, seeds, chunk_size)
+    return J_compressed, y, aux
 
 
 # HVPs over the selected input space
@@ -822,7 +824,8 @@ def _compute_hvps(
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
-    return _chunked_vmap(single_hvp, seeds, chunk_size)
+    H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
+    return H_compressed  # noqa: RET504
 
 
 def _value_and_compute_hvps(
@@ -882,7 +885,8 @@ def _value_and_compute_hvps(
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
-    return value, _chunked_vmap(single_hvp, seeds, chunk_size)
+    H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
+    return value, H_compressed
 
 
 # Decompression
