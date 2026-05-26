@@ -81,7 +81,14 @@ def test_jacobian_three_inputs_ordering(
 
     x, y, z = jnp.full(3, 2.0), jnp.full(3, 3.0), jnp.ones(3)
     J = asdex.jacobian(
-        f, x, y, z, argnums=(0, 1, 2), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(0, 1, 2),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     J_jax = jax.jacobian(f, argnums=(0, 1, 2))(x, y, z)
     assert_trees_allclose(J, J_jax)
@@ -196,7 +203,13 @@ def test_jacobian_mixed_pytree_array_inputs_pytree_output(
     params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
     scale = jnp.array([2.0, 3.0])
     J = asdex.jacobian(
-        f, params, scale, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        params,
+        scale,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(params, scale)
     J_jax = jax.jacobian(f, argnums=(0, 1))(params, scale)
     assert_trees_allclose(J, J_jax)
@@ -217,7 +230,14 @@ def test_jacobian_three_pytree_inputs_pytree_output(
     q = {"y": jnp.array([3.0, 4.0])}
     r = {"z": jnp.array([5.0, 6.0])}
     J = asdex.jacobian(
-        f, p, q, r, argnums=(0, 1, 2), mode=mode, output_format=output_format
+        f,
+        p,
+        q,
+        r,
+        argnums=(0, 1, 2),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(p, q, r)
     J_jax = jax.jacobian(f, argnums=(0, 1, 2))(p, q, r)
     assert_trees_allclose(J, J_jax)
@@ -263,7 +283,13 @@ def test_jacobian_asymmetric_nested_pytrees(
     model = {"w": jnp.eye(2, 3), "b": jnp.zeros(2)}
     data = {"x": jnp.array([1.0, 2.0, 3.0])}
     J = asdex.jacobian(
-        f, model, data, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        model,
+        data,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(model, data)
     J_jax = jax.jacobian(f, argnums=(0, 1))(model, data)
     assert_trees_allclose(J, J_jax)
@@ -284,7 +310,13 @@ def test_jacobian_complex_multi_input_multi_output(
     model = {"W": jnp.eye(2, 3), "b": jnp.zeros(2)}
     data = {"x": jnp.array([1.0, 2.0, 3.0])}
     J = asdex.jacobian(
-        f, model, data, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        model,
+        data,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(model, data)
     J_jax = jax.jacobian(f, argnums=(0, 1))(model, data)
     assert_trees_allclose(J, J_jax)
@@ -304,7 +336,13 @@ def test_jacobian_nested_and_flat_args(
     nested = {"layer": {"w": jnp.array([1.0, 2.0])}}
     flat = {"scale": jnp.array([3.0, 4.0])}
     J = asdex.jacobian(
-        f, nested, flat, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        nested,
+        flat,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(nested, flat)
     J_jax = jax.jacobian(f, argnums=(0, 1))(nested, flat)
     assert_trees_allclose(J, J_jax)
@@ -324,7 +362,13 @@ def test_jacobian_array_and_nested_dict(
     scale = jnp.array([1.0, 2.0])
     params = {"layer": {"w": jnp.array([3.0, 4.0])}}
     J = asdex.jacobian(
-        f, scale, params, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        scale,
+        params,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(scale, params)
     J_jax = jax.jacobian(f, argnums=(0, 1))(scale, params)
     assert_trees_allclose(J, J_jax)
@@ -446,7 +490,14 @@ def test_hessian_three_inputs_block_grid(
 
     x, y, z = jnp.ones(3), jnp.ones(3), jnp.ones(3)
     H = asdex.hessian(
-        f, x, y, z, argnums=(0, 1, 2), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(0, 1, 2),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     H_jax = jax.hessian(f, argnums=(0, 1, 2))(x, y, z)
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -566,7 +617,13 @@ def test_hessian_complex_multi_input(
     model = {"W": jnp.array([1.0, 2.0, 3.0]), "b": jnp.array(1.0)}
     data = {"x": jnp.array([1.0, 2.0, 3.0])}
     H = asdex.hessian(
-        f, model, data, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        model,
+        data,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(model, data)
     H_jax = jax.hessian(f, argnums=(0, 1))(model, data)
     assert_trees_allclose(H, H_jax, atol=1e-6)

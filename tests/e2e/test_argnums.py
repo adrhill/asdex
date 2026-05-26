@@ -32,7 +32,14 @@ def test_jacobian_argnums_all_negative(
 
     x, y, z = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]), jnp.array([5.0, 6.0])
     J = asdex.jacobian(
-        f, x, y, z, argnums=(-3, -2, -1), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(-3, -2, -1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     J_jax = jax.jacobian(f, argnums=(-3, -2, -1))(x, y, z)
     assert_trees_allclose(J, J_jax)
@@ -51,7 +58,14 @@ def test_jacobian_argnums_mixed_sign(
 
     x, y, z = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]), jnp.array([5.0, 6.0])
     J = asdex.jacobian(
-        f, x, y, z, argnums=(0, -1), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(0, -1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     J_jax = jax.jacobian(f, argnums=(0, -1))(x, y, z)
     assert_trees_allclose(J, J_jax)
@@ -95,7 +109,14 @@ def test_jacobian_negative_argnums_pytree_output(
 
     x, y, z = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]), jnp.array([5.0, 6.0])
     J = asdex.jacobian(
-        f, x, y, z, argnums=(0, -1), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(0, -1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     J_jax = jax.jacobian(f, argnums=(0, -1))(x, y, z)
     assert_trees_allclose(J, J_jax)
@@ -116,7 +137,14 @@ def test_hessian_argnums_negative(
     y = jnp.array([3.0, 4.0])
     z = jnp.array([5.0, 6.0])
     H = asdex.hessian(
-        f, x, y, z, argnums=(-3, -1), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(-3, -1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     H_jax = jax.hessian(f, argnums=(-3, -1))(x, y, z)
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -166,7 +194,15 @@ def test_jacobian_argnums_reversed_four_args(
     c = jnp.array([5.0, 6.0])
     d = jnp.array([7.0, 8.0])
     J = asdex.jacobian(
-        f, a, b, c, d, argnums=(3, 2, 1, 0), mode=mode, output_format=output_format
+        f,
+        a,
+        b,
+        c,
+        d,
+        argnums=(3, 2, 1, 0),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(a, b, c, d)
     J_jax = jax.jacobian(f, argnums=(3, 2, 1, 0))(a, b, c, d)
     assert_trees_allclose(J, J_jax)
@@ -239,7 +275,14 @@ def test_jacobian_reversed_argnums_complex_pytrees(
     config = {"scale": jnp.array([1.0, 2.0])}
     data = {"x": jnp.array([1.0, 2.0, 3.0])}
     J = asdex.jacobian(
-        f, model, config, data, argnums=(2, 0), mode=mode, output_format=output_format
+        f,
+        model,
+        config,
+        data,
+        argnums=(2, 0),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(model, config, data)
     J_jax = jax.jacobian(f, argnums=(2, 0))(model, config, data)
     assert_trees_allclose(J, J_jax)
@@ -286,7 +329,15 @@ def test_jacobian_argnums_skip_middle(
 
     a, b, c, d = jnp.ones(2), jnp.ones(2), jnp.ones(2), jnp.ones(2)
     J = asdex.jacobian(
-        f, a, b, c, d, argnums=(0, 2, 3), mode=mode, output_format=output_format
+        f,
+        a,
+        b,
+        c,
+        d,
+        argnums=(0, 2, 3),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(a, b, c, d)
     J_jax = jax.jacobian(f, argnums=(0, 2, 3))(a, b, c, d)
     assert_trees_allclose(J, J_jax)
@@ -305,7 +356,14 @@ def test_jacobian_subset_argnums_pytree_output(
 
     x, y, z = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0]), jnp.array([5.0, 6.0])
     J = asdex.jacobian(
-        f, x, y, z, argnums=(0, 2), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(0, 2),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     J_jax = jax.jacobian(f, argnums=(0, 2))(x, y, z)
     assert_trees_allclose(J, J_jax)
@@ -324,7 +382,16 @@ def test_jacobian_argnums_noncontiguous_descending(
 
     a, b, c, d, e = [jnp.ones(2) * i for i in range(5)]
     J = asdex.jacobian(
-        f, a, b, c, d, e, argnums=(4, 2, 0), mode=mode, output_format=output_format
+        f,
+        a,
+        b,
+        c,
+        d,
+        e,
+        argnums=(4, 2, 0),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(a, b, c, d, e)
     J_jax = jax.jacobian(f, argnums=(4, 2, 0))(a, b, c, d, e)
     assert_trees_allclose(J, J_jax)
@@ -343,7 +410,14 @@ def test_hessian_argnums_skip_middle(
 
     a, b, c = jnp.ones(3), jnp.ones(3), jnp.ones(3) * 2
     H = asdex.hessian(
-        f, a, b, c, argnums=(0, 2), mode=mode, output_format=output_format
+        f,
+        a,
+        b,
+        c,
+        argnums=(0, 2),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(a, b, c)
     H_jax = jax.hessian(f, argnums=(0, 2))(a, b, c)
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -362,7 +436,15 @@ def test_hessian_argnums_noncontiguous_descending(
 
     a, b, c, d = [jnp.ones(2) * i for i in range(4)]
     H = asdex.hessian(
-        f, a, b, c, d, argnums=(3, 2, 0), mode=mode, output_format=output_format
+        f,
+        a,
+        b,
+        c,
+        d,
+        argnums=(3, 2, 0),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(a, b, c, d)
     H_jax = jax.hessian(f, argnums=(3, 2, 0))(a, b, c, d)
     assert_trees_allclose(H, H_jax, atol=1e-6)
