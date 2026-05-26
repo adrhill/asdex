@@ -49,6 +49,39 @@ class _BCOOLeaf:
         self.array = array
 
 
+def _chunked_vmap(
+    fn: Callable[[jax.Array], jax.Array],
+    xs: jax.Array,
+    chunk_size: int | None,
+) -> jax.Array:
+    """Vmap with bounded parallelism via sequential chunk processing.
+
+    When ``chunk_size`` is ``None`` or exceeds the batch size, falls back to
+    regular ``jax.vmap``. Otherwise, processes ``chunk_size`` elements in
+    parallel per chunk, with chunks processed sequentially via ``jax.lax.map``.
+    """
+    n = xs.shape[0]
+    if chunk_size is None or chunk_size >= n:
+        return jax.vmap(fn)(xs)
+
+    if chunk_size <= 0:
+        raise ValueError(f"chunk_size must be positive, got {chunk_size}")
+
+    n_chunks = (n + chunk_size - 1) // chunk_size
+    padded_n = n_chunks * chunk_size
+
+    # Pad to multiple of chunk_size
+    pad_width = [(0, padded_n - n)] + [(0, 0)] * (xs.ndim - 1)
+    xs_padded = jnp.pad(xs, pad_width)
+    chunks = xs_padded.reshape((n_chunks, chunk_size, *xs.shape[1:]))
+
+    def process_chunk(chunk: jax.Array) -> jax.Array:
+        return jax.vmap(fn)(chunk)
+
+    results = jax.lax.map(process_chunk, chunks)
+    return results.reshape((padded_n, *results.shape[2:]))[:n]
+
+
 # Public API: one-shot entry points
 
 
@@ -62,6 +95,7 @@ def jacobian(
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = "bcoo",
+    chunk_size: int | None = None,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing sparse Jacobians.
@@ -93,6 +127,10 @@ def jacobian(
         output_format: Type of the output matrix.
             ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
             ``"dense"`` returns a dense matrix of type ``jax.Array``.
+        chunk_size: Maximum number of colors to process in parallel.
+            When ``None`` (default), all colors are processed in a single vmapped batch.
+            When specified, colors are processed in chunks of this size to reduce
+            peak memory usage.
         **sample_kwargs: Sample keyword arguments of ``f``.
             Merged with ``sample_args`` based on ``f``'s signature.
 
@@ -128,6 +166,7 @@ def jacobian(
             has_aux=has_aux,
             holomorphic=holomorphic,
             allow_int=allow_int,
+            chunk_size=chunk_size,
         )
 
     return jac_fn
@@ -143,6 +182,7 @@ def value_and_jacobian(
     mode: JacobianMode | None = None,
     symmetric: bool = False,
     output_format: OutputFormat = "bcoo",
+    chunk_size: int | None = None,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Jacobian.
@@ -180,6 +220,7 @@ def value_and_jacobian(
             has_aux=has_aux,
             holomorphic=holomorphic,
             allow_int=allow_int,
+            chunk_size=chunk_size,
         )
 
     return val_jac_fn
@@ -195,6 +236,7 @@ def hessian(
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = "bcoo",
+    chunk_size: int | None = None,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing sparse Hessians.
@@ -214,6 +256,10 @@ def hessian(
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
         output_format: Type of the output matrix (``"bcoo"`` or ``"dense"``).
+        chunk_size: Maximum number of colors to process in parallel.
+            When ``None`` (default), all colors are processed in a single vmapped batch.
+            When specified, colors are processed in chunks of this size to reduce
+            peak memory usage.
         **sample_kwargs: Sample keyword arguments of ``f``.
             Merged with ``sample_args`` based on ``f``'s signature.
 
@@ -245,6 +291,7 @@ def hessian(
             has_aux=has_aux,
             holomorphic=holomorphic,
             allow_int=allow_int,
+            chunk_size=chunk_size,
         )
 
     return hess_fn
@@ -260,6 +307,7 @@ def value_and_hessian(
     mode: HessianMode | None = None,
     symmetric: bool = True,
     output_format: OutputFormat = "bcoo",
+    chunk_size: int | None = None,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Hessian.
@@ -279,6 +327,10 @@ def value_and_hessian(
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
         output_format: Type of the output matrix (``"bcoo"`` or ``"dense"``).
+        chunk_size: Maximum number of colors to process in parallel.
+            When ``None`` (default), all colors are processed in a single vmapped batch.
+            When specified, colors are processed in chunks of this size to reduce
+            peak memory usage.
         **sample_kwargs: Sample keyword arguments of ``f``.
             Merged with ``sample_args`` based on ``f``'s signature.
 
@@ -310,6 +362,7 @@ def value_and_hessian(
             has_aux=has_aux,
             holomorphic=holomorphic,
             allow_int=allow_int,
+            chunk_size=chunk_size,
         )
 
     return val_hess_fn
@@ -326,6 +379,7 @@ def jacobian_from_coloring(
     has_aux: bool = False,
     holomorphic: bool = False,
     allow_int: bool = False,
+    chunk_size: int | None = None,
 ) -> Callable[..., Any]:
     """Build a sparse Jacobian function from a pre-computed coloring.
 
@@ -348,6 +402,7 @@ def jacobian_from_coloring(
             has_aux=has_aux,
             holomorphic=holomorphic,
             allow_int=allow_int,
+            chunk_size=chunk_size,
         )
 
     return jac_fn
@@ -361,6 +416,7 @@ def hessian_from_coloring(
     has_aux: bool = False,
     holomorphic: bool = False,
     allow_int: bool = False,
+    chunk_size: int | None = None,
 ) -> Callable[..., Any]:
     """Build a sparse Hessian function from a pre-computed coloring.
 
@@ -379,6 +435,7 @@ def hessian_from_coloring(
             has_aux=has_aux,
             holomorphic=holomorphic,
             allow_int=allow_int,
+            chunk_size=chunk_size,
         )
 
     return hess_fn
@@ -392,6 +449,7 @@ def value_and_jacobian_from_coloring(
     has_aux: bool = False,
     holomorphic: bool = False,
     allow_int: bool = False,
+    chunk_size: int | None = None,
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Jacobian from a pre-computed coloring."""
     _assert_output_format(output_format)
@@ -407,6 +465,7 @@ def value_and_jacobian_from_coloring(
             has_aux=has_aux,
             holomorphic=holomorphic,
             allow_int=allow_int,
+            chunk_size=chunk_size,
         )
 
     return val_jac_fn
@@ -420,6 +479,7 @@ def value_and_hessian_from_coloring(
     has_aux: bool = False,
     holomorphic: bool = False,
     allow_int: bool = False,
+    chunk_size: int | None = None,
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Hessian from a pre-computed coloring."""
     _assert_output_format(output_format)
@@ -435,6 +495,7 @@ def value_and_hessian_from_coloring(
             has_aux=has_aux,
             holomorphic=holomorphic,
             allow_int=allow_int,
+            chunk_size=chunk_size,
         )
 
     return val_hess_fn
@@ -452,6 +513,7 @@ def _eval_jacobian(
     has_aux: bool,
     holomorphic: bool,
     allow_int: bool,
+    chunk_size: int | None,
 ) -> Any:
     """Evaluate the sparse Jacobian of ``f`` at ``args``.
 
@@ -479,10 +541,12 @@ def _eval_jacobian(
     match coloring.mode:
         case "rev":
             compressed, y, aux = _jacobian_rows(
-                f, args, coloring, out_struct, has_aux=has_aux
+                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
             )
         case "fwd":
-            compressed, y, aux = _jacobian_cols(f, args, coloring, has_aux=has_aux)
+            compressed, y, aux = _jacobian_cols(
+                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
+            )
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
@@ -503,6 +567,7 @@ def _eval_value_and_jacobian(
     has_aux: bool,
     holomorphic: bool,
     allow_int: bool,
+    chunk_size: int | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Jacobian of ``f`` at ``args``.
 
@@ -532,10 +597,12 @@ def _eval_value_and_jacobian(
     match coloring.mode:
         case "rev":
             compressed, y, aux = _jacobian_rows(
-                f, args, coloring, out_struct, has_aux=has_aux
+                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
             )
         case "fwd":
-            compressed, y, aux = _jacobian_cols(f, args, coloring, has_aux=has_aux)
+            compressed, y, aux = _jacobian_cols(
+                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
+            )
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
@@ -556,6 +623,7 @@ def _eval_hessian(
     has_aux: bool,
     holomorphic: bool,
     allow_int: bool,
+    chunk_size: int | None,
 ) -> Any:
     """Evaluate the sparse Hessian of a scalar-valued ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -577,7 +645,7 @@ def _eval_hessian(
             return hess, aux
         return hess
 
-    compressed = _compute_hvps(f_scalar, args, coloring)
+    compressed = _compute_hvps(f_scalar, args, coloring, chunk_size)
     data = _decompress_data(coloring, compressed)
     hess = _build_hessian(coloring, data, output_format)
     if has_aux:
@@ -595,6 +663,7 @@ def _eval_value_and_hessian(
     has_aux: bool,
     holomorphic: bool,
     allow_int: bool,
+    chunk_size: int | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Hessian of ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -617,7 +686,7 @@ def _eval_value_and_hessian(
         value = jnp.asarray(f_scalar(*args))
         return value, empty
 
-    value, compressed = _value_and_compute_hvps(f_scalar, args, coloring)
+    value, compressed = _value_and_compute_hvps(f_scalar, args, coloring, chunk_size)
     data = _decompress_data(coloring, compressed)
     hess = _build_hessian(coloring, data, output_format)
     if has_aux:
@@ -648,6 +717,7 @@ def _jacobian_rows(
     out_struct: Any,
     *,
     has_aux: bool,
+    chunk_size: int | None,
 ) -> tuple[jax.Array, Any, Any]:
     """Row-coloring VJPs over the combined selected input space.
 
@@ -667,7 +737,7 @@ def _jacobian_rows(
         grads = vjp_fn(cotangent)
         return _flatten_selected_cotangents(grads, sparsity)
 
-    return jax.vmap(single_vjp)(seeds), y, aux
+    return _chunked_vmap(single_vjp, seeds, chunk_size), y, aux
 
 
 def _jacobian_cols(
@@ -676,6 +746,7 @@ def _jacobian_cols(
     coloring: ColoredPattern,
     *,
     has_aux: bool,
+    chunk_size: int | None,
 ) -> tuple[jax.Array, Any, Any]:
     """Column-coloring JVPs over the combined selected input space.
 
@@ -694,7 +765,7 @@ def _jacobian_cols(
         tangents = _build_tangents_from_seed(seed, args, sparsity)
         return flatten_pytree(jvp_fn(*tangents))
 
-    return jax.vmap(single_jvp)(seeds), y, aux
+    return _chunked_vmap(single_jvp, seeds, chunk_size), y, aux
 
 
 # HVPs over the selected input space
@@ -704,6 +775,7 @@ def _compute_hvps(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
+    chunk_size: int | None,
 ) -> jax.Array:
     """One HVP per color for a scalar-valued multi-positional ``f``."""
     sparsity = coloring.sparsity
@@ -746,13 +818,14 @@ def _compute_hvps(
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
-    return jax.vmap(single_hvp)(seeds)
+    return _chunked_vmap(single_hvp, seeds, chunk_size)
 
 
 def _value_and_compute_hvps(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
+    chunk_size: int | None,
 ) -> tuple[jax.Array, jax.Array]:
     """``f(*args)`` and one HVP per color for a scalar-valued ``f``.
 
@@ -805,7 +878,7 @@ def _value_and_compute_hvps(
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
-    return value, jax.vmap(single_hvp)(seeds)
+    return value, _chunked_vmap(single_hvp, seeds, chunk_size)
 
 
 # Decompression

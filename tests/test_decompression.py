@@ -1747,3 +1747,154 @@ def test_hessian_coloring_from_sparsity_multi_arg(mode):
     result = hessian_from_coloring(f, coloring, output_format="dense")(x, y)
     expected = jax.hessian(f, argnums=(0, 1))(x, y)
     assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+# chunk_size parameter tests
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("chunk_size", [1, 2, 3, 5, 10, None])
+def test_jacobian_chunk_size(chunk_size):
+    """Jacobian with chunk_size matches non-chunked result."""
+
+    def f(x):
+        return x**2 + jnp.roll(x, 1)
+
+    x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    result = jacobian(f, x, chunk_size=chunk_size)(x).todense()
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("chunk_size", [1, 2, 3, None])
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+def test_jacobian_chunk_size_modes(chunk_size, mode):
+    """Jacobian with chunk_size works in both fwd and rev modes."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian(f, x, mode=mode, chunk_size=chunk_size)(x).todense()
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("chunk_size", [1, 2, None])
+def test_value_and_jacobian_chunk_size(chunk_size):
+    """value_and_jacobian with chunk_size returns correct value and Jacobian."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0])
+    val, jac = value_and_jacobian(f, x, chunk_size=chunk_size)(x)
+    expected_val = f(x)
+    expected_jac = jax.jacobian(f)(x)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert_allclose(jac.todense(), expected_jac, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("chunk_size", [1, 2, None])
+def test_jacobian_from_coloring_chunk_size(chunk_size):
+    """jacobian_from_coloring with chunk_size matches non-chunked result."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    coloring = jacobian_coloring(f, x)
+    result = jacobian_from_coloring(f, coloring, chunk_size=chunk_size)(x).todense()
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("chunk_size", [1, 2, 3, None])
+def test_hessian_chunk_size(chunk_size):
+    """Hessian with chunk_size matches non-chunked result."""
+
+    def f(x):
+        return jnp.sum(x**2) + jnp.sum(x[:-1] * x[1:])
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = hessian(f, x, chunk_size=chunk_size)(x).todense()
+    expected = jax.hessian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("chunk_size", [1, 2, None])
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_chunk_size_modes(chunk_size, mode):
+    """Hessian with chunk_size works in all modes."""
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = hessian(f, x, mode=mode, chunk_size=chunk_size)(x).todense()
+    expected = jax.hessian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("chunk_size", [1, 2, None])
+def test_value_and_hessian_chunk_size(chunk_size):
+    """value_and_hessian with chunk_size returns correct value and Hessian."""
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    x = np.array([1.0, 2.0, 3.0])
+    val, hess = value_and_hessian(f, x, chunk_size=chunk_size)(x)
+    expected_val = f(x)
+    expected_hess = jax.hessian(f)(x)
+    assert_allclose(val, expected_val, rtol=1e-5)
+    assert_allclose(hess.todense(), expected_hess, rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("chunk_size", [1, 2, None])
+def test_hessian_from_coloring_chunk_size(chunk_size):
+    """hessian_from_coloring with chunk_size matches non-chunked result."""
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    coloring = hessian_coloring(f, x)
+    result = hessian_from_coloring(f, coloring, chunk_size=chunk_size)(x).todense()
+    expected = jax.hessian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_chunk_size_validation():
+    """chunk_size=0 or negative raises ValueError."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="chunk_size must be positive"):
+        jacobian(f, x, chunk_size=0)(x)
+    with pytest.raises(ValueError, match="chunk_size must be positive"):
+        jacobian(f, x, chunk_size=-1)(x)
+
+
+@pytest.mark.jacobian
+def test_jacobian_chunk_size_larger_than_colors():
+    """chunk_size larger than n_colors behaves like None (full vmap)."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0])
+    # chunk_size=100 is larger than n_colors (3 for diagonal), should work fine
+    result = jacobian(f, x, chunk_size=100)(x).todense()
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
