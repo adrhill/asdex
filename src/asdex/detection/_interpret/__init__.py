@@ -302,7 +302,13 @@ def prop_dispatch(
             prop_select_if_vmap(eqn, state_indices, state_consts)
         case "iota":
             _prop_iota(eqn, state_indices, state_consts)
-        case "random_seed" | "random_unwrap" | "random_wrap":
+        case (
+            "random_seed"
+            | "random_unwrap"
+            | "random_wrap"
+            | "random_split"
+            | "random_fold_in"
+        ):
             _prop_random_seed(eqn, state_indices)
         case "random_bits":
             prop_zero_derivative(eqn, state_indices)
