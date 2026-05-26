@@ -1,5 +1,14 @@
 # asdex
 
+## Version `v0.3.2`
+* ![Feature][badge-feature] Add `chunk_size` parameter for bounded memory usage in Jacobian and Hessian computation ([#139])
+
+Example:
+```python
+# Limit parallelism to 128 colors at a time (reduces peak memory)
+J = asdex.jacobian(f, x, chunk_size=128)(x)
+```
+
 ## Version `v0.3.1`
 * ![Feature][badge-feature] Add precise handlers for `stack` and `unstack` primitives ([#137])
 * ![Feature][badge-feature] Add handlers for scalar special functions (`erfc`, `erf_inv`, `digamma`, `lgamma`, `bessel_i0e`, `bessel_i1e`, `polygamma`) ([#127])
@@ -86,6 +95,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#139]: https://github.com/adrhill/asdex/pull/139
 [#137]: https://github.com/adrhill/asdex/pull/137
 [#135]: https://github.com/adrhill/asdex/pull/135
 [#134]: https://github.com/adrhill/asdex/pull/134
