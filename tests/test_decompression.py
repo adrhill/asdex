@@ -1747,3 +1747,90 @@ def test_hessian_coloring_from_sparsity_multi_arg(mode):
     result = hessian_from_coloring(f, coloring, output_format="dense")(x, y)
     expected = jax.hessian(f, argnums=(0, 1))(x, y)
     assert _allclose_pytree(result, expected, rtol=1e-5, atol=1e-5)
+
+
+# chunk_size edge cases (basic chunk_size coverage is in e2e tests via fixture)
+
+
+@pytest.mark.jacobian
+def test_jacobian_chunk_size_one():
+    """chunk_size=1 processes one color at a time (sequential fallback)."""
+
+    def f(x):
+        return x**2 + jnp.roll(x, 1)
+
+    x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    result = jacobian(f, x, chunk_size=1)(x).todense()
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_chunk_size_one():
+    """chunk_size=1 processes one color at a time (sequential fallback)."""
+
+    def f(x):
+        return jnp.sum(x**2) + jnp.sum(x[:-1] * x[1:])
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = hessian(f, x, chunk_size=1)(x).todense()
+    expected = jax.hessian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_chunk_size_validation():
+    """chunk_size=0 or negative raises ValueError."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="chunk_size must be positive"):
+        jacobian(f, x, chunk_size=0)(x)
+    with pytest.raises(ValueError, match="chunk_size must be positive"):
+        jacobian(f, x, chunk_size=-1)(x)
+
+
+@pytest.mark.jacobian
+def test_jacobian_chunk_size_larger_than_colors():
+    """chunk_size larger than n_colors behaves like None (full vmap)."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, chunk_size=100)(x).todense()
+    expected = jax.jacobian(f)(x)
+    assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_chunk_size_zero_empty_jacobian():
+    """chunk_size=0 raises even for empty Jacobian (no colors to process).
+
+    Validates Copilot review concern: validation should happen before early return.
+    """
+
+    def f(x):
+        return jnp.array([])
+
+    x = np.array([1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="chunk_size must be positive"):
+        jacobian(f, x, chunk_size=0)(x)
+
+
+@pytest.mark.jacobian
+def test_jacobian_chunk_size_pytree_output():
+    """chunk_size works with PyTree (dict) output.
+
+    Validates Copilot review concern: reshape should handle arbitrary output shapes.
+    """
+
+    def f(x):
+        return {"a": x[:2], "b": x[1:]}
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian(f, x, chunk_size=2, output_format="dense")(x)
+    expected = jax.jacobian(f)(x)
+    assert _allclose_pytree(result, expected, rtol=1e-5)

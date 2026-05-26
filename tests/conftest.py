@@ -50,6 +50,12 @@ def hessian_mode(request):
     return request.param
 
 
+@pytest.fixture(params=[None, 2, 3])
+def chunk_size(request):
+    """Parametrize over chunk sizes for decompression."""
+    return request.param
+
+
 def pytest_report_teststatus(report, config):
     """Suppress progress dots for passing tests to keep output concise."""
     if report.when == "call" and report.passed:

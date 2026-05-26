@@ -21,16 +21,24 @@ warnings.filterwarnings("ignore", category=asdex.DenseColoringWarning)
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_wrt_x_y_and_both_agree(mode, output_format, assert_trees_allclose):
+def test_jacobian_wrt_x_y_and_both_agree(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """J_x and J_y from the multi-input call match jax.jacobian."""
 
     def f(x, y):
         return jnp.array([x[0] * y[0], x[1] + y[1], x[0] * x[1]])
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J = asdex.jacobian(f, x, y, argnums=(0, 1), mode=mode, output_format=output_format)(
-        x, y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -38,16 +46,24 @@ def test_jacobian_wrt_x_y_and_both_agree(mode, output_format, assert_trees_allcl
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_asymmetric_block_shapes(mode, output_format, assert_trees_allclose):
+def test_jacobian_asymmetric_block_shapes(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Differently-sized inputs produce non-transposed blocks of correct shape."""
 
     def f(x, y):
         return jnp.array([x[0] + y[2], x[2] * y[1]])
 
     x, y = jnp.ones(3), jnp.ones(4)
-    J = asdex.jacobian(f, x, y, argnums=(0, 1), mode=mode, output_format=output_format)(
-        x, y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -55,7 +71,9 @@ def test_jacobian_asymmetric_block_shapes(mode, output_format, assert_trees_allc
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_three_inputs_ordering(mode, output_format, assert_trees_allclose):
+def test_jacobian_three_inputs_ordering(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """With three inputs, each block goes to the right place."""
 
     def f(x, y, z):
@@ -63,7 +81,14 @@ def test_jacobian_three_inputs_ordering(mode, output_format, assert_trees_allclo
 
     x, y, z = jnp.full(3, 2.0), jnp.full(3, 3.0), jnp.ones(3)
     J = asdex.jacobian(
-        f, x, y, z, argnums=(0, 1, 2), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(0, 1, 2),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     J_jax = jax.jacobian(f, argnums=(0, 1, 2))(x, y, z)
     assert_trees_allclose(J, J_jax)
@@ -73,7 +98,7 @@ def test_jacobian_three_inputs_ordering(mode, output_format, assert_trees_allclo
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_dict_input_preserves_pytree(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Dict input returns dict-of-Jacobians matching jax.jacobian structure."""
 
@@ -86,7 +111,9 @@ def test_jacobian_dict_input_preserves_pytree(
         "b": jnp.zeros(3),
     }
 
-    J = asdex.jacobian(f, inputs, mode=mode, output_format=output_format)(inputs)
+    J = asdex.jacobian(
+        f, inputs, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(inputs)
     J_jax = jax.jacobian(f)(inputs)
     assert_trees_allclose(J, J_jax)
 
@@ -95,7 +122,7 @@ def test_jacobian_dict_input_preserves_pytree(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_two_dict_args_preserves_per_arg_pytree(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Top-level tuple of dicts matches jax.jacobian structure."""
 
@@ -105,9 +132,15 @@ def test_jacobian_two_dict_args_preserves_per_arg_pytree(
     p = {"a": jnp.array([1.0, 2.0, 3.0])}
     q = {"b": jnp.array([4.0, 5.0, 6.0, 7.0]), "c": jnp.array([8.0, 9.0, 10.0])}
 
-    J = asdex.jacobian(f, p, q, argnums=(0, 1), mode=mode, output_format=output_format)(
-        p, q
-    )
+    J = asdex.jacobian(
+        f,
+        p,
+        q,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(p, q)
     J_jax = jax.jacobian(f, argnums=(0, 1))(p, q)
     assert_trees_allclose(J, J_jax)
 
@@ -115,16 +148,24 @@ def test_jacobian_two_dict_args_preserves_per_arg_pytree(
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_multi_input_pytree_output(mode, output_format, assert_trees_allclose):
+def test_jacobian_multi_input_pytree_output(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Multi-input Jacobian with PyTree output matches jax.jacobian structure."""
 
     def f(x, y):
         return {"a": x * y, "b": x + y}
 
     x, y = jnp.array([1.0, 2.0]), jnp.array([3.0, 4.0])
-    J = asdex.jacobian(f, x, y, argnums=(0, 1), mode=mode, output_format=output_format)(
-        x, y
-    )
+    J = asdex.jacobian(
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     J_jax = jax.jacobian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(J, J_jax)
 
@@ -133,7 +174,7 @@ def test_jacobian_multi_input_pytree_output(mode, output_format, assert_trees_al
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_pytree_input_pytree_output(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Single pytree input with pytree output matches jax.jacobian structure."""
 
@@ -141,7 +182,9 @@ def test_jacobian_pytree_input_pytree_output(
         return {"sum": params["a"] + params["b"], "prod": params["a"] * params["b"]}
 
     params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
-    J = asdex.jacobian(f, params, mode=mode, output_format=output_format)(params)
+    J = asdex.jacobian(
+        f, params, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(params)
     J_jax = jax.jacobian(f)(params)
     assert_trees_allclose(J, J_jax)
 
@@ -150,7 +193,7 @@ def test_jacobian_pytree_input_pytree_output(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_mixed_pytree_array_inputs_pytree_output(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Mixed PyTree and array inputs with PyTree output matches jax.jacobian."""
 
@@ -160,7 +203,13 @@ def test_jacobian_mixed_pytree_array_inputs_pytree_output(
     params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
     scale = jnp.array([2.0, 3.0])
     J = asdex.jacobian(
-        f, params, scale, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        params,
+        scale,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(params, scale)
     J_jax = jax.jacobian(f, argnums=(0, 1))(params, scale)
     assert_trees_allclose(J, J_jax)
@@ -170,7 +219,7 @@ def test_jacobian_mixed_pytree_array_inputs_pytree_output(
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_three_pytree_inputs_pytree_output(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Three PyTree inputs with PyTree output matches jax.jacobian."""
 
@@ -181,7 +230,14 @@ def test_jacobian_three_pytree_inputs_pytree_output(
     q = {"y": jnp.array([3.0, 4.0])}
     r = {"z": jnp.array([5.0, 6.0])}
     J = asdex.jacobian(
-        f, p, q, r, argnums=(0, 1, 2), mode=mode, output_format=output_format
+        f,
+        p,
+        q,
+        r,
+        argnums=(0, 1, 2),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(p, q, r)
     J_jax = jax.jacobian(f, argnums=(0, 1, 2))(p, q, r)
     assert_trees_allclose(J, J_jax)
@@ -190,7 +246,9 @@ def test_jacobian_three_pytree_inputs_pytree_output(
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_two_nested_dicts(mode, output_format, assert_trees_allclose):
+def test_jacobian_two_nested_dicts(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Two nested dict args match jax.jacobian."""
 
     def f(p, q):
@@ -198,9 +256,15 @@ def test_jacobian_two_nested_dicts(mode, output_format, assert_trees_allclose):
 
     p = {"layer": {"w": jnp.array([1.0, 2.0])}}
     q = {"layer": {"w": jnp.array([3.0, 4.0])}}
-    J = asdex.jacobian(f, p, q, argnums=(0, 1), mode=mode, output_format=output_format)(
-        p, q
-    )
+    J = asdex.jacobian(
+        f,
+        p,
+        q,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(p, q)
     J_jax = jax.jacobian(f, argnums=(0, 1))(p, q)
     assert_trees_allclose(J, J_jax)
 
@@ -208,7 +272,9 @@ def test_jacobian_two_nested_dicts(mode, output_format, assert_trees_allclose):
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_asymmetric_nested_pytrees(mode, output_format, assert_trees_allclose):
+def test_jacobian_asymmetric_nested_pytrees(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Two PyTree args with different structures match jax.jacobian."""
 
     def f(model, data):
@@ -217,7 +283,13 @@ def test_jacobian_asymmetric_nested_pytrees(mode, output_format, assert_trees_al
     model = {"w": jnp.eye(2, 3), "b": jnp.zeros(2)}
     data = {"x": jnp.array([1.0, 2.0, 3.0])}
     J = asdex.jacobian(
-        f, model, data, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        model,
+        data,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(model, data)
     J_jax = jax.jacobian(f, argnums=(0, 1))(model, data)
     assert_trees_allclose(J, J_jax)
@@ -227,7 +299,7 @@ def test_jacobian_asymmetric_nested_pytrees(mode, output_format, assert_trees_al
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_complex_multi_input_multi_output(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Complex multi-input with complex multi-output matches jax.jacobian."""
 
@@ -238,7 +310,13 @@ def test_jacobian_complex_multi_input_multi_output(
     model = {"W": jnp.eye(2, 3), "b": jnp.zeros(2)}
     data = {"x": jnp.array([1.0, 2.0, 3.0])}
     J = asdex.jacobian(
-        f, model, data, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        model,
+        data,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(model, data)
     J_jax = jax.jacobian(f, argnums=(0, 1))(model, data)
     assert_trees_allclose(J, J_jax)
@@ -247,7 +325,9 @@ def test_jacobian_complex_multi_input_multi_output(
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_nested_and_flat_args(mode, output_format, assert_trees_allclose):
+def test_jacobian_nested_and_flat_args(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """One nested dict arg and one flat dict arg match jax.jacobian."""
 
     def f(nested, flat):
@@ -256,7 +336,13 @@ def test_jacobian_nested_and_flat_args(mode, output_format, assert_trees_allclos
     nested = {"layer": {"w": jnp.array([1.0, 2.0])}}
     flat = {"scale": jnp.array([3.0, 4.0])}
     J = asdex.jacobian(
-        f, nested, flat, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        nested,
+        flat,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(nested, flat)
     J_jax = jax.jacobian(f, argnums=(0, 1))(nested, flat)
     assert_trees_allclose(J, J_jax)
@@ -265,7 +351,9 @@ def test_jacobian_nested_and_flat_args(mode, output_format, assert_trees_allclos
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_jacobian_array_and_nested_dict(mode, output_format, assert_trees_allclose):
+def test_jacobian_array_and_nested_dict(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """One array arg and one nested dict arg match jax.jacobian."""
 
     def f(scale, params):
@@ -274,7 +362,13 @@ def test_jacobian_array_and_nested_dict(mode, output_format, assert_trees_allclo
     scale = jnp.array([1.0, 2.0])
     params = {"layer": {"w": jnp.array([3.0, 4.0])}}
     J = asdex.jacobian(
-        f, scale, params, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        scale,
+        params,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(scale, params)
     J_jax = jax.jacobian(f, argnums=(0, 1))(scale, params)
     assert_trees_allclose(J, J_jax)
@@ -286,16 +380,24 @@ def test_jacobian_array_and_nested_dict(mode, output_format, assert_trees_allclo
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_diagonal_blocks_match_jax(mode, output_format, assert_trees_allclose):
+def test_hessian_diagonal_blocks_match_jax(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """H_xx and H_yy from multi-input call match jax.hessian."""
 
     def f(x, y):
         return jnp.sum(x**3) + jnp.dot(x[:2], y) + jnp.sum(y**2)
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0])
-    H = asdex.hessian(f, x, y, argnums=(0, 1), mode=mode, output_format=output_format)(
-        x, y
-    )
+    H = asdex.hessian(
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -304,7 +406,7 @@ def test_hessian_diagonal_blocks_match_jax(mode, output_format, assert_trees_all
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_separable_has_zero_cross_blocks(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """f(x, y) = sum(x^2) + sum(y^2) has structurally empty H_xy / H_yx."""
 
@@ -312,9 +414,15 @@ def test_hessian_separable_has_zero_cross_blocks(
         return jnp.sum(x**2) + jnp.sum(y**2)
 
     x, y = jnp.ones(3), jnp.ones(2)
-    H = asdex.hessian(f, x, y, argnums=(0, 1), mode=mode, output_format=output_format)(
-        x, y
-    )
+    H = asdex.hessian(
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -323,7 +431,7 @@ def test_hessian_separable_has_zero_cross_blocks(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_bilinear_has_dense_cross_blocks(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """f(x, y) = sum(x) * sum(y) has empty diagonals, dense cross blocks."""
 
@@ -331,9 +439,15 @@ def test_hessian_bilinear_has_dense_cross_blocks(
         return jnp.sum(x) * jnp.sum(y)
 
     x, y = jnp.ones(3), jnp.ones(2)
-    H = asdex.hessian(f, x, y, argnums=(0, 1), mode=mode, output_format=output_format)(
-        x, y
-    )
+    H = asdex.hessian(
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -341,16 +455,24 @@ def test_hessian_bilinear_has_dense_cross_blocks(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_asymmetric_block_shapes(mode, output_format, assert_trees_allclose):
+def test_hessian_asymmetric_block_shapes(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Differently-sized inputs produce four blocks matching jax.hessian."""
 
     def f(x, y):
         return jnp.sum(x**2) + jnp.dot(x, y[:3]) + jnp.sum(y**3)
 
     x, y = jnp.ones(3), jnp.ones(4)
-    H = asdex.hessian(f, x, y, argnums=(0, 1), mode=mode, output_format=output_format)(
-        x, y
-    )
+    H = asdex.hessian(
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -358,7 +480,9 @@ def test_hessian_asymmetric_block_shapes(mode, output_format, assert_trees_allcl
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_three_inputs_block_grid(mode, output_format, assert_trees_allclose):
+def test_hessian_three_inputs_block_grid(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Three inputs: 3x3 block grid matches jax.hessian."""
 
     def f(x, y, z):
@@ -366,7 +490,14 @@ def test_hessian_three_inputs_block_grid(mode, output_format, assert_trees_allcl
 
     x, y, z = jnp.ones(3), jnp.ones(3), jnp.ones(3)
     H = asdex.hessian(
-        f, x, y, z, argnums=(0, 1, 2), mode=mode, output_format=output_format
+        f,
+        x,
+        y,
+        z,
+        argnums=(0, 1, 2),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(x, y, z)
     H_jax = jax.hessian(f, argnums=(0, 1, 2))(x, y, z)
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -376,7 +507,7 @@ def test_hessian_three_inputs_block_grid(mode, output_format, assert_trees_allcl
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_dict_input_preserves_pytree_on_both_axes(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Dict input returns dict-of-dicts matching jax.hessian structure."""
 
@@ -384,7 +515,9 @@ def test_hessian_dict_input_preserves_pytree_on_both_axes(
         return jnp.sum(p["a"] ** 2) + jnp.dot(p["a"], p["b"][:2])
 
     inputs = {"a": jnp.ones(2), "b": jnp.ones(3)}
-    H = asdex.hessian(f, inputs, mode=mode, output_format=output_format)(inputs)
+    H = asdex.hessian(
+        f, inputs, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(inputs)
     H_jax = jax.hessian(f)(inputs)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -392,16 +525,24 @@ def test_hessian_dict_input_preserves_pytree_on_both_axes(
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_mixed_matches_jax(mode, output_format, assert_trees_allclose):
+def test_hessian_mixed_matches_jax(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """All blocks of a mixed Hessian match jax.hessian."""
 
     def f(x, y):
         return jnp.dot(x, y) + jnp.sum(x**2)
 
     x, y = jnp.array([1.0, 2.0, 3.0]), jnp.array([4.0, 5.0, 6.0])
-    H = asdex.hessian(f, x, y, argnums=(0, 1), mode=mode, output_format=output_format)(
-        x, y
-    )
+    H = asdex.hessian(
+        f,
+        x,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(x, y)
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -409,7 +550,9 @@ def test_hessian_mixed_matches_jax(mode, output_format, assert_trees_allclose):
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_two_dict_args_matches_jax(mode, output_format, assert_trees_allclose):
+def test_hessian_two_dict_args_matches_jax(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian over tuple of dicts matches jax.hessian structure."""
 
     def f(p, q):
@@ -418,9 +561,15 @@ def test_hessian_two_dict_args_matches_jax(mode, output_format, assert_trees_all
     p = {"a": jnp.array([1.0, 2.0])}
     q = {"b": jnp.array([3.0, 4.0]), "c": jnp.array([5.0, 6.0, 7.0])}
 
-    H = asdex.hessian(f, p, q, argnums=(0, 1), mode=mode, output_format=output_format)(
-        p, q
-    )
+    H = asdex.hessian(
+        f,
+        p,
+        q,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(p, q)
     H_jax = jax.hessian(f, argnums=(0, 1))(p, q)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -428,7 +577,9 @@ def test_hessian_two_dict_args_matches_jax(mode, output_format, assert_trees_all
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_two_nested_dicts(mode, output_format, assert_trees_allclose):
+def test_hessian_two_nested_dicts(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian with two nested dict args matches jax.hessian."""
 
     def f(p, q):
@@ -436,9 +587,15 @@ def test_hessian_two_nested_dicts(mode, output_format, assert_trees_allclose):
 
     p = {"layer": {"w": jnp.array([1.0, 2.0])}}
     q = {"layer": {"w": jnp.array([3.0, 4.0])}}
-    H = asdex.hessian(f, p, q, argnums=(0, 1), mode=mode, output_format=output_format)(
-        p, q
-    )
+    H = asdex.hessian(
+        f,
+        p,
+        q,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )(p, q)
     H_jax = jax.hessian(f, argnums=(0, 1))(p, q)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
@@ -446,7 +603,9 @@ def test_hessian_two_nested_dicts(mode, output_format, assert_trees_allclose):
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
-def test_hessian_complex_multi_input(mode, output_format, assert_trees_allclose):
+def test_hessian_complex_multi_input(
+    mode, output_format, chunk_size, assert_trees_allclose
+):
     """Hessian with complex multi-input PyTrees matches jax.hessian."""
 
     def f(model, data):
@@ -458,7 +617,13 @@ def test_hessian_complex_multi_input(mode, output_format, assert_trees_allclose)
     model = {"W": jnp.array([1.0, 2.0, 3.0]), "b": jnp.array(1.0)}
     data = {"x": jnp.array([1.0, 2.0, 3.0])}
     H = asdex.hessian(
-        f, model, data, argnums=(0, 1), mode=mode, output_format=output_format
+        f,
+        model,
+        data,
+        argnums=(0, 1),
+        mode=mode,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )(model, data)
     H_jax = jax.hessian(f, argnums=(0, 1))(model, data)
     assert_trees_allclose(H, H_jax, atol=1e-6)
@@ -471,7 +636,7 @@ def test_hessian_complex_multi_input(mode, output_format, assert_trees_allclose)
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_jacobian_single_input_path_unchanged(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Single-array Jacobian matches jax.jacobian."""
 
@@ -479,7 +644,9 @@ def test_jacobian_single_input_path_unchanged(
         return x[1:] - x[:-1]
 
     x = jnp.arange(5.0)
-    J = asdex.jacobian(f, x, mode=mode, output_format=output_format)(x)
+    J = asdex.jacobian(
+        f, x, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x)
     J_jax = jax.jacobian(f)(x)
     assert_trees_allclose(J, J_jax)
 
@@ -488,7 +655,7 @@ def test_jacobian_single_input_path_unchanged(
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
 @pytest.mark.parametrize("output_format", ["dense", "bcoo"])
 def test_hessian_single_input_path_unchanged(
-    mode, output_format, assert_trees_allclose
+    mode, output_format, chunk_size, assert_trees_allclose
 ):
     """Single-array Hessian matches jax.hessian."""
 
@@ -496,7 +663,9 @@ def test_hessian_single_input_path_unchanged(
         return jnp.sum(x**2)
 
     x = jnp.ones(4)
-    H = asdex.hessian(f, x, mode=mode, output_format=output_format)(x)
+    H = asdex.hessian(
+        f, x, mode=mode, output_format=output_format, chunk_size=chunk_size
+    )(x)
     H_jax = jax.hessian(f)(x)
     assert_trees_allclose(H, H_jax, atol=1e-6)
 
