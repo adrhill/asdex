@@ -41,15 +41,18 @@ from ._elementwise import (
     prop_convert_element_type,
     prop_integer_pow,
     prop_sub,
+    prop_ternary_elementwise,
     prop_unary_elementwise,
     prop_zero_derivative,
     prop_zero_derivative_const,
 )
 from ._equinox._select_if_vmap import prop_select_if_vmap
 from ._gather import prop_gather
+from ._linalg import prop_qr
 from ._mul import prop_mul
 from ._pad import prop_pad
 from ._platform_index import prop_platform_index
+from ._random import prop_random
 from ._reduce import prop_reduce
 from ._reshape import prop_reshape
 from ._rev import prop_rev
@@ -174,6 +177,9 @@ def prop_dispatch(
             | "reduce_or"
             | "reduce_xor"
             | "not"
+            | "shift_left"
+            | "shift_right_arithmetic"
+            | "shift_right_logical"
         ):
             prop_zero_derivative(eqn, state_indices)
         case "clamp":
@@ -273,6 +279,8 @@ def prop_dispatch(
             | "bessel_i1e"  # nonzero derivative
         ):
             prop_unary_elementwise(eqn, state_indices)
+        case "regularized_incomplete_beta":
+            prop_ternary_elementwise(eqn, state_indices)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
             prop_reduce(eqn, state_indices)
         case (
@@ -298,6 +306,15 @@ def prop_dispatch(
             prop_select_if_vmap(eqn, state_indices, state_consts)
         case "iota":
             _prop_iota(eqn, state_indices, state_consts)
+        case (
+            "random_seed"
+            | "random_unwrap"
+            | "random_wrap"
+            | "random_split"
+            | "random_fold_in"
+            | "random_bits"
+        ):
+            prop_random(eqn, state_indices)
         case "while":
             prop_while(eqn, state_indices, state_consts, prop_jaxpr)
         case "cond":
@@ -326,14 +343,20 @@ def prop_dispatch(
             prop_tile(eqn, state_indices, state_consts)
         case "sort":
             prop_sort(eqn, state_indices)
-        case "cumsum":
+        case "cumsum" | "cumprod" | "cummax" | "cummin":
             prop_cumsum(eqn, state_indices)
+        case "qr":
+            prop_qr(eqn, state_indices)
         # Conservative fallback: all outputs depend on all inputs.
         case (
             "nonbatchable"
             | "unvmap_any"  # from Equinox
             | "unvmap_max"  # from Equinox
             | "pure_callback"
+            | "lu"
+            | "cholesky"
+            | "svd"
+            | "eigh"
         ):
             prop_conservative_fallback(eqn, state_indices)
         case _:
