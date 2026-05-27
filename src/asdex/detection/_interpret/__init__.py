@@ -25,6 +25,7 @@ from ._commons import (
     forward_value_bounds,
     index_sets,
     seed_const_vals,
+    union_elementwise,
 )
 from ._comparison import prop_ge, prop_gt, prop_le, prop_lt
 from ._concatenate import prop_concatenate
@@ -274,9 +275,10 @@ def prop_dispatch(
             | "lgamma"  # ∂log(Γ(x))/∂x = ψ(x)
             | "bessel_i0e"  # nonzero derivative
             | "bessel_i1e"  # nonzero derivative
-            | "regularized_incomplete_beta"  # ∂I_x(a,b)/∂x ≠ 0
         ):
             prop_unary_elementwise(eqn, state_indices)
+        case "regularized_incomplete_beta":
+            _prop_ternary_elementwise(eqn, state_indices)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
             prop_reduce(eqn, state_indices)
         case (
@@ -389,13 +391,25 @@ def _prop_iota(
 
 
 def _prop_random_seed(eqn: JaxprEqn, state_indices: StateIndices) -> None:
-    """Random seed/unwrap generates values with no input dependencies.
+    """Random key primitives have zero derivative with respect to inputs.
 
-    The output is determined by parameters (seed value, PRNG implementation),
-    not by traced inputs, so all dependency sets are empty.
+    Random number generation is not differentiable,
+    so all output dependency sets are empty regardless of inputs.
     """
     for outvar in eqn.outvars:
         state_indices[outvar] = empty_index_sets(atom_numel(outvar))
+
+
+def _prop_ternary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+    """Ternary elementwise operation where each output depends on all three inputs.
+
+    Used for `regularized_incomplete_beta(a, b, x)` where each output element
+    depends on the corresponding elements from all three input arrays.
+    Handles broadcasting via modular indexing.
+    """
+    inputs = [index_sets(state_indices, invar) for invar in eqn.invars]
+    out_size = atom_numel(eqn.outvars[0])
+    state_indices[eqn.outvars[0]] = union_elementwise(inputs, out_size)
 
 
 def prop_conservative_fallback(eqn: JaxprEqn, state_indices: StateIndices) -> None:
