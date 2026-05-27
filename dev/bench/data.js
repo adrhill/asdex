@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779882726546,
+  "lastUpdate": 1779882929553,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -16278,6 +16278,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000056621431084975155",
             "extra": "mean: 22.817796240902425 usec\nrounds: 11440"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ae0fb622b02eb4708dea470d841b1fb67d0741b2",
+          "message": "feat(detection): add handlers for bitwise, random, cumulative, and linalg primitives (#140)\n\n* feat(detection): add handlers for bitwise, random, cumulative, and linalg primitives\n\nAdd support for:\n- Bitwise shifts (`shift_left`, `shift_right_*`) as zero-derivative\n- Random primitives (`random_seed`, `random_unwrap`, `random_wrap`, `random_bits`)\n- `regularized_incomplete_beta` as unary elementwise\n- Cumulative ops (`cumprod`, `cummax`, `cummin`) reusing `cumsum` pattern\n- Linear algebra (`lu`, `cholesky`, `qr`, `svd`, `eigh`) as conservative fallback\n\nCloses #109, #112, #114, #120, #121, #122\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* test(detection): add tests for cumulative and random primitives\n\nAdd comprehensive tests for:\n- `cumprod`, `cummax`, `cummin`: structural sparsity (lower/upper triangular)\n- Random primitives: `random_split`, `random_fold_in` handlers\n\nTests verify structural patterns match cumsum and are sparser than conservative.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\n\n* fix(detection): handle `regularized_incomplete_beta` as ternary op\n\nAddress Copilot review feedback:\n\n- `regularized_incomplete_beta(a, b, x)` has 3 inputs, not 1.\n  Using `prop_unary_elementwise` only looked at `invars[0]`,\n  which is often a constant (a), producing all-zero patterns.\n  Now uses `_prop_ternary_elementwise` with `union_elementwise`.\n\n- Updated `_prop_random_seed` docstring to clarify it's zero-derivative,\n  not that primitives have no inputs.\n\nAdds comprehensive tests for betainc with single/multiple traced inputs.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* refactor(detection): move handlers out of __init__.py\n\n- Move `prop_ternary_elementwise` to `_elementwise.py`\n- Create `_random.py` with `prop_random` handler\n- Consolidate all random primitives under single handler\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(detection): add tests for linalg primitives (lu, cholesky, qr, svd, eigh)\n\nUse 3x3 matrices and test all outputs via multi-output jacobian.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(detection): verify exact sparsity patterns in linalg tests\n\nTests now check the precise sparsity pattern rather than just shape.\nQR test documents expected behavior for R's lower triangle (currently fails).\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* feat(detection): add precise QR handler with triangular R structure\n\nR's lower triangle now correctly detected as having no dependencies.\nAdds e2e tests for all linalg functions (qr, cholesky, svd, eigh, lu).\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test(e2e): parametrize linalg tests over input sizes\n\nTests now cover multiple matrix sizes (2x2, 3x3, 4x4) and shapes\n(square, tall, wide for QR). Uses random matrices with fixed seeds.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.6 <noreply@anthropic.com>",
+          "timestamp": "2026-05-27T13:45:22+02:00",
+          "tree_id": "8f2fd7960564740e017a25e0de59665d61917b30",
+          "url": "https://github.com/adrhill/asdex/commit/ae0fb622b02eb4708dea470d841b1fb67d0741b2"
+        },
+        "date": 1779882388589,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1120.1568247531875,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000760830261185656",
+            "extra": "mean: 892.7321406271283 usec\nrounds: 64"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27577.980128747527,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000223518816775672",
+            "extra": "mean: 36.26081371193648 usec\nrounds: 7322"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 93041.38167248282,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013966289505102714",
+            "extra": "mean: 10.747905738546788 usec\nrounds: 28718"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 64668.05232449236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029178550357510303",
+            "extra": "mean: 15.463586176713415 usec\nrounds: 11430"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 92519.43007252677,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000012441430208744684",
+            "extra": "mean: 10.808540424601532 usec\nrounds: 30526"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 18.496215183736954,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03456139459511897",
+            "extra": "mean: 54.06511494736845 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2874.268313643634,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006586613944742865",
+            "extra": "mean: 347.91463109173907 usec\nrounds: 2483"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1879.8104550845235,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027455571750099255",
+            "extra": "mean: 531.96852762213 usec\nrounds: 1249"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1894.927599924143,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014977657172376564",
+            "extra": "mean: 527.7246476541012 usec\nrounds: 1087"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4665.245027365843,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011409467345297158",
+            "extra": "mean: 214.35101353393094 usec\nrounds: 3325"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 155.9774062902788,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010245752375845341",
+            "extra": "mean: 6.411184951613882 msec\nrounds: 62"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27508.047991238618,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002774216067877954",
+            "extra": "mean: 36.35299750525746 usec\nrounds: 20842"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 63078.72396694892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000234371980521067",
+            "extra": "mean: 15.853205916530042 usec\nrounds: 17104"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 54929.93257622572,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025026016386406976",
+            "extra": "mean: 18.205010512479877 usec\nrounds: 14269"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 64460.36434277868,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022917803873731505",
+            "extra": "mean: 15.513409056801699 usec\nrounds: 17335"
           }
         ]
       }
