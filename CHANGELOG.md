@@ -1,5 +1,8 @@
 # asdex
 
+## Version `v0.3.3`
+* ![Feature][badge-feature] Add handlers for bitwise, random, cumulative, and linalg primitives ([#140])
+
 ## Version `v0.3.2`
 * ![Feature][badge-feature] Add `chunk_size` parameter for bounded memory usage in Jacobian and Hessian computation ([#139])
 
@@ -95,6 +98,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#140]: https://github.com/adrhill/asdex/pull/140
 [#139]: https://github.com/adrhill/asdex/pull/139
 [#137]: https://github.com/adrhill/asdex/pull/137
 [#135]: https://github.com/adrhill/asdex/pull/135

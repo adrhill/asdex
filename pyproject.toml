@@ -1,6 +1,6 @@
 [project]
 name = "asdex"
-version = "0.3.2"
+version = "0.3.3"
 description = "Automatic Sparse Differentiation in JAX"
 readme = "README.md"
 requires-python = ">=3.11"
