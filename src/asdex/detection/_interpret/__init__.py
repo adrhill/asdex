@@ -48,6 +48,7 @@ from ._elementwise import (
 )
 from ._equinox._select_if_vmap import prop_select_if_vmap
 from ._gather import prop_gather
+from ._linalg import prop_qr
 from ._mul import prop_mul
 from ._pad import prop_pad
 from ._platform_index import prop_platform_index
@@ -344,6 +345,8 @@ def prop_dispatch(
             prop_sort(eqn, state_indices)
         case "cumsum" | "cumprod" | "cummax" | "cummin":
             prop_cumsum(eqn, state_indices)
+        case "qr":
+            prop_qr(eqn, state_indices)
         # Conservative fallback: all outputs depend on all inputs.
         case (
             "nonbatchable"
@@ -352,7 +355,6 @@ def prop_dispatch(
             | "pure_callback"
             | "lu"
             | "cholesky"
-            | "qr"
             | "svd"
             | "eigh"
         ):
