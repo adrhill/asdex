@@ -213,6 +213,27 @@ def prop_zero_derivative_const(
     _propagate_const(eqn, state_consts)
 
 
+def prop_ternary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+    """Ternary elementwise operation where each output depends on all three inputs.
+
+    Used for `regularized_incomplete_beta(a, b, x)` where each output element
+    depends on the corresponding elements from all three input arrays.
+    Handles broadcasting via modular indexing.
+
+    Example: z = betainc(a, b, x) where a, b, x are arrays of shape (3,)
+        Input state_indices:  [{0}, {1}, {2}], [{3}, {4}, {5}], [{6}, {7}, {8}]
+        Output state_indices: [{0, 3, 6}, {1, 4, 7}, {2, 5, 8}]
+
+    Jaxpr:
+        invars[0]: first input (a)
+        invars[1]: second input (b)
+        invars[2]: third input (x)
+    """
+    inputs = [index_sets(state_indices, invar) for invar in eqn.invars]
+    out_size = atom_numel(eqn.outvars[0])
+    state_indices[eqn.outvars[0]] = union_elementwise(inputs, out_size)
+
+
 def prop_binary_const(
     eqn: JaxprEqn,
     state_indices: StateIndices,

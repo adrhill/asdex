@@ -25,7 +25,6 @@ from ._commons import (
     forward_value_bounds,
     index_sets,
     seed_const_vals,
-    union_elementwise,
 )
 from ._comparison import prop_ge, prop_gt, prop_le, prop_lt
 from ._concatenate import prop_concatenate
@@ -42,6 +41,7 @@ from ._elementwise import (
     prop_convert_element_type,
     prop_integer_pow,
     prop_sub,
+    prop_ternary_elementwise,
     prop_unary_elementwise,
     prop_zero_derivative,
     prop_zero_derivative_const,
@@ -51,6 +51,7 @@ from ._gather import prop_gather
 from ._mul import prop_mul
 from ._pad import prop_pad
 from ._platform_index import prop_platform_index
+from ._random import prop_random
 from ._reduce import prop_reduce
 from ._reshape import prop_reshape
 from ._rev import prop_rev
@@ -278,7 +279,7 @@ def prop_dispatch(
         ):
             prop_unary_elementwise(eqn, state_indices)
         case "regularized_incomplete_beta":
-            _prop_ternary_elementwise(eqn, state_indices)
+            prop_ternary_elementwise(eqn, state_indices)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
             prop_reduce(eqn, state_indices)
         case (
@@ -310,10 +311,9 @@ def prop_dispatch(
             | "random_wrap"
             | "random_split"
             | "random_fold_in"
+            | "random_bits"
         ):
-            _prop_random_seed(eqn, state_indices)
-        case "random_bits":
-            prop_zero_derivative(eqn, state_indices)
+            prop_random(eqn, state_indices)
         case "while":
             prop_while(eqn, state_indices, state_consts, prop_jaxpr)
         case "cond":
@@ -388,28 +388,6 @@ def _prop_iota(
         ),
         shape,
     )
-
-
-def _prop_random_seed(eqn: JaxprEqn, state_indices: StateIndices) -> None:
-    """Random key primitives have zero derivative with respect to inputs.
-
-    Random number generation is not differentiable,
-    so all output dependency sets are empty regardless of inputs.
-    """
-    for outvar in eqn.outvars:
-        state_indices[outvar] = empty_index_sets(atom_numel(outvar))
-
-
-def _prop_ternary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
-    """Ternary elementwise operation where each output depends on all three inputs.
-
-    Used for `regularized_incomplete_beta(a, b, x)` where each output element
-    depends on the corresponding elements from all three input arrays.
-    Handles broadcasting via modular indexing.
-    """
-    inputs = [index_sets(state_indices, invar) for invar in eqn.invars]
-    out_size = atom_numel(eqn.outvars[0])
-    state_indices[eqn.outvars[0]] = union_elementwise(inputs, out_size)
 
 
 def prop_conservative_fallback(eqn: JaxprEqn, state_indices: StateIndices) -> None:
