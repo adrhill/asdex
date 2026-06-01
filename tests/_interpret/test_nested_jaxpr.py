@@ -141,3 +141,49 @@ def test_remat2_decompression():
     J = jacobian(f, x, output_format="dense")(x)
     expected = np.diag([2.0, 4.0, 6.0])
     np.testing.assert_allclose(J, expected)
+
+
+@pytest.mark.elementwise
+def test_remat2_nested():
+    """Nested checkpoints trace through both layers correctly.
+
+    Each checkpoint wraps its computation in a remat2 primitive.
+    Nested checkpoints produce nested remat2 primitives,
+    both of which must be traced through.
+    """
+
+    @jax.checkpoint
+    def inner(x):
+        return jnp.sin(x)
+
+    @jax.checkpoint
+    def outer(x):
+        return jnp.cos(inner(x))
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian_sparsity(outer, x).todense().astype(int)
+    expected = np.eye(3, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_remat2_differentiated():
+    """remat2 with differentiated=True traces correctly.
+
+    When taking the gradient of a checkpointed function,
+    the jaxpr contains remat2 with differentiated=True.
+    This rematerializes the forward computation during backprop.
+    """
+
+    @jax.checkpoint
+    def f_inner(x):
+        return jnp.sum(jnp.sin(x))
+
+    def grad_f(x):
+        return jax.grad(f_inner)(x)
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian_sparsity(grad_f, x).todense().astype(int)
+    # d/dx[cos(x_i)] only depends on x_i
+    expected = np.eye(3, dtype=int)
+    np.testing.assert_array_equal(result, expected)
