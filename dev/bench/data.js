@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779882929553,
+  "lastUpdate": 1780320307190,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -16407,6 +16407,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000022917803873731505",
             "extra": "mean: 15.513409056801699 usec\nrounds: 17335"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b233fe0af20970b046ac7d6bb2f4ae1f0ee293b",
+          "message": "feat(detection): add handler for remat2 primitive (#141)\n\nAdd support for jax.checkpoint/jax.remat by handling the remat2 primitive.\nThe primitive uses the same \"jaxpr\" parameter key as jit/pjit,\nso it reuses the existing prop_closed_jaxpr implementation.\n\nCloses #118\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-06-01T15:24:20+02:00",
+          "tree_id": "eae00f3584af10dd4fdf8d74aaae2c7907a97125",
+          "url": "https://github.com/adrhill/asdex/commit/8b233fe0af20970b046ac7d6bb2f4ae1f0ee293b"
+        },
+        "date": 1780320305586,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1058.8775303333664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005191669154074944",
+            "extra": "mean: 944.3962794121904 usec\nrounds: 68"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27034.760529155716,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003853349396937428",
+            "extra": "mean: 36.98941586412601 usec\nrounds: 8825"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 74770.82509960393,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000030258210404980583",
+            "extra": "mean: 13.374200413969984 usec\nrounds: 25607"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 42046.687346852974,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003999046522272985",
+            "extra": "mean: 23.783086447471256 usec\nrounds: 12551"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 71973.79458942532,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000028041549210869975",
+            "extra": "mean: 13.893945785469592 usec\nrounds: 18851"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 19.549163180769465,
+            "unit": "iter/sec",
+            "range": "stddev: 0.026436266638207823",
+            "extra": "mean: 51.153084699998885 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2868.2543105626573,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000021419994195666097",
+            "extra": "mean: 348.64411998524383 usec\nrounds: 2642"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1866.9503847922722,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004760901656795365",
+            "extra": "mean: 535.6328738812553 usec\nrounds: 1340"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1886.6030117949801,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000642551349594123",
+            "extra": "mean: 530.0532193302103 usec\nrounds: 1076"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4010.5507005493273,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009700584488117079",
+            "extra": "mean: 249.34231597247464 usec\nrounds: 3168"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 124.86424365388105,
+            "unit": "iter/sec",
+            "range": "stddev: 0.009588869390018679",
+            "extra": "mean: 8.008697852460967 msec\nrounds: 61"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 24915.32841823141,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010857365534511811",
+            "extra": "mean: 40.13593492383048 usec\nrounds: 19408"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 42489.82319820802,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007431031824510041",
+            "extra": "mean: 23.535047329690332 usec\nrounds: 12994"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 37825.15620683101,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000075671820364635945",
+            "extra": "mean: 26.43743212934586 usec\nrounds: 13732"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 43146.619895280084,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006915741005528231",
+            "extra": "mean: 23.176786557720423 usec\nrounds: 15667"
           }
         ]
       }
