@@ -196,7 +196,7 @@ def prop_dispatch(
             prop_ge(eqn, state_indices, state_consts, state_bounds)
         case "and" | "or" | "xor":
             prop_zero_derivative_const(eqn, state_indices, state_consts)
-        case "jit" | "pjit" | "xla_call" | "named_call":
+        case "jit" | "pjit" | "xla_call" | "named_call" | "remat2":
             prop_closed_jaxpr(eqn, state_indices, state_consts, state_bounds, "jaxpr")
         case "slice":
             prop_slice(eqn, state_indices, state_consts)

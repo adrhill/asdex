@@ -12,7 +12,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from asdex import jacobian_sparsity
+from asdex import jacobian, jacobian_sparsity
 
 
 @pytest.mark.array_ops
@@ -81,3 +81,63 @@ def test_custom_jvp_closure_captured_index():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_remat2_checkpoint():
+    """remat2 primitive traces through the wrapped jaxpr.
+
+    jax.checkpoint (remat) wraps a computation for rematerialization during backprop.
+    The sparsity pattern should be identical to the unwrapped computation.
+    """
+
+    @jax.checkpoint
+    def f(x):
+        y = jnp.sin(x)
+        return jnp.cos(y)
+
+    x = jnp.array([0.0, 1.0, 2.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.eye(3, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_remat2_closure_captured_index():
+    """remat2 with closure-captured index resolves gather precisely.
+
+    Same as test_jit_closure_captured_index but with jax.checkpoint.
+    """
+    indices = jnp.array([2, 0, 1])
+
+    @jax.checkpoint
+    def permute(x):
+        return x[indices]
+
+    def f(x):
+        return permute(x)
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 0, 1],  # out[0] ← x[2]
+            [1, 0, 0],  # out[1] ← x[0]
+            [0, 1, 0],  # out[2] ← x[1]
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_remat2_decompression():
+    """remat2 works with full Jacobian computation, not just sparsity detection."""
+
+    @jax.checkpoint
+    def f(x):
+        return x**2
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    J = jacobian(f, x, output_format="dense")(x)
+    expected = np.diag([2.0, 4.0, 6.0])
+    np.testing.assert_allclose(J, expected)
