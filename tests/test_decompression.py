@@ -1848,3 +1848,29 @@ def test_scipy_rejects_high_dimensional_output(fmt):
     x = np.array([[1.0, 2.0], [3.0, 4.0]])
     with pytest.raises(ValueError, match="only support 2D"):
         jacobian(f, x, output_format=fmt)(x)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("fmt", ["scipy_coo", "scipy_csr", "scipy_csc"])
+def test_scipy_rejects_high_dimensional_hessian(fmt):
+    """SciPy formats raise ValueError for high-dimensional Hessian blocks."""
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    x = np.array([[1.0, 2.0], [3.0, 4.0]])
+    with pytest.raises(ValueError, match="only support 2D"):
+        hessian(f, x, output_format=fmt)(x)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("fmt", ["scipy_coo", "scipy_csr", "scipy_csc"])
+def test_scipy_rejects_pytree_output(fmt):
+    """SciPy formats raise ValueError for PyTree outputs with high-dimensional blocks."""
+
+    def f(x):
+        return {"a": x[:2], "b": jnp.sum(x**2)}
+
+    x = np.array([1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="only support 2D"):
+        jacobian(f, x, output_format=fmt)(x)

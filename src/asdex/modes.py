@@ -38,7 +38,8 @@ OutputFormat = _JaxOutputFormat | _NumpyOutputFormat | _ScipyOutputFormat
 ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
 ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
 ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-SciPy formats require scipy to be installed.
+SciPy formats require scipy and only support 2D arrays
+(flat inputs and outputs); PyTree inputs/outputs raise ValueError.
 """
 
 
