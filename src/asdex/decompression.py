@@ -218,7 +218,8 @@ def jacobian(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy to be installed.
+            SciPy formats require scipy and only support 2D arrays
+            (flat inputs and outputs).
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -356,7 +357,8 @@ def hessian(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy to be installed.
+            SciPy formats require scipy and only support 2D arrays
+            (flat inputs and outputs).
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -435,7 +437,8 @@ def value_and_hessian(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy to be installed.
+            SciPy formats require scipy and only support 2D arrays
+            (flat inputs and outputs).
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -509,7 +512,8 @@ def jacobian_from_coloring(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy to be installed.
+            SciPy formats require scipy and only support 2D arrays
+            (flat inputs and outputs).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -559,7 +563,8 @@ def hessian_from_coloring(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy to be installed.
+            SciPy formats require scipy and only support 2D arrays
+            (flat inputs and outputs).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -607,7 +612,8 @@ def value_and_jacobian_from_coloring(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy to be installed.
+            SciPy formats require scipy and only support 2D arrays
+            (flat inputs and outputs).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -655,7 +661,8 @@ def value_and_hessian_from_coloring(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy to be installed.
+            SciPy formats require scipy and only support 2D arrays
+            (flat inputs and outputs).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
