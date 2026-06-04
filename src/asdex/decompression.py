@@ -67,30 +67,38 @@ def _convert_leaf_to_format(leaf: jax.Array | BCOO, output_format: str) -> Any:
     For scipy formats, the leaf must be 2D (scipy sparse arrays only support 2D).
     Higher-dimensional blocks are converted by treating leading dimensions as rows.
     """
-    if output_format == "numpy_dense":
-        if isinstance(leaf, BCOO):
-            return np.asarray(leaf.todense())
-        return np.asarray(leaf)
+    match output_format:
+        case "numpy_dense":
+            if isinstance(leaf, BCOO):
+                return np.asarray(leaf.todense())
+            return np.asarray(leaf)
+        case "scipy_coo" | "scipy_csr" | "scipy_csc":
+            arr = (
+                np.asarray(leaf.todense())
+                if isinstance(leaf, BCOO)
+                else np.asarray(leaf)
+            )
+            match arr.ndim:
+                case 0:
+                    flat_shape = (1, 1)
+                case 1:
+                    flat_shape = (arr.shape[0], 1)
+                case _:
+                    flat_shape = (int(np.prod(arr.shape[:-1])), arr.shape[-1])
 
-    # scipy sparse formats - reshape to 2D for conversion
-    arr = np.asarray(leaf.todense()) if isinstance(leaf, BCOO) else np.asarray(leaf)
-    if arr.ndim == 0:
-        flat_shape = (1, 1)
-    elif arr.ndim == 1:
-        flat_shape = (arr.shape[0], 1)
-    else:
-        flat_shape = (int(np.prod(arr.shape[:-1])), arr.shape[-1])
+            flat = arr.reshape(flat_shape)
+            nonzero = np.nonzero(flat)
+            if len(nonzero[0]) == 0:
+                indices_2d = np.zeros((0, 2), dtype=np.intp)
+                data = np.array([], dtype=arr.dtype)
+            else:
+                indices_2d = np.column_stack(nonzero)
+                data = flat[nonzero]
 
-    flat = arr.reshape(flat_shape)
-    nonzero = np.nonzero(flat)
-    if len(nonzero[0]) == 0:
-        indices_2d = np.zeros((0, 2), dtype=np.intp)
-        data = np.array([], dtype=arr.dtype)
-    else:
-        indices_2d = np.column_stack(nonzero)
-        data = flat[nonzero]
-
-    return _to_scipy_sparse(data, indices_2d, flat_shape, output_format)
+            return _to_scipy_sparse(data, indices_2d, flat_shape, output_format)
+        case _:
+            msg = f"Unknown output_format: {output_format!r}"
+            raise ValueError(msg)
 
 
 def _convert_pytree_to_format(pytree: Any, output_format: str) -> Any:

@@ -44,8 +44,7 @@ def output_format(request):
 
 @pytest.fixture(params=["scipy_coo", "scipy_csr", "scipy_csc"])
 def scipy_output_format(request):
-    """Parametrize over scipy output formats. Skips if scipy not installed."""
-    pytest.importorskip("scipy")
+    """Parametrize over scipy output formats."""
     return request.param
 
 
@@ -53,9 +52,7 @@ def scipy_output_format(request):
     params=["dense", "bcoo", "numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc"]
 )
 def all_output_format(request):
-    """Parametrize over all output formats. Skips scipy formats if not installed."""
-    if request.param.startswith("scipy"):
-        pytest.importorskip("scipy")
+    """Parametrize over all output formats."""
     return request.param
 
 
