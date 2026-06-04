@@ -42,12 +42,6 @@ def output_format(request):
     return request.param
 
 
-@pytest.fixture(params=["scipy_coo", "scipy_csr", "scipy_csc"])
-def scipy_output_format(request):
-    """Parametrize over scipy output formats."""
-    return request.param
-
-
 @pytest.fixture(
     params=["dense", "bcoo", "numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc"]
 )

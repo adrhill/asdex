@@ -30,6 +30,8 @@ from asdex.modes import (
     _assert_hessian_mode,
     _assert_jacobian_mode,
     _assert_output_format,
+    _NumpyOutputFormat,
+    _ScipyOutputFormat,
 )
 from asdex.pattern import ColoredPattern, SparsityPattern
 
@@ -38,7 +40,7 @@ def _to_scipy_sparse(
     data: jax.Array | np.ndarray,
     indices: np.ndarray,
     shape: tuple[int, int],
-    fmt: str,
+    fmt: _ScipyOutputFormat,
 ) -> Any:
     """Convert to scipy sparse array.
 
@@ -54,19 +56,21 @@ def _to_scipy_sparse(
         ) from e
 
     coo = coo_array((np.asarray(data), (indices[:, 0], indices[:, 1])), shape=shape)
-    if fmt == "scipy_coo":
-        return coo
-    if fmt == "scipy_csr":
-        return coo.tocsr()
-    return coo.tocsc()
+    match fmt:
+        case "scipy_coo":
+            return coo
+        case "scipy_csr":
+            return coo.tocsr()
+        case "scipy_csc":
+            return coo.tocsc()
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
-def _convert_leaf_to_format(leaf: jax.Array | BCOO, output_format: str) -> Any:
-    """Convert a single JAX array or BCOO leaf to the target format.
-
-    For scipy formats, the leaf must be 2D (scipy sparse arrays only support 2D).
-    Higher-dimensional blocks are converted by treating leading dimensions as rows.
-    """
+def _convert_leaf_to_format(
+    leaf: jax.Array | BCOO, output_format: _NumpyOutputFormat | _ScipyOutputFormat
+) -> Any:
+    """Convert a single JAX array or BCOO leaf to the target format."""
     match output_format:
         case "numpy_dense":
             if isinstance(leaf, BCOO):
@@ -78,30 +82,26 @@ def _convert_leaf_to_format(leaf: jax.Array | BCOO, output_format: str) -> Any:
                 if isinstance(leaf, BCOO)
                 else np.asarray(leaf)
             )
-            match arr.ndim:
-                case 0:
-                    flat_shape = (1, 1)
-                case 1:
-                    flat_shape = (arr.shape[0], 1)
-                case _:
-                    flat_shape = (int(np.prod(arr.shape[:-1])), arr.shape[-1])
-
-            flat = arr.reshape(flat_shape)
-            nonzero = np.nonzero(flat)
+            if arr.ndim != 2:
+                raise ValueError(
+                    f"SciPy sparse formats only support 2D arrays, got shape {arr.shape}."
+                )
+            nonzero = np.nonzero(arr)
             if len(nonzero[0]) == 0:
                 indices_2d = np.zeros((0, 2), dtype=np.intp)
                 data = np.array([], dtype=arr.dtype)
             else:
                 indices_2d = np.column_stack(nonzero)
-                data = flat[nonzero]
+                data = arr[nonzero]
 
-            return _to_scipy_sparse(data, indices_2d, flat_shape, output_format)
-        case _:
-            msg = f"Unknown output_format: {output_format!r}"
-            raise ValueError(msg)
+            return _to_scipy_sparse(data, indices_2d, arr.shape, output_format)
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
-def _convert_pytree_to_format(pytree: Any, output_format: str) -> Any:
+def _convert_pytree_to_format(
+    pytree: Any, output_format: _NumpyOutputFormat | _ScipyOutputFormat
+) -> Any:
     """Convert each leaf in a pytree to the target numpy/scipy format."""
 
     def is_leaf(x: Any) -> bool:

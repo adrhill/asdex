@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore", category=asdex.DenseColoringWarning)
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_nested_dict_input(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -43,7 +43,7 @@ def test_jacobian_nested_dict_input(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_triple_nested_dict(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -62,7 +62,7 @@ def test_jacobian_triple_nested_dict(
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_hessian_nested_dict_input(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -82,7 +82,7 @@ def test_hessian_nested_dict_input(
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_hessian_triple_nested_dict(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -105,7 +105,7 @@ def test_hessian_triple_nested_dict(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_nested_dict_output(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -127,7 +127,7 @@ def test_jacobian_nested_dict_output(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_triple_nested_dict_output(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -149,7 +149,7 @@ def test_jacobian_triple_nested_dict_output(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_list_of_arrays_input(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -168,7 +168,7 @@ def test_jacobian_list_of_arrays_input(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_list_output(mode, output_format, chunk_size, assert_trees_allclose):
     """List as output matches jax.jacobian."""
 
@@ -185,7 +185,7 @@ def test_jacobian_list_output(mode, output_format, chunk_size, assert_trees_allc
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_list_input_list_output(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -207,7 +207,7 @@ def test_jacobian_list_input_list_output(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_tuple_output(mode, output_format, chunk_size, assert_trees_allclose):
     """Tuple as output matches jax.jacobian."""
 
@@ -224,7 +224,7 @@ def test_jacobian_tuple_output(mode, output_format, chunk_size, assert_trees_all
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_nested_tuple_output(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -243,7 +243,7 @@ def test_jacobian_nested_tuple_output(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_tuple_of_dicts_output(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -265,7 +265,7 @@ def test_jacobian_tuple_of_dicts_output(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_dict_containing_list(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -284,7 +284,7 @@ def test_jacobian_dict_containing_list(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_dict_containing_tuple(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -304,7 +304,7 @@ def test_jacobian_dict_containing_tuple(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_mixed_depths_in_dict(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -326,7 +326,7 @@ def test_jacobian_mixed_depths_in_dict(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_heterogeneous_output_pytree(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -348,7 +348,7 @@ def test_jacobian_heterogeneous_output_pytree(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_namedtuple_input(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -368,7 +368,7 @@ def test_jacobian_namedtuple_input(
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_hessian_namedtuple_input(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -391,7 +391,7 @@ def test_hessian_namedtuple_input(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_mixed_pytree_input_output(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -411,7 +411,7 @@ def test_jacobian_mixed_pytree_input_output(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_nested_input_nested_output(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -434,7 +434,7 @@ def test_jacobian_nested_input_nested_output(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_scalar_leaves_in_pytree(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -457,7 +457,7 @@ def test_jacobian_scalar_leaves_in_pytree(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_single_element_arrays(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -476,7 +476,7 @@ def test_jacobian_single_element_arrays(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_single_leaf_pytree(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -495,7 +495,7 @@ def test_jacobian_single_leaf_pytree(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_all_scalar_leaves(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -514,7 +514,7 @@ def test_jacobian_all_scalar_leaves(
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_hessian_all_scalar_leaves(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -536,7 +536,7 @@ def test_hessian_all_scalar_leaves(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_2d_arrays_in_pytree(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -555,7 +555,7 @@ def test_jacobian_2d_arrays_in_pytree(
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_3d_arrays_in_pytree(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -574,7 +574,7 @@ def test_jacobian_3d_arrays_in_pytree(
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_hessian_2d_array_input(mode, output_format, chunk_size, assert_trees_allclose):
     """Hessian with 2D array in PyTree matches jax.hessian."""
 
@@ -595,7 +595,7 @@ def test_hessian_2d_array_input(mode, output_format, chunk_size, assert_trees_al
 
 @pytest.mark.jacobian
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_jacobian_empty_array_leaf(
     mode, output_format, chunk_size, assert_trees_allclose
 ):
@@ -614,7 +614,7 @@ def test_jacobian_empty_array_leaf(
 
 @pytest.mark.hessian
 @pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_hessian_empty_array_leaf(
     mode, output_format, chunk_size, assert_trees_allclose
 ):

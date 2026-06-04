@@ -20,9 +20,16 @@ HessianMode = Literal["fwd_over_rev", "rev_over_fwd", "rev_over_rev"]
 ColoringMode = JacobianMode | HessianMode
 """AD mode that a coloring was computed for."""
 
-OutputFormat = Literal[
-    "bcoo", "dense", "numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc"
-]
+_JaxOutputFormat = Literal["bcoo", "dense"]
+"""JAX-native output formats."""
+
+_NumpyOutputFormat = Literal["numpy_dense"]
+"""NumPy output formats."""
+
+_ScipyOutputFormat = Literal["scipy_coo", "scipy_csr", "scipy_csc"]
+"""SciPy sparse output formats (require scipy)."""
+
+OutputFormat = _JaxOutputFormat | _NumpyOutputFormat | _ScipyOutputFormat
 """Output format for materialized Jacobians and Hessians.
 
 ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),

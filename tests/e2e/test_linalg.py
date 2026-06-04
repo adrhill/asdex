@@ -52,7 +52,7 @@ def _random_invertible(key: jax.Array, n: int) -> jax.Array:
 @pytest.mark.jacobian
 @pytest.mark.parametrize("shape", [(2, 2), (3, 3), (4, 3), (3, 4)])
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_qr_jacobian(shape, mode, output_format, chunk_size, assert_trees_allclose):
     """QR decomposition Jacobian matches JAX for various shapes."""
 
@@ -73,7 +73,7 @@ def test_qr_jacobian(shape, mode, output_format, chunk_size, assert_trees_allclo
 @pytest.mark.jacobian
 @pytest.mark.parametrize("n", [2, 3, 4])
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_cholesky_jacobian(n, mode, output_format, chunk_size, assert_trees_allclose):
     """Cholesky decomposition Jacobian matches JAX for various sizes."""
 
@@ -94,7 +94,7 @@ def test_cholesky_jacobian(n, mode, output_format, chunk_size, assert_trees_allc
 @pytest.mark.jacobian
 @pytest.mark.parametrize("n", [2, 3, 4])
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_svd_jacobian(n, mode, output_format, chunk_size, assert_trees_allclose):
     """SVD Jacobian matches JAX for various sizes.
 
@@ -119,7 +119,7 @@ def test_svd_jacobian(n, mode, output_format, chunk_size, assert_trees_allclose)
 @pytest.mark.jacobian
 @pytest.mark.parametrize("n", [2, 3, 4])
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_eigh_jacobian(n, mode, output_format, chunk_size, assert_trees_allclose):
     """Eigenvalue decomposition Jacobian matches JAX for various sizes."""
 
@@ -140,7 +140,7 @@ def test_eigh_jacobian(n, mode, output_format, chunk_size, assert_trees_allclose
 @pytest.mark.jacobian
 @pytest.mark.parametrize("n", [2, 3, 4])
 @pytest.mark.parametrize("mode", ["fwd", "rev"])
-@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+@pytest.mark.parametrize("output_format", ["dense", "bcoo", "numpy_dense"])
 def test_lu_jacobian(n, mode, output_format, chunk_size, assert_trees_allclose):
     """LU decomposition Jacobian matches JAX for various sizes."""
 
