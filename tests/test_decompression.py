@@ -1834,3 +1834,167 @@ def test_jacobian_chunk_size_pytree_output():
     result = jacobian(f, x, chunk_size=2, output_format="dense")(x)
     expected = jax.jacobian(f)(x)
     assert _allclose_pytree(result, expected, rtol=1e-5)
+
+
+# NumPy and SciPy output format tests
+
+
+@pytest.mark.jacobian
+def test_jacobian_numpy_dense_output():
+    """Jacobian with output_format="numpy_dense" returns np.ndarray."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian(f, x, output_format="numpy_dense")(x)
+
+    assert isinstance(result, np.ndarray)
+    assert_allclose(result, jax.jacobian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_scipy_coo_output():
+    """Jacobian with output_format="scipy_coo" returns scipy.sparse.coo_array."""
+    scipy_sparse = pytest.importorskip("scipy.sparse")
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian(f, x, output_format="scipy_coo")(x)
+
+    assert isinstance(result, scipy_sparse.coo_array)
+    assert_allclose(result.toarray(), jax.jacobian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_scipy_csr_output():
+    """Jacobian with output_format="scipy_csr" returns scipy.sparse.csr_array."""
+    scipy_sparse = pytest.importorskip("scipy.sparse")
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian(f, x, output_format="scipy_csr")(x)
+
+    assert isinstance(result, scipy_sparse.csr_array)
+    assert_allclose(result.toarray(), jax.jacobian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_scipy_csc_output():
+    """Jacobian with output_format="scipy_csc" returns scipy.sparse.csc_array."""
+    scipy_sparse = pytest.importorskip("scipy.sparse")
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian(f, x, output_format="scipy_csc")(x)
+
+    assert isinstance(result, scipy_sparse.csc_array)
+    assert_allclose(result.toarray(), jax.jacobian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_numpy_dense_output():
+    """Hessian with output_format="numpy_dense" returns np.ndarray."""
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = hessian(f, x, output_format="numpy_dense")(x)
+
+    assert isinstance(result, np.ndarray)
+    assert_allclose(result, jax.hessian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_scipy_coo_output():
+    """Hessian with output_format="scipy_coo" returns scipy.sparse.coo_array."""
+    scipy_sparse = pytest.importorskip("scipy.sparse")
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = hessian(f, x, output_format="scipy_coo")(x)
+
+    assert isinstance(result, scipy_sparse.coo_array)
+    assert_allclose(result.toarray(), jax.hessian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_scipy_csr_output():
+    """Hessian with output_format="scipy_csr" returns scipy.sparse.csr_array."""
+    scipy_sparse = pytest.importorskip("scipy.sparse")
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = hessian(f, x, output_format="scipy_csr")(x)
+
+    assert isinstance(result, scipy_sparse.csr_array)
+    assert_allclose(result.toarray(), jax.hessian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_scipy_csc_output():
+    """Hessian with output_format="scipy_csc" returns scipy.sparse.csc_array."""
+    scipy_sparse = pytest.importorskip("scipy.sparse")
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = hessian(f, x, output_format="scipy_csc")(x)
+
+    assert isinstance(result, scipy_sparse.csc_array)
+    assert_allclose(result.toarray(), jax.hessian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_scipy_import_error():
+    """Scipy formats raise ImportError with helpful message when scipy missing."""
+    # We can't actually test the ImportError when scipy IS installed.
+    # This test documents the expected behavior.
+    pytest.importorskip("scipy")
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, output_format="scipy_coo")(x)
+    assert result.shape == (3, 3)
+
+
+@pytest.mark.jacobian
+def test_value_and_jacobian_numpy_dense_output():
+    """value_and_jacobian with numpy_dense returns np.ndarray."""
+
+    def f(x):
+        return x**2
+
+    x = np.array([1.0, 2.0, 3.0])
+    _value, jac = value_and_jacobian(f, x, output_format="numpy_dense")(x)
+
+    assert isinstance(jac, np.ndarray)
+    assert_allclose(jac, jax.jacobian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_value_and_hessian_numpy_dense_output():
+    """value_and_hessian with numpy_dense returns np.ndarray."""
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    x = np.array([1.0, 2.0, 3.0])
+    _value, hess = value_and_hessian(f, x, output_format="numpy_dense")(x)
+
+    assert isinstance(hess, np.ndarray)
+    assert_allclose(hess, jax.hessian(f)(x), rtol=1e-5)

@@ -34,6 +34,78 @@ from asdex.modes import (
 from asdex.pattern import ColoredPattern, SparsityPattern
 
 
+def _to_scipy_sparse(
+    data: jax.Array | np.ndarray,
+    indices: np.ndarray,
+    shape: tuple[int, int],
+    fmt: str,
+) -> Any:
+    """Convert to scipy sparse array.
+
+    Raises:
+        ImportError: If scipy is not installed.
+    """
+    try:
+        from scipy.sparse import coo_array  # noqa: PLC0415
+    except ImportError as e:
+        raise ImportError(
+            f"scipy is required for output_format={fmt!r}. "
+            "Install it with: pip install asdex[scipy]"
+        ) from e
+
+    coo = coo_array((np.asarray(data), (indices[:, 0], indices[:, 1])), shape=shape)
+    if fmt == "scipy_coo":
+        return coo
+    if fmt == "scipy_csr":
+        return coo.tocsr()
+    return coo.tocsc()
+
+
+def _convert_leaf_to_format(leaf: jax.Array | BCOO, output_format: str) -> Any:
+    """Convert a single JAX array or BCOO leaf to the target format.
+
+    For scipy formats, the leaf must be 2D (scipy sparse arrays only support 2D).
+    Higher-dimensional blocks are converted by treating leading dimensions as rows.
+    """
+    if output_format == "numpy_dense":
+        if isinstance(leaf, BCOO):
+            return np.asarray(leaf.todense())
+        return np.asarray(leaf)
+
+    # scipy sparse formats - reshape to 2D for conversion
+    arr = np.asarray(leaf.todense()) if isinstance(leaf, BCOO) else np.asarray(leaf)
+    if arr.ndim == 0:
+        flat_shape = (1, 1)
+    elif arr.ndim == 1:
+        flat_shape = (arr.shape[0], 1)
+    else:
+        flat_shape = (int(np.prod(arr.shape[:-1])), arr.shape[-1])
+
+    flat = arr.reshape(flat_shape)
+    nonzero = np.nonzero(flat)
+    if len(nonzero[0]) == 0:
+        indices_2d = np.zeros((0, 2), dtype=np.intp)
+        data = np.array([], dtype=arr.dtype)
+    else:
+        indices_2d = np.column_stack(nonzero)
+        data = flat[nonzero]
+
+    return _to_scipy_sparse(data, indices_2d, flat_shape, output_format)
+
+
+def _convert_pytree_to_format(pytree: Any, output_format: str) -> Any:
+    """Convert each leaf in a pytree to the target numpy/scipy format."""
+
+    def is_leaf(x: Any) -> bool:
+        return isinstance(x, (jax.Array, np.ndarray, BCOO))
+
+    return jax.tree_util.tree_map(
+        lambda leaf: _convert_leaf_to_format(leaf, output_format),
+        pytree,
+        is_leaf=is_leaf,
+    )
+
+
 class _BCOOLeaf:
     """Wrapper to hide BCOO's internal pytree structure from tree operations.
 
@@ -132,8 +204,13 @@ def jacobian(
         symmetric: Whether to use symmetric (star) coloring.
             Requires a square Jacobian.
         output_format: Type of the output matrix.
-            ``"bcoo"`` returns a sparse matrix of type ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns a dense matrix of type ``jax.Array``.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy to be installed.
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -264,7 +341,14 @@ def hessian(
         allow_int: Whether to allow differentiating with respect to integer inputs.
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
-        output_format: Type of the output matrix (``"bcoo"`` or ``"dense"``).
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy to be installed.
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -336,7 +420,14 @@ def value_and_hessian(
         allow_int: Whether to allow differentiating with respect to integer inputs.
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
-        output_format: Type of the output matrix (``"bcoo"`` or ``"dense"``).
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy to be installed.
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -399,6 +490,22 @@ def jacobian_from_coloring(
 
     The returned callable accepts ``*args, **kwargs``; kwargs are forwarded
     to ``f`` at call time (matching ``jax.jacfwd`` / ``jax.jacrev``).
+
+    Args:
+        f: Function whose Jacobian is to be computed.
+        coloring: Pre-computed colored sparsity pattern.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy to be installed.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        chunk_size: Maximum number of colors to process in parallel.
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
@@ -433,6 +540,22 @@ def hessian_from_coloring(
     """Build a sparse Hessian function from a pre-computed coloring.
 
     Uses symmetric (star) coloring and Hessian-vector products by default.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        coloring: Pre-computed colored sparsity pattern.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy to be installed.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        chunk_size: Maximum number of colors to process in parallel.
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
@@ -464,7 +587,24 @@ def value_and_jacobian_from_coloring(
     allow_int: bool = False,
     chunk_size: int | None = None,
 ) -> Callable[..., Any]:
-    """Build a function computing value and sparse Jacobian from a pre-computed coloring."""
+    """Build a function computing value and sparse Jacobian from a pre-computed coloring.
+
+    Args:
+        f: Function whose Jacobian is to be computed.
+        coloring: Pre-computed colored sparsity pattern.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy to be installed.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        chunk_size: Maximum number of colors to process in parallel.
+    """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
@@ -495,7 +635,24 @@ def value_and_hessian_from_coloring(
     allow_int: bool = False,
     chunk_size: int | None = None,
 ) -> Callable[..., Any]:
-    """Build a function computing value and sparse Hessian from a pre-computed coloring."""
+    """Build a function computing value and sparse Hessian from a pre-computed coloring.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        coloring: Pre-computed colored sparsity pattern.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy to be installed.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        chunk_size: Maximum number of colors to process in parallel.
+    """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
@@ -976,6 +1133,7 @@ def _build_jacobian(
 
     # Fast path: single flat array output with BCOO format.
     # Use the known sparsity pattern indices directly, avoiding fromdense.
+    # numpy/scipy formats involve host transfer anyway, so fromdense cost is negligible.
     if output_format == "bcoo" and _is_simple_output(out_struct, sparsity):
         if data.dtype == dtypes.float0:
             data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
@@ -985,7 +1143,12 @@ def _build_jacobian(
 
     # General path: scatter to dense, then assemble blocks.
     dense = _scatter_dense(coloring, data)
-    return _assemble_jacobian(dense, sparsity, output_format, out_struct)
+    jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
+
+    # Convert to numpy/scipy formats after assembly
+    if output_format in ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc"):
+        return _convert_pytree_to_format(jac, output_format)
+    return jac
 
 
 def _build_hessian(
@@ -1001,13 +1164,19 @@ def _build_hessian(
     sparsity = coloring.sparsity
 
     # Fast path: single input leaf with BCOO format and trivial pytree structure.
+    # numpy/scipy formats involve host transfer anyway, so fromdense cost is negligible.
     if output_format == "bcoo" and _is_simple_input(sparsity):
         in_shape = sparsity.leaf_shapes[0]
         return sparsity.to_bcoo(data=data).reshape((*in_shape, *in_shape))
 
     # General path: scatter to dense, then assemble blocks.
     dense = _scatter_dense(coloring, data)
-    return _assemble_hessian(dense, sparsity, output_format)
+    hess = _assemble_hessian(dense, sparsity, output_format)
+
+    # Convert to numpy/scipy formats after assembly
+    if output_format in ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc"):
+        return _convert_pytree_to_format(hess, output_format)
+    return hess
 
 
 # Argument handling and flattening
