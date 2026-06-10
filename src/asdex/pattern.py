@@ -475,21 +475,27 @@ class ColoredPattern:
         cols = self.sparsity.cols
 
         if self.symmetric:
-            return self._hub_extraction_indices
+            color_idx, elem_idx = self._hub_extraction_indices
+        else:
+            match self.mode:
+                case "rev":
+                    color_idx = self.colors[rows].astype(np.intp)
+                    elem_idx = cols.astype(np.intp)
+                case "fwd":
+                    color_idx = self.colors[cols].astype(np.intp)
+                    elem_idx = rows.astype(np.intp)
+                case "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
+                    # HVP modes seed columns
+                    color_idx = self.colors[cols].astype(np.intp)
+                    elem_idx = rows.astype(np.intp)
+                case _ as unreachable:
+                    assert_never(unreachable)
 
-        match self.mode:
-            case "rev":
-                color_idx = self.colors[rows].astype(np.intp)
-                elem_idx = cols.astype(np.intp)
-            case "fwd":
-                color_idx = self.colors[cols].astype(np.intp)
-                elem_idx = rows.astype(np.intp)
-            case "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
-                # HVP modes seed columns
-                color_idx = self.colors[cols].astype(np.intp)
-                elem_idx = rows.astype(np.intp)
-            case _ as unreachable:
-                assert_never(unreachable)
+        # The gather built from these indices promises in-bounds indices,
+        # so a neutral (-1) color would silently read garbage.
+        # Star-coloring postprocessing keeps diagonal-entry and hub colors used,
+        # which guarantees no neutral color reaches extraction.
+        assert (color_idx >= 0).all(), "neutral (-1) color in extraction indices"
 
         return color_idx, elem_idx
 

@@ -1001,3 +1001,27 @@ def test_list_container_preserved_after_load(tmp_path):
 
     assert isinstance(original_avals[0], list), "Original should have list container"
     assert isinstance(loaded_avals[0], list), "Loaded should preserve list container"
+
+
+# Extraction index guards
+
+
+def test_extraction_indices_neutral_color_raises():
+    """A neutral (-1) color reaching extraction trips the host-side assertion.
+
+    The decompression gather promises in-bounds indices,
+    so a -1 color index would silently read garbage.
+    Star-coloring postprocessing guarantees this cannot happen
+    for colorings produced by the public API;
+    the assertion guards hand-constructed or corrupted colorings.
+    """
+    sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.array([0, -1], dtype=np.int32),
+        num_colors=1,
+        symmetric=False,
+        mode="fwd",
+    )
+    with pytest.raises(AssertionError, match="neutral"):
+        _ = coloring._extraction_indices
