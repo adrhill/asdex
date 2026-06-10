@@ -703,3 +703,37 @@ def test_hessian_all_modes_match_jax(mode):
     H_jax = jax.hessian(f, argnums=(0, 1))(x, y)
     assert jax.tree.structure(H) == jax.tree.structure(H_jax)
     jax.tree.map(lambda a, b: np.testing.assert_allclose(a, b, atol=1e-6), H, H_jax)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("symmetric", [True, False])
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+def test_hessian_modes_symmetric_pytree_match_jax(mode, symmetric):
+    """HVP modes x symmetric flag match jax.hessian for pytree multi-arg input.
+
+    Cross-checks every Hessian block leaf-by-leaf against jax.hessian,
+    including pytree structure equality,
+    for a dict-pytree first argument with argnums=(0, 1).
+    """
+
+    def f(params, y):
+        return (
+            jnp.dot(params["a"], params["b"])
+            + jnp.sum(params["a"] ** 3)
+            + jnp.dot(params["b"], y**2)
+        )
+
+    params = {"a": jnp.array([1.0, 2.0]), "b": jnp.array([3.0, 4.0])}
+    y = jnp.array([0.5, -1.5])
+    H = asdex.hessian(
+        f,
+        params,
+        y,
+        argnums=(0, 1),
+        mode=mode,
+        symmetric=symmetric,
+        output_format="dense",
+    )(params, y)
+    H_jax = jax.hessian(f, argnums=(0, 1))(params, y)
+    assert jax.tree.structure(H) == jax.tree.structure(H_jax)
+    jax.tree.map(lambda a, b: np.testing.assert_allclose(a, b, atol=1e-6), H, H_jax)
