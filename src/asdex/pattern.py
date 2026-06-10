@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, assert_never
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import ShapeDtypeStruct
@@ -277,10 +278,16 @@ class SparsityPattern:
 
     @cached_property
     def _bcoo_indices(self) -> jnp.ndarray:
-        """BCOO index array of shape ``(nnz, 2)``, cached for reuse."""
-        if self.nnz == 0:
-            return jnp.zeros((0, 2), dtype=jnp.int32)
-        return jnp.stack([self.rows, self.cols], axis=1)
+        """BCOO index array of shape ``(nnz, 2)``, cached for reuse.
+
+        Built under ``ensure_compile_time_eval`` so the cached value
+        is a concrete array even when first materialized inside a jit trace
+        (a cached tracer would leak into later eager calls).
+        """
+        with jax.ensure_compile_time_eval():
+            if self.nnz == 0:
+                return jnp.zeros((0, 2), dtype=jnp.int32)
+            return jnp.stack([self.rows, self.cols], axis=1)
 
     @cached_property
     def _block_index_cache(
@@ -315,7 +322,9 @@ class SparsityPattern:
             [self.rows[entry_idx] - row_offset, self.cols[entry_idx] - col_offset],
             axis=1,
         )
-        result = (entry_idx, jnp.asarray(local))
+        # Concrete even inside a jit trace, so the cached value never leaks.
+        with jax.ensure_compile_time_eval():
+            result = (entry_idx, jnp.asarray(local))
         self._block_index_cache[key] = result
         return result
 
@@ -566,17 +575,21 @@ class ColoredPattern:
 
         Column 0 is the color index, column 1 is the element index.
         Pre-computed so the gather index array is a single closed-over constant.
+        Built under ``ensure_compile_time_eval`` so the cached value
+        is a concrete array even when first materialized inside a jit trace
+        (a cached tracer would leak into later eager calls).
         """
         color_idx, elem_idx = self._extraction_indices
-        if len(color_idx) == 0:
-            return jnp.zeros((0, 2), dtype=jnp.int32)
-        return jnp.stack(
-            [
-                jnp.asarray(color_idx, dtype=jnp.int32),
-                jnp.asarray(elem_idx, dtype=jnp.int32),
-            ],
-            axis=1,
-        )
+        with jax.ensure_compile_time_eval():
+            if len(color_idx) == 0:
+                return jnp.zeros((0, 2), dtype=jnp.int32)
+            return jnp.stack(
+                [
+                    jnp.asarray(color_idx, dtype=jnp.int32),
+                    jnp.asarray(elem_idx, dtype=jnp.int32),
+                ],
+                axis=1,
+            )
 
     @cached_property
     def _device_seed_cache(self) -> dict[jnp.dtype, jnp.ndarray]:
@@ -592,7 +605,9 @@ class ColoredPattern:
         key = jnp.dtype(dtype)
         cached = self._device_seed_cache.get(key)
         if cached is None:
-            cached = jnp.asarray(self._seed_matrix, dtype=key)
+            # Concrete even inside a jit trace, so the cached value never leaks.
+            with jax.ensure_compile_time_eval():
+                cached = jnp.asarray(self._seed_matrix, dtype=key)
             self._device_seed_cache[key] = cached
         return cached
 

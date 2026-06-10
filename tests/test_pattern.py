@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from jax import ShapeDtypeStruct
+from jax.core import Tracer
 from jax.experimental.sparse import BCOO
 
 import asdex
@@ -185,6 +186,22 @@ class TestProperties:
         other = coloring._device_seeds(jnp.float16)
         assert other.dtype == jnp.float16
         assert other is not seeds
+
+    def test_device_seeds_not_cached_under_jit(self):
+        """A traced _device_seeds call must not poison the per-dtype cache.
+
+        Under a jit trace, asarray returns a tracer;
+        caching it would leak into later eager calls.
+        """
+        coloring = asdex.jacobian_coloring(lambda x: x * x, jnp.zeros(3))
+
+        @jax.jit
+        def traced(x):
+            return coloring._device_seeds(jnp.float32) @ x
+
+        traced(jnp.ones(3))
+        seeds = coloring._device_seeds(jnp.float32)
+        assert not isinstance(seeds, Tracer)
 
 
 class TestVisualization:

@@ -2074,6 +2074,28 @@ def test_scipy_hessian_preserves_structural_zeros(fmt):
     assert_allclose(result.toarray(), np.diag(6 * x))
 
 
+@pytest.mark.hessian
+def test_jitted_then_eager_call(to_dense):
+    """A jitted first call must not poison the caches shared with eager calls.
+
+    Regression test: the per-dtype device seed cache stored the tracer
+    created during the jitted trace,
+    making a later eager call raise UnexpectedTracerError.
+    """
+
+    def f(x):
+        return jnp.sum(x**3) + jnp.sum(x[:-1] * x[1:])
+
+    hess_fn = hessian(f, jnp.zeros(4))
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+
+    jitted = jax.jit(hess_fn)(x)
+    eager = hess_fn(x)
+    expected = jax.hessian(f)(x)
+    assert_allclose(to_dense(jitted), expected, rtol=1e-6)
+    assert_allclose(to_dense(eager), expected, rtol=1e-6)
+
+
 @pytest.mark.jacobian
 def test_bcoo_pytree_output_preserves_structural_zeros():
     """BCOO blocks for PyTree outputs keep pattern entries that are numerically zero.
