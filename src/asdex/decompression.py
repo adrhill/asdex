@@ -48,10 +48,6 @@ def _sparsity_to_scipy(
         ImportError: If scipy is not installed.
     """
     coo_array = _import_scipy_coo_array(fmt)
-    # jax.vjp returns float0 cotangents for integer inputs (allow_int=True).
-    # float0 cannot back a real array, so fall back to plain zero data.
-    if data.dtype == dtypes.float0:
-        data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
     coo = coo_array(
         (np.asarray(data), (sparsity.rows, sparsity.cols)), shape=sparsity.shape
     )
@@ -105,17 +101,8 @@ def _assert_scipy_supported_hessian(
 
 
 def _to_numpy_pytree(pytree: Any) -> Any:
-    """Convert each JAX array or BCOO leaf in a pytree to ``numpy.ndarray``."""
-
-    def to_numpy(leaf: jax.Array | np.ndarray | BCOO) -> np.ndarray:
-        if isinstance(leaf, BCOO):
-            leaf = leaf.todense()
-        return np.asarray(leaf)
-
-    def is_leaf(x: Any) -> bool:
-        return isinstance(x, (jax.Array, np.ndarray, BCOO))
-
-    return jax.tree_util.tree_map(to_numpy, pytree, is_leaf=is_leaf)
+    """Convert each JAX array leaf in a pytree to ``numpy.ndarray``."""
+    return jax.tree_util.tree_map(np.asarray, pytree)
 
 
 class _BCOOLeaf:
@@ -1145,7 +1132,9 @@ def _build_jacobian(
 
     For simple single-array outputs, constructs BCOO and scipy outputs directly
     from known indices.
-    For PyTree outputs, scatters to dense then assembles blocks.
+    For PyTree outputs, assembles per-leaf blocks:
+    BCOO blocks directly from the pattern indices,
+    dense blocks by scattering to a dense matrix first.
     """
     sparsity = coloring.sparsity
 
@@ -1168,9 +1157,8 @@ def _build_jacobian(
         case _:
             pass
 
-    # General path: scatter to dense, then assemble blocks.
-    dense = _scatter_dense(coloring, data)
-    jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
+    # General path: assemble per-leaf blocks.
+    jac = _assemble_jacobian(coloring, data, output_format, out_struct)
     if output_format == "numpy_dense":
         return _to_numpy_pytree(jac)
     return jac
@@ -1185,7 +1173,9 @@ def _build_hessian(
 
     For simple single-input cases, constructs BCOO and scipy outputs directly
     from known indices.
-    For PyTree inputs, scatters to dense then assembles blocks.
+    For PyTree inputs, assembles per-leaf blocks:
+    BCOO blocks directly from the pattern indices,
+    dense blocks by scattering to a dense matrix first.
     """
     sparsity = coloring.sparsity
 
@@ -1204,9 +1194,8 @@ def _build_hessian(
         case _:
             pass
 
-    # General path: scatter to dense, then assemble blocks.
-    dense = _scatter_dense(coloring, data)
-    hess = _assemble_hessian(dense, sparsity, output_format)
+    # General path: assemble per-leaf blocks.
+    hess = _assemble_hessian(coloring, data, output_format)
     if output_format == "numpy_dense":
         return _to_numpy_pytree(hess)
     return hess
@@ -1377,20 +1366,61 @@ def _build_grad_output_from_seed(
 # Block packing
 
 
-def _assemble_jacobian(
-    dense: jax.Array,
+def _bcoo_block(
     sparsity: SparsityPattern,
+    data: jax.Array,
+    row_offset: int,
+    row_size: int,
+    col_offset: int,
+    col_size: int,
+) -> BCOO:
+    """Build one BCOO block from the pattern entries in the given index window.
+
+    All pattern entries in the window are kept as explicit values,
+    so the block structure matches the detected sparsity pattern
+    independent of the evaluation point.
+    """
+    rows = sparsity.rows
+    cols = sparsity.cols
+    mask = (
+        (rows >= row_offset)
+        & (rows < row_offset + row_size)
+        & (cols >= col_offset)
+        & (cols < col_offset + col_size)
+    )
+    (entry_idx,) = np.nonzero(mask)
+    indices = np.stack(
+        [rows[entry_idx] - row_offset, cols[entry_idx] - col_offset], axis=1
+    )
+    return BCOO(
+        (data[entry_idx], jnp.asarray(indices)),
+        shape=(row_size, col_size),
+        unique_indices=True,
+    )
+
+
+def _assemble_jacobian(
+    coloring: ColoredPattern,
+    data: jax.Array,
     output_format: OutputFormat,
     out_struct: Any,
 ) -> Any:
-    """Split a ``(m, n_selected)`` dense matrix into per-leaf Jacobian blocks.
+    """Split the flat Jacobian data into per-leaf Jacobian blocks.
 
     Each block is reshaped to ``(*out_leaf_shape, *in_leaf_shape)`` to match
     ``jax.jacfwd`` / ``jax.jacrev`` output layout.
 
     For PyTree outputs, the result has structure ``(output_tree, input_tree)``,
     mirroring ``jax.jacobian``.
+
+    BCOO blocks are built directly from the pattern indices,
+    keeping structural zeros as explicit entries
+    so the block structure is independent of the evaluation point.
+    Dense blocks are sliced from the scattered dense matrix.
     """
+    sparsity = coloring.sparsity
+    dense = None if output_format == "bcoo" else _scatter_dense(coloring, data)
+
     in_leaf_shapes = sparsity.leaf_shapes
     in_leaf_sizes = sparsity.leaf_sizes
 
@@ -1408,13 +1438,17 @@ def _assemble_jacobian(
         out_blocks: list[jax.Array | BCOO] = []
 
         for out_size, out_shape in zip(out_leaf_sizes, out_leaf_shapes, strict=True):
-            chunk = dense[
-                out_row_offset : out_row_offset + out_size,
-                in_col_offset : in_col_offset + in_size,
-            ]
-            block: jax.Array | BCOO = chunk.reshape((*out_shape, *in_shape))
-            if output_format == "bcoo":
-                block = BCOO.fromdense(block)
+            block: jax.Array | BCOO
+            if dense is None:
+                block = _bcoo_block(
+                    sparsity, data, out_row_offset, out_size, in_col_offset, in_size
+                ).reshape((*out_shape, *in_shape))
+            else:
+                chunk = dense[
+                    out_row_offset : out_row_offset + out_size,
+                    in_col_offset : in_col_offset + in_size,
+                ]
+                block = chunk.reshape((*out_shape, *in_shape))
             out_blocks.append(block)
             out_row_offset += out_size
 
@@ -1434,17 +1468,25 @@ def _assemble_jacobian(
 
 
 def _assemble_hessian(
-    dense: jax.Array,
-    sparsity: SparsityPattern,
+    coloring: ColoredPattern,
+    data: jax.Array,
     output_format: OutputFormat,
 ) -> Any:
-    """Split a ``(n_sel, n_sel)`` dense matrix into a nested block grid.
+    """Split the flat Hessian data into a nested block grid.
 
     For each outer leaf, pack the inner axis into the full input-structured
     pytree using the same rules as Jacobian packing, then pack those rows
     again on the outer axis. The result mirrors what
     ``jax.hessian(f, argnums=...)`` returns.
+
+    BCOO blocks are built directly from the pattern indices,
+    keeping structural zeros as explicit entries
+    so the block structure is independent of the evaluation point.
+    Dense blocks are sliced from the scattered dense matrix.
     """
+    sparsity = coloring.sparsity
+    dense = None if output_format == "bcoo" else _scatter_dense(coloring, data)
+
     leaf_shapes = sparsity.leaf_shapes
     leaf_sizes = sparsity.leaf_sizes
 
@@ -1454,13 +1496,17 @@ def _assemble_hessian(
         col_offset = 0
         row_blocks: list[jax.Array | BCOO] = []
         for col_size, col_shape in zip(leaf_sizes, leaf_shapes, strict=True):
-            chunk = dense[
-                row_offset : row_offset + row_size,
-                col_offset : col_offset + col_size,
-            ]
-            block: jax.Array | BCOO = chunk.reshape(row_shape + col_shape)
-            if output_format == "bcoo":
-                block = BCOO.fromdense(block)
+            block: jax.Array | BCOO
+            if dense is None:
+                block = _bcoo_block(
+                    sparsity, data, row_offset, row_size, col_offset, col_size
+                ).reshape(row_shape + col_shape)
+            else:
+                chunk = dense[
+                    row_offset : row_offset + row_size,
+                    col_offset : col_offset + col_size,
+                ]
+                block = chunk.reshape(row_shape + col_shape)
             row_blocks.append(block)
             col_offset += col_size
         leaf_blocks.append(row_blocks)

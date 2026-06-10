@@ -40,7 +40,7 @@ OutputFormat = JaxOutputFormat | NumpyOutputFormat | ScipyOutputFormat
 ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
 SciPy formats require scipy and only support 2D arrays
 (flat inputs and outputs); PyTree inputs/outputs raise ValueError.
-SciPy outputs mirror the detected sparsity pattern:
+BCOO and SciPy outputs mirror the detected sparsity pattern:
 structural non-zeros that are numerically zero at the evaluation point
 are kept as explicit entries,
 so the structure is independent of the input value.

@@ -2002,6 +2002,48 @@ def test_scipy_hessian_preserves_structural_zeros(fmt):
 
 
 @pytest.mark.jacobian
+def test_bcoo_pytree_output_preserves_structural_zeros():
+    """BCOO blocks for PyTree outputs keep pattern entries that are numerically zero.
+
+    The block structure matches the detected sparsity pattern
+    independent of the evaluation point,
+    giving PyTree outputs the same fixed-structure guarantee
+    as the single-array fast path.
+    """
+
+    def f(x):
+        return {"a": x**2}
+
+    # The derivative 2*x is numerically zero at x[0] = 0,
+    # but the diagonal pattern entry must survive.
+    x = np.array([0.0, 1.0, 2.0])
+    result = jacobian(f, x, output_format="bcoo")(x)
+
+    assert result["a"].nse == 3
+    assert_allclose(result["a"].todense(), np.diag(2 * x))
+
+
+@pytest.mark.hessian
+def test_bcoo_pytree_input_hessian_preserves_structural_zeros():
+    """BCOO Hessian blocks for PyTree inputs keep numerically zero pattern entries."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 3) + jnp.sum(params["b"] ** 3)
+
+    # The second derivative 6*x is numerically zero at params["a"][0] = 0,
+    # but the diagonal pattern entry must survive.
+    params = {"a": np.array([0.0, 1.0]), "b": np.array([2.0])}
+    result = hessian(f, params, output_format="bcoo")(params)
+
+    block_aa = result["a"]["a"]
+    assert block_aa.nse == 2
+    assert_allclose(block_aa.todense(), np.diag(6 * params["a"]))
+    # Cross blocks have no pattern entries at all.
+    assert result["a"]["b"].nse == 0
+    assert result["b"]["a"].nse == 0
+
+
+@pytest.mark.jacobian
 def test_jacobian_numpy_dense_pytree(assert_trees_allclose):
     """numpy_dense supports PyTree inputs and outputs, returning numpy blocks."""
 
