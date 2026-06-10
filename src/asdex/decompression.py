@@ -239,6 +239,7 @@ def jacobian(
             (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
             when ``"dense"``).
     """
+    _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
     args, f_detect, remapped_argnums = merge_sample_inputs(
@@ -294,6 +295,7 @@ def value_and_jacobian(
             ``(value, jac)`` — or ``((value, aux), jac)`` when ``has_aux=True``,
             matching ``jax.value_and_grad`` ordering.
     """
+    _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
     args, f_detect, remapped_argnums = merge_sample_inputs(
@@ -374,6 +376,7 @@ def hessian(
         A function that takes the same positional args as ``f`` and returns
             the sparse Hessian.
     """
+    _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
     args, f_detect, remapped_argnums = merge_sample_inputs(
@@ -454,6 +457,7 @@ def value_and_hessian(
         A function that takes the same positional args as ``f`` and returns
             ``(value, hessian)``.
     """
+    _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
     args, f_detect, remapped_argnums = merge_sample_inputs(

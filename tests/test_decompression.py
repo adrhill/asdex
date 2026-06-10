@@ -1,5 +1,8 @@
 """Tests for sparse Jacobian and Hessian computation against JAX references."""
 
+import builtins
+import sys
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -2026,3 +2029,53 @@ def test_hessian_numpy_dense_pytree(assert_trees_allclose):
 
     assert all(isinstance(leaf, np.ndarray) for leaf in jax.tree.leaves(result))
     assert_trees_allclose(result, expected, rtol=1e-5)
+
+
+_ONE_CALL_APIS = [
+    pytest.param(jacobian, marks=pytest.mark.jacobian),
+    pytest.param(value_and_jacobian, marks=pytest.mark.jacobian),
+    pytest.param(hessian, marks=pytest.mark.hessian),
+    pytest.param(value_and_hessian, marks=pytest.mark.hessian),
+]
+
+
+@pytest.mark.parametrize("api", _ONE_CALL_APIS)
+def test_invalid_output_format_raises_at_construction(api):
+    """Invalid output_format raises ValueError when building the function.
+
+    Validation must happen at construction time,
+    not silently fall back to dense output at call time.
+    """
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    x = np.array([1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="Unknown output_format"):
+        api(f, x, output_format="scipy_cooo")
+
+
+@pytest.mark.parametrize("api", _ONE_CALL_APIS)
+def test_scipy_format_without_scipy_raises_at_construction(api, monkeypatch):
+    """Requesting a scipy format without scipy installed fails at construction.
+
+    Simulates a missing scipy installation by blocking scipy imports.
+    """
+    real_import = builtins.__import__
+
+    def blocked_import(name, *args, **kwargs):
+        if name.startswith("scipy"):
+            raise ImportError(f"No module named {name!r}")
+        return real_import(name, *args, **kwargs)
+
+    for mod in list(sys.modules):
+        if mod.startswith("scipy"):
+            monkeypatch.delitem(sys.modules, mod)
+    monkeypatch.setattr(builtins, "__import__", blocked_import)
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    x = np.array([1.0, 2.0, 3.0])
+    with pytest.raises(ImportError, match=r"pip install 'asdex\[scipy\]'"):
+        api(f, x, output_format="scipy_coo")
