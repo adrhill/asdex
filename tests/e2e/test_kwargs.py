@@ -1485,6 +1485,30 @@ def test_jacobian_bool_kwarg_at_detection(
 
 
 @pytest.mark.jacobian
+def test_jacobian_kwarg_changes_output_structure_between_calls(assert_trees_allclose):
+    """Call-time kwargs that change the output pytree bypass the out-struct cache.
+
+    Regression test for the per-closure eval_shape cache:
+    a call without kwargs fills the cache,
+    and a later call with a structure-changing kwarg must not reuse it.
+    """
+
+    def f(x, split=False):
+        if split:
+            return (x[:1] * 2.0, x[1:] * 2.0)
+        return x * 2.0
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac_fn = asdex.jacobian(f, x, output_format="dense")
+
+    J_flat = jac_fn(x)
+    assert_trees_allclose(J_flat, jax.jacobian(f)(x))
+
+    J_split = jac_fn(x, split=True)
+    assert_trees_allclose(J_split, jax.jacobian(f)(x, split=True))
+
+
+@pytest.mark.jacobian
 def test_jacobian_sparsity_bool_kwarg():
     """jacobian_sparsity should handle bool kwargs that control Python branches.
 

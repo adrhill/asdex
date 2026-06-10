@@ -249,6 +249,8 @@ def jacobian(
         symmetric=symmetric,
     )
 
+    eval_shape_cache: dict[Any, Any] = {}
+
     def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
@@ -261,6 +263,7 @@ def jacobian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            eval_shape_cache=eval_shape_cache if f_bound is f else None,
         )
 
     return jac_fn
@@ -311,6 +314,8 @@ def value_and_jacobian(
         symmetric=symmetric,
     )
 
+    eval_shape_cache: dict[Any, Any] = {}
+
     def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
@@ -323,6 +328,7 @@ def value_and_jacobian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            eval_shape_cache=eval_shape_cache if f_bound is f else None,
         )
 
     return val_jac_fn
@@ -398,6 +404,8 @@ def hessian(
         symmetric=symmetric,
     )
 
+    eval_shape_cache: dict[Any, Any] = {}
+
     def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
@@ -410,6 +418,7 @@ def hessian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            eval_shape_cache=eval_shape_cache if f_bound is f else None,
         )
 
     return hess_fn
@@ -485,6 +494,8 @@ def value_and_hessian(
         symmetric=symmetric,
     )
 
+    eval_shape_cache: dict[Any, Any] = {}
+
     def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
@@ -497,6 +508,7 @@ def value_and_hessian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            eval_shape_cache=eval_shape_cache if f_bound is f else None,
         )
 
     return val_hess_fn
@@ -550,6 +562,8 @@ def jacobian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
+    eval_shape_cache: dict[Any, Any] = {}
+
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
@@ -562,6 +576,7 @@ def jacobian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            eval_shape_cache=eval_shape_cache if f_bound is f else None,
         )
 
     return jac_fn
@@ -607,6 +622,8 @@ def hessian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
+    eval_shape_cache: dict[Any, Any] = {}
+
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
@@ -619,6 +636,7 @@ def hessian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            eval_shape_cache=eval_shape_cache if f_bound is f else None,
         )
 
     return hess_fn
@@ -663,6 +681,8 @@ def value_and_jacobian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
+    eval_shape_cache: dict[Any, Any] = {}
+
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
@@ -675,6 +695,7 @@ def value_and_jacobian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            eval_shape_cache=eval_shape_cache if f_bound is f else None,
         )
 
     return val_jac_fn
@@ -718,6 +739,8 @@ def value_and_hessian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
+    eval_shape_cache: dict[Any, Any] = {}
+
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
@@ -730,9 +753,61 @@ def value_and_hessian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            eval_shape_cache=eval_shape_cache if f_bound is f else None,
         )
 
     return val_hess_fn
+
+
+# Per-closure caching of output structures
+#
+# jax.eval_shape re-traces f, so its cost grows with model size.
+# Each public entry point creates one cache dict shared across calls.
+# The cache is bypassed (None) when call-time kwargs or non-traceable
+# positional args were bound into f:
+# those can change the output structure between calls with identical avals,
+# so the result must not be reused.
+
+
+def _aval_key(args: tuple[Any, ...]) -> Any:
+    """Hashable aval description of ``args``."""
+    leaves, treedef = jax.tree_util.tree_flatten(args)
+    return treedef, tuple(jax.typeof(leaf) for leaf in leaves)
+
+
+def _cached_out_struct(
+    f_out: Callable[..., Any],
+    args: tuple[Any, ...],
+    cache: dict[Any, Any] | None,
+) -> Any:
+    """``jax.eval_shape(f_out, *args)``, memoized on the avals of ``args``."""
+    if cache is None:
+        return jax.eval_shape(f_out, *args)
+    key = ("out_struct", _aval_key(args))
+    out_struct = cache.get(key)
+    if out_struct is None:
+        out_struct = jax.eval_shape(f_out, *args)
+        cache[key] = out_struct
+    return out_struct
+
+
+def _cached_scalar_fn(
+    f_out: Callable[..., Any],
+    sparsity: SparsityPattern,
+    cache: dict[Any, Any] | None,
+) -> Callable[..., Any]:
+    """Memoized ``_ensure_scalar(f_out, sparsity.input_avals)``.
+
+    ``_ensure_scalar`` traces ``f_out`` via ``eval_shape``,
+    so the wrapper is reused across calls when caching is allowed.
+    """
+    if cache is None:
+        return _ensure_scalar(f_out, sparsity.input_avals)
+    f_scalar = cache.get("f_scalar")
+    if f_scalar is None:
+        f_scalar = _ensure_scalar(f_out, sparsity.input_avals)
+        cache["f_scalar"] = f_scalar
+    return f_scalar
 
 
 # Unified evaluation
@@ -748,6 +823,7 @@ def _eval_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
+    eval_shape_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate the sparse Jacobian of ``f`` at ``args``.
 
@@ -760,7 +836,7 @@ def _eval_jacobian(
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
-    out_struct = jax.eval_shape(f_out, *args)
+    out_struct = _cached_out_struct(f_out, args, eval_shape_cache)
 
     if m == 0 or sparsity.nnz == 0:
         jac = _build_jacobian(
@@ -802,6 +878,7 @@ def _eval_value_and_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
+    eval_shape_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Jacobian of ``f`` at ``args``.
 
@@ -815,7 +892,7 @@ def _eval_value_and_jacobian(
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
-    out_struct = jax.eval_shape(f_out, *args)
+    out_struct = _cached_out_struct(f_out, args, eval_shape_cache)
 
     if m == 0 or sparsity.nnz == 0:
         empty = _build_jacobian(
@@ -858,6 +935,7 @@ def _eval_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
+    eval_shape_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate the sparse Hessian of a scalar-valued ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -866,8 +944,9 @@ def _eval_hessian(
     validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _ensure_scalar(f_scalar_raw, sparsity.input_avals)
-    validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
+    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, eval_shape_cache)
+    out_struct = _cached_out_struct(f_scalar, args, eval_shape_cache)
+    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
         hess = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
@@ -895,6 +974,7 @@ def _eval_value_and_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
+    eval_shape_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Hessian of ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -903,8 +983,9 @@ def _eval_value_and_hessian(
     validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _ensure_scalar(f_scalar_raw, sparsity.input_avals)
-    validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
+    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, eval_shape_cache)
+    out_struct = _cached_out_struct(f_scalar, args, eval_shape_cache)
+    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
         empty = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
