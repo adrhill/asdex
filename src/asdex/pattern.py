@@ -579,6 +579,24 @@ class ColoredPattern:
         )
 
     @cached_property
+    def _device_seed_cache(self) -> dict[jnp.dtype, jnp.ndarray]:
+        """Memo for ``_device_seeds``, keyed by dtype."""
+        return {}
+
+    def _device_seeds(self, dtype: Any) -> jnp.ndarray:
+        """Device copy of the seed matrix in the given dtype, cached per dtype.
+
+        The seed matrix has shape ``(num_colors, dim)`` and grows with input size,
+        so the host-to-device transfer is worth caching across calls.
+        """
+        key = jnp.dtype(dtype)
+        cached = self._device_seed_cache.get(key)
+        if cached is None:
+            cached = jnp.asarray(self._seed_matrix, dtype=key)
+            self._device_seed_cache[key] = cached
+        return cached
+
+    @cached_property
     def _seed_matrix(self) -> NDArray[np.bool_]:
         """Boolean seed matrix of shape ``(num_colors, dim)``.
 

@@ -173,6 +173,19 @@ class TestProperties:
         second = sparsity.col_to_rows
         assert first is second
 
+    def test_device_seeds_cached_per_dtype(self):
+        """_device_seeds returns the same device array per dtype and matches _seed_matrix."""
+        coloring = asdex.jacobian_coloring(lambda x: x * x, jnp.zeros(3))
+
+        seeds = coloring._device_seeds(jnp.float32)
+        assert seeds.dtype == jnp.float32
+        assert seeds is coloring._device_seeds(jnp.float32)
+        np.testing.assert_array_equal(np.asarray(seeds), coloring._seed_matrix)
+
+        other = coloring._device_seeds(jnp.float16)
+        assert other.dtype == jnp.float16
+        assert other is not seeds
+
 
 class TestVisualization:
     """Test visualization (dots for small, braille for large)."""

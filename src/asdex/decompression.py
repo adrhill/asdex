@@ -960,7 +960,7 @@ def _jacobian_rows(
         y, vjp_fn = jax.vjp(f, *args)
         aux = None
     dtype = _output_dtype(y)
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
+    seeds = coloring._device_seeds(dtype)
 
     def single_vjp(seed: jax.Array) -> jax.Array:
         cotangent = unflatten_to_pytree(seed, out_struct)
@@ -990,7 +990,7 @@ def _jacobian_cols(
     else:
         y, jvp_fn = jax.linearize(f, *args)
         aux = None
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
+    seeds = coloring._device_seeds(dtype)
 
     def single_jvp(seed: jax.Array) -> jax.Array:
         tangents = _build_tangents_from_seed(seed, args, sparsity)
@@ -1014,7 +1014,7 @@ def _compute_hvps(
     dtype = _selected_dtype(args, sparsity)
     grad_argnums = sparsity.argnums
 
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
+    seeds = coloring._device_seeds(dtype)
     _assert_hessian_mode(coloring.mode)
     match coloring.mode:
         case "fwd_over_rev":
@@ -1069,7 +1069,7 @@ def _value_and_compute_hvps(
     dtype = _selected_dtype(args, sparsity)
     grad_argnums = sparsity.argnums
 
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
+    seeds = coloring._device_seeds(dtype)
     _assert_hessian_mode(coloring.mode)
     match coloring.mode:
         case "fwd_over_rev":
