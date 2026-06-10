@@ -1657,8 +1657,15 @@ Requires a square Jacobian.</p>
 <td>
 <div class="doc-md-description">
 <p>Type of the output matrix.
-<code>"bcoo"</code> returns a sparse matrix of type <code>jax.experimental.sparse.BCOO</code> (default),
-<code>"dense"</code> returns a dense matrix of type <code>jax.Array</code>.</p>
+<code>"bcoo"</code> returns <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns <code>jax.Array</code>,
+<code>"numpy_dense"</code> returns <code>numpy.ndarray</code>,
+<code>"scipy_coo"</code> returns <code>scipy.sparse.coo_array</code>,
+<code>"scipy_csr"</code> returns <code>scipy.sparse.csr_array</code>,
+<code>"scipy_csc"</code> returns <code>scipy.sparse.csc_array</code>.
+SciPy formats require scipy and only support 2D Jacobians:
+the input and output must each be a single flat (1D) array
+(scalar outputs are not supported).</p>
 </div>
 </td>
 <td>
@@ -1775,6 +1782,145 @@ matching <code>jax.value_and_grad</code> ordering.</p>
 depending on which needs fewer colors.</p>
 <p>The returned callable accepts <code>*args, **kwargs</code>; kwargs are forwarded
 to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jacrev</code>).</p>
+<p><span class="doc-section-title">Parameters:</span></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[..., <span title="typing.Any">Any</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function whose Jacobian is to be computed.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>coloring</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+
+
+  
+      dataclass
+   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Pre-computed colored sparsity pattern.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns <code>jax.Array</code>,
+<code>"numpy_dense"</code> returns <code>numpy.ndarray</code>,
+<code>"scipy_coo"</code> returns <code>scipy.sparse.coo_array</code>,
+<code>"scipy_csr"</code> returns <code>scipy.sparse.csr_array</code>,
+<code>"scipy_csc"</code> returns <code>scipy.sparse.csc_array</code>.
+SciPy formats require scipy and only support 2D Jacobians:
+the input and output must each be a single flat (1D) array
+(scalar outputs are not supported).</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>has_aux</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>holomorphic</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> is promised to be holomorphic.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>allow_int</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to allow differentiating with respect to integer inputs.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>chunk_size</code>
+</td>
+<td>
+<code><span title="int">int</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Maximum number of colors to process in parallel.</p>
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="doc doc-object doc-function">
@@ -1783,6 +1929,145 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 <a class="headerlink" href="#asdex.value_and_jacobian_from_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Build a function computing value and sparse Jacobian from a pre-computed coloring.</p>
+<p><span class="doc-section-title">Parameters:</span></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[..., <span title="typing.Any">Any</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function whose Jacobian is to be computed.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>coloring</code>
+</td>
+<td>
+<code><a class="autorefs autorefs-internal" title="asdex.ColoredPattern
+
+
+  
+      dataclass
+   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Pre-computed colored sparsity pattern.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns <code>jax.Array</code>,
+<code>"numpy_dense"</code> returns <code>numpy.ndarray</code>,
+<code>"scipy_coo"</code> returns <code>scipy.sparse.coo_array</code>,
+<code>"scipy_csr"</code> returns <code>scipy.sparse.csr_array</code>,
+<code>"scipy_csc"</code> returns <code>scipy.sparse.csc_array</code>.
+SciPy formats require scipy and only support 2D Jacobians:
+the input and output must each be a single flat (1D) array
+(scalar outputs are not supported).</p>
+</div>
+</td>
+<td>
+<code>'bcoo'</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>has_aux</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>holomorphic</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> is promised to be holomorphic.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>allow_int</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to allow differentiating with respect to integer inputs.</p>
+</div>
+</td>
+<td>
+<code>False</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>chunk_size</code>
+</td>
+<td>
+<code><span title="int">int</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Maximum number of colors to process in parallel.</p>
+</div>
+</td>
+<td>
+<code>None</code>
+</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div><h2 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
