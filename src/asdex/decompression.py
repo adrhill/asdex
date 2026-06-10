@@ -1075,6 +1075,13 @@ def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arr
     to vectorize the decompression step
     (no Python loop over nnz entries).
     """
+    # Symmetric (star) colorings map both (i, j) and (j, i)
+    # to the same (color, element) gather pair,
+    # so the indices are not unique.
+    # The transpose of gather is scatter-add,
+    # where unique_indices=True with duplicates is undefined behavior:
+    # differentiating through the decompressed data
+    # could silently produce wrong gradients on GPU/TPU.
     return jax.lax.gather(
         compressed,
         coloring._gather_indices,
@@ -1084,7 +1091,7 @@ def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arr
             start_index_map=(0, 1),
         ),
         slice_sizes=(1, 1),
-        unique_indices=True,
+        unique_indices=not coloring.symmetric,
         mode=jax.lax.GatherScatterMode.PROMISE_IN_BOUNDS,
     )
 

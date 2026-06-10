@@ -31,6 +31,7 @@ from asdex import (
 )
 from asdex.coloring._color_symmetric import StarSet
 from asdex.decompression import (
+    _decompress_data,
     _flatten_grad_output,
     _flatten_selected_cotangents,
     _selected_dtype,
@@ -848,6 +849,48 @@ def test_hessian_non_symmetric_coloring(mode):
     expected = jax.hessian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_decompress_data_grad_symmetric_coloring():
+    """Gradients through _decompress_data are correct for symmetric colorings.
+
+    Symmetric (star) colorings map the entries (i, j) and (j, i)
+    to the same (color, element) gather pair,
+    so the decompression gather must not promise unique indices:
+    the transpose of gather is scatter-add,
+    where unique_indices=True with duplicate indices is undefined behavior
+    (silently wrong gradients on GPU/TPU; CPU happens to match).
+    """
+
+    def f(x):
+        return jnp.sum(x[:-1] * x[1:]) + jnp.sum(x**3)
+
+    x = np.linspace(0.5, 1.5, 8)
+    coloring = hessian_coloring(f, x)
+    assert coloring.symmetric
+
+    # Precondition for the UB: duplicate gather pairs must actually exist.
+    pairs = np.asarray(coloring._gather_indices)
+    assert len(np.unique(pairs, axis=0)) < len(pairs)
+
+    rng = np.random.default_rng(0)
+    compressed = jnp.asarray(
+        rng.normal(size=(coloring.num_colors, coloring.sparsity.n))
+    )
+    weights = jnp.asarray(rng.normal(size=coloring.sparsity.nnz))
+    color_idx, elem_idx = coloring._extraction_indices
+
+    def via_gather(c):
+        return jnp.vdot(weights, _decompress_data(coloring, c))
+
+    def via_indexing(c):
+        return jnp.vdot(weights, c[color_idx, elem_idx])
+
+    assert_allclose(via_gather(compressed), via_indexing(compressed))
+    assert_allclose(
+        jax.grad(via_gather)(compressed), jax.grad(via_indexing)(compressed)
+    )
 
 
 # Wrong-mode coloring guards
