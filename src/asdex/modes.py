@@ -38,8 +38,9 @@ OutputFormat = JaxOutputFormat | NumpyOutputFormat | ScipyOutputFormat
 ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
 ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
 ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-SciPy formats require scipy and only support 2D arrays
-(flat inputs and outputs); PyTree inputs/outputs raise ValueError.
+SciPy formats require scipy and only support 2D arrays:
+the input (and, for Jacobians, the output) must be a single flat (1D) array.
+PyTree inputs/outputs and scalar-output Jacobians raise ValueError.
 BCOO and SciPy outputs mirror the detected sparsity pattern:
 structural non-zeros that are numerically zero at the evaluation point
 are kept as explicit entries,

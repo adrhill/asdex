@@ -282,6 +282,43 @@ class SparsityPattern:
             return jnp.zeros((0, 2), dtype=jnp.int32)
         return jnp.stack([self.rows, self.cols], axis=1)
 
+    @cached_property
+    def _block_index_cache(
+        self,
+    ) -> dict[tuple[int, int, int, int], tuple[NDArray[np.intp], jnp.ndarray]]:
+        """Memo for ``_block_indices``, keyed by the window bounds."""
+        return {}
+
+    def _block_indices(
+        self, row_offset: int, row_size: int, col_offset: int, col_size: int
+    ) -> tuple[NDArray[np.intp], jnp.ndarray]:
+        """Pattern entries inside a row/column index window.
+
+        Returns the positions of the pattern entries that fall inside the window
+        and the matching window-local BCOO index array of shape ``(k, 2)``.
+        Used by decompression to build per-leaf BCOO blocks.
+        Results are cached on the pattern,
+        so repeated evaluations reuse the same indices.
+        """
+        key = (row_offset, row_size, col_offset, col_size)
+        cached = self._block_index_cache.get(key)
+        if cached is not None:
+            return cached
+        mask = (
+            (self.rows >= row_offset)
+            & (self.rows < row_offset + row_size)
+            & (self.cols >= col_offset)
+            & (self.cols < col_offset + col_size)
+        )
+        (entry_idx,) = np.nonzero(mask)
+        local = np.stack(
+            [self.rows[entry_idx] - row_offset, self.cols[entry_idx] - col_offset],
+            axis=1,
+        )
+        result = (entry_idx, jnp.asarray(local))
+        self._block_index_cache[key] = result
+        return result
+
     def to_bcoo(self, data: jnp.ndarray | None = None) -> BCOO:
         """Convert to JAX BCOO sparse matrix.
 

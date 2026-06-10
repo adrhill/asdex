@@ -26,6 +26,7 @@ from asdex.detection._api import _ensure_scalar, _strip_aux
 from asdex.modes import (
     HessianMode,
     JacobianMode,
+    JaxOutputFormat,
     OutputFormat,
     ScipyOutputFormat,
     _assert_hessian_mode,
@@ -209,8 +210,9 @@ def jacobian(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D arrays
-            (flat inputs and outputs).
+            SciPy formats require scipy and only support 2D Jacobians:
+            the input and output must each be a single flat (1D) array
+            (scalar outputs are not supported).
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -350,8 +352,8 @@ def hessian(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D arrays
-            (flat inputs and outputs).
+            SciPy formats require scipy and only support 2D Hessians:
+            the input must be a single flat (1D) array.
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -431,8 +433,8 @@ def value_and_hessian(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D arrays
-            (flat inputs and outputs).
+            SciPy formats require scipy and only support 2D Hessians:
+            the input must be a single flat (1D) array.
         chunk_size: Maximum number of colors to process in parallel.
             When ``None`` (default), all colors are processed in a single vmapped batch.
             When specified, colors are processed in chunks of this size to reduce
@@ -507,8 +509,9 @@ def jacobian_from_coloring(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D arrays
-            (flat inputs and outputs).
+            SciPy formats require scipy and only support 2D Jacobians:
+            the input and output must each be a single flat (1D) array
+            (scalar outputs are not supported).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -558,8 +561,8 @@ def hessian_from_coloring(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D arrays
-            (flat inputs and outputs).
+            SciPy formats require scipy and only support 2D Hessians:
+            the input must be a single flat (1D) array.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -607,8 +610,9 @@ def value_and_jacobian_from_coloring(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D arrays
-            (flat inputs and outputs).
+            SciPy formats require scipy and only support 2D Jacobians:
+            the input and output must each be a single flat (1D) array
+            (scalar outputs are not supported).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -656,8 +660,8 @@ def value_and_hessian_from_coloring(
             ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
             ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
             ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D arrays
-            (flat inputs and outputs).
+            SciPy formats require scipy and only support 2D Hessians:
+            the input must be a single flat (1D) array.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -1147,21 +1151,20 @@ def _build_jacobian(
         in_shape = sparsity.leaf_shapes[0]
         return sparsity.to_bcoo(data=data).reshape((*out_shape, *in_shape))
 
-    # SciPy path: build directly from the pattern indices.
-    # This keeps structural zeros as explicit entries
-    # and avoids materializing a dense intermediate.
     match output_format:
         case "scipy_coo" | "scipy_csr" | "scipy_csc":
+            # Build directly from the pattern indices.
+            # This keeps structural zeros as explicit entries
+            # and avoids materializing a dense intermediate.
             _assert_scipy_supported_jacobian(out_struct, sparsity, output_format)
             return _sparsity_to_scipy(sparsity, data, output_format)
-        case _:
-            pass
-
-    # General path: assemble per-leaf blocks.
-    jac = _assemble_jacobian(coloring, data, output_format, out_struct)
-    if output_format == "numpy_dense":
-        return _to_numpy_pytree(jac)
-    return jac
+        case "bcoo" | "dense":
+            return _assemble_jacobian(coloring, data, output_format, out_struct)
+        case "numpy_dense":
+            jac = _assemble_jacobian(coloring, data, "dense", out_struct)
+            return _to_numpy_pytree(jac)
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 def _build_hessian(
@@ -1184,21 +1187,20 @@ def _build_hessian(
         in_shape = sparsity.leaf_shapes[0]
         return sparsity.to_bcoo(data=data).reshape((*in_shape, *in_shape))
 
-    # SciPy path: build directly from the pattern indices.
-    # This keeps structural zeros as explicit entries
-    # and avoids materializing a dense intermediate.
     match output_format:
         case "scipy_coo" | "scipy_csr" | "scipy_csc":
+            # Build directly from the pattern indices.
+            # This keeps structural zeros as explicit entries
+            # and avoids materializing a dense intermediate.
             _assert_scipy_supported_hessian(sparsity, output_format)
             return _sparsity_to_scipy(sparsity, data, output_format)
-        case _:
-            pass
-
-    # General path: assemble per-leaf blocks.
-    hess = _assemble_hessian(coloring, data, output_format)
-    if output_format == "numpy_dense":
-        return _to_numpy_pytree(hess)
-    return hess
+        case "bcoo" | "dense":
+            return _assemble_hessian(coloring, data, output_format)
+        case "numpy_dense":
+            hess = _assemble_hessian(coloring, data, "dense")
+            return _to_numpy_pytree(hess)
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 # Argument handling and flattening
@@ -1366,43 +1368,56 @@ def _build_grad_output_from_seed(
 # Block packing
 
 
-def _bcoo_block(
-    sparsity: SparsityPattern,
+def _make_block_builder(
+    coloring: ColoredPattern,
     data: jax.Array,
-    row_offset: int,
-    row_size: int,
-    col_offset: int,
-    col_size: int,
-) -> BCOO:
-    """Build one BCOO block from the pattern entries in the given index window.
+    output_format: JaxOutputFormat,
+) -> Callable[[int, int, int, int], jax.Array | BCOO]:
+    """Return a function extracting one ``(row, col)`` index window as a block.
 
-    All pattern entries in the window are kept as explicit values,
+    For BCOO output, blocks are built from the pattern entries in the window,
+    all kept as explicit values
     so the block structure matches the detected sparsity pattern
     independent of the evaluation point.
+    The window's entry indices are cached on the pattern,
+    so repeated evaluations skip the pattern scan.
+
+    For dense output, blocks are sliced from the scattered dense matrix.
     """
-    rows = sparsity.rows
-    cols = sparsity.cols
-    mask = (
-        (rows >= row_offset)
-        & (rows < row_offset + row_size)
-        & (cols >= col_offset)
-        & (cols < col_offset + col_size)
-    )
-    (entry_idx,) = np.nonzero(mask)
-    indices = np.stack(
-        [rows[entry_idx] - row_offset, cols[entry_idx] - col_offset], axis=1
-    )
-    return BCOO(
-        (data[entry_idx], jnp.asarray(indices)),
-        shape=(row_size, col_size),
-        unique_indices=True,
-    )
+    if output_format == "bcoo":
+        sparsity = coloring.sparsity
+
+        def build_block(
+            row_offset: int, row_size: int, col_offset: int, col_size: int
+        ) -> BCOO:
+            entry_idx, indices = sparsity._block_indices(
+                row_offset, row_size, col_offset, col_size
+            )
+            return BCOO(
+                (data[entry_idx], indices),
+                shape=(row_size, col_size),
+                unique_indices=True,
+            )
+
+        return build_block
+
+    dense = _scatter_dense(coloring, data)
+
+    def slice_block(
+        row_offset: int, row_size: int, col_offset: int, col_size: int
+    ) -> jax.Array:
+        return dense[
+            row_offset : row_offset + row_size,
+            col_offset : col_offset + col_size,
+        ]
+
+    return slice_block
 
 
 def _assemble_jacobian(
     coloring: ColoredPattern,
     data: jax.Array,
-    output_format: OutputFormat,
+    output_format: JaxOutputFormat,
     out_struct: Any,
 ) -> Any:
     """Split the flat Jacobian data into per-leaf Jacobian blocks.
@@ -1419,7 +1434,7 @@ def _assemble_jacobian(
     Dense blocks are sliced from the scattered dense matrix.
     """
     sparsity = coloring.sparsity
-    dense = None if output_format == "bcoo" else _scatter_dense(coloring, data)
+    build_block = _make_block_builder(coloring, data, output_format)
 
     in_leaf_shapes = sparsity.leaf_shapes
     in_leaf_sizes = sparsity.leaf_sizes
@@ -1438,18 +1453,8 @@ def _assemble_jacobian(
         out_blocks: list[jax.Array | BCOO] = []
 
         for out_size, out_shape in zip(out_leaf_sizes, out_leaf_shapes, strict=True):
-            block: jax.Array | BCOO
-            if dense is None:
-                block = _bcoo_block(
-                    sparsity, data, out_row_offset, out_size, in_col_offset, in_size
-                ).reshape((*out_shape, *in_shape))
-            else:
-                chunk = dense[
-                    out_row_offset : out_row_offset + out_size,
-                    in_col_offset : in_col_offset + in_size,
-                ]
-                block = chunk.reshape((*out_shape, *in_shape))
-            out_blocks.append(block)
+            block = build_block(out_row_offset, out_size, in_col_offset, in_size)
+            out_blocks.append(block.reshape((*out_shape, *in_shape)))
             out_row_offset += out_size
 
         per_input_blocks.append(out_blocks)
@@ -1470,7 +1475,7 @@ def _assemble_jacobian(
 def _assemble_hessian(
     coloring: ColoredPattern,
     data: jax.Array,
-    output_format: OutputFormat,
+    output_format: JaxOutputFormat,
 ) -> Any:
     """Split the flat Hessian data into a nested block grid.
 
@@ -1485,7 +1490,7 @@ def _assemble_hessian(
     Dense blocks are sliced from the scattered dense matrix.
     """
     sparsity = coloring.sparsity
-    dense = None if output_format == "bcoo" else _scatter_dense(coloring, data)
+    build_block = _make_block_builder(coloring, data, output_format)
 
     leaf_shapes = sparsity.leaf_shapes
     leaf_sizes = sparsity.leaf_sizes
@@ -1496,18 +1501,8 @@ def _assemble_hessian(
         col_offset = 0
         row_blocks: list[jax.Array | BCOO] = []
         for col_size, col_shape in zip(leaf_sizes, leaf_shapes, strict=True):
-            block: jax.Array | BCOO
-            if dense is None:
-                block = _bcoo_block(
-                    sparsity, data, row_offset, row_size, col_offset, col_size
-                ).reshape(row_shape + col_shape)
-            else:
-                chunk = dense[
-                    row_offset : row_offset + row_size,
-                    col_offset : col_offset + col_size,
-                ]
-                block = chunk.reshape(row_shape + col_shape)
-            row_blocks.append(block)
+            block = build_block(row_offset, row_size, col_offset, col_size)
+            row_blocks.append(block.reshape(row_shape + col_shape))
             col_offset += col_size
         leaf_blocks.append(row_blocks)
         row_offset += row_size
