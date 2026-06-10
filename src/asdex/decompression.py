@@ -26,12 +26,12 @@ from asdex.detection._api import _ensure_scalar, _strip_aux
 from asdex.modes import (
     HessianMode,
     JacobianMode,
+    NumpyOutputFormat,
     OutputFormat,
+    ScipyOutputFormat,
     _assert_hessian_mode,
     _assert_jacobian_mode,
     _assert_output_format,
-    _NumpyOutputFormat,
-    _ScipyOutputFormat,
 )
 from asdex.pattern import ColoredPattern, SparsityPattern
 
@@ -40,7 +40,7 @@ def _to_scipy_sparse(
     data: jax.Array | np.ndarray,
     indices: np.ndarray,
     shape: tuple[int, int],
-    fmt: _ScipyOutputFormat,
+    fmt: ScipyOutputFormat,
 ) -> Any:
     """Convert to scipy sparse array.
 
@@ -68,7 +68,7 @@ def _to_scipy_sparse(
 
 
 def _convert_leaf_to_format(
-    leaf: jax.Array | BCOO, output_format: _NumpyOutputFormat | _ScipyOutputFormat
+    leaf: jax.Array | BCOO, output_format: NumpyOutputFormat | ScipyOutputFormat
 ) -> Any:
     """Convert a single JAX array or BCOO leaf to the target format."""
     match output_format:
@@ -100,7 +100,7 @@ def _convert_leaf_to_format(
 
 
 def _convert_pytree_to_format(
-    pytree: Any, output_format: _NumpyOutputFormat | _ScipyOutputFormat
+    pytree: Any, output_format: NumpyOutputFormat | ScipyOutputFormat
 ) -> Any:
     """Convert each leaf in a pytree to the target numpy/scipy format."""
 

@@ -20,16 +20,16 @@ HessianMode = Literal["fwd_over_rev", "rev_over_fwd", "rev_over_rev"]
 ColoringMode = JacobianMode | HessianMode
 """AD mode that a coloring was computed for."""
 
-_JaxOutputFormat = Literal["bcoo", "dense"]
+JaxOutputFormat = Literal["bcoo", "dense"]
 """JAX-native output formats."""
 
-_NumpyOutputFormat = Literal["numpy_dense"]
+NumpyOutputFormat = Literal["numpy_dense"]
 """NumPy output formats."""
 
-_ScipyOutputFormat = Literal["scipy_coo", "scipy_csr", "scipy_csc"]
+ScipyOutputFormat = Literal["scipy_coo", "scipy_csr", "scipy_csc"]
 """SciPy sparse output formats (require scipy)."""
 
-OutputFormat = _JaxOutputFormat | _NumpyOutputFormat | _ScipyOutputFormat
+OutputFormat = JaxOutputFormat | NumpyOutputFormat | ScipyOutputFormat
 """Output format for materialized Jacobians and Hessians.
 
 ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
@@ -66,7 +66,14 @@ def _assert_coloring_mode(mode: str) -> None:
 
 def _assert_output_format(output_format: str) -> None:
     """Raise ``ValueError`` if *output_format* is not a valid ``OutputFormat``."""
-    if output_format not in get_args(OutputFormat):
+    # get_args on a union of Literals returns the nested Literal types, not the values.
+    # Flatten by unpacking each component.
+    valid = (
+        *get_args(JaxOutputFormat),
+        *get_args(NumpyOutputFormat),
+        *get_args(ScipyOutputFormat),
+    )
+    if output_format not in valid:
         raise ValueError(
             f"Unknown output_format {output_format!r}. "
             "Expected 'bcoo', 'dense', 'numpy_dense', 'scipy_coo', 'scipy_csr', or 'scipy_csc'."
