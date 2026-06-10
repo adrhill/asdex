@@ -503,10 +503,15 @@ class ColoredPattern:
     def _hub_extraction_indices(
         self,
     ) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
-        """Hub-based extraction indices using the star set."""
+        """Hub-based extraction indices using the star set.
+
+        For an off-diagonal entry ``(i, j)``,
+        the value lives in the hub's color row at the spoke's position.
+        Diagonal entries read their own color row directly.
+        """
         assert self.star_set is not None
-        rows = self.sparsity.rows
-        cols = self.sparsity.cols
+        rows = self.sparsity.rows.astype(np.intp)
+        cols = self.sparsity.cols.astype(np.intp)
         star = self.star_set.star
         hub = self.star_set.hub
         edge_index = self.star_set.edge_index
@@ -514,21 +519,44 @@ class ColoredPattern:
         color_idx = np.empty(len(rows), dtype=np.intp)
         elem_idx = np.empty(len(rows), dtype=np.intp)
 
-        for k, (i, j) in enumerate(zip(rows, cols, strict=True)):
-            i, j = int(i), int(j)
-            if i == j:
-                color_idx[k] = self.colors[i]
-                elem_idx[k] = i
-                continue
-            a, b = (i, j) if i < j else (j, i)
-            s = int(star[edge_index[(a, b)]])
-            h = int(hub[s])
-            if h < 0:
-                # Unresolved trivial star: decode default endpoint as hub.
-                h = -h - 1
-            spoke = i if h == j else j
-            color_idx[k] = self.colors[h]
-            elem_idx[k] = spoke
+        # Diagonal entries are self-loops and have no edge in edge_index,
+        # so they must be handled before the edge lookup.
+        diag = rows == cols
+        color_idx[diag] = self.colors[rows[diag]]
+        elem_idx[diag] = rows[diag]
+
+        off = ~diag
+        i = rows[off]
+        j = cols[off]
+        if len(i) == 0:
+            return color_idx, elem_idx
+
+        # Batch edge lookup:
+        # encode each undirected edge as min * n + max
+        # and binary-search the sorted keys of edge_index.
+        n = self.sparsity.n
+        keys = np.minimum(i, j) * np.int64(n) + np.maximum(i, j)
+        edge_keys = np.fromiter(
+            (a * n + b for a, b in edge_index),
+            dtype=np.int64,
+            count=len(edge_index),
+        )
+        edge_vals = np.fromiter(
+            edge_index.values(), dtype=np.int64, count=len(edge_index)
+        )
+        order = np.argsort(edge_keys)
+        edge_keys = edge_keys[order]
+        edge_vals = edge_vals[order]
+        pos = np.searchsorted(edge_keys, keys)
+        missing = "off-diagonal pattern entry missing from star-set edge index"
+        assert (pos < len(edge_keys)).all(), missing
+        assert (edge_keys[pos] == keys).all(), missing
+
+        h = hub[star[edge_vals[pos]]].astype(np.intp)
+        # Unresolved trivial stars encode a default hub endpoint as -(v + 1).
+        h = np.where(h < 0, -h - 1, h)
+        color_idx[off] = self.colors[h]
+        elem_idx[off] = np.where(h == j, i, j)
 
         return color_idx, elem_idx
 
