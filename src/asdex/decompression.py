@@ -860,10 +860,12 @@ def _eval_value_and_hessian(
 
     if sparsity.nnz == 0:
         empty = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
-        if has_aux:
-            value, aux = f(*args)
-            return (jnp.asarray(value), aux), empty
+        # Compute the value through f_scalar so it is squeezed to shape (),
+        # consistent with the non-empty path.
         value = jnp.asarray(f_scalar(*args))
+        if has_aux:
+            _, aux = f(*args)
+            return (value, aux), empty
         return value, empty
 
     value, compressed = _value_and_compute_hvps(f_scalar, args, coloring, chunk_size)

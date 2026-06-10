@@ -1081,6 +1081,36 @@ def test_value_and_hessian_squeeze(mode):
     assert_allclose(hess.todense(), jax.hessian(lambda x: jnp.sum(x**2))(x), rtol=1e-5)
 
 
+@pytest.mark.hessian
+@pytest.mark.parametrize("has_aux", [False, True])
+@pytest.mark.parametrize("empty", [False, True])
+def test_value_and_hessian_value_shape(empty, has_aux):
+    """value_and_hessian squeezes a (1,)-returning f to a scalar value on all paths.
+
+    The empty-Hessian path (linear f) must squeeze the value
+    exactly like the non-empty path, with and without aux.
+    """
+
+    def f_raw(x):
+        out = jnp.sum(x) if empty else jnp.sum(x**2)
+        return jnp.reshape(out, (1,))
+
+    f = (lambda x: (f_raw(x), "metadata")) if has_aux else f_raw
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = value_and_hessian(f, x, has_aux=has_aux)(x)
+    if has_aux:
+        (value, aux), hess = result
+        assert aux == "metadata"
+    else:
+        value, hess = result
+
+    assert value.shape == ()
+    assert hess.shape == (3, 3)
+    expected_nnz = 0 if empty else 3
+    assert hess.nse == expected_nnz
+
+
 # Output format tests
 
 
