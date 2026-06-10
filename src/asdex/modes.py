@@ -1,6 +1,6 @@
 """Type aliases and resolution for AD mode selection."""
 
-from typing import Literal, get_args
+from typing import Any, Literal, get_args
 
 JacobianMode = Literal["fwd", "rev"]
 """AD mode for Jacobian computation.
@@ -40,6 +40,10 @@ OutputFormat = JaxOutputFormat | NumpyOutputFormat | ScipyOutputFormat
 ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
 SciPy formats require scipy and only support 2D arrays
 (flat inputs and outputs); PyTree inputs/outputs raise ValueError.
+SciPy outputs mirror the detected sparsity pattern:
+structural non-zeros that are numerically zero at the evaluation point
+are kept as explicit entries,
+so the structure is independent of the input value.
 """
 
 
@@ -65,7 +69,14 @@ def _assert_coloring_mode(mode: str) -> None:
 
 
 def _assert_output_format(output_format: str) -> None:
-    """Raise ``ValueError`` if *output_format* is not a valid ``OutputFormat``."""
+    """Raise if *output_format* is not a valid, usable ``OutputFormat``.
+
+    Raises:
+        ValueError: If *output_format* is not a valid ``OutputFormat``.
+        ImportError: If *output_format* is a scipy format and scipy is not installed.
+            Checked here so that requesting a scipy format fails at construction time
+            rather than at the first call.
+    """
     # get_args on a union of Literals returns the nested Literal types, not the values.
     # Flatten by unpacking each component.
     valid = (
@@ -78,3 +89,22 @@ def _assert_output_format(output_format: str) -> None:
             f"Unknown output_format {output_format!r}. "
             "Expected 'bcoo', 'dense', 'numpy_dense', 'scipy_coo', 'scipy_csr', or 'scipy_csc'."
         )
+    if output_format in get_args(ScipyOutputFormat):
+        _import_scipy_coo_array(output_format)
+
+
+def _import_scipy_coo_array(output_format: str) -> Any:
+    """Import and return ``scipy.sparse.coo_array``.
+
+    Raises:
+        ImportError: If scipy is not installed,
+            with a hint to install the optional dependency.
+    """
+    try:
+        from scipy.sparse import coo_array  # noqa: PLC0415
+    except ImportError as e:
+        raise ImportError(
+            f"scipy is required for output_format={output_format!r}. "
+            "Install it with: pip install 'asdex[scipy]'"
+        ) from e
+    return coo_array

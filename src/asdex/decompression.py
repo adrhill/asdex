@@ -26,36 +26,35 @@ from asdex.detection._api import _ensure_scalar, _strip_aux
 from asdex.modes import (
     HessianMode,
     JacobianMode,
-    NumpyOutputFormat,
     OutputFormat,
     ScipyOutputFormat,
     _assert_hessian_mode,
     _assert_jacobian_mode,
     _assert_output_format,
+    _import_scipy_coo_array,
 )
 from asdex.pattern import ColoredPattern, SparsityPattern
 
 
-def _to_scipy_sparse(
-    data: jax.Array | np.ndarray,
-    indices: np.ndarray,
-    shape: tuple[int, int],
-    fmt: ScipyOutputFormat,
+def _sparsity_to_scipy(
+    sparsity: SparsityPattern, data: jax.Array, fmt: ScipyOutputFormat
 ) -> Any:
-    """Convert to scipy sparse array.
+    """Build a scipy sparse array with the pattern's structure and the given data.
+
+    Structural non-zeros that are numerically zero are kept as explicit entries,
+    so the output structure always matches the detected sparsity pattern.
 
     Raises:
         ImportError: If scipy is not installed.
     """
-    try:
-        from scipy.sparse import coo_array  # noqa: PLC0415
-    except ImportError as e:
-        raise ImportError(
-            f"scipy is required for output_format={fmt!r}. "
-            "Install it with: pip install asdex[scipy]"
-        ) from e
-
-    coo = coo_array((np.asarray(data), (indices[:, 0], indices[:, 1])), shape=shape)
+    coo_array = _import_scipy_coo_array(fmt)
+    # jax.vjp returns float0 cotangents for integer inputs (allow_int=True).
+    # float0 cannot back a real array, so fall back to plain zero data.
+    if data.dtype == dtypes.float0:
+        data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
+    coo = coo_array(
+        (np.asarray(data), (sparsity.rows, sparsity.cols)), shape=sparsity.shape
+    )
     match fmt:
         case "scipy_coo":
             return coo
@@ -67,51 +66,56 @@ def _to_scipy_sparse(
             assert_never(unreachable)
 
 
-def _convert_leaf_to_format(
-    leaf: jax.Array | BCOO, output_format: NumpyOutputFormat | ScipyOutputFormat
-) -> Any:
-    """Convert a single JAX array or BCOO leaf to the target format."""
-    match output_format:
-        case "numpy_dense":
-            if isinstance(leaf, BCOO):
-                return np.asarray(leaf.todense())
-            return np.asarray(leaf)
-        case "scipy_coo" | "scipy_csr" | "scipy_csc":
-            arr = (
-                np.asarray(leaf.todense())
-                if isinstance(leaf, BCOO)
-                else np.asarray(leaf)
-            )
-            if arr.ndim != 2:
-                raise ValueError(
-                    f"SciPy sparse formats only support 2D arrays, got shape {arr.shape}."
-                )
-            nonzero = np.nonzero(arr)
-            if len(nonzero[0]) == 0:
-                indices_2d = np.zeros((0, 2), dtype=np.intp)
-                data = np.array([], dtype=arr.dtype)
-            else:
-                indices_2d = np.column_stack(nonzero)
-                data = arr[nonzero]
+def _assert_scipy_supported_jacobian(
+    out_struct: Any, sparsity: SparsityPattern, fmt: ScipyOutputFormat
+) -> None:
+    """Raise ``ValueError`` unless the Jacobian is a single 2D matrix.
 
-            return _to_scipy_sparse(data, indices_2d, arr.shape, output_format)
-        case _ as unreachable:
-            assert_never(unreachable)
+    SciPy sparse arrays are 2D-only,
+    so the input and output must each be a single flat (1D) array.
+    """
+    out_leaves = jax.tree_util.tree_leaves(out_struct)
+    if (
+        _is_simple_output(out_struct, sparsity)
+        and len(out_leaves[0].shape) == 1
+        and len(sparsity.leaf_shapes[0]) == 1
+    ):
+        return
+    raise ValueError(
+        "SciPy sparse formats only support 2D Jacobians: "
+        f"output_format={fmt!r} requires the input and output "
+        "to each be a single flat (1D) array."
+    )
 
 
-def _convert_pytree_to_format(
-    pytree: Any, output_format: NumpyOutputFormat | ScipyOutputFormat
-) -> Any:
-    """Convert each leaf in a pytree to the target numpy/scipy format."""
+def _assert_scipy_supported_hessian(
+    sparsity: SparsityPattern, fmt: ScipyOutputFormat
+) -> None:
+    """Raise ``ValueError`` unless the Hessian is a single 2D matrix.
+
+    SciPy sparse arrays are 2D-only,
+    so the input must be a single flat (1D) array.
+    """
+    if _is_simple_input(sparsity) and len(sparsity.leaf_shapes[0]) == 1:
+        return
+    raise ValueError(
+        "SciPy sparse formats only support 2D Hessians: "
+        f"output_format={fmt!r} requires the input to be a single flat (1D) array."
+    )
+
+
+def _to_numpy_pytree(pytree: Any) -> Any:
+    """Convert each JAX array or BCOO leaf in a pytree to ``numpy.ndarray``."""
+
+    def to_numpy(leaf: jax.Array | np.ndarray | BCOO) -> np.ndarray:
+        if isinstance(leaf, BCOO):
+            leaf = leaf.todense()
+        return np.asarray(leaf)
 
     def is_leaf(x: Any) -> bool:
         return isinstance(x, (jax.Array, np.ndarray, BCOO))
 
-    return jax.tree_util.tree_map(
-        lambda leaf: _convert_leaf_to_format(leaf, output_format),
-        pytree,
-        is_leaf=is_leaf,
-    )
+    return jax.tree_util.tree_map(to_numpy, pytree, is_leaf=is_leaf)
 
 
 class _BCOOLeaf:
@@ -712,13 +716,13 @@ def _eval_jacobian(
     validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     m = sparsity.m
-    n_selected = sparsity.n
     f_out = _strip_aux(f) if has_aux else f
     out_struct = jax.eval_shape(f_out, *args)
 
     if m == 0 or sparsity.nnz == 0:
-        dense = jnp.zeros((m, n_selected))
-        jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
+        jac = _build_jacobian(
+            coloring, jnp.zeros(sparsity.nnz), output_format, out_struct
+        )
         if has_aux:
             _, aux = f(*args)
             return jac, aux
@@ -767,13 +771,13 @@ def _eval_value_and_jacobian(
     validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     m = sparsity.m
-    n_selected = sparsity.n
     f_out = _strip_aux(f) if has_aux else f
     out_struct = jax.eval_shape(f_out, *args)
 
     if m == 0 or sparsity.nnz == 0:
-        dense = jnp.zeros((m, n_selected))
-        empty = _assemble_jacobian(dense, sparsity, output_format, out_struct)
+        empty = _build_jacobian(
+            coloring, jnp.zeros(sparsity.nnz), output_format, out_struct
+        )
         if has_aux:
             value, aux = f(*args)
             return (value, aux), empty
@@ -822,11 +826,8 @@ def _eval_hessian(
     f_scalar = _ensure_scalar(f_scalar_raw, sparsity.input_avals)
     validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
 
-    n_selected = sparsity.n
-
     if sparsity.nnz == 0:
-        dense = jnp.zeros((n_selected, n_selected))
-        hess = _assemble_hessian(dense, sparsity, output_format)
+        hess = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
         if has_aux:
             _, aux = f(*args)
             return hess, aux
@@ -862,11 +863,8 @@ def _eval_value_and_hessian(
     f_scalar = _ensure_scalar(f_scalar_raw, sparsity.input_avals)
     validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
 
-    n_selected = sparsity.n
-
     if sparsity.nnz == 0:
-        dense = jnp.zeros((n_selected, n_selected))
-        empty = _assemble_hessian(dense, sparsity, output_format)
+        empty = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
         if has_aux:
             value, aux = f(*args)
             return (jnp.asarray(value), aux), empty
@@ -1141,14 +1139,14 @@ def _build_jacobian(
 ) -> Any:
     """Build Jacobian output from sparse data, avoiding BCOO.fromdense under JIT.
 
-    For simple single-array outputs, constructs BCOO directly from known indices.
+    For simple single-array outputs, constructs BCOO and scipy outputs directly
+    from known indices.
     For PyTree outputs, scatters to dense then assembles blocks.
     """
     sparsity = coloring.sparsity
 
     # Fast path: single flat array output with BCOO format.
     # Use the known sparsity pattern indices directly, avoiding fromdense.
-    # numpy/scipy formats involve host transfer anyway, so fromdense cost is negligible.
     if output_format == "bcoo" and _is_simple_output(out_struct, sparsity):
         if data.dtype == dtypes.float0:
             data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
@@ -1156,13 +1154,21 @@ def _build_jacobian(
         in_shape = sparsity.leaf_shapes[0]
         return sparsity.to_bcoo(data=data).reshape((*out_shape, *in_shape))
 
+    # SciPy path: build directly from the pattern indices.
+    # This keeps structural zeros as explicit entries
+    # and avoids materializing a dense intermediate.
+    match output_format:
+        case "scipy_coo" | "scipy_csr" | "scipy_csc":
+            _assert_scipy_supported_jacobian(out_struct, sparsity, output_format)
+            return _sparsity_to_scipy(sparsity, data, output_format)
+        case _:
+            pass
+
     # General path: scatter to dense, then assemble blocks.
     dense = _scatter_dense(coloring, data)
     jac = _assemble_jacobian(dense, sparsity, output_format, out_struct)
-
-    # Convert to numpy/scipy formats after assembly
-    if output_format in ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc"):
-        return _convert_pytree_to_format(jac, output_format)
+    if output_format == "numpy_dense":
+        return _to_numpy_pytree(jac)
     return jac
 
 
@@ -1173,24 +1179,32 @@ def _build_hessian(
 ) -> Any:
     """Build Hessian output from sparse data, avoiding BCOO.fromdense under JIT.
 
-    For simple single-input cases, constructs BCOO directly from known indices.
+    For simple single-input cases, constructs BCOO and scipy outputs directly
+    from known indices.
     For PyTree inputs, scatters to dense then assembles blocks.
     """
     sparsity = coloring.sparsity
 
     # Fast path: single input leaf with BCOO format and trivial pytree structure.
-    # numpy/scipy formats involve host transfer anyway, so fromdense cost is negligible.
     if output_format == "bcoo" and _is_simple_input(sparsity):
         in_shape = sparsity.leaf_shapes[0]
         return sparsity.to_bcoo(data=data).reshape((*in_shape, *in_shape))
 
+    # SciPy path: build directly from the pattern indices.
+    # This keeps structural zeros as explicit entries
+    # and avoids materializing a dense intermediate.
+    match output_format:
+        case "scipy_coo" | "scipy_csr" | "scipy_csc":
+            _assert_scipy_supported_hessian(sparsity, output_format)
+            return _sparsity_to_scipy(sparsity, data, output_format)
+        case _:
+            pass
+
     # General path: scatter to dense, then assemble blocks.
     dense = _scatter_dense(coloring, data)
     hess = _assemble_hessian(dense, sparsity, output_format)
-
-    # Convert to numpy/scipy formats after assembly
-    if output_format in ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc"):
-        return _convert_pytree_to_format(hess, output_format)
+    if output_format == "numpy_dense":
+        return _to_numpy_pytree(hess)
     return hess
 
 
