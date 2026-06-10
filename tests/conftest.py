@@ -7,8 +7,12 @@ from numpy.testing import assert_allclose
 
 
 def _to_dense(x):
-    """Convert BCOO to dense, pass through other arrays."""
-    return x.todense() if isinstance(x, BCOO) else x
+    """Convert BCOO or scipy sparse to dense, pass through other arrays."""
+    if isinstance(x, BCOO):
+        return x.todense()
+    if hasattr(x, "toarray"):
+        return x.toarray()
+    return x
 
 
 def _assert_trees_allclose(actual, expected, *, rtol=1e-7, atol=0):
@@ -32,9 +36,23 @@ def assert_trees_allclose():
     return _assert_trees_allclose
 
 
+@pytest.fixture
+def to_dense():
+    """Fixture providing the _to_dense helper."""
+    return _to_dense
+
+
 @pytest.fixture(params=["dense", "bcoo"])
 def output_format(request):
     """Parametrize over output formats."""
+    return request.param
+
+
+@pytest.fixture(
+    params=["dense", "bcoo", "numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc"]
+)
+def all_output_format(request):
+    """Parametrize over all output formats."""
     return request.param
 
 

@@ -41,6 +41,7 @@ dependencies = [
 
 [project.optional-dependencies]
 matplotlib = ["matplotlib>=3.5.0"]
+scipy = ["scipy>=1.11.0"]
 
 [project.urls]
 Homepage = "https://github.com/adrhill/asdex"
@@ -60,6 +61,7 @@ dev = [
     "pytest-benchmark>=5.0.0",
     "pytest-cov>=6.0.0",
     "ruff==0.15.8",
+    "scipy>=1.11.0",
     "sif2jax>=0.0.1",
     "sympy>=1.13.0",
     "ty==0.0.26",
