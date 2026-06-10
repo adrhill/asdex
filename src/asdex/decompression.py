@@ -249,7 +249,7 @@ def jacobian(
         symmetric=symmetric,
     )
 
-    eval_shape_cache: dict[Any, Any] = {}
+    call_cache: dict[Any, Any] = {}
 
     def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -263,7 +263,7 @@ def jacobian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
-            eval_shape_cache=eval_shape_cache if f_bound is f else None,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return jac_fn
@@ -314,7 +314,7 @@ def value_and_jacobian(
         symmetric=symmetric,
     )
 
-    eval_shape_cache: dict[Any, Any] = {}
+    call_cache: dict[Any, Any] = {}
 
     def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -328,7 +328,7 @@ def value_and_jacobian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
-            eval_shape_cache=eval_shape_cache if f_bound is f else None,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return val_jac_fn
@@ -404,7 +404,7 @@ def hessian(
         symmetric=symmetric,
     )
 
-    eval_shape_cache: dict[Any, Any] = {}
+    call_cache: dict[Any, Any] = {}
 
     def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -418,7 +418,7 @@ def hessian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
-            eval_shape_cache=eval_shape_cache if f_bound is f else None,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return hess_fn
@@ -494,7 +494,7 @@ def value_and_hessian(
         symmetric=symmetric,
     )
 
-    eval_shape_cache: dict[Any, Any] = {}
+    call_cache: dict[Any, Any] = {}
 
     def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -508,7 +508,7 @@ def value_and_hessian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
-            eval_shape_cache=eval_shape_cache if f_bound is f else None,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return val_hess_fn
@@ -562,7 +562,7 @@ def jacobian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
-    eval_shape_cache: dict[Any, Any] = {}
+    call_cache: dict[Any, Any] = {}
 
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -576,7 +576,7 @@ def jacobian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
-            eval_shape_cache=eval_shape_cache if f_bound is f else None,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return jac_fn
@@ -622,7 +622,7 @@ def hessian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
-    eval_shape_cache: dict[Any, Any] = {}
+    call_cache: dict[Any, Any] = {}
 
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -636,7 +636,7 @@ def hessian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
-            eval_shape_cache=eval_shape_cache if f_bound is f else None,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return hess_fn
@@ -681,7 +681,7 @@ def value_and_jacobian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
-    eval_shape_cache: dict[Any, Any] = {}
+    call_cache: dict[Any, Any] = {}
 
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -695,7 +695,7 @@ def value_and_jacobian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
-            eval_shape_cache=eval_shape_cache if f_bound is f else None,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return val_jac_fn
@@ -739,7 +739,7 @@ def value_and_hessian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
-    eval_shape_cache: dict[Any, Any] = {}
+    call_cache: dict[Any, Any] = {}
 
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -753,20 +753,22 @@ def value_and_hessian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
-            eval_shape_cache=eval_shape_cache if f_bound is f else None,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return val_hess_fn
 
 
-# Per-closure caching of output structures
+# Per-closure call cache
 #
-# jax.eval_shape re-traces f, so its cost grows with model size.
 # Each public entry point creates one cache dict shared across calls.
+# It memoizes work that only depends on the avals of the call arguments:
+# output structures from jax.eval_shape (whose cost grows with model size),
+# the _ensure_scalar wrapper, and the jitted core for host output formats.
 # The cache is bypassed (None) when call-time kwargs or non-traceable
 # positional args were bound into f:
 # those can change the output structure between calls with identical avals,
-# so the result must not be reused.
+# so nothing derived from f may be reused.
 
 
 def _aval_key(args: tuple[Any, ...]) -> Any:
@@ -810,6 +812,87 @@ def _cached_scalar_fn(
     return f_scalar
 
 
+_HOST_FORMATS = ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc")
+
+
+def _cached_jit_core(
+    cache: dict[Any, Any] | None,
+    output_format: OutputFormat,
+    has_aux: bool,
+    build: Callable[[], Callable[..., Any]],
+) -> Callable[..., Any] | None:
+    """Jitted array-valued core for host output formats, memoized per closure.
+
+    Host formats (numpy/scipy) cannot be wrapped in user-side ``jax.jit``,
+    so without an internal jit they pay a full re-trace of ``f`` on every call.
+
+    Returns ``None`` when jitting is unsafe:
+    call-time kwargs or static args were bound into ``f``
+    (``cache is None`` — a fresh closure per call would defeat jit's trace cache),
+    or ``has_aux`` is set
+    (aux may contain non-JAX types, which cannot be jit outputs).
+    """
+    if cache is None or has_aux or output_format not in _HOST_FORMATS:
+        return None
+    core = cache.get("jit_core")
+    if core is None:
+        core = jax.jit(build())
+        cache["jit_core"] = core
+    return core
+
+
+def _build_jacobian_core(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+) -> Callable[..., Any]:
+    """Array-valued Jacobian core ``args -> (data, y)`` for the internal jit.
+
+    Self-contained so jit re-traces it correctly for new input avals:
+    the output structure is recomputed at trace time.
+    Only used with ``has_aux=False``.
+    """
+
+    def core(*args: Any) -> tuple[jax.Array, Any]:
+        out_struct = jax.eval_shape(f, *args)
+        compressed, y, _ = _jacobian_compressed(
+            f, args, coloring, out_struct, has_aux=False, chunk_size=chunk_size
+        )
+        return _decompress_data(coloring, compressed), y
+
+    return core
+
+
+def _build_hessian_core(
+    f_scalar: Callable[..., Any],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+) -> Callable[..., Any]:
+    """Array-valued Hessian core ``args -> data`` for the internal jit."""
+
+    def core(*args: Any) -> jax.Array:
+        compressed = _compute_hvps(f_scalar, args, coloring, chunk_size)
+        return _decompress_data(coloring, compressed)
+
+    return core
+
+
+def _build_value_and_hessian_core(
+    f_scalar: Callable[..., Any],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+) -> Callable[..., Any]:
+    """Array-valued Hessian core ``args -> (value, data)`` for the internal jit."""
+
+    def core(*args: Any) -> tuple[jax.Array, jax.Array]:
+        value, compressed = _value_and_compute_hvps(
+            f_scalar, args, coloring, chunk_size
+        )
+        return value, _decompress_data(coloring, compressed)
+
+    return core
+
+
 # Unified evaluation
 
 
@@ -823,7 +906,7 @@ def _eval_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    eval_shape_cache: dict[Any, Any] | None,
+    call_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate the sparse Jacobian of ``f`` at ``args``.
 
@@ -836,7 +919,7 @@ def _eval_jacobian(
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
-    out_struct = _cached_out_struct(f_out, args, eval_shape_cache)
+    out_struct = _cached_out_struct(f_out, args, call_cache)
 
     if m == 0 or sparsity.nnz == 0:
         jac = _build_jacobian(
@@ -847,21 +930,22 @@ def _eval_jacobian(
             return jac, aux
         return jac
 
-    _assert_jacobian_mode(coloring.mode)
-    match coloring.mode:
-        case "rev":
-            compressed, y, aux = _jacobian_rows(
-                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
-            )
-        case "fwd":
-            compressed, y, aux = _jacobian_cols(
-                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
-            )
-        case _ as unreachable:
-            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        has_aux,
+        lambda: _build_jacobian_core(f, coloring, chunk_size),
+    )
+    if core is not None:
+        data, y = core(*args)
+        aux = None
+    else:
+        compressed, y, aux = _jacobian_compressed(
+            f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
+        )
+        data = _decompress_data(coloring, compressed)
 
     validate_output_dtypes(y, coloring.mode, holomorphic)
-    data = _decompress_data(coloring, compressed)
     jac = _build_jacobian(coloring, data, output_format, out_struct)
     if has_aux:
         return jac, aux
@@ -878,7 +962,7 @@ def _eval_value_and_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    eval_shape_cache: dict[Any, Any] | None,
+    call_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Jacobian of ``f`` at ``args``.
 
@@ -892,7 +976,7 @@ def _eval_value_and_jacobian(
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
-    out_struct = _cached_out_struct(f_out, args, eval_shape_cache)
+    out_struct = _cached_out_struct(f_out, args, call_cache)
 
     if m == 0 or sparsity.nnz == 0:
         empty = _build_jacobian(
@@ -904,21 +988,22 @@ def _eval_value_and_jacobian(
         value = f(*args)
         return value, empty
 
-    _assert_jacobian_mode(coloring.mode)
-    match coloring.mode:
-        case "rev":
-            compressed, y, aux = _jacobian_rows(
-                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
-            )
-        case "fwd":
-            compressed, y, aux = _jacobian_cols(
-                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
-            )
-        case _ as unreachable:
-            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        has_aux,
+        lambda: _build_jacobian_core(f, coloring, chunk_size),
+    )
+    if core is not None:
+        data, y = core(*args)
+        aux = None
+    else:
+        compressed, y, aux = _jacobian_compressed(
+            f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
+        )
+        data = _decompress_data(coloring, compressed)
 
     validate_output_dtypes(y, coloring.mode, holomorphic)
-    data = _decompress_data(coloring, compressed)
     jac = _build_jacobian(coloring, data, output_format, out_struct)
     if has_aux:
         return (y, aux), jac
@@ -935,7 +1020,7 @@ def _eval_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    eval_shape_cache: dict[Any, Any] | None,
+    call_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate the sparse Hessian of a scalar-valued ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -944,8 +1029,8 @@ def _eval_hessian(
     validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, eval_shape_cache)
-    out_struct = _cached_out_struct(f_scalar, args, eval_shape_cache)
+    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
+    out_struct = _cached_out_struct(f_scalar, args, call_cache)
     validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
@@ -955,8 +1040,19 @@ def _eval_hessian(
             return hess, aux
         return hess
 
-    compressed = _compute_hvps(f_scalar, args, coloring, chunk_size)
-    data = _decompress_data(coloring, compressed)
+    # Aux is computed by a separate f call below,
+    # so has_aux does not block the internal jit here.
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        False,
+        lambda: _build_hessian_core(f_scalar, coloring, chunk_size),
+    )
+    if core is not None:
+        data = core(*args)
+    else:
+        compressed = _compute_hvps(f_scalar, args, coloring, chunk_size)
+        data = _decompress_data(coloring, compressed)
     hess = _build_hessian(coloring, data, output_format)
     if has_aux:
         _, aux = f(*args)
@@ -974,7 +1070,7 @@ def _eval_value_and_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    eval_shape_cache: dict[Any, Any] | None,
+    call_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Hessian of ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -983,8 +1079,8 @@ def _eval_value_and_hessian(
     validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, eval_shape_cache)
-    out_struct = _cached_out_struct(f_scalar, args, eval_shape_cache)
+    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
+    out_struct = _cached_out_struct(f_scalar, args, call_cache)
     validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
@@ -997,8 +1093,21 @@ def _eval_value_and_hessian(
             return (value, aux), empty
         return value, empty
 
-    value, compressed = _value_and_compute_hvps(f_scalar, args, coloring, chunk_size)
-    data = _decompress_data(coloring, compressed)
+    # Aux is computed by a separate f call below,
+    # so has_aux does not block the internal jit here.
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        False,
+        lambda: _build_value_and_hessian_core(f_scalar, coloring, chunk_size),
+    )
+    if core is not None:
+        value, data = core(*args)
+    else:
+        value, compressed = _value_and_compute_hvps(
+            f_scalar, args, coloring, chunk_size
+        )
+        data = _decompress_data(coloring, compressed)
     hess = _build_hessian(coloring, data, output_format)
     if has_aux:
         _, aux = f(*args)
@@ -1019,6 +1128,33 @@ def _output_dtype(pytree: Any) -> jnp.dtype:
 
 
 # Jacobian rows / cols over the selected input space
+
+
+def _jacobian_compressed(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    out_struct: Any,
+    *,
+    has_aux: bool,
+    chunk_size: int | None,
+) -> tuple[jax.Array, Any, Any]:
+    """Compress the Jacobian via VJPs (``rev``) or JVPs (``fwd``) by mode.
+
+    Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
+    """
+    _assert_jacobian_mode(coloring.mode)
+    match coloring.mode:
+        case "rev":
+            return _jacobian_rows(
+                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
+            )
+        case "fwd":
+            return _jacobian_cols(
+                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
+            )
+        case _ as unreachable:
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
 
 def _jacobian_rows(

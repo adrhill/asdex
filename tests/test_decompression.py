@@ -2075,6 +2075,24 @@ def test_scipy_hessian_preserves_structural_zeros(fmt):
 
 
 @pytest.mark.hessian
+@pytest.mark.parametrize("fmt", ["scipy_csr", "numpy_dense"])
+def test_host_format_repeated_calls_update_values(fmt, to_dense):
+    """Host output formats return fresh values on every call.
+
+    Regression test for the internal jit core used by numpy/scipy formats:
+    the jitted core is cached per closure,
+    but the data it produces must track the evaluation point.
+    """
+
+    def f(x):
+        return jnp.sum(x**3) + jnp.sum(x[:-1] * x[1:])
+
+    hess_fn = hessian(f, jnp.zeros(4), output_format=fmt)
+    for x in (jnp.array([1.0, 2.0, 3.0, 4.0]), jnp.array([-1.0, 0.5, 0.0, 2.0])):
+        assert_allclose(to_dense(hess_fn(x)), jax.hessian(f)(x), rtol=1e-6)
+
+
+@pytest.mark.hessian
 def test_jitted_then_eager_call(to_dense):
     """A jitted first call must not poison the caches shared with eager calls.
 
@@ -2094,6 +2112,28 @@ def test_jitted_then_eager_call(to_dense):
     expected = jax.hessian(f)(x)
     assert_allclose(to_dense(jitted), expected, rtol=1e-6)
     assert_allclose(to_dense(eager), expected, rtol=1e-6)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("fmt", ["scipy_csr", "numpy_dense"])
+def test_host_format_bool_kwarg_steering(fmt, to_dense):
+    """Non-traceable call-time kwargs keep working with host output formats.
+
+    The internal jit core must not capture a call
+    whose kwargs steer Python control flow in ``f``.
+    """
+
+    def f(x, double=False):
+        if double:
+            return x * x * 2.0
+        return x * x
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac_fn = jacobian(f, x, output_format=fmt)
+
+    assert_allclose(to_dense(jac_fn(x)), np.diag(2 * x))
+    assert_allclose(to_dense(jac_fn(x, double=True)), np.diag(4 * x))
+    assert_allclose(to_dense(jac_fn(x, double=False)), np.diag(2 * x))
 
 
 @pytest.mark.jacobian
