@@ -36,6 +36,12 @@ def assert_trees_allclose():
     return _assert_trees_allclose
 
 
+@pytest.fixture
+def to_dense():
+    """Fixture providing the _to_dense helper."""
+    return _to_dense
+
+
 @pytest.fixture(params=["dense", "bcoo"])
 def output_format(request):
     """Parametrize over output formats."""

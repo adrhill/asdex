@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from jax.experimental.sparse import BCOO
 from numpy.testing import assert_allclose
+from scipy.sparse import coo_array, csc_array, csr_array
 
 from asdex import (
     ColoredPattern,
@@ -1037,18 +1038,29 @@ def test_value_and_hessian_squeeze(mode):
 # Output format tests
 
 
-def _to_dense(x):
-    """Convert BCOO or scipy sparse to dense, pass through other arrays."""
-    if isinstance(x, BCOO):
-        return x.todense()
-    if hasattr(x, "toarray"):
-        return x.toarray()
-    return x
+def _assert_output_type(result, output_format):
+    """Assert that result has the type promised by output_format."""
+    match output_format:
+        case "dense":
+            assert isinstance(result, jax.Array)
+            assert not isinstance(result, BCOO)
+        case "bcoo":
+            assert isinstance(result, BCOO)
+        case "numpy_dense":
+            assert isinstance(result, np.ndarray)
+        case "scipy_coo":
+            assert isinstance(result, coo_array)
+        case "scipy_csr":
+            assert isinstance(result, csr_array)
+        case "scipy_csc":
+            assert isinstance(result, csc_array)
+        case _:
+            pytest.fail(f"Unknown output_format {output_format!r}")
 
 
 @pytest.mark.jacobian
-def test_jacobian_output_format(all_output_format):
-    """Jacobian returns correct result for all output formats."""
+def test_jacobian_output_format(all_output_format, to_dense):
+    """Jacobian returns the promised type and correct result for all output formats."""
 
     def f(x):
         return x**2
@@ -1056,12 +1068,13 @@ def test_jacobian_output_format(all_output_format):
     x = np.array([1.0, 2.0, 3.0, 4.0])
     result = jacobian(f, x, output_format=all_output_format)(x)
 
-    assert_allclose(_to_dense(result), jax.jacobian(f)(x), rtol=1e-5)
+    _assert_output_type(result, all_output_format)
+    assert_allclose(to_dense(result), jax.jacobian(f)(x), rtol=1e-5)
 
 
 @pytest.mark.hessian
-def test_hessian_output_format(all_output_format):
-    """Hessian returns correct result for all output formats."""
+def test_hessian_output_format(all_output_format, to_dense):
+    """Hessian returns the promised type and correct result for all output formats."""
 
     def f(x):
         return jnp.sum(x**3)
@@ -1069,12 +1082,13 @@ def test_hessian_output_format(all_output_format):
     x = np.array([1.0, 2.0, 3.0])
     result = hessian(f, x, output_format=all_output_format)(x)
 
-    assert_allclose(_to_dense(result), jax.hessian(f)(x), rtol=1e-5)
+    _assert_output_type(result, all_output_format)
+    assert_allclose(to_dense(result), jax.hessian(f)(x), rtol=1e-5)
 
 
 @pytest.mark.jacobian
-def test_value_and_jacobian_output_format(all_output_format):
-    """value_and_jacobian returns correct result for all output formats."""
+def test_value_and_jacobian_output_format(all_output_format, to_dense):
+    """value_and_jacobian returns the promised type and correct result."""
 
     def f(x):
         return x**2
@@ -1082,13 +1096,14 @@ def test_value_and_jacobian_output_format(all_output_format):
     x = np.array([1.0, 2.0, 3.0])
     value, jac = value_and_jacobian(f, x, output_format=all_output_format)(x)
 
+    _assert_output_type(jac, all_output_format)
     assert_allclose(value, f(x), rtol=1e-5)
-    assert_allclose(_to_dense(jac), jax.jacobian(f)(x), rtol=1e-5)
+    assert_allclose(to_dense(jac), jax.jacobian(f)(x), rtol=1e-5)
 
 
 @pytest.mark.hessian
-def test_value_and_hessian_output_format(all_output_format):
-    """value_and_hessian returns correct result for all output formats."""
+def test_value_and_hessian_output_format(all_output_format, to_dense):
+    """value_and_hessian returns the promised type and correct result."""
 
     def f(x):
         return jnp.sum(x**3)
@@ -1096,8 +1111,37 @@ def test_value_and_hessian_output_format(all_output_format):
     x = np.array([1.0, 2.0, 3.0])
     value, hess = value_and_hessian(f, x, output_format=all_output_format)(x)
 
+    _assert_output_type(hess, all_output_format)
     assert_allclose(value, f(x), rtol=1e-5)
-    assert_allclose(_to_dense(hess), jax.hessian(f)(x), rtol=1e-5)
+    assert_allclose(to_dense(hess), jax.hessian(f)(x), rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_jacobian_output_format_empty_pattern(all_output_format, to_dense):
+    """Constant functions (empty pattern) still honor the requested output format."""
+
+    def f(x):
+        return jnp.zeros(2)
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = jacobian(f, x, output_format=all_output_format)(x)
+
+    _assert_output_type(result, all_output_format)
+    assert_allclose(to_dense(result), np.zeros((2, 3)))
+
+
+@pytest.mark.hessian
+def test_hessian_output_format_empty_pattern(all_output_format, to_dense):
+    """Linear functions (empty Hessian pattern) still honor the requested format."""
+
+    def f(x):
+        return jnp.sum(x) * 2.0
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = hessian(f, x, output_format=all_output_format)(x)
+
+    _assert_output_type(result, all_output_format)
+    assert_allclose(to_dense(result), np.zeros((3, 3)))
 
 
 # --- Empty result with has_aux tests ---
@@ -1874,3 +1918,111 @@ def test_scipy_rejects_pytree_output(fmt):
     x = np.array([1.0, 2.0, 3.0])
     with pytest.raises(ValueError, match="only support 2D"):
         jacobian(f, x, output_format=fmt)(x)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("fmt", ["scipy_coo", "scipy_csr", "scipy_csc"])
+def test_scipy_rejects_pytree_output_with_2d_blocks(fmt):
+    """SciPy formats reject PyTree outputs even when every Jacobian block is 2D."""
+
+    def f(x):
+        return {"a": x[:2] * 2.0, "b": x * 3.0}
+
+    x = np.array([1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="only support 2D"):
+        jacobian(f, x, output_format=fmt)(x)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("fmt", ["scipy_coo", "scipy_csr", "scipy_csc"])
+def test_scipy_rejects_pytree_input(fmt):
+    """SciPy formats reject PyTree inputs for Jacobians."""
+
+    def f(params):
+        return params["a"] * params["b"]
+
+    params = {"a": np.array([1.0, 2.0]), "b": np.array([3.0, 4.0])}
+    with pytest.raises(ValueError, match="only support 2D"):
+        jacobian(f, params, output_format=fmt)(params)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("fmt", ["scipy_coo", "scipy_csr", "scipy_csc"])
+def test_scipy_rejects_pytree_input_hessian(fmt):
+    """SciPy formats reject PyTree inputs for Hessians."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) + jnp.sum(params["b"] ** 3)
+
+    params = {"a": np.array([1.0, 2.0]), "b": np.array([3.0])}
+    with pytest.raises(ValueError, match="only support 2D"):
+        hessian(f, params, output_format=fmt)(params)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("fmt", ["scipy_coo", "scipy_csr", "scipy_csc"])
+def test_scipy_preserves_structural_zeros(fmt):
+    """SciPy outputs keep pattern entries that are numerically zero.
+
+    The structure of the returned sparse array matches the detected
+    sparsity pattern independent of the evaluation point,
+    so downstream sparse solvers see a fixed structure.
+    """
+
+    def f(x):
+        return x**2
+
+    # The derivative 2*x is numerically zero at x[0] = 0,
+    # but the diagonal pattern entry must survive.
+    x = np.array([0.0, 1.0, 2.0])
+    result = jacobian(f, x, output_format=fmt)(x)
+
+    assert result.nnz == 3
+    assert_allclose(result.toarray(), np.diag(2 * x))
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("fmt", ["scipy_coo", "scipy_csr", "scipy_csc"])
+def test_scipy_hessian_preserves_structural_zeros(fmt):
+    """SciPy Hessian outputs keep pattern entries that are numerically zero."""
+
+    def f(x):
+        return jnp.sum(x**3)
+
+    # The second derivative 6*x is numerically zero at x[0] = 0,
+    # but the diagonal pattern entry must survive.
+    x = np.array([0.0, 1.0, 2.0])
+    result = hessian(f, x, output_format=fmt)(x)
+
+    assert result.nnz == 3
+    assert_allclose(result.toarray(), np.diag(6 * x))
+
+
+@pytest.mark.jacobian
+def test_jacobian_numpy_dense_pytree(assert_trees_allclose):
+    """numpy_dense supports PyTree inputs and outputs, returning numpy blocks."""
+
+    def f(params):
+        return {"out": params["a"] * params["b"], "sum": jnp.sum(params["a"])}
+
+    params = {"a": np.array([1.0, 2.0]), "b": np.array([3.0, 4.0])}
+    result = jacobian(f, params, output_format="numpy_dense")(params)
+    expected = jax.jacobian(f)(params)
+
+    assert all(isinstance(leaf, np.ndarray) for leaf in jax.tree.leaves(result))
+    assert_trees_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.hessian
+def test_hessian_numpy_dense_pytree(assert_trees_allclose):
+    """numpy_dense supports PyTree inputs for Hessians, returning numpy blocks."""
+
+    def f(params):
+        return jnp.sum(params["a"] ** 2) * jnp.sum(params["b"])
+
+    params = {"a": np.array([1.0, 2.0]), "b": np.array([3.0])}
+    result = hessian(f, params, output_format="numpy_dense")(params)
+    expected = jax.hessian(f)(params)
+
+    assert all(isinstance(leaf, np.ndarray) for leaf in jax.tree.leaves(result))
+    assert_trees_allclose(result, expected, rtol=1e-5)
