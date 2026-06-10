@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780325596800,
+  "lastUpdate": 1781115357324,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -16665,6 +16665,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000033391756801194317",
             "extra": "mean: 16.187901499215446 usec\nrounds: 16142"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2dee3f970f09d632dafcc32b8d7f8328378593f6",
+          "message": "feat(decompression): add numpy and scipy output formats (#142)\n\n* feat(decompression): add numpy and scipy output formats\n\nAdd numpy_dense, scipy_coo, scipy_csr, and scipy_csc as output format\noptions for Jacobian and Hessian decompression.\n\n- Extend OutputFormat type alias with new formats\n- Add scipy as optional dependency (pip install asdex[scipy])\n- Add _to_scipy_sparse helper with lazy import and helpful error message\n- Add _convert_pytree_to_format for converting JAX arrays to target format\n- Update docstrings for all 8 public decompression functions\n- Add test fixtures: scipy_output_format, all_output_format\n- Add 11 explicit type-checking tests for new formats\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* refactor: address code review feedback\n\n- Use match statements in _convert_leaf_to_format\n- Remove pytest.importorskip from scipy fixtures (tests should fail loudly)\n- Parametrize scipy output format tests to reduce duplication\n- Use noqa comments for in-function scipy imports\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* refactor: use match statements and consolidate output format tests\n\n- Use match/assert_never in _to_scipy_sparse and _convert_leaf_to_format\n- Add Literal type aliases _JaxOutputFormat, _NumpyOutputFormat, _ScipyOutputFormat\n- Define OutputFormat as union of these types\n- Add ValueError for scipy formats with non-2D arrays\n- Consolidate output format tests using all_output_format fixture\n- Add numpy_dense to e2e test parametrization\n- Remove unused scipy_output_format fixture\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* test: add scipy rejection tests for high-dimensional arrays\n\nAdd tests that verify SciPy formats raise ValueError for:\n- High-dimensional Hessian blocks (multi-dim inputs)\n- PyTree outputs (which produce non-2D Jacobian blocks)\n\nAlso improve OutputFormat docstring to document the 2D constraint.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* docs: document scipy 2D-only constraint in API docstrings\n\nUpdate all jacobian/hessian function docstrings to note that\nSciPy formats only support 2D arrays (flat inputs and outputs).\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\n\n* fix: flatten Literal components when validating output_format\n\nget_args on a union of Literal aliases returns the nested Literal\ntypes rather than their string values,\nso _assert_output_format rejected every format including 'bcoo'.\nValidate against the flattened values of each component instead.\n\nAlso make JaxOutputFormat, NumpyOutputFormat,\nand ScipyOutputFormat public type aliases.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* fix(decompression): build scipy outputs directly from the sparsity pattern\n\nSciPy sparse outputs were built by scattering to a dense matrix and\nre-detecting non-zeros with np.nonzero.\nThis dropped structural non-zeros that were numerically zero at the\nevaluation point (so the structure varied with the input value),\nand materialized an O(m*n) dense intermediate that defeats the point\nof a sparse output format.\nConstruct the scipy array from the pattern indices and the\ndecompressed data instead:\nthe structure now always matches the detected sparsity pattern and\nonly O(nnz) host transfer is needed.\n\nSciPy formats now consistently raise ValueError unless the input and\noutput are single flat (1D) arrays, as documented.\nPreviously a PyTree whose Jacobian blocks were all 2D silently\nreturned a PyTree of scipy arrays.\n\nRoute the empty-pattern (nnz == 0) early returns through\n_build_jacobian/_build_hessian so numpy/scipy formats return the\ndocumented types instead of leaking jax.Array.\n\nCheck scipy availability when output_format is validated,\nso a missing scipy fails at construction time rather than at the\nfirst call.\nAlso quote the pip install hint so it survives shells that glob\nbrackets.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* test: strengthen output format coverage\n\nAssert the returned type for every output format,\nrestoring the isinstance checks that the parametrized format tests\nhad dropped, and cover empty (nnz == 0) patterns for all formats.\n\nAssert that scipy outputs preserve structural zeros so the sparse\nstructure is independent of the evaluation point.\n\nAdd scipy rejection tests for PyTree inputs and for PyTree outputs\nwhose blocks are all 2D.\n\nShare the _to_dense helper via a conftest fixture instead of\nduplicating it in test_decompression.py.\n\nMove numpy_dense PyTree coverage out of the e2e parametrizations\ninto targeted decompression tests:\nthe conversion layer is a thin host-side step,\nso parametrizing every e2e test over it tripled runtime for no\nadditional signal.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* fix: validate output_format in the one-call APIs\n\n`jacobian`, `hessian`, `value_and_jacobian`, and `value_and_hessian`\nnever called `_assert_output_format`;\nonly the `*_from_coloring` variants did.\nAs a result, a typo'd `output_format` silently fell back to dense output\ninstead of raising `ValueError`,\nand requesting a scipy format without scipy installed\nonly failed at the first call instead of at construction time.\n\nAdd the assertion to all four one-call APIs and cover both error paths\nwith construction-time tests,\nsimulating a missing scipy installation by blocking scipy imports.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* feat(decompression): preserve structural zeros in pytree BCOO blocks\n\nBuild BCOO blocks for PyTree inputs and outputs directly from the\npattern indices instead of `BCOO.fromdense`,\nwhich dropped entries that were numerically zero at the evaluation point.\nAll sparse output paths now share the fixed-structure guarantee:\nthe structure mirrors the detected sparsity pattern\nand is independent of the input value.\nThis also avoids materializing a dense intermediate for BCOO outputs.\n\nRemove the float0 fallbacks from the scipy and numpy output builders:\n`_flatten_selected_cotangents` already replaces float0 cotangents\nwith zeros before decompression, so the fallbacks were unreachable.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* refactor(decompression): exhaustive dispatch and cached block windows\n\n- Dispatch every output format in `_build_jacobian` / `_build_hessian`\n  through an exhaustive `match` ending in `assert_never`,\n  so adding a format fails type checking until both builders handle it.\n- Replace the `dense is None` sentinel in block assembly with\n  `_make_block_builder`, which picks the BCOO or dense strategy once;\n  `_assemble_jacobian` / `_assemble_hessian` now only accept\n  `JaxOutputFormat`.\n- Cache per-window pattern entry indices in\n  `SparsityPattern._block_indices`, so repeated evaluations skip the\n  O(nnz) pattern scan and index transfer per block.\n- Document that scipy formats reject scalar-output Jacobians.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>",
+          "timestamp": "2026-06-10T20:15:18+02:00",
+          "tree_id": "bc5871c19dcdc4678666b194d46f0e46a9d876a7",
+          "url": "https://github.com/adrhill/asdex/commit/2dee3f970f09d632dafcc32b8d7f8328378593f6"
+        },
+        "date": 1781115355835,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1115.457855610964,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009665932497198698",
+            "extra": "mean: 896.4928571436479 usec\nrounds: 63"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27570.559952783115,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000021846468665913994",
+            "extra": "mean: 36.270572730934134 usec\nrounds: 7129"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 86865.42295547633,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000128702713915894",
+            "extra": "mean: 11.512060449099055 usec\nrounds: 27031"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 64120.53543159782,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017553980488470978",
+            "extra": "mean: 15.59562772314612 usec\nrounds: 9364"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 88659.99966363271,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000012563967188181206",
+            "extra": "mean: 11.27904357989963 usec\nrounds: 28247"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 17.9747990668164,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03687184397854499",
+            "extra": "mean: 55.63344526315835 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2861.2205590927265,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008146569275909162",
+            "extra": "mean: 349.50119340575867 usec\nrounds: 2487"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1898.254717624489,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000016391480421924786",
+            "extra": "mean: 526.7996916933351 usec\nrounds: 1252"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1887.1986559861082,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017930586011878315",
+            "extra": "mean: 529.8859220930693 usec\nrounds: 860"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4478.893478545434,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000020727695076999087",
+            "extra": "mean: 223.26943134284144 usec\nrounds: 3299"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 153.87139028144347,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00024443695997436823",
+            "extra": "mean: 6.4989339354828575 msec\nrounds: 62"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27110.12368847919,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005400553609467666",
+            "extra": "mean: 36.88658936015712 usec\nrounds: 20395"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 61978.29336016093,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003163645304803379",
+            "extra": "mean: 16.134681124388475 usec\nrounds: 15332"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 53542.25066335233,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000032372020302788937",
+            "extra": "mean: 18.676839087088705 usec\nrounds: 13933"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 63162.95614076301,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023649475388922856",
+            "extra": "mean: 15.832064569166633 usec\nrounds: 16432"
           }
         ]
       }
