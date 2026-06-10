@@ -183,6 +183,12 @@ def jacobian(
     and [`jacobian_from_coloring`][asdex.jacobian_from_coloring]
     in one call.
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Args:
         f: Function whose Jacobian is to be computed.
         *sample_args: Sample arguments of ``f``.
@@ -279,6 +285,12 @@ def value_and_jacobian(
     but also returns the primal value ``f(*args)``
     without an extra forward pass.
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Returns:
         A function that takes the same positional args as ``f`` and returns
             ``(value, jac)`` — or ``((value, aux), jac)`` when ``has_aux=True``,
@@ -333,6 +345,12 @@ def hessian(
 
     If ``f`` returns a squeezable shape like ``(1,)`` or ``(1, 1)``,
     it is automatically squeezed to scalar.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
 
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
@@ -414,6 +432,12 @@ def value_and_hessian(
 
     Like [`hessian`][asdex.hessian], but also returns the primal value
     ``f(*args)`` without an extra forward pass.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
 
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
@@ -499,6 +523,12 @@ def jacobian_from_coloring(
     The returned callable accepts ``*args, **kwargs``; kwargs are forwarded
     to ``f`` at call time (matching ``jax.jacfwd`` / ``jax.jacrev``).
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Args:
         f: Function whose Jacobian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
@@ -551,6 +581,12 @@ def hessian_from_coloring(
 
     Uses symmetric (star) coloring and Hessian-vector products by default.
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
@@ -599,6 +635,12 @@ def value_and_jacobian_from_coloring(
     chunk_size: int | None = None,
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Jacobian from a pre-computed coloring.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
 
     Args:
         f: Function whose Jacobian is to be computed.
@@ -649,6 +691,12 @@ def value_and_hessian_from_coloring(
     chunk_size: int | None = None,
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Hessian from a pre-computed coloring.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
 
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
