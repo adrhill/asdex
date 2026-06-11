@@ -146,19 +146,7 @@ def _chunked_vmap(
     n = seeds.shape[0]
     if chunk_size is None or chunk_size >= n:
         return jax.vmap(fn)(seeds)
-
-    n_chunks = (n + chunk_size - 1) // chunk_size
-    padded_n = n_chunks * chunk_size
-
-    # Pad to multiple of chunk_size
-    seeds_padded = jnp.pad(seeds, ((0, padded_n - n), (0, 0)))
-    chunks = seeds_padded.reshape((n_chunks, chunk_size, seeds.shape[1]))
-
-    def process_chunk(chunk: jax.Array) -> jax.Array:
-        return jax.vmap(fn)(chunk)
-
-    results = jax.lax.map(process_chunk, chunks)
-    return results.reshape((padded_n, results.shape[2]))[:n]
+    return jax.lax.map(fn, seeds, batch_size=chunk_size)
 
 
 # Public API: one-shot entry points
