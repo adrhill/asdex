@@ -137,6 +137,33 @@ class TestConversion:
         assert bcoo.shape == (2, 2)
         np.testing.assert_array_equal(bcoo.todense(), np.zeros((2, 2)))
 
+    def test_to_bcoo_sets_structure_flags_for_sorted_unique(self):
+        """Row-major sorted patterns without duplicates get the BCOO structure flags.
+
+        The flags let downstream sparse ops skip sorting and deduplication.
+        """
+        sparsity = SparsityPattern.from_coo([0, 0, 1], [0, 2, 1], (2, 3))
+        bcoo = sparsity.to_bcoo()
+
+        assert bcoo.indices_sorted
+        assert bcoo.unique_indices
+
+    def test_to_bcoo_no_structure_flags_for_unsorted(self):
+        """User patterns with unsorted entries do not get the BCOO structure flags."""
+        sparsity = SparsityPattern.from_coo([1, 0, 0], [1, 2, 0], (2, 3))
+        bcoo = sparsity.to_bcoo()
+
+        assert not bcoo.indices_sorted
+        assert not bcoo.unique_indices
+
+    def test_to_bcoo_no_structure_flags_for_duplicates(self):
+        """User patterns with duplicate entries do not get the BCOO structure flags."""
+        sparsity = SparsityPattern.from_coo([0, 0, 1], [2, 2, 0], (2, 3))
+        bcoo = sparsity.to_bcoo()
+
+        assert not bcoo.indices_sorted
+        assert not bcoo.unique_indices
+
 
 class TestProperties:
     """Test computed properties."""

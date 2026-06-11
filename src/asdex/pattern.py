@@ -328,6 +328,18 @@ class SparsityPattern:
         self._block_index_cache[key] = result
         return result
 
+    @cached_property
+    def _entries_sorted_unique(self) -> bool:
+        """Whether entries are row-major sorted with no duplicate ``(row, col)`` pairs.
+
+        Detection emits entries in this canonical order;
+        user-constructed patterns (``from_coo``) may not.
+        Checked once and cached so ``to_bcoo`` can set the BCOO structure flags,
+        which let downstream sparse ops skip sorting and deduplication.
+        """
+        keys = self.rows.astype(np.int64) * self.shape[1] + self.cols
+        return bool(np.all(np.diff(keys) > 0))
+
     def to_bcoo(self, data: jnp.ndarray | None = None) -> BCOO:
         """Convert to JAX BCOO sparse matrix.
 
@@ -341,7 +353,13 @@ class SparsityPattern:
                 data = jnp.array([])
             else:
                 data = jnp.ones(self.nnz, dtype=jnp.int8)
-        return BCOO((data, indices), shape=self.shape)
+        flag = self._entries_sorted_unique
+        return BCOO(
+            (data, indices),
+            shape=self.shape,
+            indices_sorted=flag,
+            unique_indices=flag,
+        )
 
     def todense(self) -> NDArray:
         """Convert to dense numpy array with 1s at pattern positions."""
