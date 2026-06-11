@@ -600,6 +600,38 @@ def test_jacobian_allow_int_pytree_input(
     assert_trees_allclose(J, J_jax)
 
 
+@pytest.mark.hessian
+def test_allow_int_hessian_raises(hessian_mode):
+    """``allow_int=True`` raises ``TypeError`` for Hessians.
+
+    The gradient inside each HVP requires float inputs in every mode,
+    and ``jax.hessian`` has no ``allow_int`` either.
+    """
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    x = jnp.array([1.0, 2.0])
+    with pytest.raises(TypeError, match="not supported for Hessian"):
+        asdex.hessian(f, np.zeros(2), mode=hessian_mode, allow_int=True)(x)
+
+
+@pytest.mark.hessian
+def test_hessian_int_input_raises(hessian_mode):
+    """Integer call-time inputs raise a clear ``TypeError`` for Hessians.
+
+    Without the upfront check, the failure surfaces deep inside ``jax.grad``.
+    """
+
+    def f(x):
+        return jnp.sum(x**2).astype(jnp.float32)
+
+    hess_fn = asdex.hessian(f, np.zeros(2), mode=hessian_mode)
+    x = jnp.array([1, 2], dtype=jnp.int32)
+    with pytest.raises(TypeError, match=r"matching `jax\.hessian`"):
+        hess_fn(x)
+
+
 # holomorphic dtype validation
 
 

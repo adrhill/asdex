@@ -354,7 +354,8 @@ def hessian(
             with respect to (default ``0``).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
         output_format: Type of the output matrix.
@@ -444,7 +445,8 @@ def value_and_hessian(
             with respect to (default ``0``).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
         output_format: Type of the output matrix.
@@ -604,7 +606,8 @@ def hessian_from_coloring(
             the input must be a single flat (1D) array.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         chunk_size: Maximum number of colors to process in parallel.
     """
     _assert_output_format(output_format)
@@ -721,7 +724,8 @@ def value_and_hessian_from_coloring(
             the input must be a single flat (1D) array.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         chunk_size: Maximum number of colors to process in parallel.
     """
     _assert_output_format(output_format)
@@ -945,7 +949,7 @@ def _eval_jacobian(
 
     if m == 0 or sparsity.nnz == 0:
         jac = _build_jacobian(
-            coloring, jnp.zeros(sparsity.nnz), output_format, out_struct
+            coloring, _empty_data(args, sparsity), output_format, out_struct
         )
         if has_aux:
             _, aux = f(*args)
@@ -1002,7 +1006,7 @@ def _eval_value_and_jacobian(
 
     if m == 0 or sparsity.nnz == 0:
         empty = _build_jacobian(
-            coloring, jnp.zeros(sparsity.nnz), output_format, out_struct
+            coloring, _empty_data(args, sparsity), output_format, out_struct
         )
         if has_aux:
             value, aux = f(*args)
@@ -1056,7 +1060,7 @@ def _eval_hessian(
     validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
-        hess = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
+        hess = _build_hessian(coloring, _empty_data(args, sparsity), output_format)
         if has_aux:
             _, aux = f(*args)
             return hess, aux
@@ -1110,7 +1114,7 @@ def _eval_value_and_hessian(
     validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
-        empty = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
+        empty = _build_hessian(coloring, _empty_data(args, sparsity), output_format)
         # Compute the value through the squeezing wrappers
         # so it has shape (), consistent with the non-empty path.
         if has_aux:
@@ -1229,7 +1233,7 @@ def _jacobian_cols(
     Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
     """
     sparsity = coloring.sparsity
-    dtype = _selected_dtype(args, sparsity)
+    dtype = _uniform_selected_dtype(args, sparsity)
     if has_aux:
         y, jvp_fn, aux = jax.linearize(f, *args, has_aux=True)
     else:
@@ -1282,7 +1286,7 @@ def _compute_hvps(
     otherwise the returned aux is ``None``.
     """
     sparsity = coloring.sparsity
-    dtype = _selected_dtype(args, sparsity)
+    dtype = _uniform_selected_dtype(args, sparsity)
     grad_argnums = sparsity.argnums
 
     seeds = coloring._device_seeds(dtype)
@@ -1372,7 +1376,7 @@ def _value_and_compute_hvps(
     Returns ``(value, compressed, aux)``; ``aux`` is ``None`` without ``f_aux``.
     """
     sparsity = coloring.sparsity
-    dtype = _selected_dtype(args, sparsity)
+    dtype = _uniform_selected_dtype(args, sparsity)
     grad_argnums = sparsity.argnums
 
     seeds = coloring._device_seeds(dtype)
@@ -1610,6 +1614,44 @@ def _selected_dtype(args: tuple[Any, ...], sparsity: SparsityPattern) -> Any:
         if dtype is not None:
             return dtype
     return jnp.float_
+
+
+def _uniform_selected_dtype(args: tuple[Any, ...], sparsity: SparsityPattern) -> Any:
+    """Shared dtype of all selected leaves, for input-space seeds.
+
+    Forward-mode tangents and HVP seeds are sliced from one flat seed vector,
+    so every selected leaf must share its dtype;
+    mixed dtypes would otherwise fail deep inside ``jvp``/``vjp``.
+    Leaves without a ``dtype`` (Python scalars) are weakly typed and skipped.
+    """
+    found = {
+        jnp.dtype(leaf.dtype)
+        for leaf in jax.tree_util.tree_leaves(_selected_args(args, sparsity))
+        if getattr(leaf, "dtype", None) is not None
+    }
+    if len(found) > 1:
+        names = sorted(d.name for d in found)
+        raise TypeError(
+            f"Differentiated inputs have mixed dtypes {names}, "
+            "which forward and Hessian modes do not support. "
+            "Cast the inputs to a common dtype, "
+            "or use `mode='rev'` for Jacobians."
+        )
+    return found.pop() if found else jnp.float_
+
+
+def _empty_data(args: tuple[Any, ...], sparsity: SparsityPattern) -> jax.Array:
+    """All-zero data vector for empty patterns, dtype-matched to the function.
+
+    Mirrors the non-empty path,
+    where derivative data inherits the selected input leaves' dtype.
+    Non-float inputs (``allow_int=True``) map to the default float dtype,
+    like the float0 cotangent replacement in ``_flatten_selected_cotangents``.
+    """
+    dtype = _selected_dtype(args, sparsity)
+    if not jnp.issubdtype(dtype, jnp.inexact):
+        dtype = jnp.float_
+    return jnp.zeros(sparsity.nnz, dtype=dtype)
 
 
 def _build_tangents_from_seed(

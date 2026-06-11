@@ -178,6 +178,23 @@ def _check_output_dtype_fwd(holomorphic: bool, y: Any) -> None:
         )
 
 
+def _check_input_dtype_hessian(holomorphic: bool, x: Any) -> None:
+    """Validate a single Hessian-mode input leaf."""
+    aval = jax.typeof(x)
+    if (
+        dtypes.issubdtype(aval.dtype, dtypes.extended)
+        or dtypes.issubdtype(aval.dtype, np.integer)
+        or dtypes.issubdtype(aval.dtype, np.bool_)
+    ):
+        raise TypeError(
+            "Sparse Hessians require real- or complex-valued inputs "
+            f"(a sub-dtype of `np.inexact`), got {aval.dtype.name}. "
+            "Differentiating twice with respect to boolean- or integer-valued "
+            "inputs is not supported, matching `jax.hessian`."
+        )
+    _check_input_dtype_rev(holomorphic, False, x)
+
+
 def validate_input_dtypes(
     selected: tuple[Any, ...], mode: str, holomorphic: bool, allow_int: bool
 ) -> None:
@@ -190,9 +207,18 @@ def validate_input_dtypes(
                 "Use `mode='rev'` for differentiating with respect to integer inputs."
             )
         check = lambda a: _check_input_dtype_fwd(holomorphic, a)  # noqa: E731
-    else:
-        # "rev" and all Hessian modes use the reverse-mode / grad-style check.
+    elif mode == "rev":
         check = lambda a: _check_input_dtype_rev(holomorphic, allow_int, a)  # noqa: E731
+    else:
+        # Hessian modes: the gradient inside each HVP requires float inputs,
+        # so integer differentiation can never work here.
+        if allow_int:
+            raise TypeError(
+                "`allow_int=True` is not supported for Hessian computation: "
+                "the gradient inside each Hessian-vector product requires "
+                "float inputs (`jax.hessian` has no `allow_int` either)."
+            )
+        check = lambda a: _check_input_dtype_hessian(holomorphic, a)  # noqa: E731
     for leaf in jax.tree_util.tree_leaves(selected):
         check(leaf)
 

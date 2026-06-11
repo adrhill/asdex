@@ -130,6 +130,30 @@ def test_zero_jacobian():
 
 
 @pytest.mark.jacobian
+def test_empty_pattern_dtype_matches_input():
+    """Empty-pattern Jacobians inherit the input dtype like non-empty ones."""
+
+    def f(x):
+        return jnp.zeros(2, dtype=x.dtype)
+
+    x = jnp.array([1.0, 2.0], dtype=jnp.float16)
+    result = jacobian(f, x, output_format="dense")(x)
+    assert result.dtype == jnp.float16
+
+
+@pytest.mark.hessian
+def test_empty_pattern_hessian_dtype_matches_input(hessian_mode):
+    """Empty-pattern Hessians inherit the input dtype like non-empty ones."""
+
+    def f(x):
+        return jnp.sum(x)
+
+    x = jnp.array([1.0, 2.0], dtype=jnp.float16)
+    result = hessian(f, x, mode=hessian_mode, output_format="dense")(x)
+    assert result.dtype == jnp.float16
+
+
+@pytest.mark.jacobian
 def test_precomputed_sparsity():
     """Using pre-computed sparsity pattern."""
 

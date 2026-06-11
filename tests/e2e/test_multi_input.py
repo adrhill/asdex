@@ -737,3 +737,58 @@ def test_hessian_modes_symmetric_pytree_match_jax(mode, symmetric):
     H_jax = jax.hessian(f, argnums=(0, 1))(params, y)
     assert jax.tree.structure(H) == jax.tree.structure(H_jax)
     jax.tree.map(lambda a, b: np.testing.assert_allclose(a, b, atol=1e-6), H, H_jax)
+
+
+# Mixed input dtypes
+
+
+@pytest.mark.jacobian
+def test_jacobian_fwd_mixed_dtypes_raises():
+    """Mixed input dtypes raise a clear ``TypeError`` in forward mode.
+
+    Forward-mode tangents are sliced from one flat seed vector,
+    so all differentiated leaves must share a dtype;
+    without the upfront check the failure surfaces deep inside ``jax.linearize``.
+    """
+
+    def f(x, y):
+        return jnp.concatenate([x**2, y.astype(jnp.float32) ** 2])
+
+    x = jnp.zeros(2, dtype=jnp.float32)
+    y = jnp.zeros(2, dtype=jnp.float16)
+    jac_fn = asdex.jacobian(f, x, y, argnums=(0, 1), mode="fwd")
+    with pytest.raises(TypeError, match="mixed dtypes"):
+        jac_fn(x, y)
+
+
+@pytest.mark.jacobian
+def test_jacobian_rev_mixed_dtypes_works(assert_trees_allclose):
+    """Mixed input dtypes work in reverse mode, matching ``jax.jacrev``."""
+
+    def f(x, y):
+        return jnp.concatenate([x**2, y.astype(jnp.float32) ** 2])
+
+    x = jnp.array([1.0, 2.0], dtype=jnp.float32)
+    y = jnp.array([3.0, 4.0], dtype=jnp.float16)
+    J = asdex.jacobian(f, x, y, argnums=(0, 1), mode="rev", output_format="dense")(x, y)
+    J_jax = jax.jacrev(f, argnums=(0, 1))(x, y)
+    assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.hessian
+def test_hessian_mixed_dtypes_raises(hessian_mode):
+    """Mixed input dtypes raise a clear ``TypeError`` in every Hessian mode.
+
+    HVP seeds are sliced from one flat seed vector,
+    so all differentiated leaves must share a dtype;
+    without the upfront check the failure surfaces deep inside ``jvp``/``vjp``.
+    """
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.sum(y.astype(jnp.float32) ** 2) * x[0]
+
+    x = jnp.zeros(2, dtype=jnp.float32)
+    y = jnp.zeros(2, dtype=jnp.float16)
+    hess_fn = asdex.hessian(f, x, y, argnums=(0, 1), mode=hessian_mode)
+    with pytest.raises(TypeError, match="mixed dtypes"):
+        hess_fn(x, y)
