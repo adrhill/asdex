@@ -1455,7 +1455,8 @@ def test_color_symmetric_forced_colors_overrides_greedy_choice():
     assert num == 3
     # With 3 distinct colors every edge is a trivial star (no shared-color
     # neighbor to absorb into). The star set must still cover both edges.
-    assert set(star_set.edge_index) == {(0, 1), (1, 2)}
+    edges = set(zip(star_set.edge_lo.tolist(), star_set.edge_hi.tolist(), strict=True))
+    assert edges == {(0, 1), (1, 2)}
 
 
 @pytest.mark.coloring
@@ -1527,11 +1528,43 @@ def test_star_set_hub_vertex_unresolved_trivial_star():
     star_set = StarSet(
         star=np.array([0], dtype=np.int32),
         hub=np.array([-2], dtype=np.int32),  # encodes default endpoint v=1
-        edge_index={(0, 1): 0},
+        edge_lo=np.array([0], dtype=np.int32),
+        edge_hi=np.array([1], dtype=np.int32),
+        edge_pos=np.array([0], dtype=np.int32),
     )
 
     assert star_set.hub_vertex(0, 1) == 1
     assert star_set.hub_vertex(1, 0) == 1
+
+
+@pytest.mark.coloring
+def test_star_set_edge_arrays_lexsorted():
+    """color_symmetric emits edge arrays lexsorted by ``(edge_lo, edge_hi)``.
+
+    StarSet lookups binary-search the edge arrays,
+    so the lexsort order is a required invariant.
+    """
+    edges = [(0, 3), (0, 1), (2, 4), (1, 2), (3, 4), (0, 4)]
+    sparsity = _make_symmetric_graph_no_diagonal(5, edges)
+
+    _, _, star_set = color_symmetric(sparsity)
+
+    pairs = list(zip(star_set.edge_lo.tolist(), star_set.edge_hi.tolist(), strict=True))
+    assert pairs == sorted(pairs)
+    assert set(pairs) == {tuple(sorted(e)) for e in edges}
+    # edge_pos is a permutation covering every edge exactly once.
+    assert sorted(star_set.edge_pos.tolist()) == list(range(len(edges)))
+
+
+@pytest.mark.coloring
+def test_star_set_edge_index_missing_edge_raises():
+    """StarSet.edge_index raises KeyError for edges not in the star set."""
+    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
+
+    _, _, star_set = color_symmetric(sparsity)
+
+    with pytest.raises(KeyError):
+        star_set.edge_index(0, 2)
 
 
 # Postprocessing: trivial-star hub flip

@@ -541,12 +541,11 @@ class ColoredPattern:
         cols = self.sparsity.cols.astype(np.intp)
         star = self.star_set.star
         hub = self.star_set.hub
-        edge_index = self.star_set.edge_index
 
         color_idx = np.empty(len(rows), dtype=np.intp)
         elem_idx = np.empty(len(rows), dtype=np.intp)
 
-        # Diagonal entries are self-loops and have no edge in edge_index,
+        # Diagonal entries are self-loops and have no star-set edge,
         # so they must be handled before the edge lookup.
         diag = rows == cols
         color_idx[diag] = self.colors[rows[diag]]
@@ -558,28 +557,18 @@ class ColoredPattern:
         if len(i) == 0:
             return color_idx, elem_idx
 
-        # Batch edge lookup:
-        # encode each undirected edge as min * n + max
-        # and binary-search the sorted keys of edge_index.
+        # Batch edge lookup: encode each undirected edge as min * n + max
+        # and binary-search the star-set edge arrays,
+        # whose (edge_lo, edge_hi) lexsort order keeps the encoded keys sorted.
         n = self.sparsity.n
         keys = np.minimum(i, j) * np.int64(n) + np.maximum(i, j)
-        edge_keys = np.fromiter(
-            (a * n + b for a, b in edge_index),
-            dtype=np.int64,
-            count=len(edge_index),
-        )
-        edge_vals = np.fromiter(
-            edge_index.values(), dtype=np.int64, count=len(edge_index)
-        )
-        order = np.argsort(edge_keys)
-        edge_keys = edge_keys[order]
-        edge_vals = edge_vals[order]
+        edge_keys = self.star_set.edge_lo * np.int64(n) + self.star_set.edge_hi
         pos = np.searchsorted(edge_keys, keys)
         missing = "off-diagonal pattern entry missing from star-set edge index"
         assert (pos < len(edge_keys)).all(), missing
         assert (edge_keys[pos] == keys).all(), missing
 
-        h = hub[star[edge_vals[pos]]].astype(np.intp)
+        h = hub[star[self.star_set.edge_pos[pos]]].astype(np.intp)
         # Unresolved trivial stars encode a default hub endpoint as -(v + 1).
         h = np.where(h < 0, -h - 1, h)
         color_idx[off] = self.colors[h]
@@ -714,15 +703,17 @@ class ColoredPattern:
                     "Re-run asdex.hessian_coloring() to regenerate."
                 )
                 raise ValueError(msg)
-            from asdex.coloring import StarSet, reconstruct_edge_index  # noqa: PLC0415
+            from asdex.coloring import StarSet, reconstruct_edge_arrays  # noqa: PLC0415
 
-            edge_index = reconstruct_edge_index(
+            edge_lo, edge_hi, edge_pos = reconstruct_edge_arrays(
                 sparsity.rows, sparsity.cols, sparsity.n
             )
             star_set = StarSet(
                 star=data["star"].astype(np.int32),
                 hub=data["hub"].astype(np.int32),
-                edge_index=edge_index,
+                edge_lo=edge_lo,
+                edge_hi=edge_hi,
+                edge_pos=edge_pos,
             )
 
         return cls(

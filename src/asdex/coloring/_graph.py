@@ -169,15 +169,15 @@ def _build_edge_to_index_core(
                 counter += 1
 
 
-def reconstruct_edge_index(
+def reconstruct_edge_arrays(
     rows: NDArray[np.int32],
     cols: NDArray[np.int32],
     n: int,
-) -> dict[tuple[int, int], int]:
-    """Reconstruct edge_index dict from symmetric sparsity pattern.
+) -> tuple[NDArray[np.int32], NDArray[np.int32], NDArray[np.int32]]:
+    """Reconstruct the StarSet edge arrays from a symmetric sparsity pattern.
 
-    Used by ``ColoredPattern.load()`` to restore ``StarSet.edge_index``
-    from persisted ``star`` and ``hub`` arrays.
+    Used by ``ColoredPattern.load()`` to restore the edge arrays
+    alongside the persisted ``star`` and ``hub`` arrays.
     The reconstruction is deterministic because ``_build_symmetric_csr``
     and ``_build_edge_to_index`` use lexsort ordering.
 
@@ -187,32 +187,36 @@ def reconstruct_edge_index(
         n: Number of vertices (pattern has shape ``(n, n)``).
 
     Returns:
-        Mapping ``(min(i, j), max(i, j)) -> edge_idx`` for each off-diagonal edge.
+        Tuple ``(edge_lo, edge_hi, edge_pos)``
+        mapping ``(min(i, j), max(i, j)) -> edge_idx``
+        for each off-diagonal edge, lexsorted by ``(edge_lo, edge_hi)``.
     """
+    empty = np.empty(0, dtype=np.int32)
     if n == 0:
-        return {}
+        return empty, empty, empty
     indptr, neighbors, _ = _build_symmetric_csr(rows, cols, n)
     if len(neighbors) == 0:
-        return {}
+        return empty, empty, empty
     edge_to_index = _build_edge_to_index(indptr, neighbors)
-    return _build_edge_index_dict(indptr, neighbors, edge_to_index)
+    return _build_edge_arrays(indptr, neighbors, edge_to_index)
 
 
-def _build_edge_index_dict(
+def _build_edge_arrays(
     indptr: NDArray[np.int32],
     neighbors: NDArray[np.int32],
     edge_to_index: NDArray[np.int32],
-) -> dict[tuple[int, int], int]:
-    """Materialize the ``(min, max) -> edge_idx`` dict consumed by :class:`StarSet`.
+) -> tuple[NDArray[np.int32], NDArray[np.int32], NDArray[np.int32]]:
+    """Materialize the ``(min, max) -> edge_idx`` arrays consumed by :class:`StarSet`.
 
-    Walks each CSR entry once and keeps only the ``j < i`` direction so that
+    Keeps only the ``lo < hi`` direction of each CSR entry so that
     every undirected edge contributes exactly once.
+    CSR vertices and their neighbor ranges are both ascending,
+    so the result is lexsorted by ``(edge_lo, edge_hi)`` by construction —
+    the invariant :class:`StarSet` lookups rely on.
     """
-    result: dict[tuple[int, int], int] = {}
     n = len(indptr) - 1
-    for j in range(n):
-        for pos in range(int(indptr[j]), int(indptr[j + 1])):
-            i = int(neighbors[pos])
-            if i > j:
-                result[(j, i)] = int(edge_to_index[pos])
-    return result
+    vertex_of_pos = np.repeat(
+        np.arange(n, dtype=np.int32), np.diff(indptr).astype(np.intp)
+    )
+    keep = neighbors > vertex_of_pos
+    return vertex_of_pos[keep], neighbors[keep], edge_to_index[keep]

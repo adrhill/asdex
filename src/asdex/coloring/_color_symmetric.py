@@ -17,7 +17,7 @@ from numba import njit
 from numpy.typing import NDArray
 
 from asdex.coloring._graph import (
-    _build_edge_index_dict,
+    _build_edge_arrays,
     _build_edge_to_index,
     _build_symmetric_csr,
 )
@@ -83,7 +83,6 @@ def color_symmetric(
             StarSet(
                 star=np.array([], dtype=np.int32),
                 hub=np.array([], dtype=np.int32),
-                edge_index={},
             ),
         )
 
@@ -131,8 +130,10 @@ def color_symmetric(
         raise InvalidColoringError(msg)
 
     hub = hub_buf[:hub_len]
-    edge_index = _build_edge_index_dict(indptr, neighbors, edge_to_index)
-    star_set = StarSet(star=star, hub=hub, edge_index=edge_index)
+    edge_lo, edge_hi, edge_pos = _build_edge_arrays(indptr, neighbors, edge_to_index)
+    star_set = StarSet(
+        star=star, hub=hub, edge_lo=edge_lo, edge_hi=edge_hi, edge_pos=edge_pos
+    )
 
     if postprocess:
         num_colors = _postprocess_star_coloring(

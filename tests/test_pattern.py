@@ -456,7 +456,9 @@ def test_save_load_hessian_coloring_star_set_preserved(tmp_path):
     assert loaded.star_set is not None
     np.testing.assert_array_equal(loaded.star_set.star, coloring.star_set.star)
     np.testing.assert_array_equal(loaded.star_set.hub, coloring.star_set.hub)
-    assert loaded.star_set.edge_index == coloring.star_set.edge_index
+    np.testing.assert_array_equal(loaded.star_set.edge_lo, coloring.star_set.edge_lo)
+    np.testing.assert_array_equal(loaded.star_set.edge_hi, coloring.star_set.edge_hi)
+    np.testing.assert_array_equal(loaded.star_set.edge_pos, coloring.star_set.edge_pos)
 
 
 def test_load_legacy_symmetric_without_star_set_raises(tmp_path):

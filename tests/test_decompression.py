@@ -1446,7 +1446,6 @@ def test_gather_indices_empty_symmetric():
         star_set=StarSet(
             star=np.array([], dtype=np.intp),
             hub=np.array([], dtype=np.intp),
-            edge_index={},
         ),
     )
     indices = coloring._gather_indices
