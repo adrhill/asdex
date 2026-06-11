@@ -635,20 +635,10 @@ class ColoredPattern:
 
         Row ``c`` is the mask ``colors == c``,
         used as the seed/tangent vector for the ``c``-th AD evaluation.
+        ``dim`` is the length of ``colors``:
+        the output size ``m`` for ``rev`` mode, the input size ``n`` otherwise.
         """
-        match self.mode:
-            case "rev":
-                dim = self.sparsity.m
-            case "fwd":
-                dim = self.sparsity.n
-            case "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
-                dim = self.sparsity.n
-            case _ as unreachable:
-                assert_never(unreachable)
-        seeds = np.zeros((self.num_colors, dim), dtype=np.bool_)
-        for c in range(self.num_colors):
-            seeds[c] = self.colors == c
-        return seeds
+        return self.colors == np.arange(self.num_colors)[:, None]
 
     # Persistence
 
