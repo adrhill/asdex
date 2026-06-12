@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781115357324,
+  "lastUpdate": 1781295526273,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -16794,6 +16794,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000023649475388922856",
             "extra": "mean: 15.832064569166633 usec\nrounds: 16432"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c4971825d355b4a6436fc6f9f9f13cab95b764b",
+          "message": "perf!: cut decompression overhead, vectorize coloring hot paths (#143)\n\n* fix(decompression): drop unique-indices promise for symmetric gather\n\nSymmetric (star) colorings map the entries `(i, j)` and `(j, i)`\nto the same `(color, element)` pair,\nso the gather indices in `_decompress_data` contain duplicates.\nThe transpose of gather is scatter-add,\nwhere `unique_indices=True` with duplicate indices\nis documented undefined behavior:\ndifferentiating through the decompressed Hessian data\ncould yield silently wrong gradients on GPU/TPU\n(CPU happens to match, which hides the bug).\n\nPromise unique indices only for non-symmetric colorings.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* fix(decompression): squeeze value on empty-Hessian path of value_and_hessian\n\nOn the `nnz == 0` path with `has_aux=True`,\n`_eval_value_and_hessian` returned the value of raw `f` unsqueezed,\nso a `(1,)`-returning `f` produced a `(1,)` value\nwhere every other path returns a squeezed scalar.\nCompute the value through `f_scalar` like the non-empty path.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* fix(pattern): assert extraction indices contain no neutral colors\n\nThe decompression gather promises in-bounds indices,\nso a neutral (`-1`) color index would silently read garbage.\nThe invariant holds today\nbecause star-coloring postprocessing in `coloring/_postprocessing.py`\nforces diagonal-entry and hub colors to stay used,\nbut that guarantee is not locally visible in `pattern.py`.\nA cheap one-time host-side assertion in `_extraction_indices`\nturns silent wrong results into a loud failure.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* perf(pattern): vectorize _hub_extraction_indices\n\nReplace the Python loop over nnz entries with vectorized numpy:\nmask diagonal entries first\n(self-loops are not indexed in `star_set.edge_index`),\nbatch the edge lookup via `np.searchsorted` over sorted edge keys,\nand decode hubs and spokes with `np.where`.\n\n3.8x faster at 1M nnz (362 ms to 96 ms,\nbanded Hessian at n=200k, exact output match\nwith the previous implementation).\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* test(decompression): cross-check Hessian modes against jax.hessian\n\nAdd an e2e harness covering all three HVP modes\ntimes the symmetric flag\nfor a multi-arg pytree function with `argnums=(0, 1)`,\ncompared leaf-by-leaf against `jax.hessian`\nincluding pytree structure equality.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* docs(decompression): recommend jax.jit for repeated evaluation\n\nPer-call overhead of the returned functions\nis dominated by re-tracing `f` on every call\n(measured 1.02 ms unjitted vs 0.007 ms jitted\nfor a 2-color Jacobian at n=2000),\nnot by seed transfer or `eval_shape`.\nState in all public decompression docstrings\nthat `jax.jit` around the returned function is the intended hot path,\nand that `\"numpy_dense\"` and scipy output formats cannot be jitted\nsince they produce non-JAX arrays.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* perf(decompression): cache device seed array per dtype on ColoredPattern\n\nThe seed matrix is (num_colors, dim) and grows with input size,\nso the per-call host-to-device transfer is worth caching across calls.\nAt n=200k (banded Hessian, 1M nnz, 5 colors) this saves ~0.6 ms/call:\nunjitted bcoo 11.5 ms -> 10.3 ms, scipy_csr 18.6 ms -> 16.0 ms.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* perf(decompression): cache output structs and scalar wrappers across calls\n\njax.eval_shape hits jax's internal trace cache only when called with the\nsame function object, so the fresh lambdas created per call by _strip_aux\n(has_aux) and _ensure_scalar (squeeze) forced a full re-trace of f on\nevery evaluation.\n\nEach public entry point now creates one cache dict shared across calls,\nkeyed on the avals of the call arguments.\nThe cache is bypassed when call-time kwargs or non-traceable positional\nargs were bound into f, since those can change the output structure\nbetween calls with identical avals.\n\nOn a 60-primitive Hessian at n=20k: squeeze path 220 ms -> 203 ms/call,\nhas_aux path 216 ms -> 207 ms/call; plain paths unchanged.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* fix(pattern): keep cached pattern arrays concrete under jit traces\n\nThe jnp-valued caches on SparsityPattern and ColoredPattern\n(_bcoo_indices, _block_indices, _gather_indices, _device_seeds)\nstored whatever the first access produced.\nWhen first materialized inside a jit trace,\nthat value is a tracer, and the cache leaked it into later eager calls,\nraising UnexpectedTracerError.\n\nBuild them under jax.ensure_compile_time_eval()\nso the cached arrays are always concrete.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* perf(decompression): jit the array-valued core for numpy/scipy outputs\n\nThe numpy_dense and scipy output formats produce host arrays,\nso user-side jax.jit is impossible and every call paid a full re-trace\nof f plus unfused dispatch of the whole differentiation pipeline.\n\nJit the array-valued core (seeds -> compressed -> decompressed data)\ninternally for those formats, memoized on the per-closure call cache.\nThe core is skipped when call-time kwargs or static args were bound\ninto f (a fresh closure per call would defeat jit's trace cache)\nand, for Jacobians, when has_aux is set\n(aux may contain non-JAX types, which cannot be jit outputs).\nHessian aux is computed by a separate f call outside the core,\nso it does not block the internal jit.\n\nBanded Hessian at n=200k (1M nnz, 5 colors): scipy_csr 16.0 -> 6.8 ms/call.\nA 60-primitive Hessian at n=20k: scipy_csr 200 -> 0.95 ms/call.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* perf(decompression): thread has_aux through linearize/vjp\n\n`has_aux=True` Hessians ran a full extra `f` call just for aux,\nand `value_and_hessian` computed the value with another one\n(two extra forward passes for `rev_over_fwd`/`rev_over_rev`).\nAux and value now ride along as the aux output of\n`jax.linearize`/`jax.vjp` inside the HVP forward pass,\nresolving the `rev_over_rev` value TODO.\nOnly `rev_over_fwd` keeps one dedicated `f` call,\nsince its forward passes happen inside the vmapped HVPs.\nNew tests assert per-mode forward-pass counts and aux correctness.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* perf(decompression): drop pad/reshape workaround in chunked vmap\n\n`jax.lax.map(fn, seeds, batch_size=chunk_size)` handles the remainder\nchunk natively, so the manual pad/reshape/slice is no longer needed.\nMicro-benchmark (HVP over 7 seeds at n=200k): no eager regression,\njitted chunked path 8-23% faster since the padded waste is gone.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* fix(decompression): tighten input-dtype handling\n\nThree dtype fixes from the decompression review:\n\n- Integer Hessian inputs and `allow_int=True` now raise a clear\n  `TypeError` upfront: the gradient inside each HVP requires float\n  inputs in every mode, so integer differentiation could never work\n  and previously crashed deep inside `jax.grad`\n  (`jax.hessian` has no `allow_int` either).\n- Mixed input dtypes among differentiated arguments now raise a clear\n  `TypeError` in forward and Hessian modes, where tangent/cotangent\n  seeds are sliced from one flat seed vector and previously failed\n  deep inside `jvp`/`vjp`. Reverse-mode Jacobians keep supporting\n  mixed dtypes, matching `jax.jacrev`.\n- Empty-pattern Jacobians and Hessians now build their zero data\n  vector in the selected input dtype instead of default float32,\n  consistent with the non-empty paths.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* perf(pattern): set BCOO structure flags on canonical patterns\n\nDetection now sorts columns within each row, making detected patterns\nrow-major sorted and deterministic (index sets have no guaranteed\niteration order). `to_bcoo` checks this invariant once per pattern\n(cached O(nnz) scan, valid for user-built patterns too) and passes\n`indices_sorted`/`unique_indices` so downstream sparse ops can skip\nsorting and deduplication.\n\nMicro-benchmark: `todense` on a 5-band pattern at n=2000\n0.28 -> 0.19 ms/call; the sort adds ~24 ms to a 334 ms detection\nat 600k nnz.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* refactor(pattern): vectorize seed matrix construction\n\nBuild the boolean seed matrix with a single broadcast comparison\nagainst `np.arange(num_colors)` instead of a per-color Python loop.\nThe per-mode `dim` match was only used to allocate the output and is\nimplied by the length of `colors`.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* perf(coloring)!: store StarSet edge keys as arrays instead of a dict\n\nStarSet now carries `edge_lo`/`edge_hi`/`edge_pos` arrays\nlexsorted by `(edge_lo, edge_hi)` in place of the\n`(min, max) -> edge_idx` dict. The arrays are built fully vectorized\nfrom the CSR walk (no Python loop), hub extraction binary-searches\nthem directly (no `np.fromiter` round-trip, no per-pattern argsort),\nand postprocessing inverts them with a scatter.\n`StarSet.edge_index` becomes a lookup method\nand `reconstruct_edge_index` is renamed to `reconstruct_edge_arrays`.\n\nBenchmarks on a banded pattern at 1M nnz:\nsymmetric coloring 168 -> 52 ms, hub extraction 94 -> 65 ms\n(identical extraction indices).\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* fix(pattern): make extraction-index guards survive python -O\n\nThe neutral-color and edge-lookup checks gate gathers built with\nPROMISE_IN_BOUNDS, where a violated invariant means silently wrong\nvalues rather than an exception.\nReplace the bare asserts with explicit checks\nso optimized mode cannot strip them.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* fix(coloring): return distinct empty arrays from reconstruct_edge_arrays\n\nReturning one aliased ndarray for all three edge arrays would let\nin-place mutation of one silently corrupt the others.\nAlso cover the load-path determinism contract with a test:\nreconstruction must rebuild exactly the arrays color_symmetric produced.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-06-12T22:18:04+02:00",
+          "tree_id": "6298e29d6288b61981daf64b3f03c712ae046a57",
+          "url": "https://github.com/adrhill/asdex/commit/1c4971825d355b4a6436fc6f9f9f13cab95b764b"
+        },
+        "date": 1781295524726,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1004.7785485095953,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010927343580890224",
+            "extra": "mean: 995.2441774193095 usec\nrounds: 62"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 26689.663928806734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000038894395184727265",
+            "extra": "mean: 37.46768796592745 usec\nrounds: 7512"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 74506.26335186239,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027045723704660145",
+            "extra": "mean: 13.42169040577719 usec\nrounds: 21638"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 42236.17991652751,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004297170446261354",
+            "extra": "mean: 23.676383659136 usec\nrounds: 14479"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 75418.34772175443,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002578123111317493",
+            "extra": "mean: 13.259372953771962 usec\nrounds: 13318"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 18.08149755864937,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03244963531524779",
+            "extra": "mean: 55.305153611109226 msec\nrounds: 18"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2869.727221531186,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010623732163185069",
+            "extra": "mean: 348.46517553903084 usec\nrounds: 2273"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1885.6438487562277,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027925011688597777",
+            "extra": "mean: 530.32283941615 usec\nrounds: 1370"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1827.9333889193601,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006229363910682795",
+            "extra": "mean: 547.0658865699594 usec\nrounds: 1102"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4071.9311714415217,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014498185079358097",
+            "extra": "mean: 245.58371885396718 usec\nrounds: 3002"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 113.20856525993518,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013756235432580149",
+            "extra": "mean: 8.833253894737792 msec\nrounds: 57"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26693.12718520216,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003807225577150062",
+            "extra": "mean: 37.4628267816582 usec\nrounds: 19588"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 42306.3832681951,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000664617008007569",
+            "extra": "mean: 23.63709499014952 usec\nrounds: 9222"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 38405.114789229796,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006364810042500324",
+            "extra": "mean: 26.038198440183724 usec\nrounds: 12437"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 42016.97822231033,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007427303930471715",
+            "extra": "mean: 23.799902856151046 usec\nrounds: 10994"
           }
         ]
       }
