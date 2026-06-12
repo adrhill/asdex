@@ -1492,6 +1492,11 @@
 <p>Detect sparsity, color, and return a function computing sparse Hessians.</p>
 <p>If <code>f</code> returns a squeezable shape like <code>(1,)</code> or <code>(1, 1)</code>,
 it is automatically squeezed to scalar.</p>
+<p>For repeated evaluation, wrap the returned function in <code>jax.jit</code>:
+each unjitted call re-traces <code>f</code>,
+which can cost far more than the differentiation itself.
+The <code>"numpy_dense"</code> and scipy output formats cannot be jitted
+since they produce non-JAX arrays.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
 <thead>
@@ -1594,7 +1599,8 @@ with respect to (default <code>0</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to allow differentiating with respect to integer inputs.</p>
+<p>Unsupported for Hessians; passing <code>True</code> raises <code>TypeError</code>
+(integer inputs cannot be differentiated twice, matching <code>jax.hessian</code>).</p>
 </div>
 </td>
 <td>
@@ -1731,6 +1737,11 @@ the sparse Hessian.</p>
 <p>Detect sparsity, color, and return a function computing value and sparse Hessian.</p>
 <p>Like <a class="autorefs autorefs-internal" title="asdex.hessian(f, *sample_args, argnums=0, has_aux=False, holomorphic=False, allow_int=False, mode=None, symmetric=True, output_format='bcoo', chunk_size=None, **sample_kwargs)" href="#asdex.hessian"><code>hessian</code></a>, but also returns the primal value
 <code>f(*args)</code> without an extra forward pass.</p>
+<p>For repeated evaluation, wrap the returned function in <code>jax.jit</code>:
+each unjitted call re-traces <code>f</code>,
+which can cost far more than the differentiation itself.
+The <code>"numpy_dense"</code> and scipy output formats cannot be jitted
+since they produce non-JAX arrays.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
 <thead>
@@ -1833,7 +1844,8 @@ with respect to (default <code>0</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to allow differentiating with respect to integer inputs.</p>
+<p>Unsupported for Hessians; passing <code>True</code> raises <code>TypeError</code>
+(integer inputs cannot be differentiated twice, matching <code>jax.hessian</code>).</p>
 </div>
 </td>
 <td>
@@ -1969,6 +1981,11 @@ Merged with <code>sample_args</code> based on <code>f</code>'s signature.</p>
 <div class="doc doc-contents first">
 <p>Build a sparse Hessian function from a pre-computed coloring.</p>
 <p>Uses symmetric (star) coloring and Hessian-vector products by default.</p>
+<p>For repeated evaluation, wrap the returned function in <code>jax.jit</code>:
+each unjitted call re-traces <code>f</code>,
+which can cost far more than the differentiation itself.
+The <code>"numpy_dense"</code> and scipy output formats cannot be jitted
+since they produce non-JAX arrays.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
 <thead>
@@ -2082,7 +2099,8 @@ the input must be a single flat (1D) array.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to allow differentiating with respect to integer inputs.</p>
+<p>Unsupported for Hessians; passing <code>True</code> raises <code>TypeError</code>
+(integer inputs cannot be differentiated twice, matching <code>jax.hessian</code>).</p>
 </div>
 </td>
 <td>
@@ -2115,6 +2133,11 @@ the input must be a single flat (1D) array.</p>
 <a class="headerlink" href="#asdex.value_and_hessian_from_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Build a function computing value and sparse Hessian from a pre-computed coloring.</p>
+<p>For repeated evaluation, wrap the returned function in <code>jax.jit</code>:
+each unjitted call re-traces <code>f</code>,
+which can cost far more than the differentiation itself.
+The <code>"numpy_dense"</code> and scipy output formats cannot be jitted
+since they produce non-JAX arrays.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
 <thead>
@@ -2228,7 +2251,8 @@ the input must be a single flat (1D) array.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to allow differentiating with respect to integer inputs.</p>
+<p>Unsupported for Hessians; passing <code>True</code> raises <code>TypeError</code>
+(integer inputs cannot be differentiated twice, matching <code>jax.hessian</code>).</p>
 </div>
 </td>
 <td>
