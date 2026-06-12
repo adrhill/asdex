@@ -1,5 +1,13 @@
 # asdex
 
+## Version `v0.4.0`
+* ![BREAKING][badge-breaking] `StarSet` now stores edge keys as arrays; `reconstruct_edge_index` is renamed to `reconstruct_edge_arrays` and `edge_index` becomes a lookup method ([#143])
+* ![Feature][badge-feature] Add `numpy_dense`, `scipy_coo`, `scipy_csr`, and `scipy_csc` output formats, with scipy as an optional dependency ([#142])
+* ![Feature][badge-feature] Add handler for the `remat2` primitive (`jax.checkpoint` / `jax.remat`) ([#141])
+* ![Enhancement][badge-enhancement] Reduce per-call decompression overhead and speed up symmetric coloring ([#143])
+* ![Enhancement][badge-enhancement] JIT-compile the numpy and scipy output formats internally, since they cannot be wrapped in `jax.jit` by the caller ([#143])
+* ![Bugfix][badge-bugfix] Raise clear `TypeError`s for integer and `allow_int` Hessian inputs and for mixed input dtypes in forward and Hessian modes ([#143])
+
 ## Version `v0.3.3`
 * ![Feature][badge-feature] Add handlers for bitwise, random, cumulative, and linalg primitives ([#140])
 
@@ -98,6 +106,9 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#143]: https://github.com/adrhill/asdex/pull/143
+[#142]: https://github.com/adrhill/asdex/pull/142
+[#141]: https://github.com/adrhill/asdex/pull/141
 [#140]: https://github.com/adrhill/asdex/pull/140
 [#139]: https://github.com/adrhill/asdex/pull/139
 [#137]: https://github.com/adrhill/asdex/pull/137
