@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, assert_never
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import ShapeDtypeStruct
@@ -277,10 +278,16 @@ class SparsityPattern:
 
     @cached_property
     def _bcoo_indices(self) -> jnp.ndarray:
-        """BCOO index array of shape ``(nnz, 2)``, cached for reuse."""
-        if self.nnz == 0:
-            return jnp.zeros((0, 2), dtype=jnp.int32)
-        return jnp.stack([self.rows, self.cols], axis=1)
+        """BCOO index array of shape ``(nnz, 2)``, cached for reuse.
+
+        Built under ``ensure_compile_time_eval`` so the cached value
+        is a concrete array even when first materialized inside a jit trace
+        (a cached tracer would leak into later eager calls).
+        """
+        with jax.ensure_compile_time_eval():
+            if self.nnz == 0:
+                return jnp.zeros((0, 2), dtype=jnp.int32)
+            return jnp.stack([self.rows, self.cols], axis=1)
 
     @cached_property
     def _block_index_cache(
@@ -315,9 +322,23 @@ class SparsityPattern:
             [self.rows[entry_idx] - row_offset, self.cols[entry_idx] - col_offset],
             axis=1,
         )
-        result = (entry_idx, jnp.asarray(local))
+        # Concrete even inside a jit trace, so the cached value never leaks.
+        with jax.ensure_compile_time_eval():
+            result = (entry_idx, jnp.asarray(local))
         self._block_index_cache[key] = result
         return result
+
+    @cached_property
+    def _entries_sorted_unique(self) -> bool:
+        """Whether entries are row-major sorted with no duplicate ``(row, col)`` pairs.
+
+        Detection emits entries in this canonical order;
+        user-constructed patterns (``from_coo``) may not.
+        Checked once and cached so ``to_bcoo`` can set the BCOO structure flags,
+        which let downstream sparse ops skip sorting and deduplication.
+        """
+        keys = self.rows.astype(np.int64) * self.shape[1] + self.cols
+        return bool(np.all(np.diff(keys) > 0))
 
     def to_bcoo(self, data: jnp.ndarray | None = None) -> BCOO:
         """Convert to JAX BCOO sparse matrix.
@@ -332,7 +353,13 @@ class SparsityPattern:
                 data = jnp.array([])
             else:
                 data = jnp.ones(self.nnz, dtype=jnp.int8)
-        return BCOO((data, indices), shape=self.shape)
+        flag = self._entries_sorted_unique
+        return BCOO(
+            (data, indices),
+            shape=self.shape,
+            indices_sorted=flag,
+            unique_indices=flag,
+        )
 
     def todense(self) -> NDArray:
         """Convert to dense numpy array with 1s at pattern positions."""
@@ -475,21 +502,30 @@ class ColoredPattern:
         cols = self.sparsity.cols
 
         if self.symmetric:
-            return self._hub_extraction_indices
+            color_idx, elem_idx = self._hub_extraction_indices
+        else:
+            match self.mode:
+                case "rev":
+                    color_idx = self.colors[rows].astype(np.intp)
+                    elem_idx = cols.astype(np.intp)
+                case "fwd":
+                    color_idx = self.colors[cols].astype(np.intp)
+                    elem_idx = rows.astype(np.intp)
+                case "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
+                    # HVP modes seed columns
+                    color_idx = self.colors[cols].astype(np.intp)
+                    elem_idx = rows.astype(np.intp)
+                case _ as unreachable:
+                    assert_never(unreachable)
 
-        match self.mode:
-            case "rev":
-                color_idx = self.colors[rows].astype(np.intp)
-                elem_idx = cols.astype(np.intp)
-            case "fwd":
-                color_idx = self.colors[cols].astype(np.intp)
-                elem_idx = rows.astype(np.intp)
-            case "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
-                # HVP modes seed columns
-                color_idx = self.colors[cols].astype(np.intp)
-                elem_idx = rows.astype(np.intp)
-            case _ as unreachable:
-                assert_never(unreachable)
+        # The gather built from these indices promises in-bounds indices,
+        # so a neutral (-1) color would silently read garbage.
+        # Star-coloring postprocessing keeps diagonal-entry and hub colors used,
+        # which guarantees no neutral color reaches extraction.
+        # Checked explicitly rather than with `assert`
+        # so `python -O` cannot strip the guard.
+        if not (color_idx >= 0).all():
+            raise AssertionError("neutral (-1) color in extraction indices")
 
         return color_idx, elem_idx
 
@@ -497,32 +533,55 @@ class ColoredPattern:
     def _hub_extraction_indices(
         self,
     ) -> tuple[NDArray[np.intp], NDArray[np.intp]]:
-        """Hub-based extraction indices using the star set."""
+        """Hub-based extraction indices using the star set.
+
+        For an off-diagonal entry ``(i, j)``,
+        the value lives in the hub's color row at the spoke's position.
+        Diagonal entries read their own color row directly.
+        """
         assert self.star_set is not None
-        rows = self.sparsity.rows
-        cols = self.sparsity.cols
+        rows = self.sparsity.rows.astype(np.intp)
+        cols = self.sparsity.cols.astype(np.intp)
         star = self.star_set.star
         hub = self.star_set.hub
-        edge_index = self.star_set.edge_index
 
         color_idx = np.empty(len(rows), dtype=np.intp)
         elem_idx = np.empty(len(rows), dtype=np.intp)
 
-        for k, (i, j) in enumerate(zip(rows, cols, strict=True)):
-            i, j = int(i), int(j)
-            if i == j:
-                color_idx[k] = self.colors[i]
-                elem_idx[k] = i
-                continue
-            a, b = (i, j) if i < j else (j, i)
-            s = int(star[edge_index[(a, b)]])
-            h = int(hub[s])
-            if h < 0:
-                # Unresolved trivial star: decode default endpoint as hub.
-                h = -h - 1
-            spoke = i if h == j else j
-            color_idx[k] = self.colors[h]
-            elem_idx[k] = spoke
+        # Diagonal entries are self-loops and have no star-set edge,
+        # so they must be handled before the edge lookup.
+        diag = rows == cols
+        color_idx[diag] = self.colors[rows[diag]]
+        elem_idx[diag] = rows[diag]
+
+        off = ~diag
+        i = rows[off]
+        j = cols[off]
+        if len(i) == 0:
+            return color_idx, elem_idx
+
+        # Batch edge lookup: encode each undirected edge as min * n + max
+        # and binary-search the star-set edge arrays,
+        # whose (edge_lo, edge_hi) lexsort order keeps the encoded keys sorted.
+        n = self.sparsity.n
+        keys = np.minimum(i, j) * np.int64(n) + np.maximum(i, j)
+        edge_keys = self.star_set.edge_lo * np.int64(n) + self.star_set.edge_hi
+        pos = np.searchsorted(edge_keys, keys)
+        # These guards gate a PROMISE_IN_BOUNDS gather:
+        # a near-miss lookup would silently pick the wrong hub.
+        # Checked explicitly rather than with `assert`
+        # so `python -O` cannot strip them.
+        missing = "off-diagonal pattern entry missing from star-set edge index"
+        if not (pos < len(edge_keys)).all():
+            raise AssertionError(missing)
+        if not (edge_keys[pos] == keys).all():
+            raise AssertionError(missing)
+
+        h = hub[star[self.star_set.edge_pos[pos]]].astype(np.intp)
+        # Unresolved trivial stars encode a default hub endpoint as -(v + 1).
+        h = np.where(h < 0, -h - 1, h)
+        color_idx[off] = self.colors[h]
+        elem_idx[off] = np.where(h == j, i, j)
 
         return color_idx, elem_idx
 
@@ -532,17 +591,41 @@ class ColoredPattern:
 
         Column 0 is the color index, column 1 is the element index.
         Pre-computed so the gather index array is a single closed-over constant.
+        Built under ``ensure_compile_time_eval`` so the cached value
+        is a concrete array even when first materialized inside a jit trace
+        (a cached tracer would leak into later eager calls).
         """
         color_idx, elem_idx = self._extraction_indices
-        if len(color_idx) == 0:
-            return jnp.zeros((0, 2), dtype=jnp.int32)
-        return jnp.stack(
-            [
-                jnp.asarray(color_idx, dtype=jnp.int32),
-                jnp.asarray(elem_idx, dtype=jnp.int32),
-            ],
-            axis=1,
-        )
+        with jax.ensure_compile_time_eval():
+            if len(color_idx) == 0:
+                return jnp.zeros((0, 2), dtype=jnp.int32)
+            return jnp.stack(
+                [
+                    jnp.asarray(color_idx, dtype=jnp.int32),
+                    jnp.asarray(elem_idx, dtype=jnp.int32),
+                ],
+                axis=1,
+            )
+
+    @cached_property
+    def _device_seed_cache(self) -> dict[jnp.dtype, jnp.ndarray]:
+        """Memo for ``_device_seeds``, keyed by dtype."""
+        return {}
+
+    def _device_seeds(self, dtype: Any) -> jnp.ndarray:
+        """Device copy of the seed matrix in the given dtype, cached per dtype.
+
+        The seed matrix has shape ``(num_colors, dim)`` and grows with input size,
+        so the host-to-device transfer is worth caching across calls.
+        """
+        key = jnp.dtype(dtype)
+        cached = self._device_seed_cache.get(key)
+        if cached is None:
+            # Concrete even inside a jit trace, so the cached value never leaks.
+            with jax.ensure_compile_time_eval():
+                cached = jnp.asarray(self._seed_matrix, dtype=key)
+            self._device_seed_cache[key] = cached
+        return cached
 
     @cached_property
     def _seed_matrix(self) -> NDArray[np.bool_]:
@@ -550,20 +633,10 @@ class ColoredPattern:
 
         Row ``c`` is the mask ``colors == c``,
         used as the seed/tangent vector for the ``c``-th AD evaluation.
+        ``dim`` is the length of ``colors``:
+        the output size ``m`` for ``rev`` mode, the input size ``n`` otherwise.
         """
-        match self.mode:
-            case "rev":
-                dim = self.sparsity.m
-            case "fwd":
-                dim = self.sparsity.n
-            case "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
-                dim = self.sparsity.n
-            case _ as unreachable:
-                assert_never(unreachable)
-        seeds = np.zeros((self.num_colors, dim), dtype=np.bool_)
-        for c in range(self.num_colors):
-            seeds[c] = self.colors == c
-        return seeds
+        return self.colors == np.arange(self.num_colors)[:, None]
 
     # Persistence
 
@@ -639,15 +712,17 @@ class ColoredPattern:
                     "Re-run asdex.hessian_coloring() to regenerate."
                 )
                 raise ValueError(msg)
-            from asdex.coloring import StarSet, reconstruct_edge_index  # noqa: PLC0415
+            from asdex.coloring import StarSet, reconstruct_edge_arrays  # noqa: PLC0415
 
-            edge_index = reconstruct_edge_index(
+            edge_lo, edge_hi, edge_pos = reconstruct_edge_arrays(
                 sparsity.rows, sparsity.cols, sparsity.n
             )
             star_set = StarSet(
                 star=data["star"].astype(np.int32),
                 hub=data["hub"].astype(np.int32),
-                edge_index=edge_index,
+                edge_lo=edge_lo,
+                edge_hi=edge_hi,
+                edge_pos=edge_pos,
             )
 
         return cls(

@@ -52,14 +52,18 @@ def _postprocess_star_coloring(
 
     # Trivial stars: try to flip hub to avoid marking a new color used.
     if (hub < 0).any():
-        inv_edges = {idx: (a, b) for (a, b), idx in star_set.edge_index.items()}
+        # Invert the edge arrays: endpoint pair per edge index.
+        inv_lo = np.empty(len(star), dtype=np.int32)
+        inv_hi = np.empty(len(star), dtype=np.int32)
+        inv_lo[star_set.edge_pos] = star_set.edge_lo
+        inv_hi[star_set.edge_pos] = star_set.edge_hi
         for e in range(len(star)):
             s = int(star[e])
             h_raw = int(hub[s])
             if h_raw >= 0:
                 continue
             default_hub = -h_raw - 1
-            i, j = inv_edges[e]
+            i, j = int(inv_lo[e]), int(inv_hi[e])
             spoke = i if default_hub == j else j
             cs = int(colors[spoke])
             if color_used[cs]:

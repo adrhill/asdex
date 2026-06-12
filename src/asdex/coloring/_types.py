@@ -31,6 +31,10 @@ class InvalidColoringError(ValueError):
     """
 
 
+def _empty_int32() -> NDArray[np.int32]:
+    return np.empty(0, dtype=np.int32)
+
+
 @dataclass(frozen=True)
 class StarSet:
     """Set of 2-colored stars produced by [`color_symmetric`][asdex.color_symmetric].
@@ -49,20 +53,41 @@ class StarSet:
             ``hub[s] = -(v + 1)`` where ``v`` is one of the edge's endpoints
             (arbitrarily picked at construction time);
             decode with ``v = -hub[s] - 1``.
-        edge_index: Mapping ``(min(i, j), max(i, j)) -> edge_idx`` for each
-            off-diagonal edge. Self-loops are not indexed.
+        edge_lo: Smaller endpoint per off-diagonal edge, shape ``(num_edges,)``.
+        edge_hi: Larger endpoint per off-diagonal edge, shape ``(num_edges,)``.
+        edge_pos: Edge index (into ``star``) per off-diagonal edge,
+            shape ``(num_edges,)``; a permutation of ``range(num_edges)``.
+
+    The edge arrays together map ``(min(i, j), max(i, j)) -> edge_idx``
+    and are sorted lexicographically by ``(edge_lo, edge_hi)``,
+    so lookups are plain binary searches.
+    Self-loops are not indexed.
     """
 
     star: NDArray[np.int32]
     hub: NDArray[np.int32]
-    edge_index: dict[tuple[int, int], int] = field(default_factory=dict)
+    edge_lo: NDArray[np.int32] = field(default_factory=_empty_int32)
+    edge_hi: NDArray[np.int32] = field(default_factory=_empty_int32)
+    edge_pos: NDArray[np.int32] = field(default_factory=_empty_int32)
+
+    def edge_index(self, i: int, j: int) -> int:
+        """Edge index of the off-diagonal edge ``(i, j)``.
+
+        Raises ``KeyError`` if the edge is not in the star set.
+        """
+        a, b = (i, j) if i < j else (j, i)
+        start = int(np.searchsorted(self.edge_lo, a, side="left"))
+        stop = int(np.searchsorted(self.edge_lo, a, side="right"))
+        k = start + int(np.searchsorted(self.edge_hi[start:stop], b))
+        if k >= stop or self.edge_hi[k] != b:
+            raise KeyError((a, b))
+        return int(self.edge_pos[k])
 
     def hub_vertex(self, i: int, j: int) -> int:
         """Hub vertex of the star containing off-diagonal edge ``(i, j)``.
 
         For unresolved trivial stars, returns the decoded default endpoint.
         """
-        a, b = (i, j) if i < j else (j, i)
-        s = int(self.star[self.edge_index[(a, b)]])
+        s = int(self.star[self.edge_index(i, j)])
         h = int(self.hub[s])
         return h if h >= 0 else -h - 1

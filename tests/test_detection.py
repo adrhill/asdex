@@ -988,3 +988,21 @@ def test_hessian_sparsity_rejects_tuple_output():
     x = jnp.array([1.0, 2.0])
     with pytest.raises(ValueError, match="returns a PyTree"):
         hessian_sparsity(f, x)
+
+
+def test_detection_emits_row_major_sorted_entries():
+    """Detected patterns are row-major sorted with unique entries.
+
+    Index sets have no guaranteed iteration order,
+    so detection sorts columns within each row.
+    This makes patterns deterministic
+    and lets ``to_bcoo`` set the BCOO structure flags.
+    """
+
+    def f(x):
+        # Reversed and shuffled dependencies per output row.
+        return jnp.array([x[2] + x[0] + x[1], x[3] * x[1]])
+
+    sparsity = jacobian_sparsity(f, np.zeros(4))
+    keys = sparsity.rows.astype(np.int64) * sparsity.shape[1] + sparsity.cols
+    assert np.all(np.diff(keys) > 0)

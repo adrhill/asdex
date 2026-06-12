@@ -31,6 +31,7 @@ from asdex import (
 )
 from asdex.coloring._color_symmetric import StarSet
 from asdex.decompression import (
+    _decompress_data,
     _flatten_grad_output,
     _flatten_selected_cotangents,
     _selected_dtype,
@@ -126,6 +127,30 @@ def test_zero_jacobian():
     expected = jax.jacobian(f)(x)
 
     assert_allclose(result, expected, rtol=1e-5)
+
+
+@pytest.mark.jacobian
+def test_empty_pattern_dtype_matches_input():
+    """Empty-pattern Jacobians inherit the input dtype like non-empty ones."""
+
+    def f(x):
+        return jnp.zeros(2, dtype=x.dtype)
+
+    x = jnp.array([1.0, 2.0], dtype=jnp.float16)
+    result = jacobian(f, x, output_format="dense")(x)
+    assert result.dtype == jnp.float16
+
+
+@pytest.mark.hessian
+def test_empty_pattern_hessian_dtype_matches_input(hessian_mode):
+    """Empty-pattern Hessians inherit the input dtype like non-empty ones."""
+
+    def f(x):
+        return jnp.sum(x)
+
+    x = jnp.array([1.0, 2.0], dtype=jnp.float16)
+    result = hessian(f, x, mode=hessian_mode, output_format="dense")(x)
+    assert result.dtype == jnp.float16
 
 
 @pytest.mark.jacobian
@@ -850,6 +875,48 @@ def test_hessian_non_symmetric_coloring(mode):
     assert_allclose(result, expected, rtol=1e-5)
 
 
+@pytest.mark.hessian
+def test_decompress_data_grad_symmetric_coloring():
+    """Gradients through _decompress_data are correct for symmetric colorings.
+
+    Symmetric (star) colorings map the entries (i, j) and (j, i)
+    to the same (color, element) gather pair,
+    so the decompression gather must not promise unique indices:
+    the transpose of gather is scatter-add,
+    where unique_indices=True with duplicate indices is undefined behavior
+    (silently wrong gradients on GPU/TPU; CPU happens to match).
+    """
+
+    def f(x):
+        return jnp.sum(x[:-1] * x[1:]) + jnp.sum(x**3)
+
+    x = np.linspace(0.5, 1.5, 8)
+    coloring = hessian_coloring(f, x)
+    assert coloring.symmetric
+
+    # Precondition for the UB: duplicate gather pairs must actually exist.
+    pairs = np.asarray(coloring._gather_indices)
+    assert len(np.unique(pairs, axis=0)) < len(pairs)
+
+    rng = np.random.default_rng(0)
+    compressed = jnp.asarray(
+        rng.normal(size=(coloring.num_colors, coloring.sparsity.n))
+    )
+    weights = jnp.asarray(rng.normal(size=coloring.sparsity.nnz))
+    color_idx, elem_idx = coloring._extraction_indices
+
+    def via_gather(c):
+        return jnp.vdot(weights, _decompress_data(coloring, c))
+
+    def via_indexing(c):
+        return jnp.vdot(weights, c[color_idx, elem_idx])
+
+    assert_allclose(via_gather(compressed), via_indexing(compressed))
+    assert_allclose(
+        jax.grad(via_gather)(compressed), jax.grad(via_indexing)(compressed)
+    )
+
+
 # Wrong-mode coloring guards
 
 
@@ -1036,6 +1103,36 @@ def test_value_and_hessian_squeeze(mode):
 
     assert_allclose(value, jnp.sum(x**2), rtol=1e-5)
     assert_allclose(hess.todense(), jax.hessian(lambda x: jnp.sum(x**2))(x), rtol=1e-5)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("has_aux", [False, True])
+@pytest.mark.parametrize("empty", [False, True])
+def test_value_and_hessian_value_shape(empty, has_aux):
+    """value_and_hessian squeezes a (1,)-returning f to a scalar value on all paths.
+
+    The empty-Hessian path (linear f) must squeeze the value
+    exactly like the non-empty path, with and without aux.
+    """
+
+    def f_raw(x):
+        out = jnp.sum(x) if empty else jnp.sum(x**2)
+        return jnp.reshape(out, (1,))
+
+    f = (lambda x: (f_raw(x), "metadata")) if has_aux else f_raw
+
+    x = np.array([1.0, 2.0, 3.0])
+    result = value_and_hessian(f, x, has_aux=has_aux)(x)
+    if has_aux:
+        (value, aux), hess = result
+        assert aux == "metadata"
+    else:
+        value, hess = result
+
+    assert value.shape == ()
+    assert hess.shape == (3, 3)
+    expected_nnz = 0 if empty else 3
+    assert hess.nse == expected_nnz
 
 
 # Output format tests
@@ -1349,7 +1446,6 @@ def test_gather_indices_empty_symmetric():
         star_set=StarSet(
             star=np.array([], dtype=np.intp),
             hub=np.array([], dtype=np.intp),
-            edge_index={},
         ),
     )
     indices = coloring._gather_indices
@@ -1999,6 +2095,68 @@ def test_scipy_hessian_preserves_structural_zeros(fmt):
 
     assert result.nnz == 3
     assert_allclose(result.toarray(), np.diag(6 * x))
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("fmt", ["scipy_csr", "numpy_dense"])
+def test_host_format_repeated_calls_update_values(fmt, to_dense):
+    """Host output formats return fresh values on every call.
+
+    Regression test for the internal jit core used by numpy/scipy formats:
+    the jitted core is cached per closure,
+    but the data it produces must track the evaluation point.
+    """
+
+    def f(x):
+        return jnp.sum(x**3) + jnp.sum(x[:-1] * x[1:])
+
+    hess_fn = hessian(f, jnp.zeros(4), output_format=fmt)
+    for x in (jnp.array([1.0, 2.0, 3.0, 4.0]), jnp.array([-1.0, 0.5, 0.0, 2.0])):
+        assert_allclose(to_dense(hess_fn(x)), jax.hessian(f)(x), rtol=1e-6)
+
+
+@pytest.mark.hessian
+def test_jitted_then_eager_call(to_dense):
+    """A jitted first call must not poison the caches shared with eager calls.
+
+    Regression test: the per-dtype device seed cache stored the tracer
+    created during the jitted trace,
+    making a later eager call raise UnexpectedTracerError.
+    """
+
+    def f(x):
+        return jnp.sum(x**3) + jnp.sum(x[:-1] * x[1:])
+
+    hess_fn = hessian(f, jnp.zeros(4))
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+
+    jitted = jax.jit(hess_fn)(x)
+    eager = hess_fn(x)
+    expected = jax.hessian(f)(x)
+    assert_allclose(to_dense(jitted), expected, rtol=1e-6)
+    assert_allclose(to_dense(eager), expected, rtol=1e-6)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("fmt", ["scipy_csr", "numpy_dense"])
+def test_host_format_bool_kwarg_steering(fmt, to_dense):
+    """Non-traceable call-time kwargs keep working with host output formats.
+
+    The internal jit core must not capture a call
+    whose kwargs steer Python control flow in ``f``.
+    """
+
+    def f(x, double=False):
+        if double:
+            return x * x * 2.0
+        return x * x
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac_fn = jacobian(f, x, output_format=fmt)
+
+    assert_allclose(to_dense(jac_fn(x)), np.diag(2 * x))
+    assert_allclose(to_dense(jac_fn(x, double=True)), np.diag(4 * x))
+    assert_allclose(to_dense(jac_fn(x, double=False)), np.diag(2 * x))
 
 
 @pytest.mark.jacobian

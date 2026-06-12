@@ -146,19 +146,7 @@ def _chunked_vmap(
     n = seeds.shape[0]
     if chunk_size is None or chunk_size >= n:
         return jax.vmap(fn)(seeds)
-
-    n_chunks = (n + chunk_size - 1) // chunk_size
-    padded_n = n_chunks * chunk_size
-
-    # Pad to multiple of chunk_size
-    seeds_padded = jnp.pad(seeds, ((0, padded_n - n), (0, 0)))
-    chunks = seeds_padded.reshape((n_chunks, chunk_size, seeds.shape[1]))
-
-    def process_chunk(chunk: jax.Array) -> jax.Array:
-        return jax.vmap(fn)(chunk)
-
-    results = jax.lax.map(process_chunk, chunks)
-    return results.reshape((padded_n, results.shape[2]))[:n]
+    return jax.lax.map(fn, seeds, batch_size=chunk_size)
 
 
 # Public API: one-shot entry points
@@ -182,6 +170,12 @@ def jacobian(
     Combines [`jacobian_coloring`][asdex.jacobian_coloring]
     and [`jacobian_from_coloring`][asdex.jacobian_from_coloring]
     in one call.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
 
     Args:
         f: Function whose Jacobian is to be computed.
@@ -243,6 +237,8 @@ def jacobian(
         symmetric=symmetric,
     )
 
+    call_cache: dict[Any, Any] = {}
+
     def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
@@ -255,6 +251,7 @@ def jacobian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return jac_fn
@@ -279,6 +276,12 @@ def value_and_jacobian(
     but also returns the primal value ``f(*args)``
     without an extra forward pass.
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Returns:
         A function that takes the same positional args as ``f`` and returns
             ``(value, jac)`` — or ``((value, aux), jac)`` when ``has_aux=True``,
@@ -299,6 +302,8 @@ def value_and_jacobian(
         symmetric=symmetric,
     )
 
+    call_cache: dict[Any, Any] = {}
+
     def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
@@ -311,6 +316,7 @@ def value_and_jacobian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return val_jac_fn
@@ -334,6 +340,12 @@ def hessian(
     If ``f`` returns a squeezable shape like ``(1,)`` or ``(1, 1)``,
     it is automatically squeezed to scalar.
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
         *sample_args: Sample arguments of ``f``.
@@ -342,7 +354,8 @@ def hessian(
             with respect to (default ``0``).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
         output_format: Type of the output matrix.
@@ -380,6 +393,8 @@ def hessian(
         symmetric=symmetric,
     )
 
+    call_cache: dict[Any, Any] = {}
+
     def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
@@ -392,6 +407,7 @@ def hessian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return hess_fn
@@ -415,6 +431,12 @@ def value_and_hessian(
     Like [`hessian`][asdex.hessian], but also returns the primal value
     ``f(*args)`` without an extra forward pass.
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
         *sample_args: Sample arguments of ``f``.
@@ -423,7 +445,8 @@ def value_and_hessian(
             with respect to (default ``0``).
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
         output_format: Type of the output matrix.
@@ -461,6 +484,8 @@ def value_and_hessian(
         symmetric=symmetric,
     )
 
+    call_cache: dict[Any, Any] = {}
+
     def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
@@ -473,6 +498,7 @@ def value_and_hessian(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return val_hess_fn
@@ -499,6 +525,12 @@ def jacobian_from_coloring(
     The returned callable accepts ``*args, **kwargs``; kwargs are forwarded
     to ``f`` at call time (matching ``jax.jacfwd`` / ``jax.jacrev``).
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Args:
         f: Function whose Jacobian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
@@ -520,6 +552,8 @@ def jacobian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
+    call_cache: dict[Any, Any] = {}
+
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
@@ -532,6 +566,7 @@ def jacobian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return jac_fn
@@ -551,6 +586,12 @@ def hessian_from_coloring(
 
     Uses symmetric (star) coloring and Hessian-vector products by default.
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
@@ -565,11 +606,14 @@ def hessian_from_coloring(
             the input must be a single flat (1D) array.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         chunk_size: Maximum number of colors to process in parallel.
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
 
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -583,6 +627,7 @@ def hessian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return hess_fn
@@ -599,6 +644,12 @@ def value_and_jacobian_from_coloring(
     chunk_size: int | None = None,
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Jacobian from a pre-computed coloring.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
 
     Args:
         f: Function whose Jacobian is to be computed.
@@ -621,6 +672,8 @@ def value_and_jacobian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
+    call_cache: dict[Any, Any] = {}
+
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
@@ -633,6 +686,7 @@ def value_and_jacobian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return val_jac_fn
@@ -650,6 +704,12 @@ def value_and_hessian_from_coloring(
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Hessian from a pre-computed coloring.
 
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
@@ -664,11 +724,14 @@ def value_and_hessian_from_coloring(
             the input must be a single flat (1D) array.
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         chunk_size: Maximum number of colors to process in parallel.
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
 
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -682,9 +745,178 @@ def value_and_hessian_from_coloring(
             holomorphic=holomorphic,
             allow_int=allow_int,
             chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
         )
 
     return val_hess_fn
+
+
+# Per-closure call cache
+#
+# Each public entry point creates one cache dict shared across calls.
+# It memoizes work that only depends on the avals of the call arguments:
+# output structures from jax.eval_shape (whose cost grows with model size),
+# the _ensure_scalar wrapper, and the jitted core for host output formats.
+# The cache is bypassed (None) when call-time kwargs or non-traceable
+# positional args were bound into f:
+# those can change the output structure between calls with identical avals,
+# so nothing derived from f may be reused.
+
+
+def _aval_key(args: tuple[Any, ...]) -> Any:
+    """Hashable aval description of ``args``."""
+    leaves, treedef = jax.tree_util.tree_flatten(args)
+    return treedef, tuple(jax.typeof(leaf) for leaf in leaves)
+
+
+def _cached_out_struct(
+    f_out: Callable[..., Any],
+    args: tuple[Any, ...],
+    cache: dict[Any, Any] | None,
+) -> Any:
+    """``jax.eval_shape(f_out, *args)``, memoized on the avals of ``args``."""
+    if cache is None:
+        return jax.eval_shape(f_out, *args)
+    key = ("out_struct", _aval_key(args))
+    out_struct = cache.get(key)
+    if out_struct is None:
+        out_struct = jax.eval_shape(f_out, *args)
+        cache[key] = out_struct
+    return out_struct
+
+
+def _cached_scalar_fn(
+    f_out: Callable[..., Any],
+    sparsity: SparsityPattern,
+    cache: dict[Any, Any] | None,
+) -> Callable[..., Any]:
+    """Memoized ``_ensure_scalar(f_out, sparsity.input_avals)``.
+
+    ``_ensure_scalar`` traces ``f_out`` via ``eval_shape``,
+    so the wrapper is reused across calls when caching is allowed.
+    """
+    if cache is None:
+        return _ensure_scalar(f_out, sparsity.input_avals)
+    f_scalar = cache.get("f_scalar")
+    if f_scalar is None:
+        f_scalar = _ensure_scalar(f_out, sparsity.input_avals)
+        cache["f_scalar"] = f_scalar
+    return f_scalar
+
+
+def _scalar_with_aux(f: Callable[..., Any]) -> Callable[..., Any]:
+    """Aux-preserving counterpart of ``_ensure_scalar``.
+
+    Wraps a ``has_aux=True`` function ``f`` returning ``(out, aux)``
+    so the primary output is squeezed to shape ``()``.
+    Assumes scalar-squeezability was already validated
+    by ``_ensure_scalar`` on the aux-stripped function
+    (``jnp.squeeze`` is a no-op for outputs that are already scalar).
+    """
+
+    def f_aux(*xs: Any) -> tuple[jax.Array, Any]:
+        out, aux = f(*xs)
+        return jnp.squeeze(out), aux
+
+    return f_aux
+
+
+def _cached_scalar_aux_fn(
+    f: Callable[..., Any],
+    cache: dict[Any, Any] | None,
+) -> Callable[..., Any]:
+    """Memoized ``_scalar_with_aux(f)``.
+
+    A stable wrapper identity keeps jax's trace caches warm across calls.
+    """
+    if cache is None:
+        return _scalar_with_aux(f)
+    f_aux = cache.get("f_scalar_aux")
+    if f_aux is None:
+        f_aux = _scalar_with_aux(f)
+        cache["f_scalar_aux"] = f_aux
+    return f_aux
+
+
+_HOST_FORMATS = ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc")
+
+
+def _cached_jit_core(
+    cache: dict[Any, Any] | None,
+    output_format: OutputFormat,
+    has_aux: bool,
+    build: Callable[[], Callable[..., Any]],
+) -> Callable[..., Any] | None:
+    """Jitted array-valued core for host output formats, memoized per closure.
+
+    Host formats (numpy/scipy) cannot be wrapped in user-side ``jax.jit``,
+    so without an internal jit they pay a full re-trace of ``f`` on every call.
+
+    Returns ``None`` when jitting is unsafe:
+    call-time kwargs or static args were bound into ``f``
+    (``cache is None`` — a fresh closure per call would defeat jit's trace cache),
+    or ``has_aux`` is set
+    (aux may contain non-JAX types, which cannot be jit outputs).
+    """
+    if cache is None or has_aux or output_format not in _HOST_FORMATS:
+        return None
+    core = cache.get("jit_core")
+    if core is None:
+        core = jax.jit(build())
+        cache["jit_core"] = core
+    return core
+
+
+def _build_jacobian_core(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+) -> Callable[..., Any]:
+    """Array-valued Jacobian core ``args -> (data, y)`` for the internal jit.
+
+    Self-contained so jit re-traces it correctly for new input avals:
+    the output structure is recomputed at trace time.
+    Only used with ``has_aux=False``.
+    """
+
+    def core(*args: Any) -> tuple[jax.Array, Any]:
+        out_struct = jax.eval_shape(f, *args)
+        compressed, y, _ = _jacobian_compressed(
+            f, args, coloring, out_struct, has_aux=False, chunk_size=chunk_size
+        )
+        return _decompress_data(coloring, compressed), y
+
+    return core
+
+
+def _build_hessian_core(
+    f_scalar: Callable[..., Any],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+) -> Callable[..., Any]:
+    """Array-valued Hessian core ``args -> data`` for the internal jit."""
+
+    def core(*args: Any) -> jax.Array:
+        compressed, _ = _compute_hvps(f_scalar, args, coloring, chunk_size)
+        return _decompress_data(coloring, compressed)
+
+    return core
+
+
+def _build_value_and_hessian_core(
+    f_scalar: Callable[..., Any],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+) -> Callable[..., Any]:
+    """Array-valued Hessian core ``args -> (value, data)`` for the internal jit."""
+
+    def core(*args: Any) -> tuple[jax.Array, jax.Array]:
+        value, compressed, _ = _value_and_compute_hvps(
+            f_scalar, args, coloring, chunk_size
+        )
+        return value, _decompress_data(coloring, compressed)
+
+    return core
 
 
 # Unified evaluation
@@ -700,6 +932,7 @@ def _eval_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
+    call_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate the sparse Jacobian of ``f`` at ``args``.
 
@@ -712,32 +945,33 @@ def _eval_jacobian(
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
-    out_struct = jax.eval_shape(f_out, *args)
+    out_struct = _cached_out_struct(f_out, args, call_cache)
 
     if m == 0 or sparsity.nnz == 0:
         jac = _build_jacobian(
-            coloring, jnp.zeros(sparsity.nnz), output_format, out_struct
+            coloring, _empty_data(args, sparsity), output_format, out_struct
         )
         if has_aux:
             _, aux = f(*args)
             return jac, aux
         return jac
 
-    _assert_jacobian_mode(coloring.mode)
-    match coloring.mode:
-        case "rev":
-            compressed, y, aux = _jacobian_rows(
-                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
-            )
-        case "fwd":
-            compressed, y, aux = _jacobian_cols(
-                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
-            )
-        case _ as unreachable:
-            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        has_aux,
+        lambda: _build_jacobian_core(f, coloring, chunk_size),
+    )
+    if core is not None:
+        data, y = core(*args)
+        aux = None
+    else:
+        compressed, y, aux = _jacobian_compressed(
+            f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
+        )
+        data = _decompress_data(coloring, compressed)
 
     validate_output_dtypes(y, coloring.mode, holomorphic)
-    data = _decompress_data(coloring, compressed)
     jac = _build_jacobian(coloring, data, output_format, out_struct)
     if has_aux:
         return jac, aux
@@ -754,6 +988,7 @@ def _eval_value_and_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
+    call_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Jacobian of ``f`` at ``args``.
 
@@ -767,11 +1002,11 @@ def _eval_value_and_jacobian(
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
-    out_struct = jax.eval_shape(f_out, *args)
+    out_struct = _cached_out_struct(f_out, args, call_cache)
 
     if m == 0 or sparsity.nnz == 0:
         empty = _build_jacobian(
-            coloring, jnp.zeros(sparsity.nnz), output_format, out_struct
+            coloring, _empty_data(args, sparsity), output_format, out_struct
         )
         if has_aux:
             value, aux = f(*args)
@@ -779,21 +1014,22 @@ def _eval_value_and_jacobian(
         value = f(*args)
         return value, empty
 
-    _assert_jacobian_mode(coloring.mode)
-    match coloring.mode:
-        case "rev":
-            compressed, y, aux = _jacobian_rows(
-                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
-            )
-        case "fwd":
-            compressed, y, aux = _jacobian_cols(
-                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
-            )
-        case _ as unreachable:
-            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        has_aux,
+        lambda: _build_jacobian_core(f, coloring, chunk_size),
+    )
+    if core is not None:
+        data, y = core(*args)
+        aux = None
+    else:
+        compressed, y, aux = _jacobian_compressed(
+            f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
+        )
+        data = _decompress_data(coloring, compressed)
 
     validate_output_dtypes(y, coloring.mode, holomorphic)
-    data = _decompress_data(coloring, compressed)
     jac = _build_jacobian(coloring, data, output_format, out_struct)
     if has_aux:
         return (y, aux), jac
@@ -810,6 +1046,7 @@ def _eval_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
+    call_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate the sparse Hessian of a scalar-valued ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -818,21 +1055,37 @@ def _eval_hessian(
     validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _ensure_scalar(f_scalar_raw, sparsity.input_avals)
-    validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
+    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
+    out_struct = _cached_out_struct(f_scalar, args, call_cache)
+    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
-        hess = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
+        hess = _build_hessian(coloring, _empty_data(args, sparsity), output_format)
         if has_aux:
             _, aux = f(*args)
             return hess, aux
         return hess
 
-    compressed = _compute_hvps(f_scalar, args, coloring, chunk_size)
-    data = _decompress_data(coloring, compressed)
+    # On the jitted path, aux is computed by a separate f call below
+    # (aux may contain non-JAX types, which cannot be jit outputs),
+    # so has_aux does not block the internal jit here.
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        False,
+        lambda: _build_hessian_core(f_scalar, coloring, chunk_size),
+    )
+    if core is not None:
+        data = core(*args)
+        aux = f(*args)[1] if has_aux else None
+    else:
+        f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
+        compressed, aux = _compute_hvps(
+            f_scalar, args, coloring, chunk_size, f_aux=f_aux
+        )
+        data = _decompress_data(coloring, compressed)
     hess = _build_hessian(coloring, data, output_format)
     if has_aux:
-        _, aux = f(*args)
         return hess, aux
     return hess
 
@@ -847,6 +1100,7 @@ def _eval_value_and_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
+    call_cache: dict[Any, Any] | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Hessian of ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -855,22 +1109,40 @@ def _eval_value_and_hessian(
     validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _ensure_scalar(f_scalar_raw, sparsity.input_avals)
-    validate_output_dtypes(jax.eval_shape(f_scalar, *args), coloring.mode, holomorphic)
+    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
+    out_struct = _cached_out_struct(f_scalar, args, call_cache)
+    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
-        empty = _build_hessian(coloring, jnp.zeros(sparsity.nnz), output_format)
+        empty = _build_hessian(coloring, _empty_data(args, sparsity), output_format)
+        # Compute the value through the squeezing wrappers
+        # so it has shape (), consistent with the non-empty path.
         if has_aux:
-            value, aux = f(*args)
-            return (jnp.asarray(value), aux), empty
+            out, aux = _cached_scalar_aux_fn(f, call_cache)(*args)
+            return (jnp.asarray(out), aux), empty
         value = jnp.asarray(f_scalar(*args))
         return value, empty
 
-    value, compressed = _value_and_compute_hvps(f_scalar, args, coloring, chunk_size)
-    data = _decompress_data(coloring, compressed)
+    # On the jitted path, aux is computed by a separate f call below
+    # (aux may contain non-JAX types, which cannot be jit outputs),
+    # so has_aux does not block the internal jit here.
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        False,
+        lambda: _build_value_and_hessian_core(f_scalar, coloring, chunk_size),
+    )
+    if core is not None:
+        value, data = core(*args)
+        aux = f(*args)[1] if has_aux else None
+    else:
+        f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
+        value, compressed, aux = _value_and_compute_hvps(
+            f_scalar, args, coloring, chunk_size, f_aux=f_aux
+        )
+        data = _decompress_data(coloring, compressed)
     hess = _build_hessian(coloring, data, output_format)
     if has_aux:
-        _, aux = f(*args)
         return (value, aux), hess
     return value, hess
 
@@ -888,6 +1160,33 @@ def _output_dtype(pytree: Any) -> jnp.dtype:
 
 
 # Jacobian rows / cols over the selected input space
+
+
+def _jacobian_compressed(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    out_struct: Any,
+    *,
+    has_aux: bool,
+    chunk_size: int | None,
+) -> tuple[jax.Array, Any, Any]:
+    """Compress the Jacobian via VJPs (``rev``) or JVPs (``fwd``) by mode.
+
+    Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
+    """
+    _assert_jacobian_mode(coloring.mode)
+    match coloring.mode:
+        case "rev":
+            return _jacobian_rows(
+                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
+            )
+        case "fwd":
+            return _jacobian_cols(
+                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
+            )
+        case _ as unreachable:
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
 
 def _jacobian_rows(
@@ -910,7 +1209,7 @@ def _jacobian_rows(
         y, vjp_fn = jax.vjp(f, *args)
         aux = None
     dtype = _output_dtype(y)
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
+    seeds = coloring._device_seeds(dtype)
 
     def single_vjp(seed: jax.Array) -> jax.Array:
         cotangent = unflatten_to_pytree(seed, out_struct)
@@ -934,13 +1233,13 @@ def _jacobian_cols(
     Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
     """
     sparsity = coloring.sparsity
-    dtype = _selected_dtype(args, sparsity)
+    dtype = _uniform_selected_dtype(args, sparsity)
     if has_aux:
         y, jvp_fn, aux = jax.linearize(f, *args, has_aux=True)
     else:
         y, jvp_fn = jax.linearize(f, *args)
         aux = None
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
+    seeds = coloring._device_seeds(dtype)
 
     def single_jvp(seed: jax.Array) -> jax.Array:
         tangents = _build_tangents_from_seed(seed, args, sparsity)
@@ -953,23 +1252,49 @@ def _jacobian_cols(
 # HVPs over the selected input space
 
 
+def _grad_with_aux(
+    f: Callable[..., Any],
+    f_aux: Callable[..., Any] | None,
+    grad_argnums: int | tuple[int, ...],
+) -> Callable[..., Any]:
+    """``jax.grad`` returning ``(grads, aux)``, with ``aux=None`` when no ``f_aux``.
+
+    Normalizing the aux output lets callers thread it through
+    ``jax.linearize(..., has_aux=True)`` / ``jax.vjp(..., has_aux=True)``
+    uniformly, so aux rides along with the existing forward pass
+    instead of costing an extra ``f`` call.
+    """
+    if f_aux is not None:
+        return jax.grad(f_aux, argnums=grad_argnums, has_aux=True)
+    grad_fn = jax.grad(f, argnums=grad_argnums)
+    return lambda *primals: (grad_fn(*primals), None)
+
+
 def _compute_hvps(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     chunk_size: int | None,
-) -> jax.Array:
-    """One HVP per color for a scalar-valued multi-positional ``f``."""
+    *,
+    f_aux: Callable[..., Any] | None = None,
+) -> tuple[jax.Array, Any]:
+    """One HVP per color for a scalar-valued multi-positional ``f``.
+
+    ``f_aux`` is the aux-preserving variant of ``f`` (returns ``(out, aux)``).
+    When given, aux is extracted from the forward pass of the HVPs
+    where the mode allows and returned alongside the compressed rows;
+    otherwise the returned aux is ``None``.
+    """
     sparsity = coloring.sparsity
-    dtype = _selected_dtype(args, sparsity)
+    dtype = _uniform_selected_dtype(args, sparsity)
     grad_argnums = sparsity.argnums
 
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
+    seeds = coloring._device_seeds(dtype)
     _assert_hessian_mode(coloring.mode)
     match coloring.mode:
         case "fwd_over_rev":
-            grad_fn = jax.grad(f, argnums=grad_argnums)
-            _, hvp_fn = jax.linearize(grad_fn, *args)
+            grad_fn = _grad_with_aux(f, f_aux, grad_argnums)
+            _, hvp_fn, aux = jax.linearize(grad_fn, *args, has_aux=True)
 
             def single_hvp(v: jax.Array) -> jax.Array:
                 tangents = _build_tangents_from_seed(v, args, sparsity)
@@ -977,6 +1302,9 @@ def _compute_hvps(
                 return _flatten_grad_output(tangent_out)
 
         case "rev_over_fwd":
+            # The forward passes happen inside the vmapped HVPs below,
+            # so aux needs one dedicated ``f`` call.
+            aux = f_aux(*args)[1] if f_aux is not None else None
 
             def single_hvp(v: jax.Array) -> jax.Array:
                 tangents = _build_tangents_from_seed(v, args, sparsity)
@@ -989,8 +1317,8 @@ def _compute_hvps(
                 return _flatten_grad_output(grads)
 
         case "rev_over_rev":
-            grad_fn = jax.grad(f, argnums=grad_argnums)
-            _, hvp_fn = jax.vjp(grad_fn, *args)
+            grad_fn = _grad_with_aux(f, f_aux, grad_argnums)
+            _, hvp_fn, aux = jax.vjp(grad_fn, *args, has_aux=True)
 
             def single_hvp(v: jax.Array) -> jax.Array:
                 cotangent_out = _build_grad_output_from_seed(v, sparsity)
@@ -1001,7 +1329,35 @@ def _compute_hvps(
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
     H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
-    return H_compressed  # noqa: RET504
+    return H_compressed, aux
+
+
+def _grad_with_value_and_aux(
+    f: Callable[..., Any],
+    f_aux: Callable[..., Any] | None,
+    grad_argnums: int | tuple[int, ...],
+) -> Callable[..., Any]:
+    """``jax.grad`` returning ``(grads, (value, aux))``, ``aux=None`` without ``f_aux``.
+
+    Returning the primal value as the aux output of
+    ``jax.linearize`` / ``jax.vjp`` keeps it out of the differentiated outputs,
+    so it rides along with the forward pass inside ``grad``
+    without inflating HVP applications with dead value (co)tangents.
+    """
+    if f_aux is not None:
+        val_and_grad_aux = jax.value_and_grad(f_aux, argnums=grad_argnums, has_aux=True)
+
+        def wrapped(*primals: Any) -> tuple[Any, tuple[jax.Array, Any]]:
+            (value, aux), grads = val_and_grad_aux(*primals)
+            return grads, (value, aux)
+    else:
+        val_and_grad = jax.value_and_grad(f, argnums=grad_argnums)
+
+        def wrapped(*primals: Any) -> tuple[Any, tuple[jax.Array, Any]]:
+            value, grads = val_and_grad(*primals)
+            return grads, (value, None)
+
+    return wrapped
 
 
 def _value_and_compute_hvps(
@@ -1009,30 +1365,40 @@ def _value_and_compute_hvps(
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     chunk_size: int | None,
-) -> tuple[jax.Array, jax.Array]:
-    """``f(*args)`` and one HVP per color for a scalar-valued ``f``.
+    *,
+    f_aux: Callable[..., Any] | None = None,
+) -> tuple[jax.Array, jax.Array, Any]:
+    """``f(*args)``, one HVP per color, and aux for a scalar-valued ``f``.
 
-    Primal is free for ``fwd_over_rev``; ``rev_over_fwd`` / ``rev_over_rev``
-    compute it with an extra ``f(*args)`` call.
+    Value (and aux, when ``f_aux`` is given) is free for
+    ``fwd_over_rev`` / ``rev_over_rev``;
+    ``rev_over_fwd`` computes both with one extra ``f`` call.
+    Returns ``(value, compressed, aux)``; ``aux`` is ``None`` without ``f_aux``.
     """
     sparsity = coloring.sparsity
-    dtype = _selected_dtype(args, sparsity)
+    dtype = _uniform_selected_dtype(args, sparsity)
     grad_argnums = sparsity.argnums
 
-    seeds = jnp.asarray(coloring._seed_matrix, dtype=dtype)
+    seeds = coloring._device_seeds(dtype)
     _assert_hessian_mode(coloring.mode)
     match coloring.mode:
         case "fwd_over_rev":
-            val_and_grad = jax.value_and_grad(f, argnums=grad_argnums)
-            (value, _g), hvp_fn = jax.linearize(val_and_grad, *args)
+            grad_fn = _grad_with_value_and_aux(f, f_aux, grad_argnums)
+            _, hvp_fn, (value, aux) = jax.linearize(grad_fn, *args, has_aux=True)
 
             def single_hvp(v: jax.Array) -> jax.Array:
                 tangents = _build_tangents_from_seed(v, args, sparsity)
-                _value_tangent, tangent_out = hvp_fn(*tangents)
+                tangent_out = hvp_fn(*tangents)
                 return _flatten_grad_output(tangent_out)
 
         case "rev_over_fwd":
-            value = jnp.asarray(f(*args))
+            # The forward passes happen inside the vmapped HVPs below,
+            # so value and aux need one dedicated ``f`` call.
+            if f_aux is not None:
+                out, aux = f_aux(*args)
+                value = jnp.asarray(out)
+            else:
+                value, aux = jnp.asarray(f(*args)), None
 
             def single_hvp(v: jax.Array) -> jax.Array:
                 tangents = _build_tangents_from_seed(v, args, sparsity)
@@ -1045,13 +1411,8 @@ def _value_and_compute_hvps(
                 return _flatten_grad_output(grads)
 
         case "rev_over_rev":
-            # TODO: f(x) is redundant with the forward pass inside grad(f).
-            # Using value_and_grad + vjp would avoid it, but inflates every
-            # VJP application with dead zero-cotangents for the value path.
-            # Revisit if XLA reliably DCEs the zero branch.
-            value = jnp.asarray(f(*args))
-            grad_fn = jax.grad(f, argnums=grad_argnums)
-            _, hvp_fn = jax.vjp(grad_fn, *args)
+            grad_fn = _grad_with_value_and_aux(f, f_aux, grad_argnums)
+            _, hvp_fn, (value, aux) = jax.vjp(grad_fn, *args, has_aux=True)
 
             def single_hvp(v: jax.Array) -> jax.Array:
                 cotangent_out = _build_grad_output_from_seed(v, sparsity)
@@ -1062,7 +1423,7 @@ def _value_and_compute_hvps(
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
     H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
-    return value, H_compressed
+    return value, H_compressed, aux
 
 
 # Decompression
@@ -1075,6 +1436,13 @@ def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arr
     to vectorize the decompression step
     (no Python loop over nnz entries).
     """
+    # Symmetric (star) colorings map both (i, j) and (j, i)
+    # to the same (color, element) gather pair,
+    # so the indices are not unique.
+    # The transpose of gather is scatter-add,
+    # where unique_indices=True with duplicates is undefined behavior:
+    # differentiating through the decompressed data
+    # could silently produce wrong gradients on GPU/TPU.
     return jax.lax.gather(
         compressed,
         coloring._gather_indices,
@@ -1084,7 +1452,7 @@ def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arr
             start_index_map=(0, 1),
         ),
         slice_sizes=(1, 1),
-        unique_indices=True,
+        unique_indices=not coloring.symmetric,
         mode=jax.lax.GatherScatterMode.PROMISE_IN_BOUNDS,
     )
 
@@ -1246,6 +1614,44 @@ def _selected_dtype(args: tuple[Any, ...], sparsity: SparsityPattern) -> Any:
         if dtype is not None:
             return dtype
     return jnp.float_
+
+
+def _uniform_selected_dtype(args: tuple[Any, ...], sparsity: SparsityPattern) -> Any:
+    """Shared dtype of all selected leaves, for input-space seeds.
+
+    Forward-mode tangents and HVP seeds are sliced from one flat seed vector,
+    so every selected leaf must share its dtype;
+    mixed dtypes would otherwise fail deep inside ``jvp``/``vjp``.
+    Leaves without a ``dtype`` (Python scalars) are weakly typed and skipped.
+    """
+    found = {
+        jnp.dtype(leaf.dtype)
+        for leaf in jax.tree_util.tree_leaves(_selected_args(args, sparsity))
+        if getattr(leaf, "dtype", None) is not None
+    }
+    if len(found) > 1:
+        names = sorted(d.name for d in found)
+        raise TypeError(
+            f"Differentiated inputs have mixed dtypes {names}, "
+            "which forward and Hessian modes do not support. "
+            "Cast the inputs to a common dtype, "
+            "or use `mode='rev'` for Jacobians."
+        )
+    return found.pop() if found else jnp.float_
+
+
+def _empty_data(args: tuple[Any, ...], sparsity: SparsityPattern) -> jax.Array:
+    """All-zero data vector for empty patterns, dtype-matched to the function.
+
+    Mirrors the non-empty path,
+    where derivative data inherits the selected input leaves' dtype.
+    Non-float inputs (``allow_int=True``) map to the default float dtype,
+    like the float0 cotangent replacement in ``_flatten_selected_cotangents``.
+    """
+    dtype = _selected_dtype(args, sparsity)
+    if not jnp.issubdtype(dtype, jnp.inexact):
+        dtype = jnp.float_
+    return jnp.zeros(sparsity.nnz, dtype=dtype)
 
 
 def _build_tangents_from_seed(

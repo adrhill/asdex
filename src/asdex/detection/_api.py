@@ -204,11 +204,17 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
 def _coo_from_index_sets(
     out_indices: list,
 ) -> tuple[list[int], list[int]]:
-    """Flatten per-output dependency sets into COO rows/cols."""
+    """Flatten per-output dependency sets into COO rows/cols.
+
+    Columns are sorted within each row,
+    so detected patterns are row-major sorted and deterministic
+    (set iteration order is not guaranteed)
+    and ``SparsityPattern.to_bcoo`` can mark its output as sorted.
+    """
     rows: list[int] = []
     cols: list[int] = []
     for i, deps in enumerate(out_indices):
-        for j in deps:
+        for j in sorted(deps):
             rows.append(i)
             cols.append(j)
     return rows, cols

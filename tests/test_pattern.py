@@ -5,11 +5,13 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from jax import ShapeDtypeStruct
+from jax.core import Tracer
 from jax.experimental.sparse import BCOO
 
 import asdex
 from asdex import ColoredPattern, SparsityPattern, jacobian_sparsity
 from asdex._display import _render_braille, _render_dots
+from asdex.coloring import StarSet
 from asdex.verify import _allclose_pytree
 
 
@@ -136,6 +138,33 @@ class TestConversion:
         assert bcoo.shape == (2, 2)
         np.testing.assert_array_equal(bcoo.todense(), np.zeros((2, 2)))
 
+    def test_to_bcoo_sets_structure_flags_for_sorted_unique(self):
+        """Row-major sorted patterns without duplicates get the BCOO structure flags.
+
+        The flags let downstream sparse ops skip sorting and deduplication.
+        """
+        sparsity = SparsityPattern.from_coo([0, 0, 1], [0, 2, 1], (2, 3))
+        bcoo = sparsity.to_bcoo()
+
+        assert bcoo.indices_sorted
+        assert bcoo.unique_indices
+
+    def test_to_bcoo_no_structure_flags_for_unsorted(self):
+        """User patterns with unsorted entries do not get the BCOO structure flags."""
+        sparsity = SparsityPattern.from_coo([1, 0, 0], [1, 2, 0], (2, 3))
+        bcoo = sparsity.to_bcoo()
+
+        assert not bcoo.indices_sorted
+        assert not bcoo.unique_indices
+
+    def test_to_bcoo_no_structure_flags_for_duplicates(self):
+        """User patterns with duplicate entries do not get the BCOO structure flags."""
+        sparsity = SparsityPattern.from_coo([0, 0, 1], [2, 2, 0], (2, 3))
+        bcoo = sparsity.to_bcoo()
+
+        assert not bcoo.indices_sorted
+        assert not bcoo.unique_indices
+
 
 class TestProperties:
     """Test computed properties."""
@@ -172,6 +201,35 @@ class TestProperties:
         first = sparsity.col_to_rows
         second = sparsity.col_to_rows
         assert first is second
+
+    def test_device_seeds_cached_per_dtype(self):
+        """_device_seeds returns the same device array per dtype and matches _seed_matrix."""
+        coloring = asdex.jacobian_coloring(lambda x: x * x, jnp.zeros(3))
+
+        seeds = coloring._device_seeds(jnp.float32)
+        assert seeds.dtype == jnp.float32
+        assert seeds is coloring._device_seeds(jnp.float32)
+        np.testing.assert_array_equal(np.asarray(seeds), coloring._seed_matrix)
+
+        other = coloring._device_seeds(jnp.float16)
+        assert other.dtype == jnp.float16
+        assert other is not seeds
+
+    def test_device_seeds_not_cached_under_jit(self):
+        """A traced _device_seeds call must not poison the per-dtype cache.
+
+        Under a jit trace, asarray returns a tracer;
+        caching it would leak into later eager calls.
+        """
+        coloring = asdex.jacobian_coloring(lambda x: x * x, jnp.zeros(3))
+
+        @jax.jit
+        def traced(x):
+            return coloring._device_seeds(jnp.float32) @ x
+
+        traced(jnp.ones(3))
+        seeds = coloring._device_seeds(jnp.float32)
+        assert not isinstance(seeds, Tracer)
 
 
 class TestVisualization:
@@ -399,7 +457,9 @@ def test_save_load_hessian_coloring_star_set_preserved(tmp_path):
     assert loaded.star_set is not None
     np.testing.assert_array_equal(loaded.star_set.star, coloring.star_set.star)
     np.testing.assert_array_equal(loaded.star_set.hub, coloring.star_set.hub)
-    assert loaded.star_set.edge_index == coloring.star_set.edge_index
+    np.testing.assert_array_equal(loaded.star_set.edge_lo, coloring.star_set.edge_lo)
+    np.testing.assert_array_equal(loaded.star_set.edge_hi, coloring.star_set.edge_hi)
+    np.testing.assert_array_equal(loaded.star_set.edge_pos, coloring.star_set.edge_pos)
 
 
 def test_load_legacy_symmetric_without_star_set_raises(tmp_path):
@@ -1001,3 +1061,80 @@ def test_list_container_preserved_after_load(tmp_path):
 
     assert isinstance(original_avals[0], list), "Original should have list container"
     assert isinstance(loaded_avals[0], list), "Loaded should preserve list container"
+
+
+# Extraction index guards
+
+
+def test_extraction_indices_neutral_color_raises():
+    """A neutral (-1) color reaching extraction trips the host-side assertion.
+
+    The decompression gather promises in-bounds indices,
+    so a -1 color index would silently read garbage.
+    Star-coloring postprocessing guarantees this cannot happen
+    for colorings produced by the public API;
+    the assertion guards hand-constructed or corrupted colorings.
+    """
+    sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.array([0, -1], dtype=np.int32),
+        num_colors=1,
+        symmetric=False,
+        mode="fwd",
+    )
+    with pytest.raises(AssertionError, match="neutral"):
+        _ = coloring._extraction_indices
+
+
+def test_hub_extraction_missing_edge_raises():
+    """An off-diagonal pattern entry absent from the star set trips the guard.
+
+    The batch edge lookup feeds a gather that promises in-bounds indices,
+    so a missing edge must raise instead of silently reading garbage.
+    Here the star set is empty,
+    so the lookup position falls past the end of the edge arrays.
+    """
+    sparsity = SparsityPattern.from_coo([0, 1], [1, 0], (2, 2))
+    star_set = StarSet(
+        star=np.empty(0, dtype=np.int32),
+        hub=np.empty(0, dtype=np.int32),
+    )
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.array([0, 1], dtype=np.int32),
+        num_colors=2,
+        symmetric=True,
+        mode="fwd_over_rev",
+        star_set=star_set,
+    )
+    with pytest.raises(AssertionError, match="missing"):
+        _ = coloring._extraction_indices
+
+
+def test_hub_extraction_near_miss_edge_raises():
+    """A near-miss edge lookup (in-bounds position, wrong key) trips the guard.
+
+    The star set indexes edge ``(1, 2)`` while the pattern contains ``(0, 1)``,
+    so the binary search lands on an in-bounds position with a mismatched key.
+    Without the guard, the wrong hub would be picked
+    and wrong values extracted silently.
+    """
+    sparsity = SparsityPattern.from_coo([0, 1], [1, 0], (3, 3))
+    star_set = StarSet(
+        star=np.array([0], dtype=np.int32),
+        hub=np.array([1], dtype=np.int32),
+        edge_lo=np.array([1], dtype=np.int32),
+        edge_hi=np.array([2], dtype=np.int32),
+        edge_pos=np.array([0], dtype=np.int32),
+    )
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.array([0, 1, 0], dtype=np.int32),
+        num_colors=2,
+        symmetric=True,
+        mode="fwd_over_rev",
+        star_set=star_set,
+    )
+    with pytest.raises(AssertionError, match="missing"):
+        _ = coloring._extraction_indices

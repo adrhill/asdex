@@ -162,6 +162,100 @@ def test_hessian_has_aux_multi_input():
     np.testing.assert_allclose(aux, 4.0)
 
 
+@pytest.mark.hessian
+def test_hessian_has_aux_all_modes(hessian_mode):
+    """``hessian(f, has_aux=True)`` returns correct Hessian and aux in every mode."""
+
+    def f(x):
+        y = jnp.sum(x**2) + x[0] * x[1]
+        return y, {"input_sum": jnp.sum(x)}
+
+    x = jnp.array([2.0, 3.0, 4.0])
+    hess, aux = asdex.hessian(
+        f, np.zeros(3), has_aux=True, mode=hessian_mode, output_format="dense"
+    )(x)
+
+    expected = jax.hessian(lambda x: f(x)[0])(x)
+    np.testing.assert_allclose(hess, expected)
+    np.testing.assert_allclose(aux["input_sum"], 9.0)
+
+
+@pytest.mark.hessian
+def test_value_and_hessian_has_aux_all_modes(hessian_mode):
+    """``value_and_hessian(f, has_aux=True)`` is correct in every mode."""
+
+    def f(x):
+        y = jnp.sum(x**2) + x[0] * x[1]
+        return y, {"input_sum": jnp.sum(x)}
+
+    x = jnp.array([2.0, 3.0, 4.0])
+    (value, aux), hess = asdex.value_and_hessian(
+        f, np.zeros(3), has_aux=True, mode=hessian_mode, output_format="dense"
+    )(x)
+
+    np.testing.assert_allclose(value, f(x)[0])
+    assert value.shape == ()
+    np.testing.assert_allclose(aux["input_sum"], 9.0)
+    np.testing.assert_allclose(hess, jax.hessian(lambda x: f(x)[0])(x))
+
+
+@pytest.mark.hessian
+def test_hessian_has_aux_forward_pass_count(hessian_mode):
+    """Aux rides along with the HVP forward pass instead of an extra ``f`` call.
+
+    Steady-state executions of ``f``'s Python body per call:
+    one trace for the HVPs with aux threaded through
+    ``linearize``/``vjp`` (``fwd_over_rev`` / ``rev_over_rev``),
+    plus one dedicated aux call only for ``rev_over_fwd``,
+    whose forward passes happen inside the vmapped HVPs.
+    """
+    calls = 0
+
+    def f(x):
+        nonlocal calls
+        calls += 1
+        y = jnp.sum(x**2) + x[0] * x[1]
+        return y, {"input_sum": jnp.sum(x)}
+
+    x = jnp.array([2.0, 3.0, 4.0])
+    hess_fn = asdex.hessian(f, np.zeros(3), has_aux=True, mode=hessian_mode)
+    hess_fn(x)  # warm up detection and per-closure wrapper caches
+
+    calls = 0
+    hess_fn(x)
+    expected_calls = 2 if hessian_mode == "rev_over_fwd" else 1
+    assert calls == expected_calls
+
+
+@pytest.mark.hessian
+def test_value_and_hessian_forward_pass_count(hessian_mode):
+    """The value comes from the HVP forward pass instead of an extra ``f`` call.
+
+    Same per-call execution counts as the aux test above:
+    ``fwd_over_rev`` / ``rev_over_rev`` thread the value through
+    the aux output of ``linearize``/``vjp``;
+    only ``rev_over_fwd`` needs one dedicated call for value and aux.
+    """
+    calls = 0
+
+    def f(x):
+        nonlocal calls
+        calls += 1
+        y = jnp.sum(x**2) + x[0] * x[1]
+        return y, {"input_sum": jnp.sum(x)}
+
+    x = jnp.array([2.0, 3.0, 4.0])
+    fn = asdex.value_and_hessian(f, np.zeros(3), has_aux=True, mode=hessian_mode)
+    fn(x)  # warm up detection and per-closure wrapper caches
+
+    calls = 0
+    (value, aux), _hess = fn(x)
+    expected_calls = 2 if hessian_mode == "rev_over_fwd" else 1
+    assert calls == expected_calls
+    np.testing.assert_allclose(value, 29.0 + 6.0)
+    np.testing.assert_allclose(aux["input_sum"], 9.0)
+
+
 # has_aux with PyTree inputs/outputs
 
 
@@ -504,6 +598,38 @@ def test_jacobian_allow_int_pytree_input(
     )(params)
     J_jax = jax.jacobian(f, allow_int=True)(params)
     assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.hessian
+def test_allow_int_hessian_raises(hessian_mode):
+    """``allow_int=True`` raises ``TypeError`` for Hessians.
+
+    The gradient inside each HVP requires float inputs in every mode,
+    and ``jax.hessian`` has no ``allow_int`` either.
+    """
+
+    def f(x):
+        return jnp.sum(x**2)
+
+    x = jnp.array([1.0, 2.0])
+    with pytest.raises(TypeError, match="not supported for Hessian"):
+        asdex.hessian(f, np.zeros(2), mode=hessian_mode, allow_int=True)(x)
+
+
+@pytest.mark.hessian
+def test_hessian_int_input_raises(hessian_mode):
+    """Integer call-time inputs raise a clear ``TypeError`` for Hessians.
+
+    Without the upfront check, the failure surfaces deep inside ``jax.grad``.
+    """
+
+    def f(x):
+        return jnp.sum(x**2).astype(jnp.float32)
+
+    hess_fn = asdex.hessian(f, np.zeros(2), mode=hessian_mode)
+    x = jnp.array([1, 2], dtype=jnp.int32)
+    with pytest.raises(TypeError, match=r"matching `jax\.hessian`"):
+        hess_fn(x)
 
 
 # holomorphic dtype validation
@@ -1482,6 +1608,30 @@ def test_jacobian_bool_kwarg_at_detection(
     )(x, flag=True)
     J_jax = jax.jacobian(f)(x, flag=True)
     assert_trees_allclose(J, J_jax)
+
+
+@pytest.mark.jacobian
+def test_jacobian_kwarg_changes_output_structure_between_calls(assert_trees_allclose):
+    """Call-time kwargs that change the output pytree bypass the out-struct cache.
+
+    Regression test for the per-closure eval_shape cache:
+    a call without kwargs fills the cache,
+    and a later call with a structure-changing kwarg must not reuse it.
+    """
+
+    def f(x, split=False):
+        if split:
+            return (x[:1] * 2.0, x[1:] * 2.0)
+        return x * 2.0
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    jac_fn = asdex.jacobian(f, x, output_format="dense")
+
+    J_flat = jac_fn(x)
+    assert_trees_allclose(J_flat, jax.jacobian(f)(x))
+
+    J_split = jac_fn(x, split=True)
+    assert_trees_allclose(J_split, jax.jacobian(f)(x, split=True))
 
 
 @pytest.mark.jacobian
