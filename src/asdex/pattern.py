@@ -522,7 +522,10 @@ class ColoredPattern:
         # so a neutral (-1) color would silently read garbage.
         # Star-coloring postprocessing keeps diagonal-entry and hub colors used,
         # which guarantees no neutral color reaches extraction.
-        assert (color_idx >= 0).all(), "neutral (-1) color in extraction indices"
+        # Checked explicitly rather than with `assert`
+        # so `python -O` cannot strip the guard.
+        if not (color_idx >= 0).all():
+            raise AssertionError("neutral (-1) color in extraction indices")
 
         return color_idx, elem_idx
 
@@ -564,9 +567,15 @@ class ColoredPattern:
         keys = np.minimum(i, j) * np.int64(n) + np.maximum(i, j)
         edge_keys = self.star_set.edge_lo * np.int64(n) + self.star_set.edge_hi
         pos = np.searchsorted(edge_keys, keys)
+        # These guards gate a PROMISE_IN_BOUNDS gather:
+        # a near-miss lookup would silently pick the wrong hub.
+        # Checked explicitly rather than with `assert`
+        # so `python -O` cannot strip them.
         missing = "off-diagonal pattern entry missing from star-set edge index"
-        assert (pos < len(edge_keys)).all(), missing
-        assert (edge_keys[pos] == keys).all(), missing
+        if not (pos < len(edge_keys)).all():
+            raise AssertionError(missing)
+        if not (edge_keys[pos] == keys).all():
+            raise AssertionError(missing)
 
         h = hub[star[self.star_set.edge_pos[pos]]].astype(np.intp)
         # Unresolved trivial stars encode a default hub endpoint as -(v + 1).

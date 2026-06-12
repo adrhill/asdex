@@ -11,6 +11,7 @@ from jax.experimental.sparse import BCOO
 import asdex
 from asdex import ColoredPattern, SparsityPattern, jacobian_sparsity
 from asdex._display import _render_braille, _render_dots
+from asdex.coloring import StarSet
 from asdex.verify import _allclose_pytree
 
 
@@ -1083,4 +1084,57 @@ def test_extraction_indices_neutral_color_raises():
         mode="fwd",
     )
     with pytest.raises(AssertionError, match="neutral"):
+        _ = coloring._extraction_indices
+
+
+def test_hub_extraction_missing_edge_raises():
+    """An off-diagonal pattern entry absent from the star set trips the guard.
+
+    The batch edge lookup feeds a gather that promises in-bounds indices,
+    so a missing edge must raise instead of silently reading garbage.
+    Here the star set is empty,
+    so the lookup position falls past the end of the edge arrays.
+    """
+    sparsity = SparsityPattern.from_coo([0, 1], [1, 0], (2, 2))
+    star_set = StarSet(
+        star=np.empty(0, dtype=np.int32),
+        hub=np.empty(0, dtype=np.int32),
+    )
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.array([0, 1], dtype=np.int32),
+        num_colors=2,
+        symmetric=True,
+        mode="fwd_over_rev",
+        star_set=star_set,
+    )
+    with pytest.raises(AssertionError, match="missing"):
+        _ = coloring._extraction_indices
+
+
+def test_hub_extraction_near_miss_edge_raises():
+    """A near-miss edge lookup (in-bounds position, wrong key) trips the guard.
+
+    The star set indexes edge ``(1, 2)`` while the pattern contains ``(0, 1)``,
+    so the binary search lands on an in-bounds position with a mismatched key.
+    Without the guard, the wrong hub would be picked
+    and wrong values extracted silently.
+    """
+    sparsity = SparsityPattern.from_coo([0, 1], [1, 0], (3, 3))
+    star_set = StarSet(
+        star=np.array([0], dtype=np.int32),
+        hub=np.array([1], dtype=np.int32),
+        edge_lo=np.array([1], dtype=np.int32),
+        edge_hi=np.array([2], dtype=np.int32),
+        edge_pos=np.array([0], dtype=np.int32),
+    )
+    coloring = ColoredPattern(
+        sparsity=sparsity,
+        colors=np.array([0, 1, 0], dtype=np.int32),
+        num_colors=2,
+        symmetric=True,
+        mode="fwd_over_rev",
+        star_set=star_set,
+    )
+    with pytest.raises(AssertionError, match="missing"):
         _ = coloring._extraction_indices
