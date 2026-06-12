@@ -35,6 +35,7 @@ from asdex.coloring import (
     color_cols,
     color_rows,
     color_symmetric,
+    reconstruct_edge_arrays,
 )
 
 
@@ -1565,6 +1566,51 @@ def test_star_set_edge_index_missing_edge_raises():
 
     with pytest.raises(KeyError):
         star_set.edge_index(0, 2)
+
+
+@pytest.mark.coloring
+def test_reconstruct_edge_arrays_matches_color_symmetric():
+    """reconstruct_edge_arrays rebuilds exactly the arrays color_symmetric produced.
+
+    ``ColoredPattern.load`` relies on this determinism
+    to restore the edge arrays without persisting them.
+    """
+    edges = [(0, 3), (0, 1), (2, 4), (1, 2), (3, 4), (0, 4)]
+    sparsity = _make_symmetric_graph_no_diagonal(5, edges)
+
+    _, _, star_set = color_symmetric(sparsity)
+    edge_lo, edge_hi, edge_pos = reconstruct_edge_arrays(
+        sparsity.rows, sparsity.cols, sparsity.n
+    )
+
+    np.testing.assert_array_equal(edge_lo, star_set.edge_lo)
+    np.testing.assert_array_equal(edge_hi, star_set.edge_hi)
+    np.testing.assert_array_equal(edge_pos, star_set.edge_pos)
+
+
+@pytest.mark.coloring
+@pytest.mark.parametrize(
+    ("rows", "cols", "n"),
+    [
+        ([], [], 0),  # no vertices
+        ([0, 1], [0, 1], 2),  # diagonal only: no off-diagonal edges
+    ],
+)
+def test_reconstruct_edge_arrays_empty_no_aliasing(rows, cols, n):
+    """Edgeless reconstructions return three distinct empty arrays.
+
+    Returning one aliased array object three times would let
+    in-place mutation of one array silently corrupt the others.
+    """
+    edge_lo, edge_hi, edge_pos = reconstruct_edge_arrays(
+        np.asarray(rows, dtype=np.int32), np.asarray(cols, dtype=np.int32), n
+    )
+
+    assert len(edge_lo) == len(edge_hi) == len(edge_pos) == 0
+    assert edge_lo.dtype == edge_hi.dtype == edge_pos.dtype == np.int32
+    assert edge_lo is not edge_hi
+    assert edge_lo is not edge_pos
+    assert edge_hi is not edge_pos
 
 
 # Postprocessing: trivial-star hub flip

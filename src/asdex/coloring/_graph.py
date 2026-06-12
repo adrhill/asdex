@@ -16,6 +16,8 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
+from ._types import _empty_int32
+
 
 def _build_csr(
     a_idx: NDArray[np.int32],
@@ -191,12 +193,13 @@ def reconstruct_edge_arrays(
         mapping ``(min(i, j), max(i, j)) -> edge_idx``
         for each off-diagonal edge, lexsorted by ``(edge_lo, edge_hi)``.
     """
-    empty = np.empty(0, dtype=np.int32)
+    # Three distinct arrays, not one aliased object,
+    # so in-place mutation of one cannot affect the others.
     if n == 0:
-        return empty, empty, empty
+        return _empty_int32(), _empty_int32(), _empty_int32()
     indptr, neighbors, _ = _build_symmetric_csr(rows, cols, n)
     if len(neighbors) == 0:
-        return empty, empty, empty
+        return _empty_int32(), _empty_int32(), _empty_int32()
     edge_to_index = _build_edge_to_index(indptr, neighbors)
     return _build_edge_arrays(indptr, neighbors, edge_to_index)
 
