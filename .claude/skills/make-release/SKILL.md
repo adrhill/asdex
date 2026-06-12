@@ -53,5 +53,22 @@ Prepare a new release for asdex.
 9. Push the commit, then tag with `git tag vX.Y.Z` and push the tag with `git push --tags`.
    `vX.Y.Z` is the new version number from `pyproject.toml`.
 
-10. Create a GitHub release with `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."`,
-    using the new changelog section (entries + badge/PR link references) as the release notes.
+10. Create a GitHub release:
+    - Fetch closed issues since the previous tag:
+      ```
+      gh api "repos/adrhill/asdex/issues?state=closed&since=<prev-tag-date>" \
+        --jq '.[] | select(.pull_request == null) | "- \(.title) (#\(.number))"'
+      ```
+      Get the previous tag date with: `git log -1 --format=%aI <previous-tag>`
+    - Fetch new contributors (if any) from GitHub's auto-generated notes:
+      ```
+      gh api repos/adrhill/asdex/releases/generate-notes \
+        -f tag_name=vX.Y.Z -f previous_tag_name=<previous-tag> --jq .body
+      ```
+      Extract only the "New Contributors" section if present.
+    - Compose release notes in this order:
+      1. Our badge-formatted changelog entries + link references
+      2. "Closed issues" section (if any issues were closed)
+      3. "New Contributors" section (if any, from GitHub's generated notes)
+      4. Full Changelog link: `**Full Changelog**: https://github.com/adrhill/asdex/compare/<prev>...vX.Y.Z`
+    - Create the release: `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."`
