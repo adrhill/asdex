@@ -58,41 +58,71 @@ Branch: `docs/feature-overview-152` (per the feature-branch convention).
 
 ## Updated guide outlines (mirrored)
 
-Both guides converge on one skeleton. The only intentional divergence is the
-**mode-selection** section (Jacobians choose row vs column coloring; Hessians have
-symmetric coloring + an HVP-mode choice) and that **PyTree *outputs*** appear only in the
-Jacobian guide (a Hessian requires a scalar output). New sections are marked **NEW**;
-`*` marks an existing section that moves to keep the two guides aligned.
+Each guide is reorganized into two tiers,
+so importance shows up both in the page and in its table of contents:
 
-| # | `how-to/jacobians.md` | `how-to/hessians.md` |
-|---|------------------------|----------------------|
-| 1 | Intro + *"verify once"* tip | Intro + *"verify once"* tip |
-| 2 | Basic Usage | Basic Usage |
-| 3 | Getting the Primal Value Too | Getting the Primal Value Too |
-| 4 | **Multiple and PyTree Inputs and Outputs** (NEW, #150) | **Multiple and PyTree Inputs** (NEW, #150) |
-| 5 | **Auxiliary Outputs** (NEW, #151) | **Auxiliary Outputs** (NEW, #151) |
-| 6 | **Output Formats** (NEW, #148) | **Output Formats** (NEW, #148) |
-| 7 | **Reducing Peak Memory with Chunking** (NEW, #149) | **Reducing Peak Memory with Chunking** (NEW, #149) |
-| 8 | Choosing Row vs Column Coloring | Symmetric Coloring → Choosing an HVP Mode `*` |
-| 9 | Precomputing the Colored Pattern | Precomputing the Colored Pattern |
-| 10 | Saving and Loading Patterns | Saving and Loading Patterns |
-| 11 | Separate Detection and Coloring | Separate Detection and Coloring |
-| 12 | Manually Providing a Sparsity Pattern | Manually Providing a Sparsity Pattern |
-| 13 | Verifying Results → pointer to `verification.md` | Verifying Results → pointer to `verification.md` |
+- a **`## Basics`** section with the sections every reader needs:
+  basic usage and primal returns,
+  the precompute / save-load / known-pattern workflow that avoids paying the expensive
+  detection-and-coloring step on every call,
+  and a pointer to verification.
+- a **`## Advanced`** section for situational options:
+  mode selection, the lower-level pipeline, and the four newly documented features.
+
+Every existing section keeps its heading text and is demoted from `##` to `###` under one
+of the two tiers.
+MkDocs slugifies heading *text*, not level,
+so all in-page anchors stay valid,
+including the README and `index.md` links that target them.
+
+The two guides mirror section-for-section.
+The only intentional divergence is mode-selection
+(Jacobians choose row vs column coloring;
+Hessians have symmetric coloring plus an HVP-mode choice)
+and that **PyTree *outputs*** appear only in the Jacobian guide
+(a Hessian requires a scalar output).
+New sections are marked **NEW**.
+
+| Tier | `how-to/jacobians.md` | `how-to/hessians.md` |
+|------|------------------------|----------------------|
+| *(intro)* | Intro + *"verify once"* tip | Intro + *"verify once"* tip |
+| **`## Basics`** | `### Basic Usage` | `### Basic Usage` |
+| | `### Getting the Primal Value Too` | `### Getting the Primal Value Too` |
+| | `### Precomputing the Colored Pattern` | `### Precomputing the Colored Pattern` |
+| | `### Saving and Loading Patterns` | `### Saving and Loading Patterns` |
+| | `### Manually Providing a Sparsity Pattern` | `### Manually Providing a Sparsity Pattern` |
+| | `### Verifying Results` → pointer | `### Verifying Results` → pointer |
+| **`## Advanced`** | `### Choosing Row vs Column Coloring` | `### Symmetric Coloring` |
+| | | `### Choosing an HVP Mode` |
+| | `### Separate Detection and Coloring` | `### Separate Detection and Coloring` |
+| | `### Multiple and PyTree Inputs and Outputs` **(NEW, #150)** | `### Multiple and PyTree Inputs` **(NEW, #150)** |
+| | `### Auxiliary Outputs` **(NEW, #151)** | `### Auxiliary Outputs` **(NEW, #151)** |
+| | `### Output Formats` **(NEW, #148)** | `### Output Formats` **(NEW, #148)** |
+| | `### Reducing Peak Memory with Chunking` **(NEW, #149)** | `### Reducing Peak Memory with Chunking` **(NEW, #149)** |
 
 Plus one **new page**, `how-to/verification.md`, holding the consolidated correctness-checking how-to.
 
+Within **`## Advanced`**, the existing sections that move up lead the tier
+(*Choosing Row vs Column Coloring* / *Symmetric Coloring* + *Choosing an HVP Mode*,
+then *Separate Detection and Coloring*),
+and the four **NEW** feature sections are appended after them.
+This keeps the new content as one contiguous block at the end of each guide,
+which the two-commit strategy below relies on.
+
 Changes vs. today:
 
-- Insert sections 4–7 (the four features) right after *Getting the Primal Value Too*.
-- Hessian guide: move *Choosing an HVP Mode* up to sit next to *Symmetric Coloring*
-  (today it sits after *Manually Providing a Sparsity Pattern*), so both guides keep
-  mode-selection at slot 8.
+- Add the two tier headings `## Basics` and `## Advanced`,
+  and demote every existing `##` section to `###` under the right tier
+  (heading text unchanged).
+- Move *Choosing Row vs Column Coloring* (Jacobian),
+  *Symmetric Coloring* + *Choosing an HVP Mode* (Hessian),
+  and *Separate Detection and Coloring* to the top of *Advanced*.
 - Drop the lone line in the Jacobian guide's *Basic Usage*
-  (*"`asdex` supports multi-dimensional input and output arrays"*), since section 4 now covers it.
-- Lift the two near-identical *Verifying Results* sections into `verification.md`; each
-  guide's slot 13 becomes a 2–3 line pointer, and the top-of-page *"verify once"* tip
-  retargets to the new page.
+  (*"`asdex` supports multi-dimensional input and output arrays"*),
+  since the new *Multiple and PyTree Inputs and Outputs* section now covers it.
+- Lift the two near-identical *Verifying Results* sections into `verification.md`;
+  each guide's *Verifying Results* becomes a 2–3 line pointer,
+  and the top-of-page *"verify once"* tip retargets to the new page.
 - Retarget **every other inbound verification link** across the docs to the new page: the
   *Verifying Results* link in `tutorials/getting-started.md`, and a new pointer from the
   *"correctness comes first"* paragraph in `explanation/global-sparsity.md`. The full set
@@ -103,8 +133,13 @@ Changes vs. today:
 
 ## New sections to add (verified snippets)
 
-Each subsection below is added to **both** guides at the slot above. The prose mirrors;
-only the example call differs (Jacobian vs Hessian). All snippets are verified.
+Each subsection below is appended to the **`## Advanced`** section of **both** guides,
+as a `###` heading
+(the snippets render the heading as `##` for readability —
+create it as `###` so it nests under *Advanced*).
+The prose mirrors;
+only the example call differs (Jacobian vs Hessian).
+All snippets are verified.
 
 ### Section 4: Multiple and PyTree Inputs (#150)
 
@@ -684,16 +719,37 @@ It is a feature, not documentation, and is tracked separately.
 
 ## Execution order
 
-A single PR closes all docs issues:
+A single PR closes all docs issues,
+split into two commits so the diff is easy to review:
+a pure restructuring with no content changes,
+then the additive content.
 
-**PR (#148–#152):** add sections 4–7 to both guides,
-align the existing sections so the two guides mirror,
+**Commit 1 — restructure, no content changes.**
+Reorganize both guides into the `## Basics` / `## Advanced` two-tier skeleton above:
+add the two tier headings,
+demote every existing section from `##` to `###` under the right tier,
+and move *Choosing Row vs Column Coloring* / *Symmetric Coloring* + *Choosing an HVP Mode*
+and *Separate Detection and Coloring* to the top of *Advanced*.
+No prose, heading text, code, or anchors change;
+this commit only moves and re-levels existing sections,
+so a reviewer can confirm at a glance that nothing was rewritten.
+Conventional commit: `docs: restructure how-to guides into Basics and Advanced sections`.
+
+**Commit 2 — add the new content.**
+Append the four **NEW** feature sections
+(*Multiple and PyTree Inputs*, *Auxiliary Outputs*, *Output Formats*,
+*Reducing Peak Memory with Chunking*)
+as `###` at the end of each guide's *Advanced* section;
 add the new `how-to/verification.md` page (+ nav entry)
-and retarget every inbound verification link to it (the four pages above),
-add the **Features** list to both `README.md` and `docs/index.md`,
+and trim each guide's *Verifying Results* to a pointer;
+retarget every inbound verification link (the four pages above);
+drop the now-redundant multi-dimensional line in the Jacobian *Basic Usage*;
+add the **Features** list to both `README.md` and `docs/index.md`;
 and finally update `docs/CLAUDE.md` to match the new structure.
-Closes #148, #149, #150, #151, #152.
 Conventional commit: `docs: document output formats, pytrees, aux, chunking, and verification`.
+
+Both commits land in one PR.
+Closes #148, #149, #150, #151, #152.
 
 ---
 
