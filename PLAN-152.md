@@ -142,6 +142,7 @@ only the example call differs (Jacobian vs Hessian).
 All snippets are verified.
 
 ### Section 4: Multiple and PyTree Inputs (#150)
+<!-- ISSUE: Split this into two sections: "Multiple Inputs and Outputs" and "PyTree Inputs and Outputs". -->
 
 **Jacobian guide** (`## Multiple and PyTree Inputs and Outputs`):
 
@@ -153,6 +154,7 @@ it supports functions of several arguments and of arbitrary [PyTrees](https://do
 selecting which arguments to differentiate with `argnums`.
 
 Pass a sample value for **every** positional argument,
+<!-- ISSUE: don't needlessly emphasize words. -->
 and select the ones to differentiate with `argnums`:
 
 ```python exec="true" session="jac-pt" source="above"
@@ -175,9 +177,13 @@ print(f"```\nJx: {type(Jx).__name__} {Jx.shape}\nJy: {type(Jy).__name__} {Jy.sha
 
 With an integer `argnums` (the default `0`) a single block is returned, not a tuple.
 Arguments not named by `argnums` are still passed at call time and held fixed.
+<!-- ISSUE: demonstrate this. -->
 
-A single argument can itself be a PyTree;
-the Jacobian comes back as a matching PyTree of blocks:
+<!-- ISSUE: Is is possible to also return multiple Jacobians with multiple primal outputs? If so, add a paragraph. -->
+
+
+A single argument can itself be a PyTree.
+The Jacobian comes back as a matching PyTree of blocks:
 
 ```python exec="true" session="jac-pt" source="above"
 def loss(params):
@@ -186,6 +192,7 @@ def loss(params):
 params = {"a": jnp.arange(1.0, 4.0), "b": jnp.arange(4.0, 7.0)}
 J = jax.jit(jacobian(loss, params))(params)
 ```
+<!-- ISSUE: This example would be more interesting if "b" wasn't just a `jnp.arange` too. -->
 
 ```python exec="true" session="jac-pt"
 print(f"```\nkeys: {sorted(J)}\nJ['a']: {type(J['a']).__name__} {J['a'].shape}\n```")
@@ -206,6 +213,7 @@ J = jax.jit(jacobian(f_out, x))(x)
 print(f"```\nkeys: {sorted(J)}\n"
       f"J['squared']: {J['squared'].shape}\nJ['total']: {J['total'].shape}\n```")
 ```
+<!-- ISSUE: this one-liner might be hard to parse for readers. -->
 ````
 
 **Hessian guide** (`## Multiple and PyTree Inputs`): same prose, minus the PyTree-*output*
@@ -231,6 +239,8 @@ H = jax.jit(hessian(f, x, y, argnums=(0, 1)))(x, y)  # nested (block grid)
 Hxx = H[0][0]  # ∂²/∂x²
 print(f"```\nouter len: {len(H)}\nH[0][0]: {type(Hxx).__name__} {Hxx.shape}\n```")
 ```
+<!-- ISSUE: this one-liner might be hard to parse for readers. -->
+<!-- ISSUE: can we do better than just showing H[0][0]? -->
 
 ```python exec="true" session="hess-pt" source="above"
 def loss(params):
@@ -243,6 +253,7 @@ H = jax.jit(hessian(loss, params))(params)  # dict-of-dicts of blocks
 ```python exec="true" session="hess-pt"
 print(f"```\nouter keys: {sorted(H)}\nH['a']['a']: {type(H['a']['a']).__name__} {H['a']['a'].shape}\n```")
 ```
+<!-- ISSUE: this one-liner might be hard to parse for readers. -->
 ````
 
 ### Section 5: Auxiliary Outputs (#151)
@@ -252,10 +263,8 @@ print(f"```\nouter keys: {sorted(H)}\nH['a']['a']: {type(H['a']['a']).__name__} 
 ````markdown
 ## Auxiliary Outputs
 
-Set `has_aux=True` when your function returns `(output, auxiliary_data)`,
-mirroring `jax.jacrev`.
-The auxiliary data is passed through untouched,
-useful for diagnostics, intermediate values, or model state.
+Set `has_aux=True` when your function returns `(output, auxiliary_data)`, mirroring `jax.jacrev`.
+The auxiliary data is passed through untouched, useful for diagnostics, intermediate values, or model state.
 
 ```python exec="true" session="jac-aux" source="above"
 import jax
@@ -273,6 +282,7 @@ J, aux = jax.jit(jacobian(f, x, has_aux=True))(x)
 ```python exec="true" session="jac-aux"
 print(f"```\nJ: {type(J).__name__} {J.shape}\nmean_sq: {float(aux['mean_sq']):.3f}\n```")
 ```
+<!-- ISSUE: this one-liner might be hard to parse for readers. -->
 
 [`value_and_jacobian`](../reference/index.md#asdex.value_and_jacobian) nests aux next to the value,
 matching `jax.value_and_grad` ordering, giving `((value, aux), J)`:
@@ -286,6 +296,8 @@ from asdex import value_and_jacobian
 ```python exec="true" session="jac-aux"
 print(f"```\nvalue: {value.shape}\nmean_sq: {float(aux['mean_sq']):.3f}\n```")
 ```
+<!-- ISSUE: this one-liner might be hard to parse for readers. -->
+
 
 The auxiliary data may hold arbitrary Python objects, not just JAX arrays.
 It is extracted from the forward pass that AD already runs,
@@ -311,6 +323,7 @@ H, aux = jax.jit(hessian(g, x, has_aux=True))(x)
 ```python exec="true" session="hess-aux"
 print(f"```\nH: {type(H).__name__} {H.shape}\nnorm: {float(aux['norm']):.3f}\n```")
 ```
+<!-- ISSUE: this one-liner might be hard to parse for readers. -->
 ````
 
 ### Section 6: Output Formats (#148)
@@ -357,6 +370,8 @@ lines = [
 ]
 print("```\n" + "\n".join(lines) + "\n```")
 ```
+<!-- ISSUE: this is odd to read. Why not use a direct f-string print statement with multiple lines? -->
+
 
 !!! warning "Host formats are not JIT-able by the caller"
 
@@ -373,8 +388,8 @@ print("```\n" + "\n".join(lines) + "\n```")
 
     SciPy sparse arrays are strictly 2D.
     They require the input and output to each be a single flat 1D array;
-    PyTree or multi-argument inputs raise `ValueError`.
-    SciPy is an optional dependency: `pip install 'asdex[scipy]'`.
+    PyTree or multi-argument inputs raise a `ValueError`.
+    Not that SciPy is an optional dependency. Install it via `pip install 'asdex[scipy]'`.
 
 Structural non-zeros that happen to be numerically zero at the evaluation point are kept as explicit entries in the `BCOO` and scipy outputs,
 so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md) and is independent of `x`.
@@ -382,6 +397,7 @@ so the structure always matches the detected [global sparsity pattern](../explan
 
 **Hessian guide** (`## Output Formats`): same table and callouts (the SciPy note drops the
 "output" clause, since only the input must be a flat 1D array), with a `hessian` example:
+<!-- ISSUE: Couldn't there still be edge cases with complex PyTree inputs?. -->
 
 ````markdown
 ```python exec="true" session="hess-fmt" source="above"
@@ -411,12 +427,9 @@ print(f"```\ndense: {type(H_dense).__name__} {H_dense.shape}\n"
 ````markdown
 ## Reducing Peak Memory with Chunking
 
-Each color costs one VJP/JVP,
-and by default `asdex` evaluates **all** colors in a single `jax.vmap` batch.
-For patterns with many colors on memory-constrained hardware,
-`chunk_size` caps how many colors run in parallel:
-chunks are processed sequentially via `jax.lax.map`,
-lowering peak memory at some throughput cost.
+Each color requires one VJP/JVP, and by default `asdex` evaluates **all** colors in a single `jax.vmap` batch.
+For large patterns with many colors on memory-constrained hardware, `chunk_size` caps how many colors run in parallel:
+chunks are processed sequentially via `jax.lax.map`, lowering the peak memory usage:
 
 ```python exec="true" session="jac-chunk" source="above"
 import jax
@@ -436,17 +449,10 @@ J = jax.jit(jacobian(f, x, chunk_size=16))(x)
 print(f"```\nJ: {type(J).__name__} {J.shape}, nse={J.nse}\n```")
 ```
 
+The result is identical to the default (`chunk_size=None`), only peak memory and runtime change.
 `chunk_size` is accepted by [`jacobian`](../reference/index.md#asdex.jacobian),
 its `value_and_*` and `*_from_coloring` variants.
-The result is identical to the default (`chunk_size=None`);
-only peak memory and runtime change.
-
-!!! tip
-
-    Start without `chunk_size`.
-    Reach for it only when a high color count makes a single batch run out of memory,
-    then pick the largest `chunk_size` that fits.
-````
+  <!-- ISSUE: why not directly state `value_and_jacobian` and `jacobian_from_coloring` here, and link to the reference? -->
 
 **Hessian guide** (`## Reducing Peak Memory with Chunking`): identical prose with a
 `hessian` call (`chunk_size` caps HVPs per batch):
@@ -480,9 +486,10 @@ section with a short pointer. Verified body:
 # Verifying Correctness
 
 asdex's [sparsity patterns](../explanation/global-sparsity.md) should always be conservative,
-but a bug in [sparsity detection](../explanation/sparsity-detection.md) could drop a nonzero.
-Verify against vanilla JAX at least once on every new function.
-A good place is your test suite, not a production loop.
+but a bug in [sparsity detection](../explanation/sparsity-detection.md) could drop a nonzero,
+resulting in wrong Jacobians or Hessians.
+Verify asdex' results against vanilla JAX at least once on every new function.
+This guide shows you how.
 
 ## Jacobians
 
@@ -505,15 +512,15 @@ check_jacobian_correctness(f, x, coloring)  # silent ⇒ correct
 print("```\nJacobian verified ✓\n```")
 ```
 
-By default this uses randomized matrix-vector products (`method="matvec"`):
-cheap, O(k) in the number of probes, and scalable.
-Tune the probes, tolerances, and seed:
+By default this uses `method="matvec"`, computing randomized matrix-vector products (i.e., JVPs, VJPs, or HVPs, depending on the coloring).
+This is cheap, O(k) in the number of probes, and scalable.
+You can tune the probes, tolerances, and seed:
 
 ```python exec="true" session="verify" source="above"
 check_jacobian_correctness(f, x, coloring, num_probes=50, rtol=1e-5, atol=1e-5, seed=42)
 ```
 
-For an exact element-wise comparison against the full dense Jacobian,
+For an exact but expensive element-wise comparison against the full dense Jacobian,
 use `method="dense"`:
 
 ```python exec="true" session="verify" source="above"
@@ -576,6 +583,10 @@ so the tip's final line retargets from the in-page anchor to it).
 Before:
 
 ```markdown
+!!! tip "Verify correctness at least once"
+
+    asdex's [sparsity patterns](../explanation/global-sparsity.md) should always be conservative,
+    but a bug in [sparsity detection](../explanation/sparsity-detection.md) could cause missing nonzeros.
     Always verify against vanilla JAX at least once on a new function.
     See [Verifying Results](#verifying-results) below.
 ```
@@ -583,6 +594,11 @@ Before:
 After:
 
 ```markdown
+!!! tip "Verify correctness at least once"
+
+    asdex's [sparsity patterns](../explanation/global-sparsity.md) should always be conservative,
+    but a bug in [sparsity detection](../explanation/sparsity-detection.md) could cause missing nonzeros,
+    resulting in wrong Jacobians or Hessians.
     Always verify against vanilla JAX at least once on a new function.
     See [Verifying Correctness](verification.md).
 ```
