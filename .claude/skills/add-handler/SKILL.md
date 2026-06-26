@@ -20,7 +20,7 @@ Before writing code:
 - Read the JAX docs for the primitive: fetch `https://docs.jax.dev/en/latest/_autosummary/jax.lax.$ARGUMENTS.html`
 - Read `src/asdex/detection/_interpret/CLAUDE.md` for conventions (docstring style, semantic line breaks, handler structure)
 - Read `src/asdex/detection/_interpret/_commons.py` to understand available utilities
-- Read an existing handler with similar structure (e.g. `_pad.py`, `_transpose.py`, `_reduction.py`) as a reference
+- Read an existing handler with similar structure (e.g. `_pad.py`, `_transpose.py`, `_reduce.py`) as a reference
 - Read the existing test in `tests/_interpret/test_internals.py` for the primitive (search for `$ARGUMENTS`)
 - Read `src/asdex/detection/_interpret/__init__.py` to see the current dispatch and fallback setup
 
@@ -30,20 +30,25 @@ What is the Jacobian structure (permutation, selection, block-diagonal, etc.)?
 
 ### 2. Implement handler
 
-- Create `src/asdex/detection/_interpret/_$ARGUMENTS.py` with `prop_$ARGUMENTS(eqn, deps)`.
+- Create `src/asdex/detection/_interpret/_$ARGUMENTS.py` with `prop_$ARGUMENTS(eqn, state_indices)`,
+  which mutates `state_indices` in place (returns `None`).
 - Follow the handler docstring style from `_interpret/CLAUDE.md`.
 - If the primitive preserves or predictably transforms input values,
-  propagate `const_vals` so downstream handlers can stay precise.
+  propagate statically-known const values through `state_consts`
+  (see `propagate_const_unary` / `propagate_const_binary` in `_commons.py`)
+  so downstream handlers can stay precise.
 - Handle zero-sized arrays: if the output has zero elements,
-  return `[]` early before any coordinate-mapping logic
-  that would crash on zero-sized shapes.
+  assign `[]` to the output variable and return early,
+  before any coordinate-mapping logic that would crash on zero-sized shapes.
 
 ### 3. Wire up dispatch
 
 In `src/asdex/detection/_interpret/__init__.py`:
 - Import the new handler
 - Add a `case "$ARGUMENTS":` branch in `prop_dispatch` calling the handler
-- Remove `"$ARGUMENTS"` from the conservative fallback `case` group
+- If `"$ARGUMENTS"` is listed in the conservative fallback `case` group, remove it.
+  (Primitives not listed there currently hit the `case _: prop_throw_error` default,
+  so there is nothing to remove.)
 
 ### 4. Update tests
 
@@ -108,5 +113,4 @@ After any change, re-run verification (step 6).
 
 ### 8. Update docs
 
-- `TODO.md`: check off the primitive and its test items
 - `src/asdex/detection/_interpret/CLAUDE.md`: add the new module to the file listing

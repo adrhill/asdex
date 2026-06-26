@@ -44,6 +44,7 @@ Use markers to run subsets of tests:
 | `slow` | Tests that take more than 1 second |
 | `benchmark` | Performance benchmarks (skipped by default) |
 | `dashboard` | Benchmarks tracked in GitHub Pages dashboard |
+| `plot` | Matplotlib visualization smoke tests |
 | `cutest` | CUTEst benchmark problem tests (requires sif2jax) |
 
 ```bash
@@ -68,8 +69,15 @@ uv run pytest -m hessian         # Run only Hessian tests
 - `all_output_format`: Parametrizes over all output formats, including `"numpy_dense"` and the scipy formats.
 - `jacobian_mode`: Parametrizes over `"fwd"` and `"rev"`.
 - `hessian_mode`: Parametrizes over `"fwd_over_rev"`, `"rev_over_fwd"`, and `"rev_over_rev"`.
+- `chunk_size`: Parametrizes decompression chunking over `None`, `2`, and `3`.
 
 Use these fixtures in test function signatures to automatically run tests across all variants.
+
+### Sparsity helpers (`_utils.py`)
+
+- `numerical_jacobian_sparsity(f, x, atol=1e-10, holomorphic=False)`: Reference sparsity pattern from `jax.jacobian`, thresholded by `atol`.
+- `assert_jacobian_sparsity_exact(f, x, holomorphic=False)`: Assert the detected pattern equals the numerical pattern.
+- `assert_jacobian_sparsity_conservative(f, x)`: Assert the detected pattern is a conservative superset of the numerical pattern.
 
 ## Conventions
 

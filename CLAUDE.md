@@ -22,7 +22,7 @@ src/asdex/
 ├── decompression.py    # Sparse Jacobian (VJP/JVP) and Hessian (HVP) computation
 ├── detection/          # Jacobian and Hessian sparsity detection via jaxpr analysis
 │   └── _interpret/     # Custom jaxpr interpreter for index set propagation
-├── modes.py            # Type aliases for AD mode selection (JacobianMode, HessianMode)
+├── modes.py            # Type aliases for AD mode and output format selection (JacobianMode, HessianMode, OutputFormat)
 ├── pattern.py          # SparsityPattern and ColoredPattern data structures
 └── verify.py           # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
 ```
