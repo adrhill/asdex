@@ -11,7 +11,9 @@ using [row or column coloring](../explanation/coloring.md) with forward- or reve
     Always verify against vanilla JAX at least once on a new function.
     See [Verifying Results](#verifying-results) below.
 
-## Basic Usage
+## Basics
+
+### Basic Usage
 
 Pass your function and a sample input to [`jacobian`](../reference/index.md#asdex.jacobian):
 
@@ -42,13 +44,13 @@ The Jacobian is always returned as a 2D matrix
 of shape \((m, n)\) where \(n\) is the total number of input elements
 and \(m\) is the total number of output elements
 
-## Getting the Primal Value Too
+### Getting the Primal Value Too
 
 Use [`value_and_jacobian`](../reference/index.md#asdex.value_and_jacobian)
 or [`value_and_jacobian_from_coloring`](../reference/index.md#asdex.value_and_jacobian_from_coloring)
 to get `(f(x), J)` without a redundant forward pass.
 
-## Precomputing the Colored Pattern
+### Precomputing the Colored Pattern
 
 For more control,
 precompute the coloring explicitly:
@@ -87,7 +89,7 @@ for x in inputs:
     These reports directly drive improvements
     and are one of the most impactful ways to contribute.
 
-## Saving and Loading Patterns
+### Saving and Loading Patterns
 
 Save a coloring to disk and reload it in a later session:
 
@@ -109,69 +111,7 @@ jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 
 [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern) supports the same `save`/`load` interface.
 
-## Choosing Row vs Column Coloring
-
-By default, `asdex` tries both row and column coloring
-and picks whichever needs fewer colors:
-
-```python exec="true" session="jac" source="above"
-import jax.numpy as jnp
-from asdex import jacobian_coloring
-
-def f(x):
-    return (x[1:] - x[:-1]) ** 2
-
-x = jnp.zeros(100)
-
-# Automatic selection (default):
-coloring = jacobian_coloring(f, x)
-```
-
-```python exec="true" session="jac"
-print(f"```\n{coloring}\n```")
-```
-
-You can also force a specific AD mode.
-``"fwd"`` colors columns (uses JVPs, forward-mode AD),
-``"rev"`` colors rows (uses VJPs, reverse-mode AD):
-
-```python exec="true" session="jac" source="above"
-# Force forward mode (column coloring, uses JVPs):
-coloring = jacobian_coloring(f, x, mode="fwd")
-
-# Force reverse mode (row coloring, uses VJPs):
-coloring = jacobian_coloring(f, x, mode="rev")
-```
-
-```python exec="true" session="jac"
-print(f"```\n{coloring}\n```")
-```
-
-The one-call [`jacobian`](../reference/index.md#asdex.jacobian) API accepts the same `mode` parameter:
-
-```python
-jac_fn = jax.jit(jacobian(f, x, mode="rev"))
-```
-
-When the number of colors is equal,
-`asdex` prefers column coloring since JVPs are generally cheaper to compute in JAX.
-
-## Separate Detection and Coloring
-
-For even more control, you can split detection and coloring:
-
-```python
-import jax.numpy as jnp
-from asdex import jacobian_sparsity, jacobian_coloring_from_sparsity
-
-x = jnp.zeros(1000)
-sparsity = jacobian_sparsity(f, x)
-coloring = jacobian_coloring_from_sparsity(sparsity, mode="fwd")
-```
-
-This is useful when you want to manually provide a sparsity pattern.
-
-## Manually Providing a Sparsity Pattern
+### Manually Providing a Sparsity Pattern
 
 You can provide a sparsity pattern manually if you already know it ahead of time.
 Create a `SparsityPattern` from coordinate arrays, a dense matrix, or a JAX BCOO matrix.
@@ -218,7 +158,7 @@ jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 J = jac_fn(x)
 ```
 
-## Verifying Results
+### Verifying Results
 
 Use [`check_jacobian_correctness`][asdex.check_jacobian_correctness]
 to verify `asdex`'s sparse Jacobian against vanilla JAX.
@@ -257,3 +197,67 @@ check_jacobian_correctness(f, x, coloring, method="dense")
 
     `method="dense"` materializes the full dense Jacobian,
     which is computationally very expensive for large problems.
+
+## Advanced
+
+### Choosing Row vs Column Coloring
+
+By default, `asdex` tries both row and column coloring
+and picks whichever needs fewer colors:
+
+```python exec="true" session="jac" source="above"
+import jax.numpy as jnp
+from asdex import jacobian_coloring
+
+def f(x):
+    return (x[1:] - x[:-1]) ** 2
+
+x = jnp.zeros(100)
+
+# Automatic selection (default):
+coloring = jacobian_coloring(f, x)
+```
+
+```python exec="true" session="jac"
+print(f"```\n{coloring}\n```")
+```
+
+You can also force a specific AD mode.
+``"fwd"`` colors columns (uses JVPs, forward-mode AD),
+``"rev"`` colors rows (uses VJPs, reverse-mode AD):
+
+```python exec="true" session="jac" source="above"
+# Force forward mode (column coloring, uses JVPs):
+coloring = jacobian_coloring(f, x, mode="fwd")
+
+# Force reverse mode (row coloring, uses VJPs):
+coloring = jacobian_coloring(f, x, mode="rev")
+```
+
+```python exec="true" session="jac"
+print(f"```\n{coloring}\n```")
+```
+
+The one-call [`jacobian`](../reference/index.md#asdex.jacobian) API accepts the same `mode` parameter:
+
+```python
+jac_fn = jax.jit(jacobian(f, x, mode="rev"))
+```
+
+When the number of colors is equal,
+`asdex` prefers column coloring since JVPs are generally cheaper to compute in JAX.
+
+### Separate Detection and Coloring
+
+For even more control, you can split detection and coloring:
+
+```python
+import jax.numpy as jnp
+from asdex import jacobian_sparsity, jacobian_coloring_from_sparsity
+
+x = jnp.zeros(1000)
+sparsity = jacobian_sparsity(f, x)
+coloring = jacobian_coloring_from_sparsity(sparsity, mode="fwd")
+```
+
+This is useful when you want to manually provide a sparsity pattern.

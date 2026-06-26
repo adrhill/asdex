@@ -11,7 +11,9 @@ using symmetric coloring and forward-over-reverse AD.
     Always verify against vanilla JAX at least once on a new function.
     See [Verifying Results](#verifying-results) below.
 
-## Basic Usage
+## Basics
+
+### Basic Usage
 
 Pass your scalar-valued function and a sample input to [`hessian`](../reference/index.md#asdex.hessian):
 
@@ -41,13 +43,13 @@ for x in inputs:
 The Hessian is always returned as a 2D matrix
 of shape \((n, n)\) where \(n\) is the total number of input elements.
 
-## Getting the Primal Value Too
+### Getting the Primal Value Too
 
 Use [`value_and_hessian`](../reference/index.md#asdex.value_and_hessian)
 or [`value_and_hessian_from_coloring`](../reference/index.md#asdex.value_and_hessian_from_coloring)
 to get `(f(x), H)` without a redundant forward pass.
 
-## Precomputing the Colored Pattern
+### Precomputing the Colored Pattern
 
 For more control,
 precompute the coloring explicitly:
@@ -86,7 +88,7 @@ for x in inputs:
     These reports directly drive improvements
     and are one of the most impactful ways to contribute.
 
-## Saving and Loading Patterns
+### Saving and Loading Patterns
 
 Save a coloring to disk and reload it in a later session:
 
@@ -108,55 +110,7 @@ hess_fn = jax.jit(hessian_from_coloring(g, coloring))
 
 [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern) supports the same `save`/`load` interface.
 
-## Symmetric Coloring
-
-Hessians are symmetric (\(H = H^\top\)),
-and `asdex` exploits this with *star coloring*
-(Gebremedhin et al., 2005).
-Symmetric coloring typically needs fewer colors than row or column coloring,
-since both \(H_{ij}\) and \(H_{ji}\) can be recovered from a single coloring.
-
-The convenience functions [`hessian_coloring`](../reference/index.md#asdex.hessian_coloring) and [`hessian`](../reference/index.md#asdex.hessian) use symmetric coloring automatically.
-Here we use the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function),
-a classic optimization benchmark whose Hessian is tridiagonal:
-
-\[f(x) = \sum_{i=1}^{n-1} \left[(1 - x_i)^2 + 100\,(x_{i+1} - x_i^2)^2\right]\]
-
-```python exec="true" session="hess" source="above"
-import jax.numpy as jnp
-from asdex import hessian_coloring
-
-def rosenbrock(x):
-    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
-
-x = jnp.zeros(100)
-coloring = hessian_coloring(rosenbrock, x)
-```
-
-```python exec="true" session="hess"
-print(f"```\n{coloring}\n```")
-```
-
-## Separate Detection and Coloring
-
-For even more control, you can split detection and coloring:
-
-```python
-import jax.numpy as jnp
-from asdex import hessian_sparsity, hessian_coloring_from_sparsity
-
-x = jnp.zeros(100)
-sparsity = hessian_sparsity(g, x)
-coloring = hessian_coloring_from_sparsity(sparsity)
-```
-
-Since the Hessian is the Jacobian of the gradient,
-`hessian_sparsity` simply calls `jacobian_sparsity(jax.grad(f), x)`.
-The [sparsity interpreter](../explanation/sparsity-detection.md) composes naturally with JAX's autodiff transforms.
-
-This is useful when you want to manually provide a sparsity pattern.
-
-## Manually Providing a Sparsity Pattern
+### Manually Providing a Sparsity Pattern
 
 You can provide a sparsity pattern manually if you already know it ahead of time.
 Create a `SparsityPattern` from coordinate arrays, a dense matrix, or a JAX BCOO matrix.
@@ -204,38 +158,7 @@ hess_fn = jax.jit(hessian_from_coloring(f, coloring))
 H = hess_fn(x)
 ```
 
-## Choosing an HVP Mode
-
-By default, `hessian` uses forward-over-reverse AD to compute Hessian-vector products.
-You can select a different AD composition strategy via the `mode` parameter:
-
-```python
-import jax.numpy as jnp
-from asdex import hessian
-
-x = jnp.zeros(100)
-hess_fn_for = jax.jit(hessian(f, x, mode="fwd_over_rev"))  # default
-hess_fn_rof = jax.jit(hessian(f, x, mode="rev_over_fwd"))
-hess_fn_ror = jax.jit(hessian(f, x, mode="rev_over_rev"))
-```
-
-All three modes produce the same mathematical result.
-They differ in how JAX's AD primitives are composed:
-
-- **`fwd_over_rev`** (default): `jvp(grad(f), ...)`.
-    Generally the fastest under JIT.
-- **`rev_over_fwd`**: `grad(lambda p: jvp(f, (p,), (v,))[1])`.
-    Can use less memory than forward-over-reverse for functions with many intermediates.
-- **`rev_over_rev`**: `grad(lambda y: dot(grad(f)(y), v))`.
-    Avoids forward-mode entirely;
-    useful when forward-mode is expensive or unsupported.
-
-!!! tip
-
-    When in doubt, stick with the default `"fwd_over_rev"`.
-    It is the most widely used and typically the most efficient under `jax.jit`.
-
-## Verifying Results
+### Verifying Results
 
 Use [`check_hessian_correctness`][asdex.check_hessian_correctness]
 to verify `asdex`'s sparse Hessian against vanilla JAX.
@@ -274,3 +197,84 @@ check_hessian_correctness(g, x, coloring, method="dense")
 
     `method="dense"` materializes the full dense Hessian,
     which is computationally very expensive for large problems.
+
+## Advanced
+
+### Symmetric Coloring
+
+Hessians are symmetric (\(H = H^\top\)),
+and `asdex` exploits this with *star coloring*
+(Gebremedhin et al., 2005).
+Symmetric coloring typically needs fewer colors than row or column coloring,
+since both \(H_{ij}\) and \(H_{ji}\) can be recovered from a single coloring.
+
+The convenience functions [`hessian_coloring`](../reference/index.md#asdex.hessian_coloring) and [`hessian`](../reference/index.md#asdex.hessian) use symmetric coloring automatically.
+Here we use the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function),
+a classic optimization benchmark whose Hessian is tridiagonal:
+
+\[f(x) = \sum_{i=1}^{n-1} \left[(1 - x_i)^2 + 100\,(x_{i+1} - x_i^2)^2\right]\]
+
+```python exec="true" session="hess" source="above"
+import jax.numpy as jnp
+from asdex import hessian_coloring
+
+def rosenbrock(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.zeros(100)
+coloring = hessian_coloring(rosenbrock, x)
+```
+
+```python exec="true" session="hess"
+print(f"```\n{coloring}\n```")
+```
+
+### Choosing an HVP Mode
+
+By default, `hessian` uses forward-over-reverse AD to compute Hessian-vector products.
+You can select a different AD composition strategy via the `mode` parameter:
+
+```python
+import jax.numpy as jnp
+from asdex import hessian
+
+x = jnp.zeros(100)
+hess_fn_for = jax.jit(hessian(f, x, mode="fwd_over_rev"))  # default
+hess_fn_rof = jax.jit(hessian(f, x, mode="rev_over_fwd"))
+hess_fn_ror = jax.jit(hessian(f, x, mode="rev_over_rev"))
+```
+
+All three modes produce the same mathematical result.
+They differ in how JAX's AD primitives are composed:
+
+- **`fwd_over_rev`** (default): `jvp(grad(f), ...)`.
+    Generally the fastest under JIT.
+- **`rev_over_fwd`**: `grad(lambda p: jvp(f, (p,), (v,))[1])`.
+    Can use less memory than forward-over-reverse for functions with many intermediates.
+- **`rev_over_rev`**: `grad(lambda y: dot(grad(f)(y), v))`.
+    Avoids forward-mode entirely;
+    useful when forward-mode is expensive or unsupported.
+
+!!! tip
+
+    When in doubt, stick with the default `"fwd_over_rev"`.
+    It is the most widely used and typically the most efficient under `jax.jit`.
+
+### Separate Detection and Coloring
+
+For even more control, you can split detection and coloring:
+
+```python
+import jax.numpy as jnp
+from asdex import hessian_sparsity, hessian_coloring_from_sparsity
+
+x = jnp.zeros(100)
+sparsity = hessian_sparsity(g, x)
+coloring = hessian_coloring_from_sparsity(sparsity)
+```
+
+Since the Hessian is the Jacobian of the gradient,
+`hessian_sparsity` simply calls `jacobian_sparsity(jax.grad(f), x)`.
+The [sparsity interpreter](../explanation/sparsity-detection.md) composes naturally with JAX's autodiff transforms.
+
+This is useful when you want to manually provide a sparsity pattern.
