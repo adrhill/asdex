@@ -752,19 +752,26 @@ GitHub/PyPI). Anchors are the slugified section headers.
 ```markdown
 ## Features
 
-- Efficient computation of **Sparse [Jacobians](https://adrianhill.de/asdex/how-to/jacobians/) and [Hessians](https://adrianhill.de/asdex/how-to/hessians/)**: one VJP/JVP/HVP per color, with automatic (or user-defined) mode selection.
-- **Sparsity detection**: a custom [jaxpr interpreter](https://adrianhill.de/asdex/explanation/sparsity-detection/) finds [global sparsity patterns](https://adrianhill.de/asdex/explanation/global-sparsity/) valid for all inputs.
-- **Graph coloring**: [row, column, and symmetric coloring](https://adrianhill.de/asdex/explanation/coloring/) to minimize AD passes.
+**The full ASD pipeline:**
+- **Efficient computation of Sparse [Jacobians](https://adrianhill.de/asdex/how-to/jacobians/) and [Hessians](https://adrianhill.de/asdex/how-to/hessians/)**: one VJP/JVP/HVP per color, with automatic (or user-defined) mode selection.
+- **[Sparsity detection](https://adrianhill.de/asdex/explanation/sparsity-detection/)**: a custom jaxpr interpreter finds [global sparsity patterns](https://adrianhill.de/asdex/explanation/global-sparsity/) valid for all inputs.
+- **[Graph coloring](https://adrianhill.de/asdex/explanation/coloring/)**: row, column, and symmetric coloring to minimize AD passes.
 - **[Correctness verification](https://adrianhill.de/asdex/how-to/verification/)**: `check_jacobian_correctness` / `check_hessian_correctness` against vanilla JAX.
-- **[Manual sparsity patterns](https://adrianhill.de/asdex/how-to/jacobians/#manually-providing-a-sparsity-pattern)**: supply a known pattern from dense, COO, or BCOO formats.
+
+**You already know your sparsity pattern?**
+- **[Manually provide sparsity patterns](https://adrianhill.de/asdex/how-to/jacobians/#manually-providing-a-sparsity-pattern)**: supply a known pattern from dense, COO, or BCOO formats.
 - **[Precompute, save & load](https://adrianhill.de/asdex/how-to/jacobians/#precomputing-the-colored-pattern)**: reuse a `ColoredPattern` across inputs, or persist it with `.save()` / `.load()`.
-- **[Value and derivative](https://adrianhill.de/asdex/how-to/jacobians/#getting-the-primal-value-too)**: `value_and_jacobian` / `value_and_hessian` return the primal value `f(x)` without a redundant forward pass.
+
+**An interface mirroring JAX:**
 - **[Multiple inputs and outputs](https://adrianhill.de/asdex/how-to/jacobians/#multiple-inputs-and-outputs)**: multi-argument functions via `argnums` and multiple return values, mirroring `jax.jacobian`.
-- **[PyTree inputs and outputs](https://adrianhill.de/asdex/how-to/jacobians/#pytree-inputs-and-outputs)**: differentiate through arbitrary nested [PyTrees](https://docs.jax.dev/en/latest/pytrees.html).
-- **[Auxiliary outputs](https://adrianhill.de/asdex/how-to/jacobians/#auxiliary-outputs)**: `has_aux=True` for functions returning `(output, aux)`.
-- **[Output formats](https://adrianhill.de/asdex/how-to/jacobians/#output-formats)**: decompression to BCOO (default), dense JAX arrays, NumPy, and SciPy (COO/CSR/CSC) arrays.
+- **[PyTree inputs and outputs](https://adrianhill.de/asdex/how-to/jacobians/#pytree-inputs-and-outputs)**: sparse differentiation through arbitrary nested [PyTrees](https://docs.jax.dev/en/latest/pytrees.html).
+- **[Auxiliary outputs](https://adrianhill.de/asdex/how-to/jacobians/#auxiliary-outputs)**: supports `has_aux=True` for functions returning `(output, aux)`.
+- **[Value and derivative](https://adrianhill.de/asdex/how-to/jacobians/#getting-the-primal-value-too)**: `value_and_jacobian` / `value_and_hessian` return the primal value `f(x)` without a redundant forward pass.
+
+**And more:**
+- **[Multiple output formats](https://adrianhill.de/asdex/how-to/jacobians/#output-formats)**: decompression to BCOO (default), dense JAX arrays, NumPy, and SciPy (COO/CSR/CSC) arrays.
 - **[Bounded memory](https://adrianhill.de/asdex/how-to/jacobians/#reducing-peak-memory-with-chunking)**: `chunk_size` caps parallel AD passes for large color counts.
-- **[Visualization](https://adrianhill.de/asdex/how-to/visualization/)**: `spy` plots and braille pattern previews.
+- **[Visualizations](https://adrianhill.de/asdex/how-to/visualization/)**: `spy` plots and braille pattern previews.
 ```
 
 Anchor sanity-check (mkdocs/Material slugify lowercases, spaces → `-`, drops other
