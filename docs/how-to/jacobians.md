@@ -7,9 +7,10 @@ using [row or column coloring](../explanation/coloring.md) with forward- or reve
 !!! tip "Verify correctness at least once"
 
     asdex's [sparsity patterns](../explanation/global-sparsity.md) should always be conservative,
-    but a bug in [sparsity detection](../explanation/sparsity-detection.md) could cause missing nonzeros.
+    but a bug in [sparsity detection](../explanation/sparsity-detection.md) could cause missing nonzeros,
+    resulting in wrong Jacobians or Hessians.
     Always verify against vanilla JAX at least once on a new function.
-    See [Verifying Results](#verifying-results) below.
+    See [Verifying Correctness](verification.md).
 
 ## Basics
 
@@ -39,7 +40,6 @@ for x in inputs:
     J = jac_fn(x)
 ```
 
-`asdex` supports multi-dimensional input and output arrays.
 The Jacobian is always returned as a 2D matrix
 of shape \((m, n)\) where \(n\) is the total number of input elements
 and \(m\) is the total number of output elements
@@ -160,43 +160,10 @@ J = jac_fn(x)
 
 ### Verifying Results
 
-Use [`check_jacobian_correctness`][asdex.check_jacobian_correctness]
-to verify `asdex`'s sparse Jacobian against vanilla JAX.
-
-```python
-from asdex import check_jacobian_correctness, jacobian_coloring
-
-coloring = jacobian_coloring(f, x)
-check_jacobian_correctness(f, x, coloring)
-```
-
-Use verification for debugging and initial setup, not in production loops.
-A good place to call it is in your test suite.
-
-By default, this uses randomized matrix-vector products (`method="matvec"`)
-to check the sparse Jacobian against JVPs or VJPs.
-The AD mode is derived from the coloring.
-This is cheap — O(k) in the number of probes — and scales to large problems.
-If the results match, the function returns silently.
-If they disagree, it raises a [`VerificationError`][asdex.VerificationError].
-
-You can also set custom tolerances, the number of probes, and the PRNG seed:
-
-```python
-check_jacobian_correctness(f, x, coloring, rtol=1e-5, atol=1e-5, num_probes=50, seed=42)
-```
-
-For an exact element-wise comparison against the full dense Jacobian,
-use `method="dense"`:
-
-```python
-check_jacobian_correctness(f, x, coloring, method="dense")
-```
-
-!!! warning "Dense computation"
-
-    `method="dense"` materializes the full dense Jacobian,
-    which is computationally very expensive for large problems.
+Always check a new function against vanilla JAX at least once.
+See [Verifying Correctness](verification.md) for
+[`check_jacobian_correctness`][asdex.check_jacobian_correctness] / [`check_hessian_correctness`][asdex.check_hessian_correctness],
+the `matvec` vs `dense` methods, and tolerance options.
 
 ## Advanced
 
@@ -261,3 +228,255 @@ coloring = jacobian_coloring_from_sparsity(sparsity, mode="fwd")
 ```
 
 This is useful when you want to manually provide a sparsity pattern.
+
+### Multiple Inputs and Outputs
+
+`asdex` mirrors `jax.jacobian`:
+it differentiates functions of several arguments,
+selecting which arguments to differentiate with `argnums`.
+
+Pass a sample value for each positional argument,
+and select the ones to differentiate with `argnums`:
+
+```python exec="true" session="jac-multi" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import jacobian
+
+def f(x, y):
+    return x * y
+
+x = jnp.arange(1.0, 4.0)
+y = jnp.arange(4.0, 7.0)
+
+Jx, Jy = jax.jit(jacobian(f, x, y, argnums=(0, 1)))(x, y)  # one block per selected arg
+```
+
+```python exec="true" session="jac-multi"
+print(f"""```
+Jx: {type(Jx).__name__} {Jx.shape}
+Jy: {type(Jy).__name__} {Jy.shape}
+```""")
+```
+
+With an integer `argnums` (the default `0`) a single block is returned, not a tuple.
+Arguments not named by `argnums` are still passed at call time and held fixed,
+yet they can still influence the result.
+Here `scale` is not differentiated, but it scales every entry of the Jacobian:
+
+```python exec="true" session="jac-multi" source="above"
+def scaled(x, scale):
+    return scale * x ** 2
+
+J2 = jacobian(scaled, x, 2.0, argnums=0)(x, 2.0)
+J5 = jacobian(scaled, x, 5.0, argnums=0)(x, 5.0)
+```
+
+```python exec="true" session="jac-multi"
+print(f"""```
+scale=2 -> diagonal {J2.todense().diagonal()}
+scale=5 -> diagonal {J5.todense().diagonal()}
+```""")
+```
+
+A function may also return several outputs.
+The Jacobian then mirrors the output structure,
+with one block per (output, selected argument) pair, exactly like `jax.jacobian`:
+
+```python exec="true" session="jac-multi" source="above"
+def f_multi(x, y):
+    return x * y, x + y  # two outputs
+
+J = jax.jit(jacobian(f_multi, x, y, argnums=(0, 1)))(x, y)
+```
+
+```python exec="true" session="jac-multi"
+dxy_dx = J[0][0]  # d(x * y) / dx: first output w.r.t. first argument
+print(f"""```
+outer length (outputs):    {len(J)}
+inner length (arguments):  {len(J[0])}
+J[0][0] = d(x*y)/dx:       {dxy_dx.shape}
+```""")
+```
+
+### PyTree Inputs and Outputs
+
+A single argument can itself be an arbitrary [PyTree](https://docs.jax.dev/en/latest/pytrees.html),
+such as a dictionary of parameters.
+The Jacobian comes back as a matching PyTree of blocks:
+
+```python exec="true" session="jac-pt" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import jacobian
+
+def loss(params):
+    return params["weight"] * jnp.sin(params["bias"])
+
+params = {"weight": jnp.arange(1.0, 4.0), "bias": jnp.linspace(0.0, 1.0, 3)}
+J = jax.jit(jacobian(loss, params))(params)
+```
+
+```python exec="true" session="jac-pt"
+print(f"""```
+keys:        {sorted(J)}
+J['weight']: {type(J['weight']).__name__} {J['weight'].shape}
+J['bias']:   {type(J['bias']).__name__} {J['bias'].shape}
+```""")
+```
+
+PyTree *outputs* are supported too.
+The result has `(output_tree, input_tree)` structure, exactly like `jax.jacobian`:
+one block per output leaf, each shaped `(*output_leaf_shape, *input_leaf_shape)`.
+
+```python exec="true" session="jac-pt" source="above"
+def f_out(x):
+    return {"squared": x ** 2, "total": jnp.sum(x)}
+
+x = jnp.arange(1.0, 4.0)
+J = jax.jit(jacobian(f_out, x))(x)
+```
+
+```python exec="true" session="jac-pt"
+print(f"""```
+keys:         {sorted(J)}
+J['squared']: {J['squared'].shape}   # (3,) output, (3,) input
+J['total']:   {J['total'].shape}      # scalar output, (3,) input
+```""")
+```
+
+### Auxiliary Outputs
+
+Set `has_aux=True` when your function returns `(output, auxiliary_data)`, mirroring `jax.jacrev`.
+The auxiliary data is passed through untouched, useful for diagnostics, intermediate values, or model state.
+
+```python exec="true" session="jac-aux" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import jacobian
+
+def f(x):
+    y = x ** 2
+    return y, {"mean_sq": jnp.mean(y)}  # (output, aux)
+
+x = jnp.arange(1.0, 4.0)
+J, aux = jax.jit(jacobian(f, x, has_aux=True))(x)
+```
+
+```python exec="true" session="jac-aux"
+print(f"""```
+J:       {type(J).__name__} {J.shape}
+mean_sq: {float(aux['mean_sq']):.3f}
+```""")
+```
+
+[`value_and_jacobian`](../reference/index.md#asdex.value_and_jacobian) nests aux next to the value,
+matching `jax.value_and_grad` ordering, giving `((value, aux), J)`:
+
+```python exec="true" session="jac-aux" source="above"
+from asdex import value_and_jacobian
+
+(value, aux), J = value_and_jacobian(f, x, has_aux=True)(x)
+```
+
+```python exec="true" session="jac-aux"
+print(f"""```
+value:   {value.shape}
+mean_sq: {float(aux['mean_sq']):.3f}
+```""")
+```
+
+The auxiliary data may hold arbitrary Python objects, not just JAX arrays.
+It is extracted from the forward pass that AD already runs,
+so returning it adds no extra evaluation of `f`.
+
+### Output Formats
+
+By default, `asdex` returns sparse matrices as JAX [BCOO](https://docs.jax.dev/en/latest/jax.experimental.sparse.html) arrays.
+The `output_format` argument selects a different container.
+It is accepted by [`jacobian`](../reference/index.md#asdex.jacobian),
+its `value_and_*` variant, and the `*_from_coloring` variants.
+
+| `output_format` | Returned type | JIT-able by caller |
+|-----------------|---------------|--------------------|
+| `"bcoo"` (default) | `jax.experimental.sparse.BCOO` | yes |
+| `"dense"` | `jax.Array` | yes |
+| `"numpy_dense"` | `numpy.ndarray` | no |
+| `"scipy_coo"` | `scipy.sparse.coo_array` | no |
+| `"scipy_csr"` | `scipy.sparse.csr_array` | no |
+| `"scipy_csc"` | `scipy.sparse.csc_array` | no |
+
+```python exec="true" session="jac-fmt" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import jacobian
+
+def f(x):
+    return (x[1:] - x[:-1]) ** 2
+
+x = jnp.arange(1.0, 6.0)
+
+J_bcoo = jax.jit(jacobian(f, x))(x)                          # BCOO (default)
+J_dense = jax.jit(jacobian(f, x, output_format="dense"))(x)  # jax.Array
+J_csr = jacobian(f, x, output_format="scipy_csr")(x)         # scipy.sparse.csr_array
+```
+
+```python exec="true" session="jac-fmt"
+print(f"""```
+bcoo:       {type(J_bcoo).__name__}
+dense:      {type(J_dense).__name__}  shape={J_dense.shape}
+scipy_csr:  {type(J_csr).__name__}  nnz={J_csr.nnz}
+```""")
+```
+
+!!! warning "Host formats are not JIT-able by the caller"
+
+    `"numpy_dense"` and the scipy formats produce non-JAX arrays,
+    so you cannot wrap the returned function in `jax.jit`.
+    `asdex` JIT-compiles their core internally, so they stay fast anyway.
+    Just call them directly:
+
+    ```python
+    J = jacobian(f, x, output_format="numpy_dense")(x)  # do NOT jax.jit this
+    ```
+
+!!! info "SciPy formats are 2D-only"
+
+    SciPy sparse arrays are strictly 2D.
+    They require the input and output to each be a single flat 1D array.
+    `asdex` flattens and checks the full input structure up front.
+    Any other shape, such as a multi-dimensional array, multiple arguments,
+    or an arbitrarily nested PyTree, raises a clear `ValueError` rather than a wrong result.
+    Note that SciPy is an optional dependency. Install it via `pip install 'asdex[scipy]'`.
+
+Structural non-zeros that happen to be numerically zero at the evaluation point are kept as explicit entries in the `BCOO` and scipy outputs,
+so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md) and is independent of `x`.
+
+### Reducing Peak Memory with Chunking
+
+Each color requires one VJP/JVP, and by default `asdex` evaluates **all** colors in a single `jax.vmap` batch.
+For large patterns with many colors on memory-constrained hardware, `chunk_size` caps how many colors run in parallel:
+chunks are processed sequentially via `jax.lax.map`, lowering the peak memory usage:
+
+```python exec="true" session="jac-chunk" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import jacobian
+
+def f(x):
+    return (x[1:] - x[:-1]) ** 2
+
+x = jnp.arange(1.0, 101.0)
+
+# Evaluate at most 16 colors in parallel at a time:
+J = jax.jit(jacobian(f, x, chunk_size=16))(x)
+```
+
+```python exec="true" session="jac-chunk"
+print(f"```\nJ: {type(J).__name__} {J.shape}, nse={J.nse}\n```")
+```
+
+The result is identical to the default (`chunk_size=None`), only peak memory and runtime change.
+`chunk_size` is accepted by [`jacobian`](../reference/index.md#asdex.jacobian),
+[`value_and_jacobian`](../reference/index.md#asdex.value_and_jacobian), and
+[`jacobian_from_coloring`](../reference/index.md#asdex.jacobian_from_coloring).

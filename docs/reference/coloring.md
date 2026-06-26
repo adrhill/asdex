@@ -15,3 +15,10 @@
 ::: asdex.color_rows
 ::: asdex.color_cols
 ::: asdex.color_symmetric
+
+## Validation
+
+::: asdex.check_coloring_rows
+::: asdex.check_coloring_cols
+::: asdex.check_coloring_symmetric
+::: asdex.InvalidColoringError

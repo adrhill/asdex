@@ -7,9 +7,10 @@ using symmetric coloring and forward-over-reverse AD.
 !!! tip "Verify correctness at least once"
 
     asdex's [sparsity patterns](../explanation/global-sparsity.md) should always be conservative,
-    but a bug in [sparsity detection](../explanation/sparsity-detection.md) could cause missing nonzeros.
+    but a bug in [sparsity detection](../explanation/sparsity-detection.md) could cause missing nonzeros,
+    resulting in wrong Jacobians or Hessians.
     Always verify against vanilla JAX at least once on a new function.
-    See [Verifying Results](#verifying-results) below.
+    See [Verifying Correctness](verification.md).
 
 ## Basics
 
@@ -160,43 +161,10 @@ H = hess_fn(x)
 
 ### Verifying Results
 
-Use [`check_hessian_correctness`][asdex.check_hessian_correctness]
-to verify `asdex`'s sparse Hessian against vanilla JAX.
-
-```python
-from asdex import check_hessian_correctness, hessian_coloring
-
-coloring = hessian_coloring(g, x)
-check_hessian_correctness(g, x, coloring)
-```
-
-Use verification for debugging and initial setup, not in production loops.
-A good place to call it is in your test suite.
-
-By default, this uses randomized matrix-vector products (`method="matvec"`)
-to check the sparse Hessian against an HVP reference.
-The AD mode is derived from the coloring.
-This is cheap — O(k) in the number of probes — and scales to large problems.
-If the results match, the function returns silently.
-If they disagree, it raises a [`VerificationError`][asdex.VerificationError].
-
-You can also set custom tolerances, the number of probes, and the PRNG seed:
-
-```python
-check_hessian_correctness(g, x, coloring, rtol=1e-5, atol=1e-5, num_probes=50, seed=42)
-```
-
-For an exact element-wise comparison against the full dense Hessian,
-use `method="dense"`:
-
-```python
-check_hessian_correctness(g, x, coloring, method="dense")
-```
-
-!!! warning "Dense computation"
-
-    `method="dense"` materializes the full dense Hessian,
-    which is computationally very expensive for large problems.
+Always check a new function against vanilla JAX at least once.
+See [Verifying Correctness](verification.md) for
+[`check_jacobian_correctness`][asdex.check_jacobian_correctness] / [`check_hessian_correctness`][asdex.check_hessian_correctness],
+the `matvec` vs `dense` methods, and tolerance options.
 
 ## Advanced
 
@@ -278,3 +246,204 @@ Since the Hessian is the Jacobian of the gradient,
 The [sparsity interpreter](../explanation/sparsity-detection.md) composes naturally with JAX's autodiff transforms.
 
 This is useful when you want to manually provide a sparsity pattern.
+
+### Multiple Inputs
+
+`asdex` mirrors `jax.hessian`:
+it differentiates functions of several arguments,
+selecting which arguments to differentiate with `argnums`.
+A Hessian requires a scalar output, so there is no multiple-output case.
+
+Pass a sample value for each positional argument,
+and select the ones to differentiate with `argnums`.
+With a tuple `argnums` the result is a nested `(input_tree, input_tree)` grid,
+mirroring `jax.hessian`:
+`H[i][j]` is the second derivative with respect to argument `i` and argument `j`,
+so the full block grid is shown rather than a single corner.
+
+```python exec="true" session="hess-multi" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def f(x, y):
+    return jnp.sum(x ** 2 * y)
+
+x = jnp.arange(1.0, 4.0)
+y = jnp.arange(4.0, 7.0)
+
+H = jax.jit(hessian(f, x, y, argnums=(0, 1)))(x, y)
+```
+
+```python exec="true" session="hess-multi"
+Hxx = H[0][0]  # ∂²f/∂x²
+Hxy = H[0][1]  # ∂²f/∂x∂y
+Hyy = H[1][1]  # ∂²f/∂y²
+print(f"""```
+grid shape:           {len(H)} x {len(H[0])}
+H[0][0]  d2f/dx2:     {type(Hxx).__name__} {Hxx.shape}
+H[0][1]  d2f/dx dy:   {type(Hxy).__name__} {Hxy.shape}
+H[1][1]  d2f/dy2:     {type(Hyy).__name__} {Hyy.shape}
+```""")
+```
+
+### PyTree Inputs
+
+A single argument can itself be an arbitrary [PyTree](https://docs.jax.dev/en/latest/pytrees.html),
+such as a dictionary of parameters.
+For a PyTree argument the Hessian is a matching nested structure of blocks,
+here a dict-of-dicts, where `H[i][j]` couples leaves `i` and `j`:
+
+```python exec="true" session="hess-pt" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def loss(params):
+    return jnp.sum(params["a"] ** 2 * params["b"])
+
+params = {"a": jnp.arange(1.0, 4.0), "b": jnp.arange(4.0, 7.0)}
+H = jax.jit(hessian(loss, params))(params)
+```
+
+```python exec="true" session="hess-pt"
+Has = H["a"]["a"]  # ∂²/∂a²
+Hab = H["a"]["b"]  # ∂²/∂a∂b
+print(f"""```
+outer keys:            {sorted(H)}
+H['a']['a']  d2/da2:   {type(Has).__name__} {Has.shape}
+H['a']['b']  d2/da db: {type(Hab).__name__} {Hab.shape}
+```""")
+```
+
+### Auxiliary Outputs
+
+Set `has_aux=True` when your function returns `(output, auxiliary_data)`, mirroring `jax.hessian`.
+The auxiliary data is passed through untouched, useful for diagnostics, intermediate values, or model state.
+
+```python exec="true" session="hess-aux" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def g(x):
+    return jnp.sum(x ** 3), {"norm": jnp.linalg.norm(x)}  # (output, aux)
+
+x = jnp.arange(1.0, 4.0)
+H, aux = jax.jit(hessian(g, x, has_aux=True))(x)
+```
+
+```python exec="true" session="hess-aux"
+print(f"""```
+H:    {type(H).__name__} {H.shape}
+norm: {float(aux['norm']):.3f}
+```""")
+```
+
+[`value_and_hessian`](../reference/index.md#asdex.value_and_hessian) nests aux next to the value,
+matching `jax.value_and_grad` ordering, giving `((value, aux), H)`:
+
+```python exec="true" session="hess-aux" source="above"
+from asdex import value_and_hessian
+
+(value, aux), H = value_and_hessian(g, x, has_aux=True)(x)
+```
+
+```python exec="true" session="hess-aux"
+print(f"""```
+value:   {value.shape}
+norm:    {float(aux['norm']):.3f}
+```""")
+```
+
+The auxiliary data may hold arbitrary Python objects, not just JAX arrays.
+It is extracted from the forward pass that AD already runs,
+so returning it adds no extra evaluation of `f`.
+
+### Output Formats
+
+By default, `asdex` returns sparse matrices as JAX [BCOO](https://docs.jax.dev/en/latest/jax.experimental.sparse.html) arrays.
+The `output_format` argument selects a different container.
+It is accepted by [`hessian`](../reference/index.md#asdex.hessian),
+its `value_and_*` variant, and the `*_from_coloring` variants.
+
+| `output_format` | Returned type | JIT-able by caller |
+|-----------------|---------------|--------------------|
+| `"bcoo"` (default) | `jax.experimental.sparse.BCOO` | yes |
+| `"dense"` | `jax.Array` | yes |
+| `"numpy_dense"` | `numpy.ndarray` | no |
+| `"scipy_coo"` | `scipy.sparse.coo_array` | no |
+| `"scipy_csr"` | `scipy.sparse.csr_array` | no |
+| `"scipy_csc"` | `scipy.sparse.csc_array` | no |
+
+```python exec="true" session="hess-fmt" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.arange(1.0, 6.0)
+
+H_dense = jax.jit(hessian(g, x, output_format="dense"))(x)  # jax.Array
+H_csr = hessian(g, x, output_format="scipy_csr")(x)         # scipy.sparse.csr_array
+```
+
+```python exec="true" session="hess-fmt"
+print(f"""```
+dense:     {type(H_dense).__name__} {H_dense.shape}
+scipy_csr: {type(H_csr).__name__} nnz={H_csr.nnz}
+```""")
+```
+
+!!! warning "Host formats are not JIT-able by the caller"
+
+    `"numpy_dense"` and the scipy formats produce non-JAX arrays,
+    so you cannot wrap the returned function in `jax.jit`.
+    `asdex` JIT-compiles their core internally, so they stay fast anyway.
+    Just call them directly:
+
+    ```python
+    H = hessian(g, x, output_format="numpy_dense")(x)  # do NOT jax.jit this
+    ```
+
+!!! info "SciPy formats are 2D-only"
+
+    SciPy sparse arrays are strictly 2D.
+    They require the input to be a single flat 1D array.
+    `asdex` flattens and checks the full input structure up front.
+    Any other shape, such as a multi-dimensional array, multiple arguments,
+    or an arbitrarily nested PyTree, raises a clear `ValueError` rather than a wrong result.
+    Note that SciPy is an optional dependency. Install it via `pip install 'asdex[scipy]'`.
+
+Structural non-zeros that happen to be numerically zero at the evaluation point are kept as explicit entries in the `BCOO` and scipy outputs,
+so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md) and is independent of `x`.
+
+### Reducing Peak Memory with Chunking
+
+Each color requires one HVP, and by default `asdex` evaluates **all** colors in a single `jax.vmap` batch.
+For large patterns with many colors on memory-constrained hardware, `chunk_size` caps how many colors run in parallel:
+chunks are processed sequentially via `jax.lax.map`, lowering the peak memory usage:
+
+```python exec="true" session="hess-chunk" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.arange(1.0, 101.0)
+
+H = jax.jit(hessian(g, x, chunk_size=16))(x)  # at most 16 HVPs in parallel
+```
+
+```python exec="true" session="hess-chunk"
+print(f"```\nH: {type(H).__name__} {H.shape}, nse={H.nse}\n```")
+```
+
+The result is identical to the default (`chunk_size=None`), only peak memory and runtime change.
+`chunk_size` is accepted by [`hessian`](../reference/index.md#asdex.hessian),
+[`value_and_hessian`](../reference/index.md#asdex.value_and_hessian), and
+[`hessian_from_coloring`](../reference/index.md#asdex.hessian_from_coloring).

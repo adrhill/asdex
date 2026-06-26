@@ -40,6 +40,7 @@ nav:
   - How-To Guides:
       - Sparse Jacobians: how-to/jacobians.md
       - Sparse Hessians: how-to/hessians.md
+      - Verifying Correctness: how-to/verification.md
       - Visualization: how-to/visualization.md
       - "Example: Brusselator PDE": how-to/brusselator.md
   - Explanation:

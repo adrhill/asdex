@@ -87,8 +87,7 @@ np.testing.assert_allclose(J_asdex, J_jax, atol=1e-6)
 ```
 
 `asdex` also provides [`check_jacobian_correctness`][asdex.check_jacobian_correctness]
-as a convenience for this comparison —
-see [Verifying Results](../how-to/jacobians.md#verifying-results).
+as a convenience for this comparison, see [Verifying Correctness](../how-to/verification.md).
 
 On larger problems, the speedup from coloring becomes significant.
 Let's benchmark on a 5000-dimensional input

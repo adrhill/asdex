@@ -47,6 +47,29 @@ J = jac_fn(x)
 Instead of 999 VJPs or 1000 JVPs,
 `asdex` computes the full sparse Jacobian with just 2 JVPs.
 
+## Features
+
+**The full ASD pipeline:**
+- **Efficient computation of Sparse [Jacobians](how-to/jacobians.md) and [Hessians](how-to/hessians.md)**: one VJP/JVP/HVP per color, with automatic (or user-defined) mode selection.
+- **[Sparsity detection](explanation/sparsity-detection.md)**: a custom jaxpr interpreter finds [global sparsity patterns](explanation/global-sparsity.md) valid for all inputs.
+- **[Graph coloring](explanation/coloring.md)**: row, column, and symmetric coloring to minimize AD passes.
+- **[Correctness verification](how-to/verification.md)**: `check_jacobian_correctness` / `check_hessian_correctness` against vanilla JAX.
+
+**You already know your sparsity pattern?**
+- **[Manually provide sparsity patterns](how-to/jacobians.md#manually-providing-a-sparsity-pattern)**: supply a known pattern from dense, COO, or BCOO formats.
+- **[Precompute, save & load](how-to/jacobians.md#precomputing-the-colored-pattern)**: reuse a `ColoredPattern` across inputs, or persist it with `.save()` / `.load()`.
+
+**An interface mirroring JAX:**
+- **[Multiple inputs and outputs](how-to/jacobians.md#multiple-inputs-and-outputs)**: multi-argument functions via `argnums` and multiple return values, mirroring `jax.jacobian`.
+- **[PyTree inputs and outputs](how-to/jacobians.md#pytree-inputs-and-outputs)**: sparse differentiation through arbitrary nested [PyTrees](https://docs.jax.dev/en/latest/pytrees.html).
+- **[Auxiliary outputs](how-to/jacobians.md#auxiliary-outputs)**: supports `has_aux=True` for functions returning `(output, aux)`.
+- **[Value and derivative](how-to/jacobians.md#getting-the-primal-value-too)**: `value_and_jacobian` / `value_and_hessian` return the primal value `f(x)` without a redundant forward pass.
+
+**And more:**
+- **[Multiple output formats](how-to/jacobians.md#output-formats)**: decompression to BCOO (default), dense JAX arrays, NumPy, and SciPy (COO/CSR/CSC) arrays.
+- **[Bounded memory](how-to/jacobians.md#reducing-peak-memory-with-chunking)**: `chunk_size` caps parallel AD passes for large color counts.
+- **[Visualizations](how-to/visualization.md)**: `spy` plots and braille pattern previews.
+
 ## Next Steps
 
 - [Getting Started](tutorials/getting-started.md) — step-by-step tutorial
