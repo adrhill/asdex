@@ -95,7 +95,8 @@ New sections are marked **NEW**.
 | **`## Advanced`** | `### Choosing Row vs Column Coloring` | `### Symmetric Coloring` |
 | | | `### Choosing an HVP Mode` |
 | | `### Separate Detection and Coloring` | `### Separate Detection and Coloring` |
-| | `### Multiple and PyTree Inputs and Outputs` **(NEW, #150)** | `### Multiple and PyTree Inputs` **(NEW, #150)** |
+| | `### Multiple Inputs and Outputs` **(NEW, #150)** | `### Multiple Inputs` **(NEW, #150)** |
+| | `### PyTree Inputs and Outputs` **(NEW, #150)** | `### PyTree Inputs` **(NEW, #150)** |
 | | `### Auxiliary Outputs` **(NEW, #151)** | `### Auxiliary Outputs` **(NEW, #151)** |
 | | `### Output Formats` **(NEW, #148)** | `### Output Formats` **(NEW, #148)** |
 | | `### Reducing Peak Memory with Chunking` **(NEW, #149)** | `### Reducing Peak Memory with Chunking` **(NEW, #149)** |
@@ -105,7 +106,7 @@ Plus one **new page**, `how-to/verification.md`, holding the consolidated correc
 Within **`## Advanced`**, the existing sections that move up lead the tier
 (*Choosing Row vs Column Coloring* / *Symmetric Coloring* + *Choosing an HVP Mode*,
 then *Separate Detection and Coloring*),
-and the four **NEW** feature sections are appended after them.
+and the five **NEW** feature sections are appended after them.
 This keeps the new content as one contiguous block at the end of each guide,
 which the two-commit strategy below relies on.
 
@@ -119,7 +120,7 @@ Changes vs. today:
   and *Separate Detection and Coloring* to the top of *Advanced*.
 - Drop the lone line in the Jacobian guide's *Basic Usage*
   (*"`asdex` supports multi-dimensional input and output arrays"*),
-  since the new *Multiple and PyTree Inputs and Outputs* section now covers it.
+  since the new *Multiple Inputs and Outputs* section now covers it.
 - Lift the two near-identical *Verifying Results* sections into `verification.md`;
   each guide's *Verifying Results* becomes a 2–3 line pointer,
   and the top-of-page *"verify once"* tip retargets to the new page.
@@ -141,23 +142,27 @@ The prose mirrors;
 only the example call differs (Jacobian vs Hessian).
 All snippets are verified.
 
-### Section 4: Multiple and PyTree Inputs (#150)
-<!-- ISSUE: Split this into two sections: "Multiple Inputs and Outputs" and "PyTree Inputs and Outputs". -->
+### Section 4: Multiple Inputs, and PyTree Inputs/Outputs (#150)
 
-**Jacobian guide** (`## Multiple and PyTree Inputs and Outputs`):
+This material is split into two sibling `###` sections under *Advanced*.
+The first covers multiple positional arguments and multiple outputs.
+The second covers arbitrary PyTree containers.
+
+#### Multiple Inputs and Outputs
+
+**Jacobian guide** (`## Multiple Inputs and Outputs`):
 
 ````markdown
-## Multiple and PyTree Inputs and Outputs
+## Multiple Inputs and Outputs
 
 `asdex` mirrors `jax.jacobian`:
-it supports functions of several arguments and of arbitrary [PyTrees](https://docs.jax.dev/en/latest/pytrees.html),
+it differentiates functions of several arguments,
 selecting which arguments to differentiate with `argnums`.
 
-Pass a sample value for **every** positional argument,
-<!-- ISSUE: don't needlessly emphasize words. -->
+Pass a sample value for each positional argument,
 and select the ones to differentiate with `argnums`:
 
-```python exec="true" session="jac-pt" source="above"
+```python exec="true" session="jac-multi" source="above"
 import jax
 import jax.numpy as jnp
 from asdex import jacobian
@@ -171,57 +176,65 @@ y = jnp.arange(4.0, 7.0)
 Jx, Jy = jax.jit(jacobian(f, x, y, argnums=(0, 1)))(x, y)  # one block per selected arg
 ```
 
-```python exec="true" session="jac-pt"
-print(f"```\nJx: {type(Jx).__name__} {Jx.shape}\nJy: {type(Jy).__name__} {Jy.shape}\n```")
+```python exec="true" session="jac-multi"
+print(f"""```
+Jx: {type(Jx).__name__} {Jx.shape}
+Jy: {type(Jy).__name__} {Jy.shape}
+```""")
 ```
 
 With an integer `argnums` (the default `0`) a single block is returned, not a tuple.
-Arguments not named by `argnums` are still passed at call time and held fixed.
-<!-- ISSUE: demonstrate this. -->
+Arguments not named by `argnums` are still passed at call time and held fixed,
+yet they can still influence the result.
+Here `scale` is not differentiated, but it scales every entry of the Jacobian:
 
-<!-- ISSUE: Is is possible to also return multiple Jacobians with multiple primal outputs? If so, add a paragraph. -->
+```python exec="true" session="jac-multi" source="above"
+def scaled(x, scale):
+    return scale * x ** 2
 
-
-A single argument can itself be a PyTree.
-The Jacobian comes back as a matching PyTree of blocks:
-
-```python exec="true" session="jac-pt" source="above"
-def loss(params):
-    return params["a"] * params["b"]
-
-params = {"a": jnp.arange(1.0, 4.0), "b": jnp.arange(4.0, 7.0)}
-J = jax.jit(jacobian(loss, params))(params)
-```
-<!-- ISSUE: This example would be more interesting if "b" wasn't just a `jnp.arange` too. -->
-
-```python exec="true" session="jac-pt"
-print(f"```\nkeys: {sorted(J)}\nJ['a']: {type(J['a']).__name__} {J['a'].shape}\n```")
+J2 = jacobian(scaled, x, 2.0, argnums=0)(x, 2.0)
+J5 = jacobian(scaled, x, 5.0, argnums=0)(x, 5.0)
 ```
 
-PyTree *outputs* are supported too:
-the result has `(output_tree, input_tree)` structure, exactly like `jax.jacobian`.
-Each block leaf is shaped `(*output_leaf_shape, *input_leaf_shape)`.
-
-```python exec="true" session="jac-pt" source="above"
-def f_out(x):
-    return {"squared": x ** 2, "total": jnp.sum(x)}
-
-J = jax.jit(jacobian(f_out, x))(x)
+```python exec="true" session="jac-multi"
+print(f"""```
+scale=2 -> diagonal {J2.todense().diagonal()}
+scale=5 -> diagonal {J5.todense().diagonal()}
+```""")
 ```
 
-```python exec="true" session="jac-pt"
-print(f"```\nkeys: {sorted(J)}\n"
-      f"J['squared']: {J['squared'].shape}\nJ['total']: {J['total'].shape}\n```")
+A function may also return several outputs.
+The Jacobian then mirrors the output structure,
+with one block per (output, selected argument) pair, exactly like `jax.jacobian`:
+
+```python exec="true" session="jac-multi" source="above"
+def f_multi(x, y):
+    return x * y, x + y  # two outputs
+
+J = jax.jit(jacobian(f_multi, x, y, argnums=(0, 1)))(x, y)
 ```
-<!-- ISSUE: this one-liner might be hard to parse for readers. -->
+
+```python exec="true" session="jac-multi"
+dxy_dx = J[0][0]  # d(x * y) / dx: first output w.r.t. first argument
+print(f"""```
+outer length (outputs):    {len(J)}
+inner length (arguments):  {len(J[0])}
+J[0][0] = d(x*y)/dx:       {dxy_dx.shape}
+```""")
+```
 ````
 
-**Hessian guide** (`## Multiple and PyTree Inputs`): same prose, minus the PyTree-*output*
-paragraph (a Hessian requires a scalar output). For multiple `argnums` the result is a
-nested `(input_tree, input_tree)` grid, mirroring `jax.hessian`:
+**Hessian guide** (`## Multiple Inputs`): same opening prose (a Hessian requires a scalar
+output, so there is no multiple-output case).
+With a tuple `argnums` the result is a nested `(input_tree, input_tree)` grid,
+mirroring `jax.hessian`:
+`H[i][j]` is the second derivative with respect to argument `i` and argument `j`,
+so the full block grid is shown rather than a single corner.
 
 ````markdown
-```python exec="true" session="hess-pt" source="above"
+## Multiple Inputs
+
+```python exec="true" session="hess-multi" source="above"
 import jax
 import jax.numpy as jnp
 from asdex import hessian
@@ -232,28 +245,103 @@ def f(x, y):
 x = jnp.arange(1.0, 4.0)
 y = jnp.arange(4.0, 7.0)
 
-H = jax.jit(hessian(f, x, y, argnums=(0, 1)))(x, y)  # nested (block grid)
+H = jax.jit(hessian(f, x, y, argnums=(0, 1)))(x, y)
 ```
 
-```python exec="true" session="hess-pt"
-Hxx = H[0][0]  # ∂²/∂x²
-print(f"```\nouter len: {len(H)}\nH[0][0]: {type(Hxx).__name__} {Hxx.shape}\n```")
+```python exec="true" session="hess-multi"
+Hxx = H[0][0]  # ∂²f/∂x²
+Hxy = H[0][1]  # ∂²f/∂x∂y
+Hyy = H[1][1]  # ∂²f/∂y²
+print(f"""```
+grid shape:           {len(H)} x {len(H[0])}
+H[0][0]  d2f/dx2:     {type(Hxx).__name__} {Hxx.shape}
+H[0][1]  d2f/dx dy:   {type(Hxy).__name__} {Hxy.shape}
+H[1][1]  d2f/dy2:     {type(Hyy).__name__} {Hyy.shape}
+```""")
 ```
-<!-- ISSUE: this one-liner might be hard to parse for readers. -->
-<!-- ISSUE: can we do better than just showing H[0][0]? -->
+````
+
+#### PyTree Inputs and Outputs
+
+**Jacobian guide** (`## PyTree Inputs and Outputs`):
+
+````markdown
+## PyTree Inputs and Outputs
+
+A single argument can itself be an arbitrary [PyTree](https://docs.jax.dev/en/latest/pytrees.html),
+such as a dictionary of parameters.
+The Jacobian comes back as a matching PyTree of blocks:
+
+```python exec="true" session="jac-pt" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import jacobian
+
+def loss(params):
+    return params["weight"] * jnp.sin(params["bias"])
+
+params = {"weight": jnp.arange(1.0, 4.0), "bias": jnp.linspace(0.0, 1.0, 3)}
+J = jax.jit(jacobian(loss, params))(params)
+```
+
+```python exec="true" session="jac-pt"
+print(f"""```
+keys:        {sorted(J)}
+J['weight']: {type(J['weight']).__name__} {J['weight'].shape}
+J['bias']:   {type(J['bias']).__name__} {J['bias'].shape}
+```""")
+```
+
+PyTree *outputs* are supported too.
+The result has `(output_tree, input_tree)` structure, exactly like `jax.jacobian`:
+one block per output leaf, each shaped `(*output_leaf_shape, *input_leaf_shape)`.
+
+```python exec="true" session="jac-pt" source="above"
+def f_out(x):
+    return {"squared": x ** 2, "total": jnp.sum(x)}
+
+x = jnp.arange(1.0, 4.0)
+J = jax.jit(jacobian(f_out, x))(x)
+```
+
+```python exec="true" session="jac-pt"
+print(f"""```
+keys:         {sorted(J)}
+J['squared']: {J['squared'].shape}   # (3,) output, (3,) input
+J['total']:   {J['total'].shape}      # scalar output, (3,) input
+```""")
+```
+````
+
+**Hessian guide** (`## PyTree Inputs`): same opening prose, minus the PyTree-*output*
+paragraph (a Hessian requires a scalar output).
+For a PyTree argument the Hessian is a matching nested structure of blocks, here a
+dict-of-dicts, where `H[i][j]` couples leaves `i` and `j`:
+
+````markdown
+## PyTree Inputs
 
 ```python exec="true" session="hess-pt" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
 def loss(params):
     return jnp.sum(params["a"] ** 2 * params["b"])
 
 params = {"a": jnp.arange(1.0, 4.0), "b": jnp.arange(4.0, 7.0)}
-H = jax.jit(hessian(loss, params))(params)  # dict-of-dicts of blocks
+H = jax.jit(hessian(loss, params))(params)
 ```
 
 ```python exec="true" session="hess-pt"
-print(f"```\nouter keys: {sorted(H)}\nH['a']['a']: {type(H['a']['a']).__name__} {H['a']['a'].shape}\n```")
+Has = H["a"]["a"]  # ∂²/∂a²
+Hab = H["a"]["b"]  # ∂²/∂a∂b
+print(f"""```
+outer keys:            {sorted(H)}
+H['a']['a']  d2/da2:   {type(Has).__name__} {Has.shape}
+H['a']['b']  d2/da db: {type(Hab).__name__} {Hab.shape}
+```""")
 ```
-<!-- ISSUE: this one-liner might be hard to parse for readers. -->
 ````
 
 ### Section 5: Auxiliary Outputs (#151)
@@ -280,9 +368,11 @@ J, aux = jax.jit(jacobian(f, x, has_aux=True))(x)
 ```
 
 ```python exec="true" session="jac-aux"
-print(f"```\nJ: {type(J).__name__} {J.shape}\nmean_sq: {float(aux['mean_sq']):.3f}\n```")
+print(f"""```
+J:       {type(J).__name__} {J.shape}
+mean_sq: {float(aux['mean_sq']):.3f}
+```""")
 ```
-<!-- ISSUE: this one-liner might be hard to parse for readers. -->
 
 [`value_and_jacobian`](../reference/index.md#asdex.value_and_jacobian) nests aux next to the value,
 matching `jax.value_and_grad` ordering, giving `((value, aux), J)`:
@@ -294,9 +384,11 @@ from asdex import value_and_jacobian
 ```
 
 ```python exec="true" session="jac-aux"
-print(f"```\nvalue: {value.shape}\nmean_sq: {float(aux['mean_sq']):.3f}\n```")
+print(f"""```
+value:   {value.shape}
+mean_sq: {float(aux['mean_sq']):.3f}
+```""")
 ```
-<!-- ISSUE: this one-liner might be hard to parse for readers. -->
 
 
 The auxiliary data may hold arbitrary Python objects, not just JAX arrays.
@@ -321,9 +413,11 @@ H, aux = jax.jit(hessian(g, x, has_aux=True))(x)
 ```
 
 ```python exec="true" session="hess-aux"
-print(f"```\nH: {type(H).__name__} {H.shape}\nnorm: {float(aux['norm']):.3f}\n```")
+print(f"""```
+H:    {type(H).__name__} {H.shape}
+norm: {float(aux['norm']):.3f}
+```""")
 ```
-<!-- ISSUE: this one-liner might be hard to parse for readers. -->
 ````
 
 ### Section 6: Output Formats (#148)
@@ -363,14 +457,12 @@ J_csr = jacobian(f, x, output_format="scipy_csr")(x)         # scipy.sparse.csr_
 ```
 
 ```python exec="true" session="jac-fmt"
-lines = [
-    f"bcoo:       {type(J_bcoo).__name__}",
-    f"dense:      {type(J_dense).__name__}  shape={J_dense.shape}",
-    f"scipy_csr:  {type(J_csr).__name__}  nnz={J_csr.nnz}",
-]
-print("```\n" + "\n".join(lines) + "\n```")
+print(f"""```
+bcoo:       {type(J_bcoo).__name__}
+dense:      {type(J_dense).__name__}  shape={J_dense.shape}
+scipy_csr:  {type(J_csr).__name__}  nnz={J_csr.nnz}
+```""")
 ```
-<!-- ISSUE: this is odd to read. Why not use a direct f-string print statement with multiple lines? -->
 
 
 !!! warning "Host formats are not JIT-able by the caller"
@@ -387,17 +479,21 @@ print("```\n" + "\n".join(lines) + "\n```")
 !!! info "SciPy formats are 2D-only"
 
     SciPy sparse arrays are strictly 2D.
-    They require the input and output to each be a single flat 1D array;
-    PyTree or multi-argument inputs raise a `ValueError`.
-    Not that SciPy is an optional dependency. Install it via `pip install 'asdex[scipy]'`.
+    They require the input and output to each be a single flat 1D array.
+    `asdex` flattens and checks the full input structure up front.
+    Any other shape, such as a multi-dimensional array, multiple arguments,
+    or an arbitrarily nested PyTree, raises a clear `ValueError` rather than a wrong result.
+    Note that SciPy is an optional dependency. Install it via `pip install 'asdex[scipy]'`.
 
 Structural non-zeros that happen to be numerically zero at the evaluation point are kept as explicit entries in the `BCOO` and scipy outputs,
 so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md) and is independent of `x`.
 ````
 
 **Hessian guide** (`## Output Formats`): same table and callouts (the SciPy note drops the
-"output" clause, since only the input must be a flat 1D array), with a `hessian` example:
-<!-- ISSUE: Couldn't there still be edge cases with complex PyTree inputs?. -->
+"output" clause, since only the input must be a flat 1D array), with a `hessian` example.
+The same up-front structure check applies,
+so a multi-dimensional, multi-argument, or nested-PyTree input raises the same clear
+`ValueError` rather than silently producing a wrong result:
 
 ````markdown
 ```python exec="true" session="hess-fmt" source="above"
@@ -415,8 +511,10 @@ H_csr = hessian(g, x, output_format="scipy_csr")(x)         # scipy.sparse.csr_a
 ```
 
 ```python exec="true" session="hess-fmt"
-print(f"```\ndense: {type(H_dense).__name__} {H_dense.shape}\n"
-      f"scipy_csr: {type(H_csr).__name__} nnz={H_csr.nnz}\n```")
+print(f"""```
+dense:     {type(H_dense).__name__} {H_dense.shape}
+scipy_csr: {type(H_csr).__name__} nnz={H_csr.nnz}
+```""")
 ```
 ````
 
@@ -451,8 +549,8 @@ print(f"```\nJ: {type(J).__name__} {J.shape}, nse={J.nse}\n```")
 
 The result is identical to the default (`chunk_size=None`), only peak memory and runtime change.
 `chunk_size` is accepted by [`jacobian`](../reference/index.md#asdex.jacobian),
-its `value_and_*` and `*_from_coloring` variants.
-  <!-- ISSUE: why not directly state `value_and_jacobian` and `jacobian_from_coloring` here, and link to the reference? -->
+[`value_and_jacobian`](../reference/index.md#asdex.value_and_jacobian), and
+[`jacobian_from_coloring`](../reference/index.md#asdex.jacobian_from_coloring).
 
 **Hessian guide** (`## Reducing Peak Memory with Chunking`): identical prose with a
 `hessian` call (`chunk_size` caps HVPs per batch):
@@ -656,21 +754,23 @@ GitHub/PyPI). Anchors are the slugified section headers.
 
 - Efficient computation of **Sparse [Jacobians](https://adrianhill.de/asdex/how-to/jacobians/) and [Hessians](https://adrianhill.de/asdex/how-to/hessians/)**: one VJP/JVP/HVP per color, with automatic (or user-defined) mode selection.
 - **Sparsity detection**: a custom [jaxpr interpreter](https://adrianhill.de/asdex/explanation/sparsity-detection/) finds [global sparsity patterns](https://adrianhill.de/asdex/explanation/global-sparsity/) valid for all inputs.
-- **Graph coloring**: [row, column, and symmetric (star) coloring](https://adrianhill.de/asdex/explanation/coloring/) to minimize AD passes.
-- **Value and derivative**: `value_and_jacobian` / `value_and_hessian` return `f(x)` without a redundant forward pass.
-- **[Multiple & PyTree inputs/outputs](https://adrianhill.de/asdex/how-to/jacobians/#multiple-and-pytree-inputs-and-outputs)**: multi-argument functions via `argnums`, and arbitrary PyTrees, mirroring `jax.jacobian`.
-- **[Auxiliary outputs](https://adrianhill.de/asdex/how-to/jacobians/#auxiliary-outputs)**: `has_aux=True` for functions returning `(output, aux)`.
-- **[Output formats](https://adrianhill.de/asdex/how-to/jacobians/#output-formats)**: BCOO (default), dense JAX, NumPy, and SciPy (COO/CSR/CSC) arrays.
-- **[Bounded memory](https://adrianhill.de/asdex/how-to/jacobians/#reducing-peak-memory-with-chunking)**: `chunk_size` caps parallel AD passes for large color counts.
-- **Precompute, save & load**: reuse a `ColoredPattern` across inputs, or persist it with `.save()` / `.load()`.
-- **[Manual sparsity patterns](https://adrianhill.de/asdex/how-to/jacobians/#manually-providing-a-sparsity-pattern)**: supply a known pattern from dense, COO, or BCOO.
-- **[Visualization](https://adrianhill.de/asdex/how-to/visualization/)**: `spy` plots and braille pattern previews.
+- **Graph coloring**: [row, column, and symmetric coloring](https://adrianhill.de/asdex/explanation/coloring/) to minimize AD passes.
 - **[Correctness verification](https://adrianhill.de/asdex/how-to/verification/)**: `check_jacobian_correctness` / `check_hessian_correctness` against vanilla JAX.
+- **[Manual sparsity patterns](https://adrianhill.de/asdex/how-to/jacobians/#manually-providing-a-sparsity-pattern)**: supply a known pattern from dense, COO, or BCOO formats.
+- **[Precompute, save & load](https://adrianhill.de/asdex/how-to/jacobians/#precomputing-the-colored-pattern)**: reuse a `ColoredPattern` across inputs, or persist it with `.save()` / `.load()`.
+- **[Value and derivative](https://adrianhill.de/asdex/how-to/jacobians/#getting-the-primal-value-too)**: `value_and_jacobian` / `value_and_hessian` return the primal value `f(x)` without a redundant forward pass.
+- **[Multiple inputs and outputs](https://adrianhill.de/asdex/how-to/jacobians/#multiple-inputs-and-outputs)**: multi-argument functions via `argnums` and multiple return values, mirroring `jax.jacobian`.
+- **[PyTree inputs and outputs](https://adrianhill.de/asdex/how-to/jacobians/#pytree-inputs-and-outputs)**: differentiate through arbitrary nested [PyTrees](https://docs.jax.dev/en/latest/pytrees.html).
+- **[Auxiliary outputs](https://adrianhill.de/asdex/how-to/jacobians/#auxiliary-outputs)**: `has_aux=True` for functions returning `(output, aux)`.
+- **[Output formats](https://adrianhill.de/asdex/how-to/jacobians/#output-formats)**: decompression to BCOO (default), dense JAX arrays, NumPy, and SciPy (COO/CSR/CSC) arrays.
+- **[Bounded memory](https://adrianhill.de/asdex/how-to/jacobians/#reducing-peak-memory-with-chunking)**: `chunk_size` caps parallel AD passes for large color counts.
+- **[Visualization](https://adrianhill.de/asdex/how-to/visualization/)**: `spy` plots and braille pattern previews.
 ```
 
 Anchor sanity-check (mkdocs/Material slugify lowercases, spaces → `-`, drops other
-punctuation): `#multiple-and-pytree-inputs-and-outputs`, `#auxiliary-outputs`,
-`#output-formats`, `#reducing-peak-memory-with-chunking`,
+punctuation): `#getting-the-primal-value-too`, `#multiple-inputs-and-outputs`,
+`#pytree-inputs-and-outputs`, `#auxiliary-outputs`, `#output-formats`,
+`#reducing-peak-memory-with-chunking`, `#precomputing-the-colored-pattern`,
 `#manually-providing-a-sparsity-pattern`. (Verification links to its own page, not an
 anchor.) The strict build (below) will flag any anchor that does not resolve.
 
@@ -752,9 +852,9 @@ so a reviewer can confirm at a glance that nothing was rewritten.
 Conventional commit: `docs: restructure how-to guides into Basics and Advanced sections`.
 
 **Commit 2 — add the new content.**
-Append the four **NEW** feature sections
-(*Multiple and PyTree Inputs*, *Auxiliary Outputs*, *Output Formats*,
-*Reducing Peak Memory with Chunking*)
+Append the five **NEW** feature sections
+(*Multiple Inputs and Outputs*, *PyTree Inputs and Outputs*, *Auxiliary Outputs*,
+*Output Formats*, *Reducing Peak Memory with Chunking*)
 as `###` at the end of each guide's *Advanced* section;
 add the new `how-to/verification.md` page (+ nav entry)
 and trim each guide's *Verifying Results* to a pointer;
