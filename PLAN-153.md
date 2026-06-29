@@ -44,6 +44,27 @@ downward, favor exceptions over wrong results):
   The one invariant they share, that the selected-input flatten order matches
   `sparsity.cols`, is centralized in `_api_utils`.
 
+- **The seam adds no flattening overhead.**
+  The engine is already flat-in/flat-out today, so giving it its own module
+  relocates code without adding work.
+  `coloring._device_seeds(dtype)` is a flat `(num_colors, dim)` device array,
+  and each vmapped kernel does only the pytree conversion JAX's AD forces at its
+  boundary.
+  In `"rev"` it unflattens the flat output-space seed into the `out_struct`
+  cotangent, runs the VJP, then ravels the selected-input cotangents back to
+  `(n_sel,)`.
+  In `"fwd"` and the HVP modes it scatters the flat input-space seed into the
+  input tangent pytree, runs the JVP/HVP, then ravels the output.
+  Those `flatten_pytree`/`unflatten_to_pytree` calls (already in `_api_utils`)
+  are inherent to JAX's pytree AD, not new cost, and `vmap` traces them once.
+  All the engine needs to do this is a small *flatten spec*: `out_struct` plus
+  the selected inputs' `leaf_shapes`, `leaf_sizes`, `input_avals`, and `argnums`.
+  Every field is a pure function of `(input_avals, argnums)` (today they are
+  `SparsityPattern` properties derived from exactly those), so they are
+  AD-problem structure, not sparsity, and the engine rebuilds `B`'s flat layout
+  without ever seeing the nonzeros.
+  The compress layer computes the spec once per closure (cached), as today.
+
 - **`ColoredPattern` stays a pure data structure.**
   Issue #153 floats moving the scatter *onto* `ColoredPattern`; we deliberately
   do **not**.
@@ -60,7 +81,27 @@ downward, favor exceptions over wrong results):
   "compressed matrix" (and matches the existing scipy 2-D-only constraint).
   Pytree/tensor-shaped block assembly stays a thin layer in the high-level
   `jacobian`/`hessian` functions, not in the public primitive.
-  <!-- ISSUE: I'm not sure about this. What do the batched JVPs/VJPs look like on complex pytree inputs and outputs? We don't want to introduce any overhead by unnecessary flattening operations. -->
+  (No extra flattening is incurred: see the flat-in/flat-out engine bullet above.)
+
+- **The one-shot functions are built on the same core as the public stages.**
+  `jacobian`/`hessian`/`value_and_*` (and their `*_from_coloring` variants) do not
+  re-derive the numerics: they call the **same** compress core that backs
+  `compressed_*` and the **same** gather primitive that backs `decompress_data`,
+  so there is one implementation of compress and one of decompress.
+  They do **not** literally call the public closures, for three deliberate
+  reasons.
+  The public `compressed_*` factory does its own input normalization and
+  per-closure caching, so calling it from the one-shot would double both.
+  `decompress` is flat `(m, n)` by the decision above, while the one-shot layers
+  the pytree/tensor block-assembly tail (`_build_jacobian`/`_build_hessian`) on top
+  of the shared gather, so for pytree outputs it cannot delegate to `decompress`.
+  And for host output formats the shared compress and gather are fused under one
+  `jax.jit` (`_cached_jit_core`, the perf path from #143), which wraps the core,
+  not the public wrappers.
+  The payoff is that the public API is the tested substrate: every existing e2e
+  call already drives the shared core, so `compressed_*`/`decompress` inherit that
+  coverage and the new tests only target the public-only deltas (validation,
+  standalone use on a caller-supplied `B`, the full format set).
 
 - **Compressed layout is `(num_colors, dim)` as-is.**
   Exactly what asdex computes; zero-copy, and `decompress` is a pure inverse with
@@ -81,7 +122,6 @@ downward, favor exceptions over wrong results):
   output and decompress input — pure overhead and more code.
   We recommend `(num_colors, dim)`; flipping to the SMC.jl layout later is a
   localized change if cross-language consistency is judged more valuable.
-  <!-- ISSUE: I'm not sure about this. What do the batched JVPs/VJPs look like on complex pytree inputs and outputs? We don't want to introduce any overhead by unnecessary flattening operations. -->
 
 
 ## New public API
@@ -105,22 +145,59 @@ def compressed_hessian_from_coloring(f, coloring, *, has_aux=False,
                                      holomorphic=False, allow_int=False,
                                      chunk_size=None): ...
 
+# Value-and-compressed — return (value, B) / ((value, aux), B); value rides the
+# compression forward pass, so it is nearly free
+def value_and_compressed_jacobian(f, *sample_args, argnums=0, has_aux=False,
+                                  holomorphic=False, allow_int=False, mode=None,
+                                  symmetric=False, chunk_size=None,
+                                  **sample_kwargs): ...
+def value_and_compressed_jacobian_from_coloring(f, coloring, *, has_aux=False,
+                                                holomorphic=False,
+                                                allow_int=False,
+                                                chunk_size=None): ...
+def value_and_compressed_hessian(f, *sample_args, argnums=0, has_aux=False,
+                                 holomorphic=False, allow_int=False, mode=None,
+                                 symmetric=True, chunk_size=None,
+                                 **sample_kwargs): ...
+def value_and_compressed_hessian_from_coloring(f, coloring, *, has_aux=False,
+                                               holomorphic=False,
+                                               allow_int=False,
+                                               chunk_size=None): ...
+
 # Decompression — gather compressed rows into sparse values, then format
 def decompress_data(coloring, compressed): ...                  # -> (nnz,) jax.Array in sparsity order
 def decompress(coloring, compressed, output_format="bcoo"): ... # -> 2-D matrix in any OutputFormat
 ```
-<!-- ISSUE: is there a way we can avoid duplicating our doc-strings over and over again across public functions? This issue also applies to the existing public API, as many functions share arguments. -->
+
+**Avoiding docstring duplication.** This family shares many parameters
+(`f`, `argnums`, `has_aux`, `holomorphic`, `allow_int`, `mode`, `symmetric`,
+`chunk_size`), and the existing public API already repeats them.
+Runtime `__doc__` composition (a decorator that stitches a shared `Args` block)
+is **rejected**: `mkdocstrings` reads docstrings with griffe's *static* analyzer
+(no dynamic option is set in `docs/mkdocs.yml`), so assembled docstrings would
+not render, and runtime stitching also degrades `help()` and IDE hovers.
+Instead keep **literal** docstrings but document each shared parameter **once**
+on the canonical `jacobian`/`hessian`, and give the variants (`*_from_coloring`,
+`compressed_*`, `value_and_*`) short docstrings that describe only what differs,
+cross-referencing the canonical function through `autorefs`
+(e.g. "See [`jacobian`][asdex.jacobian] for the shared arguments").
+This is a pre-existing, API-wide concern, so apply the pattern to the new
+functions and back-fill the existing family in the same docs pass.
 
 - Each compression callable returns `B`, or `(B, aux)` when `has_aux=True`.
 - `decompress_data` is the pure **gather primitive**: it returns a plain
   `jax.Array` of shape `(nnz,)` holding the sparse values in `coloring.sparsity`
   order, so `data[k]` is the entry at
   `(coloring.sparsity.rows[k], coloring.sparsity.cols[k])`.
-  It is jittable and takes **no** `output_format` — the decompression-side
-  analogue of `compressed_*` returning a raw `B`.
-  Pair it with `coloring.sparsity.rows`/`.cols` to assemble any custom sparse
-  format, or with the already-public `coloring.sparsity.to_bcoo(data)` for a
-  BCOO directly.
+  It exists **alongside** `decompress` because it is the jittable numeric core:
+  it always returns a `jax.Array`, so it composes inside `jax.jit` and can feed a
+  custom solver or sparse format, whereas `decompress` may return host objects
+  (`numpy`/`scipy`) that cannot.
+  It takes **no** `output_format` (the decompression-side analogue of
+  `compressed_*` returning a raw `B`), and `decompress` is the thin host-format
+  layer composed on top of it.
+  Pair it with the already-public `coloring.sparsity.to_bcoo(data)` for a BCOO
+  directly, or with `coloring.sparsity.rows`/`.cols` to assemble a custom format.
 - `decompress` is the **format-producing** entry point and **composes on the
   primitive** (`decompress = decompress_data` + format dispatch): it supports
   the **full `OutputFormat` set** already in `modes.py` — `"bcoo"` (default),
@@ -135,13 +212,16 @@ def decompress(coloring, compressed, output_format="bcoo"): ... # -> 2-D matrix 
   gather (a near-miss would otherwise read garbage); `decompress` inherits the
   check through it.
 
-**Optional parity extension (maintainer's call):** `value_and_compressed_*`
-(four functions returning `(value, B)` / `((value, aux), B)`).
-The value rides free on the compression forward pass, so it is cheap, but it
-doubles the compression surface — kept out of the core to minimize complexity.
+**Value-and-compressed variants (included).** The four `value_and_compressed_*`
+functions return `(value, B)` / `((value, aux), B)`.
+The value rides along the compression forward pass, so it is nearly free: the
+Jacobian path already produces `y`, and the Hessian path reuses the existing
+`_value_and_compute_hvps`, which gets value (and aux) for free in
+`fwd_over_rev`/`rev_over_rev` and with one extra `f` call in `rev_over_fwd`.
+They follow the shared-docstring rule above (short docstrings cross-referencing
+`value_and_jacobian`/`value_and_hessian`).
 A `compress(coloring, dense)` free function (dense → `B` via the seed matrix) is
-likewise deferred; it is only useful when one already has a dense matrix.
-<!-- ISSUE: yes, I want these. Also keep the doc-string duplication issue in mind for this. -->
+deferred: it is only useful when one already has a dense matrix.
 
 ## Modularization refactor (behavior-preserving)
 
@@ -152,7 +232,7 @@ kernels currently read `coloring._device_seeds(dtype)` and `coloring.sparsity`
 internally, so they get parameterized on a seed matrix and `argnums` passed in by
 the compress layer. Behavior-preserving, but signatures change. The public
 `asdex.*` surface is unchanged except for the *added* symbols.
-<!-- ISSUE: to minimize the git diff, first `git mv` the files. -->
+The split is done as a `git mv` to preserve blame (see "Git strategy" below).
 
 The split has two parts. A top-level **`src/asdex/differentiation.py`** holds the
 pure batched-AD engine. A **`src/asdex/decompression/`** package owns everything
@@ -162,7 +242,7 @@ layout as `coloring/` and `detection/`.
 | Path | Owns | Public symbols |
 |------|------|----------------|
 | `src/asdex/differentiation.py` | Batched-AD engine: seed matrix in, derivative out | (none) |
-| `decompression/_api.py` | Public surface only (thin wrappers + docstrings) | `jacobian`, `value_and_jacobian`, `hessian`, `value_and_hessian`, the `*_from_coloring` variants, `compressed_*`, `decompress`, `decompress_data` |
+| `decompression/_api.py` | Public surface only (thin wrappers + docstrings) | `jacobian`, `value_and_jacobian`, `hessian`, `value_and_hessian`, the `*_from_coloring` variants, `compressed_*`, `value_and_compressed_*`, `decompress`, `decompress_data` |
 | `decompression/_compress.py` | Stage 1: coloring → seeds → drive the engine → `B`, plus shared input-prep helpers | (internal) |
 | `decompression/_decompress.py` | Stage 3: gather + scatter/format over all `OutputFormat`s, pure consumer of `B` | (internal) |
 | `decompression/_evaluate.py` | Composition of both stages: the four `_eval_*` plus per-closure caching | (internal) |
@@ -226,10 +306,24 @@ Move map:
 - → `_api.py`: the public `jacobian`/`hessian`/`value_and_*` family and their
   `*_from_coloring` variants (each normalizes inputs, runs detection and coloring
   for the one-shot variants, and returns a thin closure delegating to
-  `_evaluate`), the `compressed_*` functions (delegating to the `_compress.py`
-  evaluator), and the public `decompress`/`decompress_data` (delegating to
-  `_decompress.py`). Carries the Google-style docstrings.
-<!-- ISSUE: to minimize the git diff, first `git mv` the files if possible. -->
+  `_evaluate`), the `compressed_*` and `value_and_compressed_*` functions
+  (delegating to the `_compress.py` evaluator), and the public
+  `decompress`/`decompress_data` (delegating to `_decompress.py`). Carries the
+  Google-style docstrings (shared parameters documented once and cross-referenced
+  per the docstring rule above).
+
+**Git strategy (preserve blame, minimize diff).** Do the split as a `git mv`, not
+a delete-and-recreate. `decompression.py` (a file) and `decompression/` (a
+directory) are distinct names, so
+`git mv src/asdex/decompression.py src/asdex/decompression/<target>.py` moves the
+file into the new package in one step. Point the rename at whichever module
+inherits the largest contiguous block (likely `_decompress.py` or `_evaluate.py`)
+so `git blame` follows it, and confirm with `git diff -M --stat` that git reports
+a rename rather than an add+delete. Commit the pure rename on its own, then
+extract `differentiation.py`, `_compress.py`, the remaining package modules, and
+the thin `__init__.py` in a follow-up commit. The extracted pieces lose per-line
+blame continuity, which is unavoidable when one file becomes several, but the
+rename keeps history on the bulk.
 
 **Public surface placement.** `decompress`/`decompress_data` are thin enough that
 their bodies could equally live in `_decompress.py` and be re-exported. We put the
@@ -263,8 +357,8 @@ may combine them.
 - **Edit:** `src/asdex/__init__.py`. The existing `from asdex.decompression
   import (...)` keeps working through the package `__init__.py`; add
   `compressed_jacobian`, `compressed_jacobian_from_coloring`, `compressed_hessian`,
-  `compressed_hessian_from_coloring`, `decompress`, and `decompress_data` to that
-  import and to `__all__`.
+  `compressed_hessian_from_coloring`, the four `value_and_compressed_*` variants,
+  `decompress`, and `decompress_data` to that import and to `__all__`.
 - **Unchanged:** `src/asdex/pattern.py` (compress still reads
   `coloring._device_seeds`/`coloring.sparsity`), `src/asdex/coloring/`,
   `src/asdex/modes.py` (reuse `OutputFormat` + `_assert_output_format`),
@@ -277,8 +371,14 @@ may combine them.
 - **Empty pattern** (`num_colors == 0`, `nnz == 0`, or `m == 0`):
   compression returns an array of shape `(num_colors, dim)` (possibly with a
   zero axis) consistent with the non-empty path; `decompress` returns an empty
-  sparse matrix. Mirror the existing `_empty_data` dtype logic.
-  <!-- ISSUE: will this live in differentiation.py or a `decompression/_empty.py`? -->
+  sparse matrix.
+  No separate `_empty.py` is warranted, and nothing empty-related goes in the
+  sparsity-agnostic `differentiation.py`.
+  The two empty shortcuts live on the side that owns each shape: the empty `B` is
+  a one-liner `jnp.zeros((num_colors, dim), dtype)` in `_compress.py`, and the
+  empty `(nnz,)` data vector stays in `_evaluate.py` as `_empty_data` (the
+  empty-pattern branch of the `_eval_*` path), reusing the existing selected-dtype
+  logic.
 - **float0 cotangents** (`allow_int=True`): already handled in `_scatter_dense`
   and `_build_*`; `decompress` inherits this.
   `decompress_data` returns the raw gathered values (float0 preserved), matching
@@ -293,24 +393,27 @@ conventions) and extend `tests/e2e/`. Reuse the `conftest.py` fixtures
 `jacobian_mode`, `hessian_mode`, `chunk_size`, `all_output_format`, `to_dense`,
 `assert_trees_allclose`.
 
-- **Round-trip (core property):** for flat 2-D `f`,
-  `decompress(coloring, compressed_jacobian_from_coloring(f, coloring)(x))`
-  equals `jacobian_from_coloring(f, coloring)(x)` across all `output_format`,
-  modes, `chunk_size`, and `has_aux`. Same for Hessian.
-  <!-- ISSUE: this is already covered by the existing e2e tests if we make sure `asdex.jacobian` etc. internally use the public API. -->
-- **Reference check:** `decompress(...).todense()` matches `jax.jacobian` /
-  `jax.hessian`; also drive `check_jacobian_correctness` /
-  `check_hessian_correctness` on the composed path to confirm the refactor.
-    <!-- ISSUE: this is already covered by the existing e2e tests if we make sure `asdex.jacobian` etc. internally use the public API. -->
+- **Round-trip and reference are covered by existing e2e (no new duplicates).**
+  Because the one-shot `jacobian`/`hessian` are built on the same compress core
+  and gather primitive that back the public stages (per the design decision and
+  the Modularization section), every existing e2e call already drives that shared
+  core across modes, `output_format`, `chunk_size`, and `has_aux`, and already
+  runs `check_jacobian_correctness`/`check_hessian_correctness` on it, so
+  `compressed_*`/`decompress` inherit the densified-matches-reference coverage.
+  The existing tests stay as-is; we add no parallel round-trip/reference tests
+  that would only re-cover them.
+  The tests below instead target surface the e2e path does not reach.
 - **Shape contract:** assert `B.shape == (coloring.num_colors, dim)` per the
   table above (rev/fwd/HVP), and `decompress_data(coloring, B).shape ==
   (coloring.sparsity.nnz,)`.
-    <!-- ISSUE: I'm not sure about this. What do the batched JVPs/VJPs look like on complex pytree inputs and outputs? We don't want to introduce any overhead by unnecessary flattening operations. -->
-- **Gather primitive:** `coloring.sparsity.to_bcoo(decompress_data(c, B))`
-  equals `decompress(c, B, "bcoo")`, and the COO triple
-  `(sparsity.rows, sparsity.cols, decompress_data(c, B))` reconstructs the
-  reference matrix; values come back in `sparsity` order.
-  <!-- ISSUE: this test leaks the internal implementation. Let's not do this. -->
+  Include pytree-input and pytree-output cases to confirm `B` stays a flat 2-D
+  array regardless of input/output structure.
+- **Gather primitive:** `decompress_data(c, B)` returns a jittable `(nnz,)`
+  `jax.Array` whose dtype matches `B`. Feed it through the public
+  `coloring.sparsity.to_bcoo` and confirm the densified result matches the
+  reference, and that `jax.jit(decompress_data, ...)` compiles. Do **not** assert
+  against `sparsity.rows`/`.cols` or rebuild the matrix by hand: that duplicates
+  the internal scatter and leaks the implementation.
 - **Output formats:** `decompress` round-trips through **every** `OutputFormat`
   (`"bcoo"`, `"dense"`, `"numpy_dense"`, `"scipy_coo"`, `"scipy_csr"`,
   `"scipy_csc"`) — reuse the `all_output_format` fixture — each matching the
@@ -323,13 +426,14 @@ conventions) and extend `tests/e2e/`. Reuse the `conftest.py` fixtures
 
 ## Docs
 
-- **Reference:** add `::: asdex.compressed_jacobian` (+ `_from_coloring`) to
-  `docs/reference/jacobian.md`, the hessian equivalents to
-  `docs/reference/hessian.md`, and both `::: asdex.decompress` and
-  `::: asdex.decompress_data` to a new "Decompression" section (in
-  `reference/jacobian.md` or `reference/data-structures.md`). The `decompress`
-  docstring enumerates the supported `OutputFormat`s; Google-style docstrings
-  carry the detail.
+- **Reference:** add `::: asdex.compressed_jacobian` (+ `_from_coloring` and the
+  `value_and_compressed_jacobian` pair) to `docs/reference/jacobian.md`, the
+  hessian equivalents to `docs/reference/hessian.md`, and both
+  `::: asdex.decompress` and `::: asdex.decompress_data` to a new "Decompression"
+  section (in `reference/jacobian.md` or `reference/data-structures.md`). The
+  `decompress` docstring enumerates the supported `OutputFormat`s; Google-style
+  docstrings carry the detail, with shared parameters cross-referenced rather than
+  repeated.
 - **How-to:** one mirrored section, *"Skipping decompression"*, in
   both `docs/how-to/jacobians.md` and `docs/how-to/hessians.md`, with a runnable
   `exec="true"` snippet showing `compressed_*` → inspect `B` → `decompress`
@@ -356,8 +460,9 @@ f = lambda x: (x[1:] - x[:-1]) ** 2
 x = jnp.arange(1.0, 11.0)
 c = jacobian_coloring(f, x)
 B = compressed_jacobian_from_coloring(f, c)(x)          # (num_colors, dim)
-data = decompress_data(c, B)                            # (nnz,) in sparsity order
-# ISSUE: why have an extra `decompress_data` on top of `decompress`?
+data = decompress_data(c, B)                            # (nnz,) jax.Array, jittable
+# decompress_data is the jittable numeric core (stays inside jax.jit, feeds custom
+# formats/solvers); decompress is the host-format layer (bcoo/numpy/scipy) on top.
 J = decompress(c, B, output_format="bcoo")              # BCOO (m, n); any OutputFormat
 ref = jacobian_from_coloring(f, c)(x).todense()
 assert (c.sparsity.to_bcoo(data).todense() == ref).all()
