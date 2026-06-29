@@ -20,19 +20,16 @@ def f(x):
 
 x = jnp.arange(1.0, 11.0)
 coloring = jacobian_coloring(f, x)
-check_jacobian_correctness(f, x, coloring)  # silent ⇒ correct
+check_jacobian_correctness(f, x, coloring)  # no output means it matches JAX
 ```
 
-```python exec="true" session="verify"
-print("```\nJacobian verified ✓\n```")
-```
-
+The call above produces no output: success is silent, and a mismatch would raise instead.
 By default this uses `method="matvec"`, computing randomized matrix-vector products (i.e., JVPs, VJPs, or HVPs, depending on the coloring).
-This is cheap, O(k) in the number of probes, and scalable.
+This is cheap, \(O(k)\) in the number of probes, and scalable.
 You can tune the probes, tolerances, and seed:
 
 ```python exec="true" session="verify" source="above"
-check_jacobian_correctness(f, x, coloring, num_probes=50, rtol=1e-5, atol=1e-5, seed=42)
+check_jacobian_correctness(f, x, coloring, num_probes=20, rtol=1e-5, atol=1e-5, seed=42)
 ```
 
 For an exact but expensive element-wise comparison against the full dense Jacobian,
@@ -44,7 +41,7 @@ check_jacobian_correctness(f, x, coloring, method="dense")
 
 !!! warning "Dense comparison is expensive"
 
-    `method="dense"` materializes the full dense Jacobian (O(n²)),
+    `method="dense"` materializes the full dense Jacobian (\(O(n^2)\)),
     so reserve it for small problems.
 
 ## Hessians
@@ -60,10 +57,6 @@ def g(x):
 coloring = hessian_coloring(g, x)
 check_hessian_correctness(g, x, coloring)              # matvec (default)
 check_hessian_correctness(g, x, coloring, method="dense")  # exact, expensive
-```
-
-```python exec="true" session="verify"
-print("```\nHessian verified ✓\n```")
 ```
 
 ## Validating a coloring directly

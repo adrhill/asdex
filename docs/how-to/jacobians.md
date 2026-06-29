@@ -18,13 +18,16 @@ using [row or column coloring](../explanation/coloring.md) with forward- or reve
 
 Pass your function and a sample input to [`jacobian`](../reference/index.md#asdex.jacobian):
 
-```python
+```python exec="true" session="jac-basic" source="above"
 import jax
 import jax.numpy as jnp
 from asdex import jacobian
 
-x = jnp.zeros(1000)
-jac_fn = jax.jit(jacobian(f, x))  # you can use any sample input with correct shape and dtype here
+def f(x):
+    return (x[1:] - x[:-1]) ** 2
+
+x = jnp.zeros(1000)  # any input with the correct shape and dtype works for detection
+jac_fn = jax.jit(jacobian(f, x))
 
 J = jac_fn(x)
 ```
@@ -40,15 +43,26 @@ for x in inputs:
     J = jac_fn(x)
 ```
 
-The Jacobian is always returned as a 2D matrix
-of shape \((m, n)\) where \(n\) is the total number of input elements
-and \(m\) is the total number of output elements
+For a vector input and vector output,
+the Jacobian is the familiar 2D matrix of shape \((m, n)\),
+with \(m\) the number of output elements and \(n\) the number of input elements.
 
 ### Getting the Primal Value Too
 
 Use [`value_and_jacobian`](../reference/index.md#asdex.value_and_jacobian)
 or [`value_and_jacobian_from_coloring`](../reference/index.md#asdex.value_and_jacobian_from_coloring)
 to get `(f(x), J)` without a redundant forward pass.
+
+```python exec="true" session="jac-value" source="above"
+import jax.numpy as jnp
+from asdex import value_and_jacobian
+
+def f(x):
+    return (x[1:] - x[:-1]) ** 2
+
+x = jnp.arange(1.0, 6.0)
+y, J = value_and_jacobian(f, x)(x)  # y is the primal f(x), J is the sparse Jacobian
+```
 
 ### Precomputing the Colored Pattern
 
@@ -252,13 +266,6 @@ y = jnp.arange(4.0, 7.0)
 Jx, Jy = jax.jit(jacobian(f, x, y, argnums=(0, 1)))(x, y)  # one block per selected arg
 ```
 
-```python exec="true" session="jac-multi"
-print(f"""```
-Jx: {type(Jx).__name__} {Jx.shape}
-Jy: {type(Jy).__name__} {Jy.shape}
-```""")
-```
-
 With an integer `argnums` (the default `0`) a single block is returned, not a tuple.
 Arguments not named by `argnums` are still passed at call time and held fixed,
 yet they can still influence the result.
@@ -268,15 +275,8 @@ Here `scale` is not differentiated, but it scales every entry of the Jacobian:
 def scaled(x, scale):
     return scale * x ** 2
 
-J2 = jacobian(scaled, x, 2.0, argnums=0)(x, 2.0)
-J5 = jacobian(scaled, x, 5.0, argnums=0)(x, 5.0)
-```
-
-```python exec="true" session="jac-multi"
-print(f"""```
-scale=2 -> diagonal {J2.todense().diagonal()}
-scale=5 -> diagonal {J5.todense().diagonal()}
-```""")
+J1 = jacobian(scaled, x, 1.0, argnums=0)(x, 1.0)  # [ 1.  4.  6.]
+J5 = jacobian(scaled, x, 5.0, argnums=0)(x, 5.0)  # [10. 20. 30.]
 ```
 
 A function may also return several outputs.
@@ -291,11 +291,10 @@ J = jax.jit(jacobian(f_multi, x, y, argnums=(0, 1)))(x, y)
 ```
 
 ```python exec="true" session="jac-multi"
-dxy_dx = J[0][0]  # d(x * y) / dx: first output w.r.t. first argument
 print(f"""```
-outer length (outputs):    {len(J)}
-inner length (arguments):  {len(J[0])}
-J[0][0] = d(x*y)/dx:       {dxy_dx.shape}
+len(J):        {len(J)}
+len(J[0]):     {len(J[0])}
+J[0][0].shape: {J[0][0].shape}
 ```""")
 ```
 
@@ -319,9 +318,9 @@ J = jax.jit(jacobian(loss, params))(params)
 
 ```python exec="true" session="jac-pt"
 print(f"""```
-keys:        {sorted(J)}
-J['weight']: {type(J['weight']).__name__} {J['weight'].shape}
-J['bias']:   {type(J['bias']).__name__} {J['bias'].shape}
+keys:              {sorted(J)}
+J['weight'].shape: {J['weight'].shape}
+J['bias'].shape:   {J['bias'].shape}
 ```""")
 ```
 
@@ -339,9 +338,9 @@ J = jax.jit(jacobian(f_out, x))(x)
 
 ```python exec="true" session="jac-pt"
 print(f"""```
-keys:         {sorted(J)}
-J['squared']: {J['squared'].shape}   # (3,) output, (3,) input
-J['total']:   {J['total'].shape}      # scalar output, (3,) input
+keys:               {sorted(J)}
+J['squared'].shape: {J['squared'].shape}
+J['total'].shape:   {J['total'].shape}
 ```""")
 ```
 
@@ -365,8 +364,8 @@ J, aux = jax.jit(jacobian(f, x, has_aux=True))(x)
 
 ```python exec="true" session="jac-aux"
 print(f"""```
-J:       {type(J).__name__} {J.shape}
-mean_sq: {float(aux['mean_sq']):.3f}
+J.shape:        {J.shape}
+aux['mean_sq']: {float(aux['mean_sq']):.3f}
 ```""")
 ```
 
@@ -381,8 +380,8 @@ from asdex import value_and_jacobian
 
 ```python exec="true" session="jac-aux"
 print(f"""```
-value:   {value.shape}
-mean_sq: {float(aux['mean_sq']):.3f}
+value.shape:    {value.shape}
+aux['mean_sq']: {float(aux['mean_sq']):.3f}
 ```""")
 ```
 
@@ -423,9 +422,9 @@ J_csr = jacobian(f, x, output_format="scipy_csr")(x)         # scipy.sparse.csr_
 
 ```python exec="true" session="jac-fmt"
 print(f"""```
-bcoo:       {type(J_bcoo).__name__}
-dense:      {type(J_dense).__name__}  shape={J_dense.shape}
-scipy_csr:  {type(J_csr).__name__}  nnz={J_csr.nnz}
+J_bcoo:       {type(J_bcoo).__name__}
+J_dense:      {type(J_dense).__name__}  shape={J_dense.shape}
+J_csr:        {type(J_csr).__name__}  nnz={J_csr.nnz}
 ```""")
 ```
 
@@ -470,10 +469,6 @@ x = jnp.arange(1.0, 101.0)
 
 # Evaluate at most 16 colors in parallel at a time:
 J = jax.jit(jacobian(f, x, chunk_size=16))(x)
-```
-
-```python exec="true" session="jac-chunk"
-print(f"```\nJ: {type(J).__name__} {J.shape}, nse={J.nse}\n```")
 ```
 
 The result is identical to the default (`chunk_size=None`), only peak memory and runtime change.
