@@ -29,12 +29,12 @@ from asdex import (
     value_and_jacobian,
     value_and_jacobian_from_coloring,
 )
+from asdex._api_utils import _selected_dtype
 from asdex.coloring._color_symmetric import StarSet
-from asdex.decompression import (
-    _decompress_data,
+from asdex.decompression._decompress import _decompress_data
+from asdex.differentiation import (
     _flatten_grad_output,
     _flatten_selected_cotangents,
-    _selected_dtype,
 )
 from asdex.verify import _allclose_pytree
 

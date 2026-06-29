@@ -449,3 +449,70 @@ The result is identical to the default (`chunk_size=None`), only peak memory and
 `chunk_size` is accepted by [`hessian`](../reference/index.md#asdex.hessian),
 [`value_and_hessian`](../reference/index.md#asdex.value_and_hessian), and
 [`hessian_from_coloring`](../reference/index.md#asdex.hessian_from_coloring).
+
+### Skipping Decompression
+
+Sometimes you want the raw compressed matrix \(B\) rather than the assembled sparse Hessian,
+to feed a custom solver, cross-check against a reference, or decompress lazily.
+[`compressed_hessian`](../reference/index.md#asdex.compressed_hessian) and
+[`compressed_hessian_from_coloring`](../reference/index.md#asdex.compressed_hessian_from_coloring)
+run the same detect-and-color steps as [`hessian`](../reference/index.md#asdex.hessian),
+but stop at \(B\), the dense matrix of one HVP per color of shape \((\text{num\_colors}, n)\),
+where \(n\) is the input size.
+
+```python exec="true" session="hess-compress" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import compressed_hessian_from_coloring, decompress, decompress_data, hessian_coloring
+
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.arange(1.0, 6.0)
+coloring = hessian_coloring(g, x)
+
+compressed_fn = jax.jit(compressed_hessian_from_coloring(g, coloring))
+B = compressed_fn(x)  # the dense compressed matrix, shape (num_colors, n)
+```
+
+`B` is a plain `jax.Array`, so the returned function stays jit-able by the caller.
+The compressed functions take no `output_format`, since formatting is the job of decompression.
+Each one has a `value_and_*` variant
+([`value_and_compressed_hessian`](../reference/index.md#asdex.value_and_compressed_hessian)
+and its `*_from_coloring` form) that also returns the primal value.
+
+[`decompress`](../reference/index.md#asdex.decompress) turns \(B\) back into the sparse matrix
+in any [output format](#output-formats).
+Unlike [`hessian`](../reference/index.md#asdex.hessian),
+it always returns the flat 2-D \((n, n)\) matrix, regardless of input PyTree structure:
+
+```python exec="true" session="hess-compress" source="above"
+H_bcoo = decompress(coloring, B)                          # BCOO (default)
+H_dense = decompress(coloring, B, output_format="dense")  # jax.Array
+```
+
+For full control, [`decompress_data`](../reference/index.md#asdex.decompress_data) is the jittable
+primitive underneath `decompress`.
+It returns just the structural non-zero values as a `jax.Array` of shape \((\text{nnz},)\) in pattern order,
+ready to pair with `coloring.sparsity.rows` and `coloring.sparsity.cols` to build a custom container:
+
+```python exec="true" session="hess-compress" source="above"
+data = decompress_data(coloring, B)  # the nnz values, in pattern order
+rows = coloring.sparsity.rows        # row index of each value
+cols = coloring.sparsity.cols        # column index of each value
+# data, rows, and cols share one pattern order,
+# so data[k] is the Hessian entry at (rows[k], cols[k]).
+```
+
+```python exec="true" session="hess-compress"
+print(f"""```
+B.shape:     {B.shape}
+H_bcoo:      {type(H_bcoo).__name__}  shape={H_bcoo.shape}
+data.shape:  {data.shape}
+first entry: H[{rows[0]}, {cols[0]}] = {float(data[0]):.1f}
+```""")
+```
+
+Because `decompress_data` always returns a `jax.Array`,
+it composes inside `jax.jit` and can feed a custom solver,
+whereas the host formats from `decompress` (`"numpy_dense"` and the scipy formats) cannot.

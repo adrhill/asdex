@@ -1,0 +1,447 @@
+"""Batched-AD engine for compressing Jacobians and Hessians.
+
+This module holds the raw automatic-differentiation numerics:
+one batched VJP/JVP/HVP per color, driven by the ``ColoredPattern`` it is handed.
+It reads the seed matrix (``coloring._device_seeds``) and the
+differentiated-input structure (``input_avals``/``argnums`` and the
+``leaf_shapes``/``leaf_sizes`` derived from them) off the pattern,
+runs the AD, and returns the compressed derivative ``B`` of shape
+``(num_colors, dim)`` plus the forward value and aux.
+
+It reads only the input structure and the seeds,
+never the nonzeros (``rows``/``cols``/``nnz``) or ``OutputFormat``,
+so the dependency on the pattern stays one-way and the engine is
+agnostic to how ``B`` is later decompressed.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any, assert_never
+
+import jax
+import jax.numpy as jnp
+from jax import dtypes
+
+from asdex._api_utils import (
+    _uniform_selected_dtype,
+    flatten_pytree,
+    unflatten_to_pytree,
+)
+from asdex.modes import _assert_hessian_mode, _assert_jacobian_mode
+from asdex.pattern import ColoredPattern, SparsityPattern
+
+
+def _chunked_vmap(
+    fn: Callable[..., Any],
+    seeds: jax.Array,
+    chunk_size: int | None,
+) -> jax.Array:
+    """Vmap over seeds with bounded parallelism via sequential chunk processing.
+
+    When ``chunk_size`` is ``None`` or exceeds the number of seeds, falls back to
+    regular ``jax.vmap``. Otherwise, processes ``chunk_size`` seeds in parallel
+    per chunk, with chunks processed sequentially via ``jax.lax.map``.
+
+    Args:
+        fn: Function to vmap over, taking a single seed vector.
+        seeds: 2D array of shape ``(n_seeds, seed_dim)`` to process.
+        chunk_size: Maximum seeds per parallel batch.
+    """
+    n = seeds.shape[0]
+    if chunk_size is None or chunk_size >= n:
+        return jax.vmap(fn)(seeds)
+    return jax.lax.map(fn, seeds, batch_size=chunk_size)
+
+
+def _output_dtype(pytree: Any) -> jnp.dtype:
+    """Get the result dtype for a PyTree of arrays."""
+    leaves = jax.tree_util.tree_leaves(pytree)
+    return dtypes.result_type(*leaves)
+
+
+# Jacobian rows / cols over the selected input space
+
+
+def _jacobian_compressed(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    out_struct: Any,
+    *,
+    has_aux: bool,
+    chunk_size: int | None,
+) -> tuple[jax.Array, Any, Any]:
+    """Compress the Jacobian via VJPs (``rev``) or JVPs (``fwd``) by mode.
+
+    Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
+    """
+    _assert_jacobian_mode(coloring.mode)
+    match coloring.mode:
+        case "rev":
+            return _jacobian_rows(
+                f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
+            )
+        case "fwd":
+            return _jacobian_cols(
+                f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
+            )
+        case _ as unreachable:
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
+
+
+def _jacobian_rows(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    out_struct: Any,
+    *,
+    has_aux: bool,
+    chunk_size: int | None,
+) -> tuple[jax.Array, Any, Any]:
+    """Row-coloring VJPs over the combined selected input space.
+
+    Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
+    """
+    sparsity = coloring.sparsity
+    if has_aux:
+        y, vjp_fn, aux = jax.vjp(f, *args, has_aux=True)
+    else:
+        y, vjp_fn = jax.vjp(f, *args)
+        aux = None
+    dtype = _output_dtype(y)
+    seeds = coloring._device_seeds(dtype)
+
+    def single_vjp(seed: jax.Array) -> jax.Array:
+        cotangent = unflatten_to_pytree(seed, out_struct)
+        grads = vjp_fn(cotangent)
+        return _flatten_selected_cotangents(grads, sparsity)
+
+    J_compressed = _chunked_vmap(single_vjp, seeds, chunk_size)
+    return J_compressed, y, aux
+
+
+def _jacobian_cols(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    *,
+    has_aux: bool,
+    chunk_size: int | None,
+) -> tuple[jax.Array, Any, Any]:
+    """Column-coloring JVPs over the combined selected input space.
+
+    Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
+    """
+    sparsity = coloring.sparsity
+    dtype = _uniform_selected_dtype(args, sparsity)
+    if has_aux:
+        y, jvp_fn, aux = jax.linearize(f, *args, has_aux=True)
+    else:
+        y, jvp_fn = jax.linearize(f, *args)
+        aux = None
+    seeds = coloring._device_seeds(dtype)
+
+    def single_jvp(seed: jax.Array) -> jax.Array:
+        tangents = _build_tangents_from_seed(seed, args, sparsity)
+        return flatten_pytree(jvp_fn(*tangents))
+
+    J_compressed = _chunked_vmap(single_jvp, seeds, chunk_size)
+    return J_compressed, y, aux
+
+
+# HVPs over the selected input space
+
+
+def _grad_with_aux(
+    f: Callable[..., Any],
+    f_aux: Callable[..., Any] | None,
+    grad_argnums: int | tuple[int, ...],
+) -> Callable[..., Any]:
+    """``jax.grad`` returning ``(grads, aux)``, with ``aux=None`` when no ``f_aux``.
+
+    Normalizing the aux output lets callers thread it through
+    ``jax.linearize(..., has_aux=True)`` / ``jax.vjp(..., has_aux=True)``
+    uniformly, so aux rides along with the existing forward pass
+    instead of costing an extra ``f`` call.
+    """
+    if f_aux is not None:
+        return jax.grad(f_aux, argnums=grad_argnums, has_aux=True)
+    grad_fn = jax.grad(f, argnums=grad_argnums)
+    return lambda *primals: (grad_fn(*primals), None)
+
+
+def _compute_hvps(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+    *,
+    f_aux: Callable[..., Any] | None = None,
+) -> tuple[jax.Array, Any]:
+    """One HVP per color for a scalar-valued multi-positional ``f``.
+
+    ``f_aux`` is the aux-preserving variant of ``f`` (returns ``(out, aux)``).
+    When given, aux is extracted from the forward pass of the HVPs
+    where the mode allows and returned alongside the compressed rows;
+    otherwise the returned aux is ``None``.
+    """
+    sparsity = coloring.sparsity
+    dtype = _uniform_selected_dtype(args, sparsity)
+    grad_argnums = sparsity.argnums
+
+    seeds = coloring._device_seeds(dtype)
+    _assert_hessian_mode(coloring.mode)
+    match coloring.mode:
+        case "fwd_over_rev":
+            grad_fn = _grad_with_aux(f, f_aux, grad_argnums)
+            _, hvp_fn, aux = jax.linearize(grad_fn, *args, has_aux=True)
+
+            def single_hvp(v: jax.Array) -> jax.Array:
+                tangents = _build_tangents_from_seed(v, args, sparsity)
+                tangent_out = hvp_fn(*tangents)
+                return _flatten_grad_output(tangent_out)
+
+        case "rev_over_fwd":
+            # The forward passes happen inside the vmapped HVPs below,
+            # so aux needs one dedicated ``f`` call.
+            aux = f_aux(*args)[1] if f_aux is not None else None
+
+            def single_hvp(v: jax.Array) -> jax.Array:
+                tangents = _build_tangents_from_seed(v, args, sparsity)
+
+                def inner(*primals: Any) -> jax.Array:
+                    _, out_tangent = jax.jvp(f, primals, tangents)
+                    return out_tangent
+
+                grads = jax.grad(inner, argnums=grad_argnums)(*args)
+                return _flatten_grad_output(grads)
+
+        case "rev_over_rev":
+            grad_fn = _grad_with_aux(f, f_aux, grad_argnums)
+            _, hvp_fn, aux = jax.vjp(grad_fn, *args, has_aux=True)
+
+            def single_hvp(v: jax.Array) -> jax.Array:
+                cotangent_out = _build_grad_output_from_seed(v, sparsity)
+                cotangents = hvp_fn(cotangent_out)
+                return _flatten_selected_cotangents(cotangents, sparsity)
+
+        case _ as unreachable:
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
+
+    H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
+    return H_compressed, aux
+
+
+def _grad_with_value_and_aux(
+    f: Callable[..., Any],
+    f_aux: Callable[..., Any] | None,
+    grad_argnums: int | tuple[int, ...],
+) -> Callable[..., Any]:
+    """``jax.grad`` returning ``(grads, (value, aux))``, ``aux=None`` without ``f_aux``.
+
+    Returning the primal value as the aux output of
+    ``jax.linearize`` / ``jax.vjp`` keeps it out of the differentiated outputs,
+    so it rides along with the forward pass inside ``grad``
+    without inflating HVP applications with dead value (co)tangents.
+    """
+    if f_aux is not None:
+        val_and_grad_aux = jax.value_and_grad(f_aux, argnums=grad_argnums, has_aux=True)
+
+        def wrapped(*primals: Any) -> tuple[Any, tuple[jax.Array, Any]]:
+            (value, aux), grads = val_and_grad_aux(*primals)
+            return grads, (value, aux)
+    else:
+        val_and_grad = jax.value_and_grad(f, argnums=grad_argnums)
+
+        def wrapped(*primals: Any) -> tuple[Any, tuple[jax.Array, Any]]:
+            value, grads = val_and_grad(*primals)
+            return grads, (value, None)
+
+    return wrapped
+
+
+def _value_and_compute_hvps(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+    *,
+    f_aux: Callable[..., Any] | None = None,
+) -> tuple[jax.Array, jax.Array, Any]:
+    """``f(*args)``, one HVP per color, and aux for a scalar-valued ``f``.
+
+    Value (and aux, when ``f_aux`` is given) is free for
+    ``fwd_over_rev`` / ``rev_over_rev``;
+    ``rev_over_fwd`` computes both with one extra ``f`` call.
+    Returns ``(value, compressed, aux)``; ``aux`` is ``None`` without ``f_aux``.
+    """
+    sparsity = coloring.sparsity
+    dtype = _uniform_selected_dtype(args, sparsity)
+    grad_argnums = sparsity.argnums
+
+    seeds = coloring._device_seeds(dtype)
+    _assert_hessian_mode(coloring.mode)
+    match coloring.mode:
+        case "fwd_over_rev":
+            grad_fn = _grad_with_value_and_aux(f, f_aux, grad_argnums)
+            _, hvp_fn, (value, aux) = jax.linearize(grad_fn, *args, has_aux=True)
+
+            def single_hvp(v: jax.Array) -> jax.Array:
+                tangents = _build_tangents_from_seed(v, args, sparsity)
+                tangent_out = hvp_fn(*tangents)
+                return _flatten_grad_output(tangent_out)
+
+        case "rev_over_fwd":
+            # The forward passes happen inside the vmapped HVPs below,
+            # so value and aux need one dedicated ``f`` call.
+            if f_aux is not None:
+                out, aux = f_aux(*args)
+                value = jnp.asarray(out)
+            else:
+                value, aux = jnp.asarray(f(*args)), None
+
+            def single_hvp(v: jax.Array) -> jax.Array:
+                tangents = _build_tangents_from_seed(v, args, sparsity)
+
+                def inner(*primals: Any) -> jax.Array:
+                    _, out_tangent = jax.jvp(f, primals, tangents)
+                    return out_tangent
+
+                grads = jax.grad(inner, argnums=grad_argnums)(*args)
+                return _flatten_grad_output(grads)
+
+        case "rev_over_rev":
+            grad_fn = _grad_with_value_and_aux(f, f_aux, grad_argnums)
+            _, hvp_fn, (value, aux) = jax.vjp(grad_fn, *args, has_aux=True)
+
+            def single_hvp(v: jax.Array) -> jax.Array:
+                cotangent_out = _build_grad_output_from_seed(v, sparsity)
+                cotangents = hvp_fn(cotangent_out)
+                return _flatten_selected_cotangents(cotangents, sparsity)
+
+        case _ as unreachable:
+            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
+
+    H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
+    return value, H_compressed, aux
+
+
+# Seed / tangent / cotangent plumbing over the selected input space
+
+
+def _build_tangents_from_seed(
+    seed: jax.Array,
+    args: tuple[Any, ...],
+    sparsity: SparsityPattern,
+) -> tuple[Any, ...]:
+    """Split a ``(n_selected,)`` seed into a per-positional-arg tangent pytree.
+
+    Selected positions get chunks reshaped into their aval leaves; non-selected
+    positions get zero tangents so they have no effect on the JVP.
+    """
+    leaf_sizes = sparsity.leaf_sizes
+    leaf_shapes = sparsity.leaf_shapes
+    chunks: list[jax.Array] = []
+    offset = 0
+    for size in leaf_sizes:
+        chunks.append(seed[offset : offset + size])
+        offset += size
+
+    # Map position -> chunk offset. Chunks are in argnums order, not position order.
+    pos_to_chunk_offset: dict[int, int] = {}
+    chunk_offset = 0
+    for pos in sparsity._argnums_tuple:
+        pos_to_chunk_offset[pos] = chunk_offset
+        aval_leaves = jax.tree_util.tree_leaves(sparsity.input_avals[pos])
+        chunk_offset += len(aval_leaves)
+
+    tangents: list[Any] = []
+    for pos_idx, (arg, aval) in enumerate(zip(args, sparsity.input_avals, strict=True)):
+        del arg
+        aval_leaves = jax.tree_util.tree_leaves(aval)
+        aval_tree = jax.tree_util.tree_structure(aval)
+        if pos_idx in pos_to_chunk_offset:
+            chunk_idx = pos_to_chunk_offset[pos_idx]
+            leaf_tangents = [
+                chunks[chunk_idx + k].reshape(leaf_shapes[chunk_idx + k])
+                for k in range(len(aval_leaves))
+            ]
+        else:
+            leaf_tangents = [
+                jnp.zeros(tuple(leaf.shape), dtype=seed.dtype) for leaf in aval_leaves
+            ]
+        tangents.append(jax.tree_util.tree_unflatten(aval_tree, leaf_tangents))
+    return tuple(tangents)
+
+
+def _flatten_selected_cotangents(
+    cotangents: Any, sparsity: SparsityPattern
+) -> jax.Array:
+    """Flatten cotangent leaves at selected positions into a ``(n_selected,)`` vector.
+
+    ``jax.vjp(f, *xs)`` returns a tuple of cotangents matching the primals.
+    Non-selected positions are ignored; selected positions contribute all leaves.
+    Float0 leaves (from integer inputs with allow_int=True) are replaced with zeros.
+    """
+    selected = tuple(cotangents[i] for i in sparsity._argnums_tuple)
+    leaves = jax.tree_util.tree_leaves(selected)
+    if not leaves:
+        return jnp.zeros((0,))
+    raveled = []
+    for leaf in leaves:
+        if leaf.dtype == dtypes.float0:
+            raveled.append(jnp.zeros(leaf.shape, dtype=jnp.float_).ravel())
+        else:
+            raveled.append(leaf.ravel())
+    return jnp.concatenate(raveled)
+
+
+def _flatten_grad_output(out: Any) -> jax.Array:
+    """Flatten a gradient output into ``(n_selected,)``.
+
+    ``jax.grad(f, argnums=...)`` already restricts its output to the selected
+    positions, so every leaf contributes to the flat vector.
+    """
+    leaves = jax.tree_util.tree_leaves(out)
+    if not leaves:
+        return jnp.zeros((0,))
+    return jnp.concatenate([leaf.ravel() for leaf in leaves])
+
+
+def _build_grad_output_from_seed(
+    seed: jax.Array,
+    sparsity: SparsityPattern,
+) -> Any:
+    """Build a gradient-shaped pytree from a ``(n_selected,)`` seed.
+
+    Mirrors ``_flatten_grad_output`` in reverse: used as the seed cotangent
+    passed into the outer VJP in ``rev_over_rev`` Hessian mode.
+    The output matches ``sparsity.example_input`` (structure of ``dyn_avals``
+    when ``argnums`` is a tuple, or the single aval when it is an int).
+    """
+    leaf_shapes = sparsity.leaf_shapes
+    leaf_sizes = sparsity.leaf_sizes
+    chunks: list[jax.Array] = []
+    offset = 0
+    for size, shape in zip(leaf_sizes, leaf_shapes, strict=True):
+        chunks.append(seed[offset : offset + size].reshape(shape))
+        offset += size
+
+    if isinstance(sparsity.argnums, int):
+        # Single selected position: unflatten into that position's pytree.
+        aval = sparsity.input_avals[sparsity.argnums]
+        treedef = jax.tree_util.tree_structure(aval)
+        return jax.tree_util.tree_unflatten(treedef, chunks)
+
+    # Tuple of positions: one pytree per selected position, then a tuple.
+    groups: list[Any] = []
+    idx = 0
+    for pos in sparsity.argnums:
+        aval = sparsity.input_avals[pos]
+        aval_leaves = jax.tree_util.tree_leaves(aval)
+        group = chunks[idx : idx + len(aval_leaves)]
+        idx += len(aval_leaves)
+        treedef = jax.tree_util.tree_structure(aval)
+        groups.append(jax.tree_util.tree_unflatten(treedef, group))
+    return tuple(groups)

@@ -1,5 +1,17 @@
 # asdex
 
+## Version `v0.4.1`
+* ![Feature][badge-feature] Add compressed-differentiation API (`compressed_jacobian`, `compressed_hessian`, their `value_and_*` and `*_from_coloring` variants) returning the raw compressed matrix `B` ([#155])
+* ![Feature][badge-feature] Add `decompress` and `decompress_data` to turn a compressed matrix back into a sparse matrix or its raw values ([#155])
+* ![Maintenance][badge-maintenance] Split `decompression.py` into a package and extract the batched-AD engine into `differentiation.py` ([#155])
+
+```python
+coloring = asdex.jacobian_coloring(f, x)
+B = asdex.compressed_jacobian_from_coloring(f, coloring)(x)  # compressed matrix
+J = asdex.decompress(coloring, B)                            # back to a sparse matrix
+data = asdex.decompress_data(coloring, B)                    # raw values, jittable
+```
+
 ## Version `v0.4.0`
 * ![BREAKING][badge-breaking] `StarSet` now stores edge keys as arrays; `reconstruct_edge_index` is renamed to `reconstruct_edge_arrays` and `edge_index` becomes a lookup method ([#143])
 * ![Feature][badge-feature] Add `numpy_dense`, `scipy_coo`, `scipy_csr`, and `scipy_csc` output formats, with scipy as an optional dependency ([#142])
@@ -106,6 +118,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#155]: https://github.com/adrhill/asdex/pull/155
 [#143]: https://github.com/adrhill/asdex/pull/143
 [#142]: https://github.com/adrhill/asdex/pull/142
 [#141]: https://github.com/adrhill/asdex/pull/141

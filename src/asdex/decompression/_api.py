@@ -1,0 +1,1162 @@
+"""Public API for sparse and compressed Jacobian and Hessian computation.
+
+This module is the user-facing surface of the ``decompression`` package:
+the one-shot ``jacobian``/``hessian``/``value_and_*`` family and their
+``*_from_coloring`` variants, the ``compressed_*`` and ``value_and_compressed_*``
+factories that stop at the compressed matrix ``B``, and the
+``decompress``/``decompress_data`` consumers that turn ``B`` back into a sparse
+matrix.
+
+Each function is a thin wrapper: it normalizes inputs and delegates the numerics
+to the compress, decompress, and evaluate stages.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from typing import Any
+
+import jax
+
+from asdex._api_utils import _ensure_index, merge_args_kwargs, merge_sample_inputs
+from asdex.coloring import hessian_coloring as _hessian_coloring
+from asdex.coloring import jacobian_coloring as _jacobian_coloring
+from asdex.decompression._compress import (
+    _assert_chunk_size,
+    _compress_hessian,
+    _compress_jacobian,
+    _value_and_compress_hessian,
+)
+from asdex.decompression._decompress import (
+    _decompress_data,
+    _decompress_to_format,
+    _validate_compressed,
+)
+from asdex.decompression._evaluate import (
+    _eval_hessian,
+    _eval_jacobian,
+    _eval_value_and_hessian,
+    _eval_value_and_jacobian,
+)
+from asdex.modes import (
+    HessianMode,
+    JacobianMode,
+    OutputFormat,
+    _assert_output_format,
+)
+from asdex.pattern import ColoredPattern
+
+# Public API: one-shot entry points
+
+
+def jacobian(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    mode: JacobianMode | None = None,
+    symmetric: bool = False,
+    output_format: OutputFormat = "bcoo",
+    chunk_size: int | None = None,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Detect sparsity, color, and return a function computing sparse Jacobians.
+
+    Combines [`jacobian_coloring`][asdex.jacobian_coloring]
+    and [`jacobian_from_coloring`][asdex.jacobian_from_coloring]
+    in one call.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
+    Args:
+        f: Function whose Jacobian is to be computed.
+        *sample_args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
+            mirroring ``jax.jacrev``.
+            When True, the returned function yields ``(jac, aux)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic,
+            mirroring ``jax.jacrev``.
+            Validates dtype compatibility at call time.
+        allow_int: Whether to allow differentiating with respect to
+            integer-valued inputs, mirroring ``jax.jacrev``.
+        mode: AD mode.
+            ``"fwd"`` uses JVPs (forward-mode AD),
+            ``"rev"`` uses VJPs (reverse-mode AD).
+            ``None`` picks whichever of fwd/rev needs fewer colors.
+        symmetric: Whether to use symmetric (star) coloring.
+            Requires a square Jacobian.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy and only support 2D Jacobians:
+            the input and output must each be a single flat (1D) array
+            (scalar outputs are not supported).
+        chunk_size: Maximum number of colors to process in parallel.
+            When ``None`` (default), all colors are processed in a single vmapped batch.
+            When specified, colors are processed in chunks of this size to reduce
+            peak memory usage.
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            a pytree of Jacobian blocks matching ``argnums``, with each leaf
+            shaped ``(*out_shape, *in_leaf_shape)``.
+            The block type depends on ``output_format``
+            (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
+            when ``"dense"``).
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _jacobian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: dict[Any, Any] = {}
+
+    def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        return _eval_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return jac_fn
+
+
+def value_and_jacobian(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    mode: JacobianMode | None = None,
+    symmetric: bool = False,
+    output_format: OutputFormat = "bcoo",
+    chunk_size: int | None = None,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Detect sparsity, color, and return a function computing value and sparse Jacobian.
+
+    Like [`jacobian`][asdex.jacobian],
+    but also returns the primal value ``f(*args)``
+    without an extra forward pass.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            ``(value, jac)`` — or ``((value, aux), jac)`` when ``has_aux=True``,
+            matching ``jax.value_and_grad`` ordering.
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _jacobian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: dict[Any, Any] = {}
+
+    def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        return _eval_value_and_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return val_jac_fn
+
+
+def hessian(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    mode: HessianMode | None = None,
+    symmetric: bool = True,
+    output_format: OutputFormat = "bcoo",
+    chunk_size: int | None = None,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Detect sparsity, color, and return a function computing sparse Hessians.
+
+    If ``f`` returns a squeezable shape like ``(1,)`` or ``(1, 1)``,
+    it is automatically squeezed to scalar.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        *sample_args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
+        mode: AD mode for Hessian computation.
+        symmetric: Whether to use symmetric (star) coloring.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy and only support 2D Hessians:
+            the input must be a single flat (1D) array.
+        chunk_size: Maximum number of colors to process in parallel.
+            When ``None`` (default), all colors are processed in a single vmapped batch.
+            When specified, colors are processed in chunks of this size to reduce
+            peak memory usage.
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            the sparse Hessian.
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _hessian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: dict[Any, Any] = {}
+
+    def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        return _eval_hessian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return hess_fn
+
+
+def value_and_hessian(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    mode: HessianMode | None = None,
+    symmetric: bool = True,
+    output_format: OutputFormat = "bcoo",
+    chunk_size: int | None = None,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Detect sparsity, color, and return a function computing value and sparse Hessian.
+
+    Like [`hessian`][asdex.hessian], but also returns the primal value
+    ``f(*args)`` without an extra forward pass.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        *sample_args: Sample arguments of ``f``.
+            Only structure and dtypes are used, values are ignored.
+        argnums: Specifies which positional argument(s) to differentiate
+            with respect to (default ``0``).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
+        mode: AD mode for Hessian computation.
+        symmetric: Whether to use symmetric (star) coloring.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy and only support 2D Hessians:
+            the input must be a single flat (1D) array.
+        chunk_size: Maximum number of colors to process in parallel.
+            When ``None`` (default), all colors are processed in a single vmapped batch.
+            When specified, colors are processed in chunks of this size to reduce
+            peak memory usage.
+        **sample_kwargs: Sample keyword arguments of ``f``.
+            Merged with ``sample_args`` based on ``f``'s signature.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            ``(value, hessian)``.
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _hessian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: dict[Any, Any] = {}
+
+    def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        return _eval_value_and_hessian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return val_hess_fn
+
+
+# Public API: ``*_from_coloring`` entry points
+
+
+def jacobian_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    chunk_size: int | None = None,
+) -> Callable[..., Any]:
+    """Build a sparse Jacobian function from a pre-computed coloring.
+
+    Uses row coloring + VJPs or column coloring + JVPs,
+    depending on which needs fewer colors.
+
+    The returned callable accepts ``*args, **kwargs``; kwargs are forwarded
+    to ``f`` at call time (matching ``jax.jacfwd`` / ``jax.jacrev``).
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
+    Args:
+        f: Function whose Jacobian is to be computed.
+        coloring: Pre-computed colored sparsity pattern.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy and only support 2D Jacobians:
+            the input and output must each be a single flat (1D) array
+            (scalar outputs are not supported).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        chunk_size: Maximum number of colors to process in parallel.
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
+
+    def jac_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        return _eval_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return jac_fn
+
+
+def hessian_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    chunk_size: int | None = None,
+) -> Callable[..., Any]:
+    """Build a sparse Hessian function from a pre-computed coloring.
+
+    Uses symmetric (star) coloring and Hessian-vector products by default.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        coloring: Pre-computed colored sparsity pattern.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy and only support 2D Hessians:
+            the input must be a single flat (1D) array.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
+        chunk_size: Maximum number of colors to process in parallel.
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
+
+    def hess_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        return _eval_hessian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return hess_fn
+
+
+def value_and_jacobian_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    chunk_size: int | None = None,
+) -> Callable[..., Any]:
+    """Build a function computing value and sparse Jacobian from a pre-computed coloring.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
+    Args:
+        f: Function whose Jacobian is to be computed.
+        coloring: Pre-computed colored sparsity pattern.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy and only support 2D Jacobians:
+            the input and output must each be a single flat (1D) array
+            (scalar outputs are not supported).
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Whether to allow differentiating with respect to integer inputs.
+        chunk_size: Maximum number of colors to process in parallel.
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
+
+    def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        return _eval_value_and_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return val_jac_fn
+
+
+def value_and_hessian_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    output_format: OutputFormat = "bcoo",
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    chunk_size: int | None = None,
+) -> Callable[..., Any]:
+    """Build a function computing value and sparse Hessian from a pre-computed coloring.
+
+    For repeated evaluation, wrap the returned function in ``jax.jit``:
+    each unjitted call re-traces ``f``,
+    which can cost far more than the differentiation itself.
+    The ``"numpy_dense"`` and scipy output formats cannot be jitted
+    since they produce non-JAX arrays.
+
+    Args:
+        f: Scalar-valued function whose Hessian is to be computed.
+        coloring: Pre-computed colored sparsity pattern.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy and only support 2D Hessians:
+            the input must be a single flat (1D) array.
+        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
+        holomorphic: Whether ``f`` is promised to be holomorphic.
+        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
+            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
+        chunk_size: Maximum number of colors to process in parallel.
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
+
+    def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        return _eval_value_and_hessian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return val_hess_fn
+
+
+# Public API: compressed entry points
+#
+# These stop at the compressed matrix B of shape (num_colors, dim),
+# one VJP/JVP/HVP per color, before decompression scatters B into the pattern.
+# They take no output_format: formatting is the job of decompress.
+
+
+def compressed_jacobian(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    mode: JacobianMode | None = None,
+    symmetric: bool = False,
+    chunk_size: int | None = None,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Detect sparsity, color, and return a function computing the compressed Jacobian.
+
+    Runs the same detect-and-color steps as [`jacobian`][asdex.jacobian],
+    but stops at the dense compressed matrix ``B`` of shape ``(num_colors, dim)``:
+    one VJP/JVP per color, before decompression scatters ``B`` into the pattern.
+    Recover the sparse matrix with [`decompress`][asdex.decompress] or
+    [`decompress_data`][asdex.decompress_data],
+    or work with ``B`` directly (custom solvers, cross-checks, debugging).
+
+    The returned ``B`` is a plain ``jax.Array``,
+    so the returned function is jit-able by the caller.
+
+    See [`jacobian`][asdex.jacobian] for the shared arguments
+    (``argnums``, ``has_aux``, ``holomorphic``, ``allow_int``, ``mode``,
+    ``symmetric``, ``chunk_size``, and the sample inputs).
+    Unlike [`jacobian`][asdex.jacobian], it takes no ``output_format``:
+    formatting is the job of [`decompress`][asdex.decompress].
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            the compressed matrix ``B`` of shape ``(num_colors, dim)``,
+            or ``(B, aux)`` when ``has_aux=True``.
+            ``dim`` is the input size ``n`` in ``"rev"`` mode
+            and the output size ``m`` in ``"fwd"`` mode.
+    """
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _jacobian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: dict[Any, Any] = {}
+
+    def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        compressed, _value, aux = _compress_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+        return (compressed, aux) if has_aux else compressed
+
+    return compressed_fn
+
+
+def compressed_jacobian_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    chunk_size: int | None = None,
+) -> Callable[..., Any]:
+    """Build a compressed Jacobian function from a pre-computed coloring.
+
+    Like [`jacobian_from_coloring`][asdex.jacobian_from_coloring],
+    but stops at the compressed matrix ``B`` of shape ``(num_colors, dim)``
+    instead of materializing the sparse matrix.
+    See [`compressed_jacobian`][asdex.compressed_jacobian] for ``B``'s layout
+    and [`jacobian_from_coloring`][asdex.jacobian_from_coloring]
+    for the shared arguments.
+
+    Returns:
+        A function returning ``B`` of shape ``(num_colors, dim)``,
+            or ``(B, aux)`` when ``has_aux=True``.
+    """
+    _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
+
+    def compressed_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        compressed, _value, aux = _compress_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+        return (compressed, aux) if has_aux else compressed
+
+    return compressed_fn
+
+
+def compressed_hessian(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    mode: HessianMode | None = None,
+    symmetric: bool = True,
+    chunk_size: int | None = None,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Detect sparsity, color, and return a function computing the compressed Hessian.
+
+    Runs the same detect-and-color steps as [`hessian`][asdex.hessian],
+    but stops at the dense compressed matrix ``B`` of shape ``(num_colors, n)``:
+    one HVP per color, before decompression scatters ``B`` into the pattern.
+    Recover the sparse matrix with [`decompress`][asdex.decompress] or
+    [`decompress_data`][asdex.decompress_data],
+    or work with ``B`` directly.
+
+    The returned ``B`` is a plain ``jax.Array``,
+    so the returned function is jit-able by the caller.
+
+    See [`hessian`][asdex.hessian] for the shared arguments
+    (``argnums``, ``has_aux``, ``holomorphic``, ``allow_int``, ``mode``,
+    ``symmetric``, ``chunk_size``, and the sample inputs).
+    Unlike [`hessian`][asdex.hessian], it takes no ``output_format``:
+    formatting is the job of [`decompress`][asdex.decompress].
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            the compressed matrix ``B`` of shape ``(num_colors, n)``
+            (``n`` the input size), or ``(B, aux)`` when ``has_aux=True``.
+    """
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _hessian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: dict[Any, Any] = {}
+
+    def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        compressed, aux = _compress_hessian(
+            f_bound,
+            merged_args,
+            coloring,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+        return (compressed, aux) if has_aux else compressed
+
+    return compressed_fn
+
+
+def compressed_hessian_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    chunk_size: int | None = None,
+) -> Callable[..., Any]:
+    """Build a compressed Hessian function from a pre-computed coloring.
+
+    Like [`hessian_from_coloring`][asdex.hessian_from_coloring],
+    but stops at the compressed matrix ``B`` of shape ``(num_colors, n)``
+    instead of materializing the sparse matrix.
+    See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout
+    and [`hessian_from_coloring`][asdex.hessian_from_coloring]
+    for the shared arguments.
+
+    Returns:
+        A function returning ``B`` of shape ``(num_colors, n)``,
+            or ``(B, aux)`` when ``has_aux=True``.
+    """
+    _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
+
+    def compressed_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        compressed, aux = _compress_hessian(
+            f_bound,
+            merged_args,
+            coloring,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+        return (compressed, aux) if has_aux else compressed
+
+    return compressed_fn
+
+
+def value_and_compressed_jacobian(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    mode: JacobianMode | None = None,
+    symmetric: bool = False,
+    chunk_size: int | None = None,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Like [`compressed_jacobian`][asdex.compressed_jacobian], also returning the value.
+
+    The primal value ``f(*args)`` rides the compression forward pass,
+    so it is nearly free.
+    See [`compressed_jacobian`][asdex.compressed_jacobian] for ``B``'s layout
+    and [`jacobian`][asdex.jacobian] for the shared arguments.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            ``(value, B)`` — or ``((value, aux), B)`` when ``has_aux=True``,
+            matching ``jax.value_and_grad`` ordering.
+    """
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _jacobian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: dict[Any, Any] = {}
+
+    def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        compressed, value, aux = _compress_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+        return ((value, aux), compressed) if has_aux else (value, compressed)
+
+    return compressed_fn
+
+
+def value_and_compressed_jacobian_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    chunk_size: int | None = None,
+) -> Callable[..., Any]:
+    """Value and compressed Jacobian from a pre-computed coloring.
+
+    Like [`value_and_jacobian_from_coloring`][asdex.value_and_jacobian_from_coloring],
+    but stops at the compressed matrix ``B``.
+    See [`compressed_jacobian`][asdex.compressed_jacobian] for ``B``'s layout.
+
+    Returns:
+        A function returning ``(value, B)``,
+            or ``((value, aux), B)`` when ``has_aux=True``.
+    """
+    _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
+
+    def compressed_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        compressed, value, aux = _compress_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+        return ((value, aux), compressed) if has_aux else (value, compressed)
+
+    return compressed_fn
+
+
+def value_and_compressed_hessian(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = 0,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    mode: HessianMode | None = None,
+    symmetric: bool = True,
+    chunk_size: int | None = None,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Like [`compressed_hessian`][asdex.compressed_hessian], also returning the value.
+
+    The primal value ``f(*args)`` rides the HVP forward pass where the mode allows,
+    so it is nearly free (``rev_over_fwd`` costs one extra ``f`` call).
+    See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout
+    and [`hessian`][asdex.hessian] for the shared arguments.
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            ``(value, B)`` — or ``((value, aux), B)`` when ``has_aux=True``.
+    """
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _hessian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: dict[Any, Any] = {}
+
+    def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        value, compressed, aux = _value_and_compress_hessian(
+            f_bound,
+            merged_args,
+            coloring,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+        return ((value, aux), compressed) if has_aux else (value, compressed)
+
+    return compressed_fn
+
+
+def value_and_compressed_hessian_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    *,
+    has_aux: bool = False,
+    holomorphic: bool = False,
+    allow_int: bool = False,
+    chunk_size: int | None = None,
+) -> Callable[..., Any]:
+    """Value and compressed Hessian from a pre-computed coloring.
+
+    Like [`value_and_hessian_from_coloring`][asdex.value_and_hessian_from_coloring],
+    but stops at the compressed matrix ``B``.
+    See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout.
+
+    Returns:
+        A function returning ``(value, B)``,
+            or ``((value, aux), B)`` when ``has_aux=True``.
+    """
+    _assert_chunk_size(chunk_size)
+
+    call_cache: dict[Any, Any] = {}
+
+    def compressed_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        value, compressed, aux = _value_and_compress_hessian(
+            f_bound,
+            merged_args,
+            coloring,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+        return ((value, aux), compressed) if has_aux else (value, compressed)
+
+    return compressed_fn
+
+
+# Public API: decompression
+
+
+def decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Array:
+    """Gather a compressed matrix ``B`` into sparse values in pattern order.
+
+    Returns a plain ``jax.Array`` of shape ``(coloring.sparsity.nnz,)``
+    holding the sparse values in ``coloring.sparsity`` order,
+    so ``data[k]`` is the entry at
+    ``(coloring.sparsity.rows[k], coloring.sparsity.cols[k])``.
+
+    This is the jittable numeric core of decompression:
+    it always returns a ``jax.Array``, so it composes inside ``jax.jit``
+    and can feed a custom solver or sparse format,
+    whereas [`decompress`][asdex.decompress] may return host
+    (``numpy``/``scipy``) objects that cannot.
+    Pair it with [`to_bcoo`][asdex.SparsityPattern.to_bcoo] for a BCOO,
+    or with ``coloring.sparsity.rows`` / ``coloring.sparsity.cols``
+    to assemble a custom format.
+
+    Args:
+        coloring: The colored pattern that produced ``compressed``.
+        compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``,
+            as returned by [`compressed_jacobian`][asdex.compressed_jacobian] or
+            [`compressed_hessian`][asdex.compressed_hessian].
+
+    Returns:
+        A ``jax.Array`` of shape ``(nnz,)`` with the sparse values in pattern order,
+            matching ``compressed``'s dtype.
+
+    Raises:
+        ValueError: If ``compressed`` does not have shape ``(num_colors, dim)``
+            for ``coloring``
+            (see [`compressed_jacobian`][asdex.compressed_jacobian]
+            for the per-mode ``dim``).
+    """
+    _validate_compressed(coloring, compressed)
+    return _decompress_data(coloring, compressed)
+
+
+def decompress(
+    coloring: ColoredPattern,
+    compressed: jax.Array,
+    output_format: OutputFormat = "bcoo",
+) -> Any:
+    """Decompress a compressed matrix ``B`` into a 2-D sparse matrix.
+
+    Composes [`decompress_data`][asdex.decompress_data] with format dispatch:
+    it gathers ``B`` into the sparse values,
+    then materializes the flat ``(m, n)`` matrix in the requested format.
+
+    Unlike the matrices returned by [`jacobian`][asdex.jacobian] /
+    [`hessian`][asdex.hessian],
+    this is always the flat 2-D matrix regardless of input/output pytree structure:
+    ``B``'s natural domain is the 2-D compressed matrix.
+
+    Args:
+        coloring: The colored pattern that produced ``compressed``.
+        compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``.
+        output_format: Type of the output matrix.
+            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+            ``"dense"`` returns ``jax.Array``,
+            ``"numpy_dense"`` returns ``numpy.ndarray``,
+            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
+            SciPy formats require scipy.
+
+    Returns:
+        The sparse matrix of shape ``(m, n)`` in the requested format.
+
+    Raises:
+        ValueError: If ``compressed`` does not match ``coloring``'s expected shape,
+            or ``output_format`` is unknown.
+        ImportError: If a scipy ``output_format`` is requested but scipy is
+            not installed.
+    """
+    _assert_output_format(output_format)
+    data = decompress_data(coloring, compressed)
+    return _decompress_to_format(coloring, data, output_format)

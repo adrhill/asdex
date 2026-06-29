@@ -20,13 +20,16 @@ import functools
 import inspect
 import operator
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any, assert_never
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 from jax import ShapeDtypeStruct, dtypes
 from jax.tree_util import tree_map
+
+if TYPE_CHECKING:
+    from asdex.pattern import ColoredPattern, SparsityPattern
 
 # Argnums normalization
 
@@ -533,3 +536,72 @@ def unflatten_to_pytree(flat: jax.Array, struct: Any) -> Any:
         part.reshape(leaf.shape) for part, leaf in zip(parts, leaves, strict=True)
     ]
     return jax.tree_util.tree_unflatten(treedef, reshaped)
+
+
+# Selected-input helpers
+#
+# The differentiation engine and the compress/decompress evaluators all need
+# the sub-tuple of arguments named by ``argnums`` and its dtype.
+# They live here, in the leaf module, so both reach them without an import cycle.
+
+
+def _selected_args(args: tuple[Any, ...], sparsity: SparsityPattern) -> tuple[Any, ...]:
+    """Sub-tuple of ``args`` at positions named by ``sparsity.argnums``."""
+    return tuple(args[i] for i in sparsity._argnums_tuple)
+
+
+def _selected_dtype(args: tuple[Any, ...], sparsity: SparsityPattern) -> Any:
+    """Dtype for seed arrays, taken from the first selected leaf we can find."""
+    for leaf in jax.tree_util.tree_leaves(_selected_args(args, sparsity)):
+        dtype = getattr(leaf, "dtype", None)
+        if dtype is not None:
+            return dtype
+    return jnp.float_
+
+
+def _uniform_selected_dtype(args: tuple[Any, ...], sparsity: SparsityPattern) -> Any:
+    """Shared dtype of all selected leaves, for input-space seeds.
+
+    Forward-mode tangents and HVP seeds are sliced from one flat seed vector,
+    so every selected leaf must share its dtype;
+    mixed dtypes would otherwise fail deep inside ``jvp``/``vjp``.
+    Leaves without a ``dtype`` (Python scalars) are weakly typed and skipped.
+    """
+    found = {
+        jnp.dtype(leaf.dtype)
+        for leaf in jax.tree_util.tree_leaves(_selected_args(args, sparsity))
+        if getattr(leaf, "dtype", None) is not None
+    }
+    if len(found) > 1:
+        names = sorted(d.name for d in found)
+        raise TypeError(
+            f"Differentiated inputs have mixed dtypes {names}, "
+            "which forward and Hessian modes do not support. "
+            "Cast the inputs to a common dtype, "
+            "or use `mode='rev'` for Jacobians."
+        )
+    return found.pop() if found else jnp.float_
+
+
+def _expected_compressed_dim(coloring: ColoredPattern) -> int:
+    """Second-axis length of the compressed matrix ``B`` for ``coloring``.
+
+    ``B`` has shape ``(num_colors, dim)``,
+    where ``dim`` is the space that compression preserves,
+    the opposite of the seeded space.
+    For ``"fwd"`` the seed lives in the input space,
+    so ``B``'s columns are the output space of size ``m``.
+    For ``"rev"`` and the Hessian modes the seed lives in the output
+    or cotangent space, so ``B``'s columns are the selected input space of size ``n``.
+
+    Both equal the space the gather's ``elem_idx`` indexes,
+    so this is the dimension ``decompress_data`` validates against.
+    """
+    sparsity = coloring.sparsity
+    match coloring.mode:
+        case "fwd":
+            return sparsity.m
+        case "rev" | "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
+            return sparsity.n
+        case _ as unreachable:
+            assert_never(unreachable)
