@@ -172,6 +172,21 @@ jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 J = jac_fn(x)
 ```
 
+### Separate Detection and Coloring
+
+For even more control, you can split detection and coloring:
+
+```python
+import jax.numpy as jnp
+from asdex import jacobian_sparsity, jacobian_coloring_from_sparsity
+
+x = jnp.zeros(1000)
+sparsity = jacobian_sparsity(f, x)
+coloring = jacobian_coloring_from_sparsity(sparsity, mode="fwd")
+```
+
+This is useful when you want to manually provide a sparsity pattern.
+
 ### Verifying Results
 
 Always check a new function against vanilla JAX at least once.
@@ -227,21 +242,6 @@ jac_fn = jax.jit(jacobian(f, x, mode="rev"))
 
 When the number of colors is equal,
 `asdex` prefers column coloring since JVPs are generally cheaper to compute in JAX.
-
-### Separate Detection and Coloring
-
-For even more control, you can split detection and coloring:
-
-```python
-import jax.numpy as jnp
-from asdex import jacobian_sparsity, jacobian_coloring_from_sparsity
-
-x = jnp.zeros(1000)
-sparsity = jacobian_sparsity(f, x)
-coloring = jacobian_coloring_from_sparsity(sparsity, mode="fwd")
-```
-
-This is useful when you want to manually provide a sparsity pattern.
 
 ### Multiple Inputs and Outputs
 

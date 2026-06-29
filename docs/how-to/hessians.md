@@ -18,13 +18,16 @@ using symmetric coloring and forward-over-reverse AD.
 
 Pass your scalar-valued function and a sample input to [`hessian`](../reference/index.md#asdex.hessian):
 
-```python
+```python exec="true" session="hess-basic" source="above"
 import jax
 import jax.numpy as jnp
 from asdex import hessian
 
-x = jnp.zeros(100)
-hess_fn = jax.jit(hessian(f, x))  # you can use any sample input with correct shape and dtype here
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.zeros(100)  # any input with the correct shape and dtype works for detection
+hess_fn = jax.jit(hessian(g, x))
 
 H = hess_fn(x)
 ```
@@ -40,15 +43,26 @@ for x in inputs:
     H = hess_fn(x)
 ```
 
-`asdex` supports multi-dimensional input arrays.
-The Hessian is always returned as a 2D matrix
-of shape \((n, n)\) where \(n\) is the total number of input elements.
+For a vector input,
+the Hessian is the familiar 2D matrix of shape \((n, n)\),
+where \(n\) is the number of input elements.
 
 ### Getting the Primal Value Too
 
 Use [`value_and_hessian`](../reference/index.md#asdex.value_and_hessian)
 or [`value_and_hessian_from_coloring`](../reference/index.md#asdex.value_and_hessian_from_coloring)
 to get `(f(x), H)` without a redundant forward pass.
+
+```python exec="true" session="hess-value" source="above"
+import jax.numpy as jnp
+from asdex import value_and_hessian
+
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.arange(1.0, 6.0)
+y, H = value_and_hessian(g, x)(x)  # y is the primal g(x), H is the sparse Hessian
+```
 
 ### Precomputing the Colored Pattern
 
@@ -159,6 +173,25 @@ hess_fn = jax.jit(hessian_from_coloring(f, coloring))
 H = hess_fn(x)
 ```
 
+### Separate Detection and Coloring
+
+For even more control, you can split detection and coloring:
+
+```python
+import jax.numpy as jnp
+from asdex import hessian_sparsity, hessian_coloring_from_sparsity
+
+x = jnp.zeros(100)
+sparsity = hessian_sparsity(g, x)
+coloring = hessian_coloring_from_sparsity(sparsity)
+```
+
+Since the Hessian is the Jacobian of the gradient,
+`hessian_sparsity` simply calls `jacobian_sparsity(jax.grad(f), x)`.
+The [sparsity interpreter](../explanation/sparsity-detection.md) composes naturally with JAX's autodiff transforms.
+
+This is useful when you want to manually provide a sparsity pattern.
+
 ### Verifying Results
 
 Always check a new function against vanilla JAX at least once.
@@ -213,39 +246,16 @@ hess_fn_ror = jax.jit(hessian(f, x, mode="rev_over_rev"))
 ```
 
 All three modes produce the same mathematical result.
-They differ in how JAX's AD primitives are composed:
+They differ in their performance and memory trade-offs:
 
-- **`fwd_over_rev`** (default): `jvp(grad(f), ...)`.
-    Generally the fastest under JIT.
-- **`rev_over_fwd`**: `grad(lambda p: jvp(f, (p,), (v,))[1])`.
-    Can use less memory than forward-over-reverse for functions with many intermediates.
-- **`rev_over_rev`**: `grad(lambda y: dot(grad(f)(y), v))`.
-    Avoids forward-mode entirely;
-    useful when forward-mode is expensive or unsupported.
+- **`fwd_over_rev`** (default): generally the fastest under JIT.
+- **`rev_over_fwd`**: can use less memory than forward-over-reverse for functions with many intermediates.
+- **`rev_over_rev`**: avoids forward-mode entirely, which is useful when forward-mode is expensive or unsupported.
 
 !!! tip
 
     When in doubt, stick with the default `"fwd_over_rev"`.
     It is the most widely used and typically the most efficient under `jax.jit`.
-
-### Separate Detection and Coloring
-
-For even more control, you can split detection and coloring:
-
-```python
-import jax.numpy as jnp
-from asdex import hessian_sparsity, hessian_coloring_from_sparsity
-
-x = jnp.zeros(100)
-sparsity = hessian_sparsity(g, x)
-coloring = hessian_coloring_from_sparsity(sparsity)
-```
-
-Since the Hessian is the Jacobian of the gradient,
-`hessian_sparsity` simply calls `jacobian_sparsity(jax.grad(f), x)`.
-The [sparsity interpreter](../explanation/sparsity-detection.md) composes naturally with JAX's autodiff transforms.
-
-This is useful when you want to manually provide a sparsity pattern.
 
 ### Multiple Inputs
 
@@ -276,14 +286,12 @@ H = jax.jit(hessian(f, x, y, argnums=(0, 1)))(x, y)
 ```
 
 ```python exec="true" session="hess-multi"
-Hxx = H[0][0]  # ∂²f/∂x²
-Hxy = H[0][1]  # ∂²f/∂x∂y
-Hyy = H[1][1]  # ∂²f/∂y²
 print(f"""```
-grid shape:           {len(H)} x {len(H[0])}
-H[0][0]  d2f/dx2:     {type(Hxx).__name__} {Hxx.shape}
-H[0][1]  d2f/dx dy:   {type(Hxy).__name__} {Hxy.shape}
-H[1][1]  d2f/dy2:     {type(Hyy).__name__} {Hyy.shape}
+len(H):        {len(H)}
+len(H[0]):     {len(H[0])}
+H[0][0].shape: {H[0][0].shape}
+H[0][1].shape: {H[0][1].shape}
+H[1][1].shape: {H[1][1].shape}
 ```""")
 ```
 
@@ -307,12 +315,10 @@ H = jax.jit(hessian(loss, params))(params)
 ```
 
 ```python exec="true" session="hess-pt"
-Has = H["a"]["a"]  # ∂²/∂a²
-Hab = H["a"]["b"]  # ∂²/∂a∂b
 print(f"""```
-outer keys:            {sorted(H)}
-H['a']['a']  d2/da2:   {type(Has).__name__} {Has.shape}
-H['a']['b']  d2/da db: {type(Hab).__name__} {Hab.shape}
+keys:              {sorted(H)}
+H['a']['a'].shape: {H['a']['a'].shape}
+H['a']['b'].shape: {H['a']['b'].shape}
 ```""")
 ```
 
@@ -335,8 +341,8 @@ H, aux = jax.jit(hessian(g, x, has_aux=True))(x)
 
 ```python exec="true" session="hess-aux"
 print(f"""```
-H:    {type(H).__name__} {H.shape}
-norm: {float(aux['norm']):.3f}
+H.shape:     {H.shape}
+aux['norm']: {float(aux['norm']):.3f}
 ```""")
 ```
 
@@ -351,8 +357,8 @@ from asdex import value_and_hessian
 
 ```python exec="true" session="hess-aux"
 print(f"""```
-value:   {value.shape}
-norm:    {float(aux['norm']):.3f}
+value.shape: {value.shape}
+aux['norm']: {float(aux['norm']):.3f}
 ```""")
 ```
 
@@ -392,8 +398,8 @@ H_csr = hessian(g, x, output_format="scipy_csr")(x)         # scipy.sparse.csr_a
 
 ```python exec="true" session="hess-fmt"
 print(f"""```
-dense:     {type(H_dense).__name__} {H_dense.shape}
-scipy_csr: {type(H_csr).__name__} nnz={H_csr.nnz}
+H_dense:  {type(H_dense).__name__}  shape={H_dense.shape}
+H_csr:    {type(H_csr).__name__}  nnz={H_csr.nnz}
 ```""")
 ```
 
@@ -437,10 +443,6 @@ def g(x):
 x = jnp.arange(1.0, 101.0)
 
 H = jax.jit(hessian(g, x, chunk_size=16))(x)  # at most 16 HVPs in parallel
-```
-
-```python exec="true" session="hess-chunk"
-print(f"```\nH: {type(H).__name__} {H.shape}, nse={H.nse}\n```")
 ```
 
 The result is identical to the default (`chunk_size=None`), only peak memory and runtime change.
