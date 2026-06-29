@@ -24,7 +24,7 @@ and the high-level composition with its per-closure caching.
 The goal is **not** to bolt new surface onto a tangled file.
 Tackled well, exposing the compress/decompress boundary as named public stages
 *reduces* complexity: the existing one-shot functions become thin compositions
-of two well-defined stages, the AD engine splits off into a sparsity-agnostic
+of two well-defined stages, the batched-AD numerics split off into their own
 `differentiation.py`, and the rest moves into a focused `decompression/` package.
 
 ## Design decisions
@@ -32,19 +32,23 @@ of two well-defined stages, the AD engine splits off into a sparsity-agnostic
 Driven by `CLAUDE.md` (minimize complexity, information hiding, pull complexity
 downward, favor exceptions over wrong results):
 
-- **The AD engine knows nothing about sparsity.**
-  The batched VJP/JVP/HVP machinery moves to a top-level `differentiation.py`
-  that takes a seed matrix and `argnums` and returns the batched derivative
-  (plus the forward value and aux).
-  It never imports `ColoredPattern`, `SparsityPattern`, or `OutputFormat`.
-  Building seeds from a coloring and scattering `B` back both live in the
-  `decompression/` package.
-  This is the matrix-free-operator seam: the engine hides AD, chunking, and vmap,
-  while the package hides how the coloring is exploited.
-  The one invariant they share, that the selected-input flatten order matches
-  `sparsity.cols`, is centralized in `_api_utils`.
+- **The batched-AD kernels become their own module.**
+  The batched VJP/JVP/HVP machinery moves to a top-level `differentiation.py`,
+  driven by the `ColoredPattern` it is handed exactly as today.
+  It reads the seed matrix (`coloring._device_seeds`) and the
+  differentiated-input structure (`input_avals`/`argnums` and the
+  `leaf_shapes`/`leaf_sizes` derived from them) off the pattern, runs the AD, and
+  returns the batched derivative plus the forward value and aux.
+  It happens to read only the input structure and the seeds, never the nonzeros
+  (`rows`/`cols`/`nnz`) or `OutputFormat`, which keeps the dependency one-way.
+  We deliberately do **not** reify that into a separate input-spec type to make
+  the engine fully sparsity-agnostic: the structure already lives on
+  `SparsityPattern`, so a wrapper would add a concept and a delegation layer
+  without adding capability.
+  The split is a file boundary that shrinks the large `decompression.py`, not a
+  new abstraction.
 
-- **The seam adds no flattening overhead.**
+- **The move adds no flattening overhead.**
   The engine is already flat-in/flat-out today, so giving it its own module
   relocates code without adding work.
   `coloring._device_seeds(dtype)` is a flat `(num_colors, dim)` device array,
@@ -57,13 +61,9 @@ downward, favor exceptions over wrong results):
   input tangent pytree, runs the JVP/HVP, then ravels the output.
   Those `flatten_pytree`/`unflatten_to_pytree` calls (already in `_api_utils`)
   are inherent to JAX's pytree AD, not new cost, and `vmap` traces them once.
-  All the engine needs to do this is a small *flatten spec*: `out_struct` plus
-  the selected inputs' `leaf_shapes`, `leaf_sizes`, `input_avals`, and `argnums`.
-  Every field is a pure function of `(input_avals, argnums)` (today they are
-  `SparsityPattern` properties derived from exactly those), so they are
-  AD-problem structure, not sparsity, and the engine rebuilds `B`'s flat layout
-  without ever seeing the nonzeros.
-  The compress layer computes the spec once per closure (cached), as today.
+  The flat layout this needs (`leaf_shapes`, `leaf_sizes`, `input_avals`,
+  `argnums`, plus `out_struct`) is read straight off the pattern as today, so
+  `B`'s columns line up with `sparsity.cols` with no extra bookkeeping.
 
 - **`ColoredPattern` stays a pure data structure.**
   Issue #153 floats moving the scatter *onto* `ColoredPattern`; we deliberately
@@ -115,6 +115,16 @@ downward, favor exceptions over wrong results):
   | Hessian | any | cols | `(num_colors, n_sel)` | input size |
 
   where `n_sel` = Σ selected input leaf sizes, `m` = output size.
+  The `dim` column is `B`'s second axis, the un-seeded space that compression
+  preserves, which is the opposite of the seed matrix's free axis.
+  For `rev` the seed lives in the output space (size `m`) and `B`'s columns are
+  the input space (`n_sel`).
+  For `fwd` the seed lives in the input space (`n_sel`) and `B`'s columns are the
+  output space (`m`).
+  See `docs/explanation/asd.md` (`S ∈ ℝ^{m×c}`, `B = Sᵀ J ∈ ℝ^{c×n}`).
+  So `decompress_data`'s `dim` check branches on `coloring.mode` to pick the
+  expected second axis (`n_sel` for `rev` and the HVP modes, `m` for `fwd`),
+  matching the space that `elem_idx` indexes.
   *Trade-off to confirm:* SparseMatrixColorings.jl uses `(m, num_colors)` for
   column coloring and `(num_colors, n)` for row coloring (preserved dimension
   long, colors short).
@@ -129,6 +139,12 @@ downward, favor exceptions over wrong results):
 Naming mirrors the existing family (`jacobian` → `compressed_jacobian`).
 Compression entry points return a raw `jax.Array` `B` (jit-able by the caller);
 they take **no** `output_format` (formatting belongs to `decompress`).
+We call the compressed array `B` throughout, matching
+`docs/explanation/asd.md` (`B = Sᵀ J`).
+It is the array the code names `compressed` internally
+(and `C` in the `_extraction_indices` docstring).
+The public function parameter stays `compressed`, a usable Python identifier,
+documented as "the compressed matrix `B`".
 
 ```python
 # Compression — returns B of shape (num_colors, dim)
@@ -225,25 +241,25 @@ deferred: it is only useful when one already has a dense matrix.
 
 ## Modularization refactor (behavior-preserving)
 
-Split the conflated `decompression.py` into a sparsity-agnostic AD engine plus a
-focused package. The decompress and composition halves are pure moves. The engine
-extraction is the one real change: `_jacobian_rows`/`_jacobian_cols`/the HVP
-kernels currently read `coloring._device_seeds(dtype)` and `coloring.sparsity`
-internally, so they get parameterized on a seed matrix and `argnums` passed in by
-the compress layer. Behavior-preserving, but signatures change. The public
-`asdex.*` surface is unchanged except for the *added* symbols.
+Split the conflated `decompression.py` into a batched-AD engine plus a focused
+package. All halves are behavior-preserving moves:
+`_jacobian_compressed`/`_jacobian_rows`/`_jacobian_cols`/the HVP functions keep
+their current signatures (driven by the `ColoredPattern` they are handed) and
+relocate to `differentiation.py`, while the decompress and composition code moves
+into the package. Signatures are unchanged. The public `asdex.*` surface is
+unchanged except for the *added* symbols.
 The split is done as a `git mv` to preserve blame (see "Git strategy" below).
 
 The split has two parts. A top-level **`src/asdex/differentiation.py`** holds the
-pure batched-AD engine. A **`src/asdex/decompression/`** package owns everything
-sparsity-aware, following the same `__init__.py` + `_api.py` + private `_*.py`
-layout as `coloring/` and `detection/`.
+batched-AD numerics. A **`src/asdex/decompression/`** package owns the
+sparsity-aware composition, following the same `__init__.py` + `_api.py` +
+private `_*.py` layout as `coloring/` and `detection/`.
 
 | Path | Owns | Public symbols |
 |------|------|----------------|
-| `src/asdex/differentiation.py` | Batched-AD engine: seed matrix in, derivative out | (none) |
+| `src/asdex/differentiation.py` | Batched-AD numerics: `(f, args, coloring)` in, `B` (plus value, aux) out | (none) |
 | `decompression/_api.py` | Public surface only (thin wrappers + docstrings) | `jacobian`, `value_and_jacobian`, `hessian`, `value_and_hessian`, the `*_from_coloring` variants, `compressed_*`, `value_and_compressed_*`, `decompress`, `decompress_data` |
-| `decompression/_compress.py` | Stage 1: coloring → seeds → drive the engine → `B`, plus shared input-prep helpers | (internal) |
+| `decompression/_compress.py` | Stage 1 evaluator: validate, call the engine, stop at `B`, plus shared input-prep helpers | (internal) |
 | `decompression/_decompress.py` | Stage 3: gather + scatter/format over all `OutputFormat`s, pure consumer of `B` | (internal) |
 | `decompression/_evaluate.py` | Composition of both stages: the four `_eval_*` plus per-closure caching | (internal) |
 | `decompression/__init__.py` | Re-export the public surface (mirrors `coloring/__init__.py`) | (re-export) |
@@ -254,17 +270,17 @@ It cannot go in `_compress.py` or `_decompress.py` without making those two impo
 each other, which would break their independence: compress produces `B`,
 decompress consumes `B`, and neither needs the other. So it gets its own file. If
 a flatter layout is later preferred, `_eval_*` can fold back into `_api.py` at the
-cost of a heavier public file. The engine stays a top-level sibling for the same
-reason in reverse: it is the one piece that knows nothing, so it sits at the
-bottom as its own module rather than buried inside the package.
+cost of a heavier public file. The engine stays a top-level sibling because it is the
+shared numeric core that both the compress evaluator and the one-shot path build
+on, so it sits beside the package rather than buried inside it.
 
 **Dependency graph (acyclic).** Edges point from importer to imported:
 
 ```
-differentiation.py  ->  jax, _api_utils, modes        (leaf engine, no sparsity)
+differentiation.py  ->  jax, _api_utils, modes, pattern   (batched-AD numerics)
 _compress.py        ->  differentiation, pattern, coloring, modes, _api_utils
-_decompress.py      ->  pattern, modes, _api_utils     (independent of _compress)
-_evaluate.py        ->  _compress, _decompress, pattern, modes
+_decompress.py      ->  pattern, modes, _api_utils         (independent of _compress)
+_evaluate.py        ->  differentiation, _compress, _decompress, pattern, modes
 _api.py             ->  _evaluate, _compress, _decompress, detection, coloring
 __init__.py         ->  _api
 ```
@@ -275,21 +291,26 @@ file that reaches up to `detection` and `coloring` (for the one-shot
 
 Move map:
 
-- → `differentiation.py`: `_jacobian_rows` (becomes a batched VJP),
-  `_jacobian_cols` (batched JVP), the per-mode HVP kernels and `_grad_with_*`
-  pulled out of `_compute_hvps`/`_value_and_compute_hvps`, the seed/tangent/
-  cotangent helpers (`_build_tangents_from_seed`, `_flatten_selected_cotangents`,
-  `_flatten_grad_output`, `_build_grad_output_from_seed`), `_chunked_vmap`,
-  `_output_dtype`. Selection is driven by a plain `argnums`, not a
-  `SparsityPattern`, and the selected-input flatten order is taken from the single
-  `_api_utils` convention so that `B`'s columns line up with `sparsity.cols`.
-- → `_compress.py`: `_jacobian_compressed` (mode dispatch + seed building), the
-  HVP mode dispatch and seed building from `_compute_hvps`/
-  `_value_and_compute_hvps`, the compress-only evaluator behind `compressed_*`
-  (validate + dtype checks + empty-pattern shortcut + compress core, stopping at
-  `B`), and the shared input-prep helpers (`_validate_args`,
+- → `differentiation.py`: the batched-AD numerics moved whole, keeping their
+  current signatures: `_jacobian_compressed` (mode dispatch), `_jacobian_rows`
+  (batched VJP), `_jacobian_cols` (batched JVP),
+  `_compute_hvps`/`_value_and_compute_hvps` and their `_grad_with_*` helpers, the
+  seed/tangent/cotangent helpers (`_build_tangents_from_seed`,
+  `_flatten_selected_cotangents`, `_flatten_grad_output`,
+  `_build_grad_output_from_seed`), `_chunked_vmap`, and `_output_dtype`. These
+  read the seeds and the differentiated-input structure off the `ColoredPattern`
+  they are handed, as today, so `B`'s columns line up with `sparsity.cols`. The
+  shared input-side dtype/selection helpers they call (`_selected_args`,
+  `_selected_dtype`, `_uniform_selected_dtype`) move to `_api_utils` (the leaf) so
+  the engine and the evaluators reach them without an import cycle.
+- → `_compress.py`: the compress-only evaluator behind `compressed_*` (validate +
+  dtype checks + empty-pattern shortcut, then call the engine and stop at `B`),
+  and the input-prep helpers the evaluators share (`_validate_args`,
   `_cached_out_struct`/`_aval_key`, `_cached_scalar_fn`/`_scalar_with_aux`/
-  `_cached_scalar_aux_fn`, `_selected_*`, `_uniform_selected_dtype`).
+  `_cached_scalar_aux_fn`). The numeric core
+  (`_jacobian_compressed`/`_compute_hvps`/`_value_and_compute_hvps`) lives in
+  `differentiation.py` (above), so both this evaluator and `_eval_*` call it
+  there.
 - → `_decompress.py`: `_decompress_data`, `_scatter_dense`, `_sparsity_to_scipy`,
   `_build_jacobian`/`_build_hessian`, `_assemble_*`, `_make_block_builder`,
   `_group_blocks_by_argnums`, `_is_simple_*`, the scipy assertions, and
@@ -359,12 +380,15 @@ may combine them.
   `compressed_jacobian`, `compressed_jacobian_from_coloring`, `compressed_hessian`,
   `compressed_hessian_from_coloring`, the four `value_and_compressed_*` variants,
   `decompress`, and `decompress_data` to that import and to `__all__`.
-- **Unchanged:** `src/asdex/pattern.py` (compress still reads
-  `coloring._device_seeds`/`coloring.sparsity`), `src/asdex/coloring/`,
-  `src/asdex/modes.py` (reuse `OutputFormat` + `_assert_output_format`),
-  `src/asdex/_api_utils.py` (reuse `merge_sample_inputs`/`merge_args_kwargs`/
-  `_ensure_index`/dtype validators and the selected-input flatten convention),
-  `src/asdex/verify.py`.
+- **Edit:** `src/asdex/_api_utils.py`. Move the shared input-side dtype/selection
+  helpers (`_selected_args`, `_selected_dtype`, `_uniform_selected_dtype`) here so
+  the engine and the compress evaluator both reach them without an import cycle.
+  Continue reusing `merge_sample_inputs`/`merge_args_kwargs`/`_ensure_index`, the
+  dtype validators, and `flatten_pytree`/`unflatten_to_pytree`.
+- **Unchanged:** `src/asdex/pattern.py` (the engine reads `input_avals`/`argnums`
+  and `coloring._device_seeds`/`coloring.sparsity` off it, as today),
+  `src/asdex/coloring/`, `src/asdex/modes.py` (reuse `OutputFormat` +
+  `_assert_output_format`), `src/asdex/verify.py`.
 
 ## Edge cases
 
@@ -373,7 +397,7 @@ may combine them.
   zero axis) consistent with the non-empty path; `decompress` returns an empty
   sparse matrix.
   No separate `_empty.py` is warranted, and nothing empty-related goes in the
-  sparsity-agnostic `differentiation.py`.
+  batched-AD `differentiation.py`.
   The two empty shortcuts live on the side that owns each shape: the empty `B` is
   a one-liner `jnp.zeros((num_colors, dim), dtype)` in `_compress.py`, and the
   empty `(nnz,)` data vector stays in `_evaluate.py` as `_empty_data` (the
@@ -393,16 +417,22 @@ conventions) and extend `tests/e2e/`. Reuse the `conftest.py` fixtures
 `jacobian_mode`, `hessian_mode`, `chunk_size`, `all_output_format`, `to_dense`,
 `assert_trees_allclose`.
 
-- **Round-trip and reference are covered by existing e2e (no new duplicates).**
+- **The internal numerics are covered by existing e2e; the new tests target the
+  public surface the e2e path never calls.**
   Because the one-shot `jacobian`/`hessian` are built on the same compress core
   and gather primitive that back the public stages (per the design decision and
   the Modularization section), every existing e2e call already drives that shared
   core across modes, `output_format`, `chunk_size`, and `has_aux`, and already
-  runs `check_jacobian_correctness`/`check_hessian_correctness` on it, so
-  `compressed_*`/`decompress` inherit the densified-matches-reference coverage.
-  The existing tests stay as-is; we add no parallel round-trip/reference tests
-  that would only re-cover them.
-  The tests below instead target surface the e2e path does not reach.
+  runs `check_jacobian_correctness`/`check_hessian_correctness` on it.
+  So we do not re-test the internal compress-then-decompress numerics across the
+  full e2e matrix (the densified-matches-reference property through
+  `_eval_*` + `_build_*`).
+  The new tests instead drive the new public entry points, which the e2e path
+  never invokes: `compressed_*` returning a standalone `B`, and
+  `decompress`/`decompress_data` called directly on a caller-supplied `B`.
+  These exercise the new boundaries (the raw `B`, the public gather, validation,
+  the full format set), including one round-trip per format and mode that
+  confirms the public assembly path matches the reference.
 - **Shape contract:** assert `B.shape == (coloring.num_colors, dim)` per the
   table above (rev/fwd/HVP), and `decompress_data(coloring, B).shape ==
   (coloring.sparsity.nnz,)`.
