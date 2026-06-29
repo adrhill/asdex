@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782473507535,
+  "lastUpdate": 1782743720107,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -17181,6 +17181,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006272986229759404",
             "extra": "mean: 23.287646099855976 usec\nrounds: 15948"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c920cf97880d8890d8dd22bf81e5da2ba71c6e7c",
+          "message": "docs: update README and how-to guides with new features (#154)\n\n* docs: add inital PLAN.md to improve docs\n\n* docs: tweak the plan\n\n* docs: update structure of How-to guides in PLAN\n\n* docs: scrutinize the PLAN\n\n* docs: address review\n\n* docs: fix the README section in the PLAN\n\n* docs: restructure how-to guides into Basics and Advanced sections\n\nReorganize the Jacobian and Hessian how-to guides into a two-tier\nBasics / Advanced skeleton so the two guides mirror each other\nsection-for-section.\nAdd the two tier headings, demote every existing section from `##` to\n`###` under the right tier, and move the mode-selection and\ndetection-coloring sections to the top of Advanced.\nNo prose, heading text, code, or anchors change.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* docs: document output formats, pytrees, aux, chunking, and verification\n\nDocument the cross-cutting features shipped in v0.4.0 across the Jacobian\nand Hessian how-to guides, and add a dedicated verification page.\n\nAppend five mirrored sections to the Advanced tier of both guides:\nmultiple inputs and outputs, PyTree inputs and outputs, auxiliary\noutputs, output formats, and chunked evaluation via chunk_size.\n\nAdd how-to/verification.md as the single home for correctness checking\n(check_jacobian_correctness, check_hessian_correctness, matvec vs dense,\nand the coloring validators), with a nav entry under How-To Guides.\nTrim each guide's Verifying Results section to a short pointer and\nretarget every inbound verification link (both guide tips, the\ngetting-started tutorial, and the global-sparsity explanation).\n\nRender the coloring validators and InvalidColoringError in the coloring\nreference so the new cross-references resolve under the strict build.\n\nAdd a Features overview to README.md and docs/index.md, kept in\nlock-step, and update docs/CLAUDE.md to describe the mirrored\nBasics/Advanced structure, the verification page, and the corrected\nmkdocs preview commands.\n\nCloses #148, #149, #150, #151, #152.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* docs(README): tweak feature list\n\n* docs(how-to): fix jacobian guide\n\n* docs(how-to): refine hessian guide and reorder sections\n\nMirror the hessian guide to the refined jacobian guide (executable basic-usage and value-and-hessian snippets, vector-only shape prose, aligned .shape: output blocks). Remove the AD-primitive implementation details from \"Choosing an HVP Mode\". In both guides, move \"Separate Detection and Coloring\" to follow \"Manually Providing a Sparsity Pattern\".\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* docs: remove PLAN-152.md\n\nThe planning document was a working scratchpad and is not kept in main.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-06-29T16:34:35+02:00",
+          "tree_id": "2eb2015028c09155bb61acf2a6e69081854bb5fd",
+          "url": "https://github.com/adrhill/asdex/commit/c920cf97880d8890d8dd22bf81e5da2ba71c6e7c"
+        },
+        "date": 1782743717848,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1029.9837637073806,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007205199101071885",
+            "extra": "mean: 970.8890909120204 usec\nrounds: 66"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 26621.77601255492,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004900004759541733",
+            "extra": "mean: 37.56323393031316 usec\nrounds: 9272"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 54234.28953749868,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000016444700974698904",
+            "extra": "mean: 18.438519404012474 usec\nrounds: 26567"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 43776.25713228115,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004159920716685846",
+            "extra": "mean: 22.8434330732809 usec\nrounds: 14217"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 72670.00199834615,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029599936513440538",
+            "extra": "mean: 13.760836280460792 usec\nrounds: 22166"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 19.10644849400193,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03095984306449397",
+            "extra": "mean: 52.338350600004446 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2891.657252535627,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001271146879621336",
+            "extra": "mean: 345.8224515105044 usec\nrounds: 2516"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1929.5326352099469,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000024983671093622392",
+            "extra": "mean: 518.2602158429899 usec\nrounds: 1376"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1863.1973275287958,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033999940659935664",
+            "extra": "mean: 536.7118046086533 usec\nrounds: 1085"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4234.999170646914,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008594913797430142",
+            "extra": "mean: 236.12755509636753 usec\nrounds: 3875"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 155.40106246436432,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008876504133082203",
+            "extra": "mean: 6.434962439393324 msec\nrounds: 66"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26516.489865325275,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005093764350072171",
+            "extra": "mean: 37.71238218478029 usec\nrounds: 18894"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 42636.09208339749,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008018671710739331",
+            "extra": "mean: 23.454307164079896 usec\nrounds: 9171"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 37072.45126592982,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008650873365687478",
+            "extra": "mean: 26.974207689336584 usec\nrounds: 12485"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 42236.93842654594,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000770027362447902",
+            "extra": "mean: 23.675958467943776 usec\nrounds: 15169"
           }
         ]
       }
