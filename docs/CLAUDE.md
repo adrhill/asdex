@@ -98,6 +98,16 @@ Use this for tutorials and how-to guides
 where showing real output is more convincing than hardcoded comments.
 Avoid it in explanation pages where the focus is on concepts, not code.
 
+To render the output as its own fenced code block,
+print the content wrapped in triple backticks:
+
+```python exec="true"
+print(f"```\n{coloring}\n```")
+```
+
+Keep printed output small and deterministic (types, shapes, nnz counts),
+so the build stays fast and the rendered output never drifts.
+
 ### Math
 
 Use MathJax for LaTeX:
@@ -112,11 +122,14 @@ When making major changes to the docs
 serve the site locally and verify the result before finishing:
 
 ```bash
-uv run mkdocs serve
+uv run --group docs mkdocs serve -f docs/mkdocs.yml
 ```
 
 This starts a live-reloading server at `http://127.0.0.1:8000`.
-Use `uv run mkdocs build --strict` to catch broken links and warnings.
+The `docs` dependency group provides mkdocs and its plugins,
+and `-f docs/mkdocs.yml` points at the config (the repo has no top-level `mkdocs.yml`).
+Use `uv run --group docs mkdocs build --strict -f docs/mkdocs.yml`
+to catch broken links, bad anchors, and warnings.
 
 Live reload is unreliable —
 always stop and restart `mkdocs serve` to see changes.
@@ -131,3 +144,23 @@ The nav in `mkdocs.yml` maps to Diataxis categories:
 - **Explanation** tab → concept explanations
 - **Reference** tab → auto-generated API docs
 - **Benchmarks** → external link to benchmark dashboard
+
+### How-To Guide Structure
+
+The two main how-to guides, `how-to/jacobians.md` and `how-to/hessians.md`,
+mirror each other section-for-section under two tiers, `## Basics` and `## Advanced`.
+Keep them in sync: a change to one usually has a counterpart in the other.
+The only intentional divergences are mode selection
+(Jacobians choose row vs column coloring;
+Hessians use symmetric coloring plus an HVP-mode choice)
+and PyTree *outputs*, which appear only in the Jacobian guide
+since a Hessian requires a scalar output.
+Correctness checking lives in its own task page, `how-to/verification.md`,
+which both guides link to from a short *Verifying Results* pointer.
+
+The **Features** lists in `README.md` and `docs/index.md` are kept in lock-step.
+They hold the same entries in the same order,
+differing only in link style:
+the README uses absolute `https://adrianhill.de/asdex/...` URLs (it also renders on GitHub and PyPI),
+while `index.md` uses relative `.md` links.
+A change to one list should be mirrored in the other.

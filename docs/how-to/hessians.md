@@ -7,21 +7,27 @@ using symmetric coloring and forward-over-reverse AD.
 !!! tip "Verify correctness at least once"
 
     asdex's [sparsity patterns](../explanation/global-sparsity.md) should always be conservative,
-    but a bug in [sparsity detection](../explanation/sparsity-detection.md) could cause missing nonzeros.
+    but a bug in [sparsity detection](../explanation/sparsity-detection.md) could cause missing nonzeros,
+    resulting in wrong Jacobians or Hessians.
     Always verify against vanilla JAX at least once on a new function.
-    See [Verifying Results](#verifying-results) below.
+    See [Verifying Correctness](verification.md).
 
-## Basic Usage
+## Basics
+
+### Basic Usage
 
 Pass your scalar-valued function and a sample input to [`hessian`](../reference/index.md#asdex.hessian):
 
-```python
+```python exec="true" session="hess-basic" source="above"
 import jax
 import jax.numpy as jnp
 from asdex import hessian
 
-x = jnp.zeros(100)
-hess_fn = jax.jit(hessian(f, x))  # you can use any sample input with correct shape and dtype here
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.zeros(100)  # any input with the correct shape and dtype works for detection
+hess_fn = jax.jit(hessian(g, x))
 
 H = hess_fn(x)
 ```
@@ -37,17 +43,28 @@ for x in inputs:
     H = hess_fn(x)
 ```
 
-`asdex` supports multi-dimensional input arrays.
-The Hessian is always returned as a 2D matrix
-of shape \((n, n)\) where \(n\) is the total number of input elements.
+For a vector input,
+the Hessian is the familiar 2D matrix of shape \((n, n)\),
+where \(n\) is the number of input elements.
 
-## Getting the Primal Value Too
+### Getting the Primal Value Too
 
 Use [`value_and_hessian`](../reference/index.md#asdex.value_and_hessian)
 or [`value_and_hessian_from_coloring`](../reference/index.md#asdex.value_and_hessian_from_coloring)
 to get `(f(x), H)` without a redundant forward pass.
 
-## Precomputing the Colored Pattern
+```python exec="true" session="hess-value" source="above"
+import jax.numpy as jnp
+from asdex import value_and_hessian
+
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.arange(1.0, 6.0)
+y, H = value_and_hessian(g, x)(x)  # y is the primal g(x), H is the sparse Hessian
+```
+
+### Precomputing the Colored Pattern
 
 For more control,
 precompute the coloring explicitly:
@@ -86,7 +103,7 @@ for x in inputs:
     These reports directly drive improvements
     and are one of the most impactful ways to contribute.
 
-## Saving and Loading Patterns
+### Saving and Loading Patterns
 
 Save a coloring to disk and reload it in a later session:
 
@@ -108,55 +125,7 @@ hess_fn = jax.jit(hessian_from_coloring(g, coloring))
 
 [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern) supports the same `save`/`load` interface.
 
-## Symmetric Coloring
-
-Hessians are symmetric (\(H = H^\top\)),
-and `asdex` exploits this with *star coloring*
-(Gebremedhin et al., 2005).
-Symmetric coloring typically needs fewer colors than row or column coloring,
-since both \(H_{ij}\) and \(H_{ji}\) can be recovered from a single coloring.
-
-The convenience functions [`hessian_coloring`](../reference/index.md#asdex.hessian_coloring) and [`hessian`](../reference/index.md#asdex.hessian) use symmetric coloring automatically.
-Here we use the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function),
-a classic optimization benchmark whose Hessian is tridiagonal:
-
-\[f(x) = \sum_{i=1}^{n-1} \left[(1 - x_i)^2 + 100\,(x_{i+1} - x_i^2)^2\right]\]
-
-```python exec="true" session="hess" source="above"
-import jax.numpy as jnp
-from asdex import hessian_coloring
-
-def rosenbrock(x):
-    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
-
-x = jnp.zeros(100)
-coloring = hessian_coloring(rosenbrock, x)
-```
-
-```python exec="true" session="hess"
-print(f"```\n{coloring}\n```")
-```
-
-## Separate Detection and Coloring
-
-For even more control, you can split detection and coloring:
-
-```python
-import jax.numpy as jnp
-from asdex import hessian_sparsity, hessian_coloring_from_sparsity
-
-x = jnp.zeros(100)
-sparsity = hessian_sparsity(g, x)
-coloring = hessian_coloring_from_sparsity(sparsity)
-```
-
-Since the Hessian is the Jacobian of the gradient,
-`hessian_sparsity` simply calls `jacobian_sparsity(jax.grad(f), x)`.
-The [sparsity interpreter](../explanation/sparsity-detection.md) composes naturally with JAX's autodiff transforms.
-
-This is useful when you want to manually provide a sparsity pattern.
-
-## Manually Providing a Sparsity Pattern
+### Manually Providing a Sparsity Pattern
 
 You can provide a sparsity pattern manually if you already know it ahead of time.
 Create a `SparsityPattern` from coordinate arrays, a dense matrix, or a JAX BCOO matrix.
@@ -204,7 +173,64 @@ hess_fn = jax.jit(hessian_from_coloring(f, coloring))
 H = hess_fn(x)
 ```
 
-## Choosing an HVP Mode
+### Separate Detection and Coloring
+
+For even more control, you can split detection and coloring:
+
+```python
+import jax.numpy as jnp
+from asdex import hessian_sparsity, hessian_coloring_from_sparsity
+
+x = jnp.zeros(100)
+sparsity = hessian_sparsity(g, x)
+coloring = hessian_coloring_from_sparsity(sparsity)
+```
+
+Since the Hessian is the Jacobian of the gradient,
+`hessian_sparsity` simply calls `jacobian_sparsity(jax.grad(f), x)`.
+The [sparsity interpreter](../explanation/sparsity-detection.md) composes naturally with JAX's autodiff transforms.
+
+This is useful when you want to manually provide a sparsity pattern.
+
+### Verifying Results
+
+Always check a new function against vanilla JAX at least once.
+See [Verifying Correctness](verification.md) for
+[`check_jacobian_correctness`][asdex.check_jacobian_correctness] / [`check_hessian_correctness`][asdex.check_hessian_correctness],
+the `matvec` vs `dense` methods, and tolerance options.
+
+## Advanced
+
+### Symmetric Coloring
+
+Hessians are symmetric (\(H = H^\top\)),
+and `asdex` exploits this with *star coloring*
+(Gebremedhin et al., 2005).
+Symmetric coloring typically needs fewer colors than row or column coloring,
+since both \(H_{ij}\) and \(H_{ji}\) can be recovered from a single coloring.
+
+The convenience functions [`hessian_coloring`](../reference/index.md#asdex.hessian_coloring) and [`hessian`](../reference/index.md#asdex.hessian) use symmetric coloring automatically.
+Here we use the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function),
+a classic optimization benchmark whose Hessian is tridiagonal:
+
+\[f(x) = \sum_{i=1}^{n-1} \left[(1 - x_i)^2 + 100\,(x_{i+1} - x_i^2)^2\right]\]
+
+```python exec="true" session="hess" source="above"
+import jax.numpy as jnp
+from asdex import hessian_coloring
+
+def rosenbrock(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.zeros(100)
+coloring = hessian_coloring(rosenbrock, x)
+```
+
+```python exec="true" session="hess"
+print(f"```\n{coloring}\n```")
+```
+
+### Choosing an HVP Mode
 
 By default, `hessian` uses forward-over-reverse AD to compute Hessian-vector products.
 You can select a different AD composition strategy via the `mode` parameter:
@@ -220,57 +246,206 @@ hess_fn_ror = jax.jit(hessian(f, x, mode="rev_over_rev"))
 ```
 
 All three modes produce the same mathematical result.
-They differ in how JAX's AD primitives are composed:
+They differ in their performance and memory trade-offs:
 
-- **`fwd_over_rev`** (default): `jvp(grad(f), ...)`.
-    Generally the fastest under JIT.
-- **`rev_over_fwd`**: `grad(lambda p: jvp(f, (p,), (v,))[1])`.
-    Can use less memory than forward-over-reverse for functions with many intermediates.
-- **`rev_over_rev`**: `grad(lambda y: dot(grad(f)(y), v))`.
-    Avoids forward-mode entirely;
-    useful when forward-mode is expensive or unsupported.
+- **`fwd_over_rev`** (default): generally the fastest under JIT.
+- **`rev_over_fwd`**: can use less memory than forward-over-reverse for functions with many intermediates.
+- **`rev_over_rev`**: avoids forward-mode entirely, which is useful when forward-mode is expensive or unsupported.
 
 !!! tip
 
     When in doubt, stick with the default `"fwd_over_rev"`.
     It is the most widely used and typically the most efficient under `jax.jit`.
 
-## Verifying Results
+### Multiple Inputs
 
-Use [`check_hessian_correctness`][asdex.check_hessian_correctness]
-to verify `asdex`'s sparse Hessian against vanilla JAX.
+`asdex` mirrors `jax.hessian`:
+it differentiates functions of several arguments,
+selecting which arguments to differentiate with `argnums`.
+A Hessian requires a scalar output, so there is no multiple-output case.
 
-```python
-from asdex import check_hessian_correctness, hessian_coloring
+Pass a sample value for each positional argument,
+and select the ones to differentiate with `argnums`.
+With a tuple `argnums` the result is a nested `(input_tree, input_tree)` grid,
+mirroring `jax.hessian`:
+`H[i][j]` is the second derivative with respect to argument `i` and argument `j`,
+so the full block grid is shown rather than a single corner.
 
-coloring = hessian_coloring(g, x)
-check_hessian_correctness(g, x, coloring)
+```python exec="true" session="hess-multi" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def f(x, y):
+    return jnp.sum(x ** 2 * y)
+
+x = jnp.arange(1.0, 4.0)
+y = jnp.arange(4.0, 7.0)
+
+H = jax.jit(hessian(f, x, y, argnums=(0, 1)))(x, y)
 ```
 
-Use verification for debugging and initial setup, not in production loops.
-A good place to call it is in your test suite.
-
-By default, this uses randomized matrix-vector products (`method="matvec"`)
-to check the sparse Hessian against an HVP reference.
-The AD mode is derived from the coloring.
-This is cheap — O(k) in the number of probes — and scales to large problems.
-If the results match, the function returns silently.
-If they disagree, it raises a [`VerificationError`][asdex.VerificationError].
-
-You can also set custom tolerances, the number of probes, and the PRNG seed:
-
-```python
-check_hessian_correctness(g, x, coloring, rtol=1e-5, atol=1e-5, num_probes=50, seed=42)
+```python exec="true" session="hess-multi"
+print(f"""```
+len(H):        {len(H)}
+len(H[0]):     {len(H[0])}
+H[0][0].shape: {H[0][0].shape}
+H[0][1].shape: {H[0][1].shape}
+H[1][1].shape: {H[1][1].shape}
+```""")
 ```
 
-For an exact element-wise comparison against the full dense Hessian,
-use `method="dense"`:
+### PyTree Inputs
 
-```python
-check_hessian_correctness(g, x, coloring, method="dense")
+A single argument can itself be an arbitrary [PyTree](https://docs.jax.dev/en/latest/pytrees.html),
+such as a dictionary of parameters.
+For a PyTree argument the Hessian is a matching nested structure of blocks,
+here a dict-of-dicts, where `H[i][j]` couples leaves `i` and `j`:
+
+```python exec="true" session="hess-pt" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def loss(params):
+    return jnp.sum(params["a"] ** 2 * params["b"])
+
+params = {"a": jnp.arange(1.0, 4.0), "b": jnp.arange(4.0, 7.0)}
+H = jax.jit(hessian(loss, params))(params)
 ```
 
-!!! warning "Dense computation"
+```python exec="true" session="hess-pt"
+print(f"""```
+keys:              {sorted(H)}
+H['a']['a'].shape: {H['a']['a'].shape}
+H['a']['b'].shape: {H['a']['b'].shape}
+```""")
+```
 
-    `method="dense"` materializes the full dense Hessian,
-    which is computationally very expensive for large problems.
+### Auxiliary Outputs
+
+Set `has_aux=True` when your function returns `(output, auxiliary_data)`, mirroring `jax.hessian`.
+The auxiliary data is passed through untouched, useful for diagnostics, intermediate values, or model state.
+
+```python exec="true" session="hess-aux" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def g(x):
+    return jnp.sum(x ** 3), {"norm": jnp.linalg.norm(x)}  # (output, aux)
+
+x = jnp.arange(1.0, 4.0)
+H, aux = jax.jit(hessian(g, x, has_aux=True))(x)
+```
+
+```python exec="true" session="hess-aux"
+print(f"""```
+H.shape:     {H.shape}
+aux['norm']: {float(aux['norm']):.3f}
+```""")
+```
+
+[`value_and_hessian`](../reference/index.md#asdex.value_and_hessian) nests aux next to the value,
+matching `jax.value_and_grad` ordering, giving `((value, aux), H)`:
+
+```python exec="true" session="hess-aux" source="above"
+from asdex import value_and_hessian
+
+(value, aux), H = value_and_hessian(g, x, has_aux=True)(x)
+```
+
+```python exec="true" session="hess-aux"
+print(f"""```
+value.shape: {value.shape}
+aux['norm']: {float(aux['norm']):.3f}
+```""")
+```
+
+The auxiliary data may hold arbitrary Python objects, not just JAX arrays.
+It is extracted from the forward pass that AD already runs,
+so returning it adds no extra evaluation of `f`.
+
+### Output Formats
+
+By default, `asdex` returns sparse matrices as JAX [BCOO](https://docs.jax.dev/en/latest/jax.experimental.sparse.html) arrays.
+The `output_format` argument selects a different container.
+It is accepted by [`hessian`](../reference/index.md#asdex.hessian),
+its `value_and_*` variant, and the `*_from_coloring` variants.
+
+| `output_format` | Returned type | JIT-able by caller |
+|-----------------|---------------|--------------------|
+| `"bcoo"` (default) | `jax.experimental.sparse.BCOO` | yes |
+| `"dense"` | `jax.Array` | yes |
+| `"numpy_dense"` | `numpy.ndarray` | no |
+| `"scipy_coo"` | `scipy.sparse.coo_array` | no |
+| `"scipy_csr"` | `scipy.sparse.csr_array` | no |
+| `"scipy_csc"` | `scipy.sparse.csc_array` | no |
+
+```python exec="true" session="hess-fmt" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.arange(1.0, 6.0)
+
+H_dense = jax.jit(hessian(g, x, output_format="dense"))(x)  # jax.Array
+H_csr = hessian(g, x, output_format="scipy_csr")(x)         # scipy.sparse.csr_array
+```
+
+```python exec="true" session="hess-fmt"
+print(f"""```
+H_dense:  {type(H_dense).__name__}  shape={H_dense.shape}
+H_csr:    {type(H_csr).__name__}  nnz={H_csr.nnz}
+```""")
+```
+
+!!! warning "Host formats are not JIT-able by the caller"
+
+    `"numpy_dense"` and the scipy formats produce non-JAX arrays,
+    so you cannot wrap the returned function in `jax.jit`.
+    `asdex` JIT-compiles their core internally, so they stay fast anyway.
+    Just call them directly:
+
+    ```python
+    H = hessian(g, x, output_format="numpy_dense")(x)  # do NOT jax.jit this
+    ```
+
+!!! info "SciPy formats are 2D-only"
+
+    SciPy sparse arrays are strictly 2D.
+    They require the input to be a single flat 1D array.
+    `asdex` flattens and checks the full input structure up front.
+    Any other shape, such as a multi-dimensional array, multiple arguments,
+    or an arbitrarily nested PyTree, raises a clear `ValueError` rather than a wrong result.
+    Note that SciPy is an optional dependency. Install it via `pip install 'asdex[scipy]'`.
+
+Structural non-zeros that happen to be numerically zero at the evaluation point are kept as explicit entries in the `BCOO` and scipy outputs,
+so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md) and is independent of `x`.
+
+### Reducing Peak Memory with Chunking
+
+Each color requires one HVP, and by default `asdex` evaluates **all** colors in a single `jax.vmap` batch.
+For large patterns with many colors on memory-constrained hardware, `chunk_size` caps how many colors run in parallel:
+chunks are processed sequentially via `jax.lax.map`, lowering the peak memory usage:
+
+```python exec="true" session="hess-chunk" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian
+
+def g(x):
+    return jnp.sum((1 - x[:-1]) ** 2 + 100 * (x[1:] - x[:-1] ** 2) ** 2)
+
+x = jnp.arange(1.0, 101.0)
+
+H = jax.jit(hessian(g, x, chunk_size=16))(x)  # at most 16 HVPs in parallel
+```
+
+The result is identical to the default (`chunk_size=None`), only peak memory and runtime change.
+`chunk_size` is accepted by [`hessian`](../reference/index.md#asdex.hessian),
+[`value_and_hessian`](../reference/index.md#asdex.value_and_hessian), and
+[`hessian_from_coloring`](../reference/index.md#asdex.hessian_from_coloring).

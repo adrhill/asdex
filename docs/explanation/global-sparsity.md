@@ -35,6 +35,8 @@ The computed Jacobian is still correct — just slightly less efficient to obtai
 
 This asymmetry is why `asdex` errs on the side of conservatism:
 correctness comes first.
+You can confirm a detected pattern against vanilla JAX.
+See [Verifying Correctness](../how-to/verification.md).
 
 ## Why Global Over Local
 
