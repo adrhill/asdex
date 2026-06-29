@@ -16,27 +16,41 @@ Users have asked to stop at step 1 and work with `B` directly
 (custom sparse solvers, iterative schemes, debugging, cross-checking against
 [SparseMatrixColorings.jl](https://github.com/gdalle/SparseMatrixColorings.jl)).
 Today the compress/decompress split exists only as private helpers inside the
-1985-line `src/asdex/decompression.py`, which conflates three concerns:
-computing `B` (compression), gathering `B` into `(nnz,)` data (decompression),
-and assembling pytree/format output.
+1985-line `src/asdex/decompression.py`, which bundles four concerns into one
+file: the raw AD engine (batched VJP/JVP/HVP), the coloring-driven compression
+that feeds it, the gather of `B` into `(nnz,)` data plus pytree/format assembly,
+and the high-level composition with its per-closure caching.
 
 The goal is **not** to bolt new surface onto a tangled file.
 Tackled well, exposing the compress/decompress boundary as named public stages
 *reduces* complexity: the existing one-shot functions become thin compositions
-of two well-defined stages, and `decompression.py` splits into focused modules.
+of two well-defined stages, the AD engine splits off into a sparsity-agnostic
+`differentiation.py`, and the rest moves into a focused `decompression/` package.
 
 ## Design decisions
 
 Driven by `CLAUDE.md` (minimize complexity, information hiding, pull complexity
 downward, favor exceptions over wrong results):
 
+- **The AD engine knows nothing about sparsity.**
+  The batched VJP/JVP/HVP machinery moves to a top-level `differentiation.py`
+  that takes a seed matrix and `argnums` and returns the batched derivative
+  (plus the forward value and aux).
+  It never imports `ColoredPattern`, `SparsityPattern`, or `OutputFormat`.
+  Building seeds from a coloring and scattering `B` back both live in the
+  `decompression/` package.
+  This is the matrix-free-operator seam: the engine hides AD, chunking, and vmap,
+  while the package hides how the coloring is exploited.
+  The one invariant they share, that the selected-input flatten order matches
+  `sparsity.cols`, is centralized in `_api_utils`.
+
 - **`ColoredPattern` stays a pure data structure.**
   Issue #153 floats moving the scatter *onto* `ColoredPattern`; we deliberately
   do **not**.
   `decompress` and its gather primitive `decompress_data` are **free
-  functions** in `decompression.py` that *read* the pattern's cached index
-  arrays (`coloring._gather_indices`, `coloring.sparsity`) without `pattern.py`
-  importing any AD or output-format logic.
+  functions** in the `decompression/` package that *read* the pattern's cached
+  index arrays (`coloring._gather_indices`, `coloring.sparsity`) without
+  `pattern.py` importing any AD or output-format logic.
   This keeps the modules un-entangled.
 
 - **Decompression operates on the flat 2-D matrix.**
