@@ -598,6 +598,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../how-to/verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Correctness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../how-to/visualization/" class="md-nav__link">
         
   
@@ -1310,7 +1338,9 @@ There is no way to detect this error after the fact.</p>
 the coloring simply uses more colors than strictly necessary.
 The computed Jacobian is still correct — just slightly less efficient to obtain.</p>
 <p>This asymmetry is why <code>asdex</code> errs on the side of conservatism:
-correctness comes first.</p>
+correctness comes first.
+You can confirm a detected pattern against vanilla JAX.
+See <a href="../../how-to/verification/">Verifying Correctness</a>.</p>
 <h2 id="why-global-over-local">Why Global Over Local<a class="headerlink" href="#why-global-over-local" title="Permanent link">¶</a></h2>
 <p><a href="../sparsity-detection/">Sparsity detection</a> and <a href="../coloring/">graph coloring</a> are preprocessing steps
 that happen before any Jacobian is actually computed.

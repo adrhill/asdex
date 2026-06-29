@@ -450,6 +450,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -680,6 +691,34 @@
     
   
     Sparse Hessians
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="how-to/verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verifying Correctness
   
 
     
@@ -1230,6 +1269,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1317,6 +1367,32 @@ Refer to our <a href="https://iclr-blogposts.github.io/2025/blog/sparse-autodiff
 </code></pre></div>
 <p>Instead of 999 VJPs or 1000 JVPs,
 <code>asdex</code> computes the full sparse Jacobian with just 2 JVPs.</p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">¶</a></h2>
+<p><strong>The full ASD pipeline:</strong></p>
+<ul>
+<li><strong>Sparse <a href="https://adrianhill.de/asdex/how-to/jacobians/">Jacobians</a> and <a href="https://adrianhill.de/asdex/how-to/hessians/">Hessians</a></strong>: one VJP/JVP/HVP per color, with automatic (or user-defined) mode selection.</li>
+<li><strong><a href="https://adrianhill.de/asdex/explanation/sparsity-detection/">Sparsity detection</a></strong>: finds <a href="https://adrianhill.de/asdex/explanation/global-sparsity/">global sparsity patterns</a> valid for all inputs.</li>
+<li><strong><a href="https://adrianhill.de/asdex/explanation/coloring/">Graph coloring</a></strong>: row, column, and symmetric coloring minimize AD passes.</li>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/verification/">Correctness verification</a></strong> against vanilla JAX.</li>
+</ul>
+<p><strong>You already know your sparsity pattern?</strong></p>
+<ul>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/jacobians/#manually-providing-a-sparsity-pattern">Manually provide sparsity patterns</a></strong>: supply a known pattern from dense, COO, or BCOO formats.</li>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/jacobians/#precomputing-the-colored-pattern">Precompute, save &amp; load</a></strong>: reuse a colored pattern across inputs, or persist it by saving and loading.</li>
+</ul>
+<p><strong>An interface mirroring JAX:</strong></p>
+<ul>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/jacobians/#multiple-inputs-and-outputs">Multiple inputs and outputs</a></strong>: supports multi-argument functions via <code>argnums</code>, as well as multiple return values.</li>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/jacobians/#pytree-inputs-and-outputs">PyTree inputs and outputs</a></strong>: sparse differentiation through arbitrary nested <a href="https://docs.jax.dev/en/latest/pytrees.html">PyTrees</a>.</li>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/jacobians/#auxiliary-outputs">Auxiliary outputs</a></strong>: supports <code>has_aux=True</code> for functions returning <code>(output, aux)</code>.</li>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/jacobians/#getting-the-primal-value-too">Value and derivative</a></strong>: <code>value_and_jacobian</code> / <code>value_and_hessian</code> return the primal value <code>f(x)</code> without a redundant forward pass.</li>
+</ul>
+<p><strong>And more:</strong></p>
+<ul>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/jacobians/#output-formats">Multiple output formats</a></strong>: decompression to BCOO, dense JAX arrays, NumPy, and SciPy (COO/CSR/CSC) arrays.</li>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/jacobians/#reducing-peak-memory-with-chunking">Bounded memory</a></strong>: <code>chunk_size</code> caps parallel AD passes for large color counts.</li>
+<li><strong><a href="https://adrianhill.de/asdex/how-to/visualization/">Visualizations</a></strong>: <code>spy</code> plots and braille pattern previews.</li>
+</ul>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">¶</a></h2>
 <ul>
 <li><a href="tutorials/getting-started/">Getting Started</a> — step-by-step tutorial</li>
