@@ -13,8 +13,9 @@ to the compress, decompress, and evaluate stages.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, TypeVar
 
 import jax
 
@@ -45,9 +46,89 @@ from asdex.modes import (
 )
 from asdex.pattern import ColoredPattern
 
+# Shared docstring fragments
+#
+# The argument descriptions and the ``jax.jit`` note below are identical across
+# many entry points. They are written once here and interpolated into each
+# ``{placeholder}`` by the ``@_fill_doc`` decorator, so a wording fix lands in
+# one place. Only the *description* is interpolated; the ``argname:`` prefix
+# stays literal in each docstring so pydocstyle still sees a documented argument.
+# Fragments are canonical (dedented): continuation lines sit at 0 spaces for the
+# top-level ``{jit}`` note and 8 for the ``Args:`` descriptions. ``_fill_doc``
+# runs ``inspect.cleandoc`` first so placeholders land at those columns
+# regardless of the per-version docstring dedenting (which changed in 3.13).
+
+_JIT = """For repeated evaluation, wrap the returned function in ``jax.jit``:
+each unjitted call re-traces ``f``,
+which can cost far more than the differentiation itself.
+The ``"numpy_dense"`` and scipy output formats cannot be jitted
+since they produce non-JAX arrays."""
+
+_SAMPLE_ARGS = """Sample arguments of ``f``.
+        Only structure and dtypes are used, values are ignored."""
+
+_ARGNUMS = """Specifies which positional argument(s) to differentiate
+        with respect to (default ``0``)."""
+
+_CHUNK_SIZE = """Maximum number of colors to process in parallel.
+        When ``None`` (default), all colors are processed in a single vmapped batch.
+        When specified, colors are processed in chunks of this size to reduce
+        peak memory usage."""
+
+_SAMPLE_KWARGS = """Sample keyword arguments of ``f``.
+        Merged with ``sample_args`` based on ``f``'s signature."""
+
+_FORMAT_HEAD = """Type of the output matrix.
+        ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
+        ``"dense"`` returns ``jax.Array``,
+        ``"numpy_dense"`` returns ``numpy.ndarray``,
+        ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
+        ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
+        ``"scipy_csc"`` returns ``scipy.sparse.csc_array``."""
+
+_FORMAT_JAC = (
+    _FORMAT_HEAD
+    + "\n        SciPy formats require scipy and only support 2D Jacobians:"
+    + "\n        the input and output must each be a single flat (1D) array"
+    + "\n        (scalar outputs are not supported)."
+)
+_FORMAT_HESS = (
+    _FORMAT_HEAD
+    + "\n        SciPy formats require scipy and only support 2D Hessians:"
+    + "\n        the input must be a single flat (1D) array."
+)
+_FORMAT_FLAT = _FORMAT_HEAD + "\n        SciPy formats require scipy."
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def _fill_doc(fn: _F) -> _F:
+    """Interpolate the shared docstring fragments into ``fn.__doc__``.
+
+    Returns ``fn`` unchanged apart from its docstring, so the signature stays
+    visible to type checkers and ``mkdocstrings``.
+    ``inspect.cleandoc`` normalizes the indentation first so the result is
+    identical whether or not the interpreter already dedented ``__doc__``
+    (auto-dedenting landed in Python 3.13).
+    """
+    if fn.__doc__ is not None:
+        fn.__doc__ = inspect.cleandoc(fn.__doc__).format(
+            jit=_JIT,
+            sample_args=_SAMPLE_ARGS,
+            argnums=_ARGNUMS,
+            chunk_size=_CHUNK_SIZE,
+            sample_kwargs=_SAMPLE_KWARGS,
+            format_jac=_FORMAT_JAC,
+            format_hess=_FORMAT_HESS,
+            format_flat=_FORMAT_FLAT,
+        )
+    return fn
+
+
 # Public API: one-shot entry points
 
 
+@_fill_doc
 def jacobian(
     f: Callable[..., Any],
     *sample_args: Any,
@@ -67,18 +148,12 @@ def jacobian(
     and [`jacobian_from_coloring`][asdex.jacobian_from_coloring]
     in one call.
 
-    For repeated evaluation, wrap the returned function in ``jax.jit``:
-    each unjitted call re-traces ``f``,
-    which can cost far more than the differentiation itself.
-    The ``"numpy_dense"`` and scipy output formats cannot be jitted
-    since they produce non-JAX arrays.
+    {jit}
 
     Args:
         f: Function whose Jacobian is to be computed.
-        *sample_args: Sample arguments of ``f``.
-            Only structure and dtypes are used, values are ignored.
-        argnums: Specifies which positional argument(s) to differentiate
-            with respect to (default ``0``).
+        *sample_args: {sample_args}
+        argnums: {argnums}
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
             mirroring ``jax.jacrev``.
             When True, the returned function yields ``(jac, aux)``.
@@ -93,22 +168,9 @@ def jacobian(
             ``None`` picks whichever of fwd/rev needs fewer colors.
         symmetric: Whether to use symmetric (star) coloring.
             Requires a square Jacobian.
-        output_format: Type of the output matrix.
-            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns ``jax.Array``,
-            ``"numpy_dense"`` returns ``numpy.ndarray``,
-            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
-            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
-            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D Jacobians:
-            the input and output must each be a single flat (1D) array
-            (scalar outputs are not supported).
-        chunk_size: Maximum number of colors to process in parallel.
-            When ``None`` (default), all colors are processed in a single vmapped batch.
-            When specified, colors are processed in chunks of this size to reduce
-            peak memory usage.
-        **sample_kwargs: Sample keyword arguments of ``f``.
-            Merged with ``sample_args`` based on ``f``'s signature.
+        output_format: {format_jac}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -153,6 +215,7 @@ def jacobian(
     return jac_fn
 
 
+@_fill_doc
 def value_and_jacobian(
     f: Callable[..., Any],
     *sample_args: Any,
@@ -172,11 +235,7 @@ def value_and_jacobian(
     but also returns the primal value ``f(*args)``
     without an extra forward pass.
 
-    For repeated evaluation, wrap the returned function in ``jax.jit``:
-    each unjitted call re-traces ``f``,
-    which can cost far more than the differentiation itself.
-    The ``"numpy_dense"`` and scipy output formats cannot be jitted
-    since they produce non-JAX arrays.
+    {jit}
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -218,6 +277,7 @@ def value_and_jacobian(
     return val_jac_fn
 
 
+@_fill_doc
 def hessian(
     f: Callable[..., Any],
     *sample_args: Any,
@@ -236,39 +296,21 @@ def hessian(
     If ``f`` returns a squeezable shape like ``(1,)`` or ``(1, 1)``,
     it is automatically squeezed to scalar.
 
-    For repeated evaluation, wrap the returned function in ``jax.jit``:
-    each unjitted call re-traces ``f``,
-    which can cost far more than the differentiation itself.
-    The ``"numpy_dense"`` and scipy output formats cannot be jitted
-    since they produce non-JAX arrays.
+    {jit}
 
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
-        *sample_args: Sample arguments of ``f``.
-            Only structure and dtypes are used, values are ignored.
-        argnums: Specifies which positional argument(s) to differentiate
-            with respect to (default ``0``).
+        *sample_args: {sample_args}
+        argnums: {argnums}
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
             (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
-        output_format: Type of the output matrix.
-            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns ``jax.Array``,
-            ``"numpy_dense"`` returns ``numpy.ndarray``,
-            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
-            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
-            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D Hessians:
-            the input must be a single flat (1D) array.
-        chunk_size: Maximum number of colors to process in parallel.
-            When ``None`` (default), all colors are processed in a single vmapped batch.
-            When specified, colors are processed in chunks of this size to reduce
-            peak memory usage.
-        **sample_kwargs: Sample keyword arguments of ``f``.
-            Merged with ``sample_args`` based on ``f``'s signature.
+        output_format: {format_hess}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -309,6 +351,7 @@ def hessian(
     return hess_fn
 
 
+@_fill_doc
 def value_and_hessian(
     f: Callable[..., Any],
     *sample_args: Any,
@@ -327,39 +370,21 @@ def value_and_hessian(
     Like [`hessian`][asdex.hessian], but also returns the primal value
     ``f(*args)`` without an extra forward pass.
 
-    For repeated evaluation, wrap the returned function in ``jax.jit``:
-    each unjitted call re-traces ``f``,
-    which can cost far more than the differentiation itself.
-    The ``"numpy_dense"`` and scipy output formats cannot be jitted
-    since they produce non-JAX arrays.
+    {jit}
 
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
-        *sample_args: Sample arguments of ``f``.
-            Only structure and dtypes are used, values are ignored.
-        argnums: Specifies which positional argument(s) to differentiate
-            with respect to (default ``0``).
+        *sample_args: {sample_args}
+        argnums: {argnums}
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
             (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
         mode: AD mode for Hessian computation.
         symmetric: Whether to use symmetric (star) coloring.
-        output_format: Type of the output matrix.
-            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns ``jax.Array``,
-            ``"numpy_dense"`` returns ``numpy.ndarray``,
-            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
-            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
-            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D Hessians:
-            the input must be a single flat (1D) array.
-        chunk_size: Maximum number of colors to process in parallel.
-            When ``None`` (default), all colors are processed in a single vmapped batch.
-            When specified, colors are processed in chunks of this size to reduce
-            peak memory usage.
-        **sample_kwargs: Sample keyword arguments of ``f``.
-            Merged with ``sample_args`` based on ``f``'s signature.
+        output_format: {format_hess}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -403,6 +428,7 @@ def value_and_hessian(
 # Public API: ``*_from_coloring`` entry points
 
 
+@_fill_doc
 def jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
@@ -421,25 +447,12 @@ def jacobian_from_coloring(
     The returned callable accepts ``*args, **kwargs``; kwargs are forwarded
     to ``f`` at call time (matching ``jax.jacfwd`` / ``jax.jacrev``).
 
-    For repeated evaluation, wrap the returned function in ``jax.jit``:
-    each unjitted call re-traces ``f``,
-    which can cost far more than the differentiation itself.
-    The ``"numpy_dense"`` and scipy output formats cannot be jitted
-    since they produce non-JAX arrays.
+    {jit}
 
     Args:
         f: Function whose Jacobian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
-        output_format: Type of the output matrix.
-            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns ``jax.Array``,
-            ``"numpy_dense"`` returns ``numpy.ndarray``,
-            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
-            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
-            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D Jacobians:
-            the input and output must each be a single flat (1D) array
-            (scalar outputs are not supported).
+        output_format: {format_jac}
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -468,6 +481,7 @@ def jacobian_from_coloring(
     return jac_fn
 
 
+@_fill_doc
 def hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
@@ -482,24 +496,12 @@ def hessian_from_coloring(
 
     Uses symmetric (star) coloring and Hessian-vector products by default.
 
-    For repeated evaluation, wrap the returned function in ``jax.jit``:
-    each unjitted call re-traces ``f``,
-    which can cost far more than the differentiation itself.
-    The ``"numpy_dense"`` and scipy output formats cannot be jitted
-    since they produce non-JAX arrays.
+    {jit}
 
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
-        output_format: Type of the output matrix.
-            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns ``jax.Array``,
-            ``"numpy_dense"`` returns ``numpy.ndarray``,
-            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
-            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
-            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D Hessians:
-            the input must be a single flat (1D) array.
+        output_format: {format_hess}
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
@@ -529,6 +531,7 @@ def hessian_from_coloring(
     return hess_fn
 
 
+@_fill_doc
 def value_and_jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
@@ -541,25 +544,12 @@ def value_and_jacobian_from_coloring(
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Jacobian from a pre-computed coloring.
 
-    For repeated evaluation, wrap the returned function in ``jax.jit``:
-    each unjitted call re-traces ``f``,
-    which can cost far more than the differentiation itself.
-    The ``"numpy_dense"`` and scipy output formats cannot be jitted
-    since they produce non-JAX arrays.
+    {jit}
 
     Args:
         f: Function whose Jacobian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
-        output_format: Type of the output matrix.
-            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns ``jax.Array``,
-            ``"numpy_dense"`` returns ``numpy.ndarray``,
-            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
-            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
-            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D Jacobians:
-            the input and output must each be a single flat (1D) array
-            (scalar outputs are not supported).
+        output_format: {format_jac}
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Whether to allow differentiating with respect to integer inputs.
@@ -588,6 +578,7 @@ def value_and_jacobian_from_coloring(
     return val_jac_fn
 
 
+@_fill_doc
 def value_and_hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
@@ -600,24 +591,12 @@ def value_and_hessian_from_coloring(
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Hessian from a pre-computed coloring.
 
-    For repeated evaluation, wrap the returned function in ``jax.jit``:
-    each unjitted call re-traces ``f``,
-    which can cost far more than the differentiation itself.
-    The ``"numpy_dense"`` and scipy output formats cannot be jitted
-    since they produce non-JAX arrays.
+    {jit}
 
     Args:
         f: Scalar-valued function whose Hessian is to be computed.
         coloring: Pre-computed colored sparsity pattern.
-        output_format: Type of the output matrix.
-            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns ``jax.Array``,
-            ``"numpy_dense"`` returns ``numpy.ndarray``,
-            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
-            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
-            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy and only support 2D Hessians:
-            the input must be a single flat (1D) array.
+        output_format: {format_hess}
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
         holomorphic: Whether ``f`` is promised to be holomorphic.
         allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
@@ -1119,6 +1098,7 @@ def decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arra
     return _decompress_data(coloring, compressed)
 
 
+@_fill_doc
 def decompress(
     coloring: ColoredPattern,
     compressed: jax.Array,
@@ -1138,14 +1118,7 @@ def decompress(
     Args:
         coloring: The colored pattern that produced ``compressed``.
         compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``.
-        output_format: Type of the output matrix.
-            ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
-            ``"dense"`` returns ``jax.Array``,
-            ``"numpy_dense"`` returns ``numpy.ndarray``,
-            ``"scipy_coo"`` returns ``scipy.sparse.coo_array``,
-            ``"scipy_csr"`` returns ``scipy.sparse.csr_array``,
-            ``"scipy_csc"`` returns ``scipy.sparse.csc_array``.
-            SciPy formats require scipy.
+        output_format: {format_flat}
 
     Returns:
         The sparse matrix of shape ``(m, n)`` in the requested format.
