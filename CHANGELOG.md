@@ -4,6 +4,7 @@
 * ![Feature][badge-feature] Add compressed-differentiation API (`compressed_jacobian`, `compressed_hessian`, their `value_and_*` and `*_from_coloring` variants) returning the raw compressed matrix `B` ([#155])
 * ![Feature][badge-feature] Add `decompress` and `decompress_data` to turn a compressed matrix back into a sparse matrix or its raw values ([#155])
 * ![Maintenance][badge-maintenance] Split `decompression.py` into a package and extract the batched-AD engine into `differentiation.py` ([#155])
+* ![Documentation][badge-docs] Update README and how-to guides with the new features ([#154])
 
 ```python
 coloring = asdex.jacobian_coloring(f, x)
@@ -119,6 +120,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 
 
 [#155]: https://github.com/adrhill/asdex/pull/155
+[#154]: https://github.com/adrhill/asdex/pull/154
 [#143]: https://github.com/adrhill/asdex/pull/143
 [#142]: https://github.com/adrhill/asdex/pull/142
 [#141]: https://github.com/adrhill/asdex/pull/141

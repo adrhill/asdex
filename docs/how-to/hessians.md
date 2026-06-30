@@ -452,11 +452,11 @@ The result is identical to the default (`chunk_size=None`), only peak memory and
 
 ### Skipping Decompression
 
-Sometimes you want the raw compressed matrix \(B\) rather than the assembled sparse Hessian,
-to feed a custom solver, cross-check against a reference, or decompress lazily.
-[`compressed_hessian`](../reference/index.md#asdex.compressed_hessian) and
-[`compressed_hessian_from_coloring`](../reference/index.md#asdex.compressed_hessian_from_coloring)
-run the same detect-and-color steps as [`hessian`](../reference/index.md#asdex.hessian),
+To access the raw compressed matrix \(B\) rather than the assembled sparse Hessian
+(to feed a custom solver, cross-check against a reference, or decompress lazily),
+use [`compressed_hessian`](../reference/index.md#asdex.compressed_hessian) and
+[`compressed_hessian_from_coloring`](../reference/index.md#asdex.compressed_hessian_from_coloring).
+They run the same detect-and-color steps as [`hessian`](../reference/index.md#asdex.hessian),
 but stop at \(B\), the dense matrix of one HVP per color of shape \((\text{num\_colors}, n)\),
 where \(n\) is the input size.
 
@@ -506,10 +506,10 @@ cols = coloring.sparsity.cols        # column index of each value
 
 ```python exec="true" session="hess-compress"
 print(f"""```
-B.shape:     {B.shape}
-H_bcoo:      {type(H_bcoo).__name__}  shape={H_bcoo.shape}
-data.shape:  {data.shape}
-first entry: H[{rows[0]}, {cols[0]}] = {float(data[0]):.1f}
+B.shape:       {B.shape}
+type(H_bcoo):  {type(H_bcoo).__name__}  shape={H_bcoo.shape}
+data.shape:    {data.shape}
+data[0]:       {float(data[0]):.1f}  at (rows[0], cols[0]) = ({int(rows[0])}, {int(cols[0])})
 ```""")
 ```
 

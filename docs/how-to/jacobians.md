@@ -478,11 +478,11 @@ The result is identical to the default (`chunk_size=None`), only peak memory and
 
 ### Skipping Decompression
 
-Sometimes you want the raw compressed matrix \(B\) rather than the assembled sparse Jacobian,
-to feed a custom solver, cross-check against a reference, or decompress lazily.
-[`compressed_jacobian`](../reference/index.md#asdex.compressed_jacobian) and
-[`compressed_jacobian_from_coloring`](../reference/index.md#asdex.compressed_jacobian_from_coloring)
-run the same detect-and-color steps as [`jacobian`](../reference/index.md#asdex.jacobian),
+To access the raw compressed matrix \(B\) rather than the assembled sparse Jacobian
+(to feed a custom solver, cross-check against a reference, or decompress lazily),
+use [`compressed_jacobian`](../reference/index.md#asdex.compressed_jacobian) and
+[`compressed_jacobian_from_coloring`](../reference/index.md#asdex.compressed_jacobian_from_coloring).
+They run the same detect-and-color steps as [`jacobian`](../reference/index.md#asdex.jacobian),
 but stop at \(B\), the dense matrix of one VJP or JVP per color of shape \((\text{num\_colors}, \text{dim})\).
 Here `dim` is the input size \(n\) in `"rev"` mode and the output size \(m\) in `"fwd"` mode.
 
@@ -532,10 +532,10 @@ cols = coloring.sparsity.cols        # column index of each value
 
 ```python exec="true" session="jac-compress"
 print(f"""```
-B.shape:     {B.shape}
-J_bcoo:      {type(J_bcoo).__name__}  shape={J_bcoo.shape}
-data.shape:  {data.shape}
-first entry: J[{rows[0]}, {cols[0]}] = {float(data[0]):.1f}
+B.shape:       {B.shape}
+type(J_bcoo):  {type(J_bcoo).__name__}  shape={J_bcoo.shape}
+data.shape:    {data.shape}
+data[0]:       {float(data[0]):.1f}  at (rows[0], cols[0]) = ({int(rows[0])}, {int(cols[0])})
 ```""")
 ```
 
