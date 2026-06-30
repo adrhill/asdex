@@ -361,8 +361,12 @@ def test_decompress_data_wrong_num_colors_raises(jacobian_mode):
     """A compressed matrix with the wrong number of colors raises ValueError."""
     x = jnp.arange(1.0, 11.0)
     coloring = jacobian_coloring(_jac_f, x, mode=jacobian_mode)
-    bad = jnp.zeros((coloring.num_colors + 1, _expected_dim(coloring)))
-    with pytest.raises(ValueError, match="num_colors"):
+    dim = _expected_dim(coloring)
+    bad = jnp.zeros((coloring.num_colors + 1, dim))
+    # The reported shape pins the failure to the first (num_colors) axis.
+    with pytest.raises(
+        ValueError, match=rf"shape \({coloring.num_colors + 1}, {dim}\)"
+    ):
         decompress_data(coloring, bad)
 
 
@@ -371,8 +375,12 @@ def test_decompress_data_wrong_dim_raises(jacobian_mode):
     """A compressed matrix with the wrong second axis raises ValueError."""
     x = jnp.arange(1.0, 11.0)
     coloring = jacobian_coloring(_jac_f, x, mode=jacobian_mode)
-    bad = jnp.zeros((coloring.num_colors, _expected_dim(coloring) + 1))
-    with pytest.raises(ValueError, match="num_colors"):
+    dim = _expected_dim(coloring)
+    bad = jnp.zeros((coloring.num_colors, dim + 1))
+    # The reported shape pins the failure to the second (dim) axis.
+    with pytest.raises(
+        ValueError, match=rf"shape \({coloring.num_colors}, {dim + 1}\)"
+    ):
         decompress_data(coloring, bad)
 
 
