@@ -25,7 +25,6 @@ from asdex.decompression._compress import (
     _assert_chunk_size,
     _compress_hessian,
     _compress_jacobian,
-    _value_and_compress_hessian,
 )
 from asdex.decompression._decompress import (
     _decompress_data,
@@ -824,7 +823,7 @@ def compressed_hessian(
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
-        compressed, aux = _compress_hessian(
+        compressed, _value, aux = _compress_hessian(
             f_bound,
             merged_args,
             coloring,
@@ -868,7 +867,7 @@ def compressed_hessian_from_coloring(
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
-        compressed, aux = _compress_hessian(
+        compressed, _value, aux = _compress_hessian(
             f_bound,
             merged_args,
             coloring,
@@ -1024,7 +1023,7 @@ def value_and_compressed_hessian(
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
-        value, compressed, aux = _value_and_compress_hessian(
+        compressed, value, aux = _compress_hessian(
             f_bound,
             merged_args,
             coloring,
@@ -1065,7 +1064,7 @@ def value_and_compressed_hessian_from_coloring(
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
         merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
-        value, compressed, aux = _value_and_compress_hessian(
+        compressed, value, aux = _compress_hessian(
             f_bound,
             merged_args,
             coloring,

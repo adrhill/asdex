@@ -23,18 +23,14 @@ import jax
 import jax.numpy as jnp
 
 from asdex._api_utils import (
-    _expected_compressed_dim,
     _selected_args,
     _selected_dtype,
     validate_input_dtypes,
     validate_output_dtypes,
 )
+from asdex.decompression._common import _expected_compressed_dim
 from asdex.detection._api import _ensure_scalar, _strip_aux
-from asdex.differentiation import (
-    _compute_hvps,
-    _jacobian_compressed,
-    _value_and_compute_hvps,
-)
+from asdex.differentiation import _hessian_compressed, _jacobian_compressed
 from asdex.pattern import ColoredPattern, SparsityPattern
 
 
@@ -236,49 +232,14 @@ def _compress_hessian(
     allow_int: bool,
     chunk_size: int | None,
     call_cache: dict[Any, Any] | None,
-) -> tuple[jax.Array, Any]:
-    """Compress the Hessian of a scalar-valued ``f`` at ``args``, returning ``(B, aux)``.
+) -> tuple[jax.Array, Any, Any]:
+    """Compress the Hessian of a scalar-valued ``f`` at ``args``.
 
-    ``aux`` is ``None`` unless ``has_aux=True``.
-    Use ``_value_and_compress_hessian`` when the forward value is also needed.
-    """
-    sparsity = coloring.sparsity
-    _validate_args(args, sparsity)
-    selected = _selected_args(args, sparsity)
-    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
-
-    f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
-    out_struct = _cached_out_struct(f_scalar, args, call_cache)
-    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
-
-    if sparsity.nnz == 0:
-        compressed = _empty_compressed(coloring, args)
-        if has_aux:
-            _, aux = f(*args)
-            return compressed, aux
-        return compressed, None
-
-    f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
-    compressed, aux = _compute_hvps(f_scalar, args, coloring, chunk_size, f_aux=f_aux)
-    return compressed, aux
-
-
-def _value_and_compress_hessian(
-    f: Callable[..., Any],
-    args: tuple[Any, ...],
-    coloring: ColoredPattern,
-    *,
-    has_aux: bool,
-    holomorphic: bool,
-    allow_int: bool,
-    chunk_size: int | None,
-    call_cache: dict[Any, Any] | None,
-) -> tuple[Any, jax.Array, Any]:
-    """``f(*args)`` and the compressed Hessian, returning ``(value, B, aux)``.
-
-    The value rides the HVP forward pass where the mode allows;
-    ``rev_over_fwd`` costs one extra ``f`` call.
+    Mirrors ``_compress_jacobian``: a single function serves both the value and
+    value-free callers, returning ``(B, value, aux)``.
+    The value rides the HVP forward pass where the mode allows
+    (``rev_over_fwd`` costs one extra ``f`` call),
+    so value-free callers simply discard it.
     ``aux`` is ``None`` unless ``has_aux=True``.
     """
     sparsity = coloring.sparsity
@@ -297,11 +258,11 @@ def _value_and_compress_hessian(
         # so it has shape (), consistent with the non-empty path.
         if has_aux:
             out, aux = _cached_scalar_aux_fn(f, call_cache)(*args)
-            return jnp.asarray(out), compressed, aux
-        return jnp.asarray(f_scalar(*args)), compressed, None
+            return compressed, jnp.asarray(out), aux
+        return compressed, jnp.asarray(f_scalar(*args)), None
 
     f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
-    value, compressed, aux = _value_and_compute_hvps(
+    compressed, value, aux = _hessian_compressed(
         f_scalar, args, coloring, chunk_size, f_aux=f_aux
     )
-    return value, compressed, aux
+    return compressed, value, aux

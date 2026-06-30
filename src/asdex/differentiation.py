@@ -60,7 +60,28 @@ def _output_dtype(pytree: Any) -> jnp.dtype:
     return dtypes.result_type(*leaves)
 
 
-# Jacobian rows / cols over the selected input space
+# Jacobian over the selected input space
+
+
+def _transform_with_aux(
+    transform: Callable[..., Any],
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    *,
+    has_aux: bool,
+) -> tuple[Any, Any, Any]:
+    """Run ``jax.vjp`` / ``jax.linearize``, always returning ``(primal, lin_fn, aux)``.
+
+    ``aux`` is ``None`` when ``has_aux=False``,
+    mirroring ``_grad_with_value_and_aux`` on the Hessian side
+    so the Jacobian engine never branches on ``has_aux``.
+    Requesting aux from the transform itself lets it ride the forward pass
+    instead of costing an extra ``f`` call.
+    """
+    if has_aux:
+        return transform(f, *args, has_aux=True)
+    primal, lin_fn = transform(f, *args)
+    return primal, lin_fn, None
 
 
 def _jacobian_compressed(
@@ -79,18 +100,18 @@ def _jacobian_compressed(
     _assert_jacobian_mode(coloring.mode)
     match coloring.mode:
         case "rev":
-            return _jacobian_rows(
+            return _jacobian_compressed_vjp(
                 f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
             )
         case "fwd":
-            return _jacobian_cols(
+            return _jacobian_compressed_jvp(
                 f, args, coloring, has_aux=has_aux, chunk_size=chunk_size
             )
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
 
-def _jacobian_rows(
+def _jacobian_compressed_vjp(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
@@ -104,11 +125,7 @@ def _jacobian_rows(
     Returns ``(compressed, y, aux)``; ``aux`` is ``None`` when ``has_aux=False``.
     """
     sparsity = coloring.sparsity
-    if has_aux:
-        y, vjp_fn, aux = jax.vjp(f, *args, has_aux=True)
-    else:
-        y, vjp_fn = jax.vjp(f, *args)
-        aux = None
+    y, vjp_fn, aux = _transform_with_aux(jax.vjp, f, args, has_aux=has_aux)
     dtype = _output_dtype(y)
     seeds = coloring._device_seeds(dtype)
 
@@ -121,7 +138,7 @@ def _jacobian_rows(
     return J_compressed, y, aux
 
 
-def _jacobian_cols(
+def _jacobian_compressed_jvp(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
@@ -135,11 +152,7 @@ def _jacobian_cols(
     """
     sparsity = coloring.sparsity
     dtype = _uniform_selected_dtype(args, sparsity)
-    if has_aux:
-        y, jvp_fn, aux = jax.linearize(f, *args, has_aux=True)
-    else:
-        y, jvp_fn = jax.linearize(f, *args)
-        aux = None
+    y, jvp_fn, aux = _transform_with_aux(jax.linearize, f, args, has_aux=has_aux)
     seeds = coloring._device_seeds(dtype)
 
     def single_jvp(seed: jax.Array) -> jax.Array:
@@ -150,87 +163,7 @@ def _jacobian_cols(
     return J_compressed, y, aux
 
 
-# HVPs over the selected input space
-
-
-def _grad_with_aux(
-    f: Callable[..., Any],
-    f_aux: Callable[..., Any] | None,
-    grad_argnums: int | tuple[int, ...],
-) -> Callable[..., Any]:
-    """``jax.grad`` returning ``(grads, aux)``, with ``aux=None`` when no ``f_aux``.
-
-    Normalizing the aux output lets callers thread it through
-    ``jax.linearize(..., has_aux=True)`` / ``jax.vjp(..., has_aux=True)``
-    uniformly, so aux rides along with the existing forward pass
-    instead of costing an extra ``f`` call.
-    """
-    if f_aux is not None:
-        return jax.grad(f_aux, argnums=grad_argnums, has_aux=True)
-    grad_fn = jax.grad(f, argnums=grad_argnums)
-    return lambda *primals: (grad_fn(*primals), None)
-
-
-def _compute_hvps(
-    f: Callable[..., Any],
-    args: tuple[Any, ...],
-    coloring: ColoredPattern,
-    chunk_size: int | None,
-    *,
-    f_aux: Callable[..., Any] | None = None,
-) -> tuple[jax.Array, Any]:
-    """One HVP per color for a scalar-valued multi-positional ``f``.
-
-    ``f_aux`` is the aux-preserving variant of ``f`` (returns ``(out, aux)``).
-    When given, aux is extracted from the forward pass of the HVPs
-    where the mode allows and returned alongside the compressed rows;
-    otherwise the returned aux is ``None``.
-    """
-    sparsity = coloring.sparsity
-    dtype = _uniform_selected_dtype(args, sparsity)
-    grad_argnums = sparsity.argnums
-
-    seeds = coloring._device_seeds(dtype)
-    _assert_hessian_mode(coloring.mode)
-    match coloring.mode:
-        case "fwd_over_rev":
-            grad_fn = _grad_with_aux(f, f_aux, grad_argnums)
-            _, hvp_fn, aux = jax.linearize(grad_fn, *args, has_aux=True)
-
-            def single_hvp(v: jax.Array) -> jax.Array:
-                tangents = _build_tangents_from_seed(v, args, sparsity)
-                tangent_out = hvp_fn(*tangents)
-                return _flatten_grad_output(tangent_out)
-
-        case "rev_over_fwd":
-            # The forward passes happen inside the vmapped HVPs below,
-            # so aux needs one dedicated ``f`` call.
-            aux = f_aux(*args)[1] if f_aux is not None else None
-
-            def single_hvp(v: jax.Array) -> jax.Array:
-                tangents = _build_tangents_from_seed(v, args, sparsity)
-
-                def inner(*primals: Any) -> jax.Array:
-                    _, out_tangent = jax.jvp(f, primals, tangents)
-                    return out_tangent
-
-                grads = jax.grad(inner, argnums=grad_argnums)(*args)
-                return _flatten_grad_output(grads)
-
-        case "rev_over_rev":
-            grad_fn = _grad_with_aux(f, f_aux, grad_argnums)
-            _, hvp_fn, aux = jax.vjp(grad_fn, *args, has_aux=True)
-
-            def single_hvp(v: jax.Array) -> jax.Array:
-                cotangent_out = _build_grad_output_from_seed(v, sparsity)
-                cotangents = hvp_fn(cotangent_out)
-                return _flatten_selected_cotangents(cotangents, sparsity)
-
-        case _ as unreachable:
-            assert_never(unreachable)  # ty: ignore[type-assertion-failure]
-
-    H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
-    return H_compressed, aux
+# Hessian over the selected input space
 
 
 def _grad_with_value_and_aux(
@@ -261,7 +194,7 @@ def _grad_with_value_and_aux(
     return wrapped
 
 
-def _value_and_compute_hvps(
+def _hessian_compressed(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
@@ -269,62 +202,113 @@ def _value_and_compute_hvps(
     *,
     f_aux: Callable[..., Any] | None = None,
 ) -> tuple[jax.Array, jax.Array, Any]:
-    """``f(*args)``, one HVP per color, and aux for a scalar-valued ``f``.
+    """One HVP per color for a scalar-valued ``f``, by mode.
 
-    Value (and aux, when ``f_aux`` is given) is free for
-    ``fwd_over_rev`` / ``rev_over_rev``;
-    ``rev_over_fwd`` computes both with one extra ``f`` call.
-    Returns ``(value, compressed, aux)``; ``aux`` is ``None`` without ``f_aux``.
+    Mirrors ``_jacobian_compressed``: the primal value always rides along,
+    free for ``fwd_over_rev`` / ``rev_over_rev`` and one extra ``f`` call for
+    ``rev_over_fwd``, so a single engine serves both the value and value-free
+    callers (the latter discard it, as the Jacobian engine's callers do).
+    ``f_aux`` is the aux-preserving variant of ``f`` (returns ``(out, aux)``);
+    the returned aux is ``None`` when it is not given.
+    Returns ``(compressed, value, aux)``.
     """
-    sparsity = coloring.sparsity
-    dtype = _uniform_selected_dtype(args, sparsity)
-    grad_argnums = sparsity.argnums
-
-    seeds = coloring._device_seeds(dtype)
     _assert_hessian_mode(coloring.mode)
     match coloring.mode:
         case "fwd_over_rev":
-            grad_fn = _grad_with_value_and_aux(f, f_aux, grad_argnums)
-            _, hvp_fn, (value, aux) = jax.linearize(grad_fn, *args, has_aux=True)
-
-            def single_hvp(v: jax.Array) -> jax.Array:
-                tangents = _build_tangents_from_seed(v, args, sparsity)
-                tangent_out = hvp_fn(*tangents)
-                return _flatten_grad_output(tangent_out)
-
+            return _hessian_compressed_fwd_over_rev(
+                f, args, coloring, chunk_size, f_aux
+            )
         case "rev_over_fwd":
-            # The forward passes happen inside the vmapped HVPs below,
-            # so value and aux need one dedicated ``f`` call.
-            if f_aux is not None:
-                out, aux = f_aux(*args)
-                value = jnp.asarray(out)
-            else:
-                value, aux = jnp.asarray(f(*args)), None
-
-            def single_hvp(v: jax.Array) -> jax.Array:
-                tangents = _build_tangents_from_seed(v, args, sparsity)
-
-                def inner(*primals: Any) -> jax.Array:
-                    _, out_tangent = jax.jvp(f, primals, tangents)
-                    return out_tangent
-
-                grads = jax.grad(inner, argnums=grad_argnums)(*args)
-                return _flatten_grad_output(grads)
-
+            return _hessian_compressed_rev_over_fwd(
+                f, args, coloring, chunk_size, f_aux
+            )
         case "rev_over_rev":
-            grad_fn = _grad_with_value_and_aux(f, f_aux, grad_argnums)
-            _, hvp_fn, (value, aux) = jax.vjp(grad_fn, *args, has_aux=True)
-
-            def single_hvp(v: jax.Array) -> jax.Array:
-                cotangent_out = _build_grad_output_from_seed(v, sparsity)
-                cotangents = hvp_fn(cotangent_out)
-                return _flatten_selected_cotangents(cotangents, sparsity)
-
+            return _hessian_compressed_rev_over_rev(
+                f, args, coloring, chunk_size, f_aux
+            )
         case _ as unreachable:
             assert_never(unreachable)  # ty: ignore[type-assertion-failure]
 
+
+def _hessian_compressed_fwd_over_rev(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+    f_aux: Callable[..., Any] | None,
+) -> tuple[jax.Array, jax.Array, Any]:
+    """Forward-over-reverse HVPs; value and aux ride the linearize forward pass."""
+    sparsity = coloring.sparsity
+    dtype = _uniform_selected_dtype(args, sparsity)
+    seeds = coloring._device_seeds(dtype)
+    grad_fn = _grad_with_value_and_aux(f, f_aux, sparsity.argnums)
+    _, hvp_fn, (value, aux) = jax.linearize(grad_fn, *args, has_aux=True)
+
+    def single_hvp(v: jax.Array) -> jax.Array:
+        tangents = _build_tangents_from_seed(v, args, sparsity)
+        return _flatten_grad_output(hvp_fn(*tangents))
+
     H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
-    return value, H_compressed, aux
+    return H_compressed, value, aux
+
+
+def _hessian_compressed_rev_over_fwd(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+    f_aux: Callable[..., Any] | None,
+) -> tuple[jax.Array, jax.Array, Any]:
+    """Reverse-over-forward HVPs; value and aux need one dedicated ``f`` call.
+
+    The forward passes happen inside the vmapped HVPs below,
+    so neither value nor aux can be lifted out of them.
+    """
+    sparsity = coloring.sparsity
+    dtype = _uniform_selected_dtype(args, sparsity)
+    seeds = coloring._device_seeds(dtype)
+    grad_argnums = sparsity.argnums
+    if f_aux is not None:
+        out, aux = f_aux(*args)
+        value = jnp.asarray(out)
+    else:
+        value, aux = jnp.asarray(f(*args)), None
+
+    def single_hvp(v: jax.Array) -> jax.Array:
+        tangents = _build_tangents_from_seed(v, args, sparsity)
+
+        def inner(*primals: Any) -> jax.Array:
+            _, out_tangent = jax.jvp(f, primals, tangents)
+            return out_tangent
+
+        grads = jax.grad(inner, argnums=grad_argnums)(*args)
+        return _flatten_grad_output(grads)
+
+    H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
+    return H_compressed, value, aux
+
+
+def _hessian_compressed_rev_over_rev(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+    f_aux: Callable[..., Any] | None,
+) -> tuple[jax.Array, jax.Array, Any]:
+    """Reverse-over-reverse HVPs; value and aux ride the outer vjp forward pass."""
+    sparsity = coloring.sparsity
+    dtype = _uniform_selected_dtype(args, sparsity)
+    seeds = coloring._device_seeds(dtype)
+    grad_fn = _grad_with_value_and_aux(f, f_aux, sparsity.argnums)
+    _, hvp_fn, (value, aux) = jax.vjp(grad_fn, *args, has_aux=True)
+
+    def single_hvp(v: jax.Array) -> jax.Array:
+        cotangent_out = _build_grad_output_from_seed(v, sparsity)
+        cotangents = hvp_fn(cotangent_out)
+        return _flatten_selected_cotangents(cotangents, sparsity)
+
+    H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
+    return H_compressed, value, aux
 
 
 # Seed / tangent / cotangent plumbing over the selected input space

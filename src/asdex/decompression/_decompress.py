@@ -23,7 +23,7 @@ import numpy as np
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
-from asdex._api_utils import _expected_compressed_dim
+from asdex.decompression._common import _expected_compressed_dim
 from asdex.modes import (
     JaxOutputFormat,
     OutputFormat,

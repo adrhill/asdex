@@ -20,7 +20,7 @@ import functools
 import inspect
 import operator
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, assert_never
+from typing import TYPE_CHECKING, Any
 
 import jax
 import jax.numpy as jnp
@@ -29,7 +29,7 @@ from jax import ShapeDtypeStruct, dtypes
 from jax.tree_util import tree_map
 
 if TYPE_CHECKING:
-    from asdex.pattern import ColoredPattern, SparsityPattern
+    from asdex.pattern import SparsityPattern
 
 # Argnums normalization
 
@@ -581,27 +581,3 @@ def _uniform_selected_dtype(args: tuple[Any, ...], sparsity: SparsityPattern) ->
             "or use `mode='rev'` for Jacobians."
         )
     return found.pop() if found else jnp.float_
-
-
-def _expected_compressed_dim(coloring: ColoredPattern) -> int:
-    """Second-axis length of the compressed matrix ``B`` for ``coloring``.
-
-    ``B`` has shape ``(num_colors, dim)``,
-    where ``dim`` is the space that compression preserves,
-    the opposite of the seeded space.
-    For ``"fwd"`` the seed lives in the input space,
-    so ``B``'s columns are the output space of size ``m``.
-    For ``"rev"`` and the Hessian modes the seed lives in the output
-    or cotangent space, so ``B``'s columns are the selected input space of size ``n``.
-
-    Both equal the space the gather's ``elem_idx`` indexes,
-    so this is the dimension ``decompress_data`` validates against.
-    """
-    sparsity = coloring.sparsity
-    match coloring.mode:
-        case "fwd":
-            return sparsity.m
-        case "rev" | "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
-            return sparsity.n
-        case _ as unreachable:
-            assert_never(unreachable)

@@ -40,11 +40,7 @@ from asdex.decompression._decompress import (
     _build_jacobian,
     _decompress_data,
 )
-from asdex.differentiation import (
-    _compute_hvps,
-    _jacobian_compressed,
-    _value_and_compute_hvps,
-)
+from asdex.differentiation import _hessian_compressed, _jacobian_compressed
 from asdex.modes import OutputFormat
 from asdex.pattern import ColoredPattern, SparsityPattern
 
@@ -118,27 +114,15 @@ def _build_hessian_core(
     coloring: ColoredPattern,
     chunk_size: int | None,
 ) -> Callable[..., Any]:
-    """Array-valued Hessian core ``args -> data`` for the internal jit."""
+    """Array-valued Hessian core ``args -> (data, value)`` for the internal jit.
 
-    def core(*args: Any) -> jax.Array:
-        compressed, _ = _compute_hvps(f_scalar, args, coloring, chunk_size)
-        return _decompress_data(coloring, compressed)
-
-    return core
-
-
-def _build_value_and_hessian_core(
-    f_scalar: Callable[..., Any],
-    coloring: ColoredPattern,
-    chunk_size: int | None,
-) -> Callable[..., Any]:
-    """Array-valued Hessian core ``args -> (value, data)`` for the internal jit."""
+    Mirrors ``_build_jacobian_core``: the value always rides along,
+    so value and value-free callers share one core (the latter discard it).
+    """
 
     def core(*args: Any) -> tuple[jax.Array, jax.Array]:
-        value, compressed, _ = _value_and_compute_hvps(
-            f_scalar, args, coloring, chunk_size
-        )
-        return value, _decompress_data(coloring, compressed)
+        compressed, value, _ = _hessian_compressed(f_scalar, args, coloring, chunk_size)
+        return _decompress_data(coloring, compressed), value
 
     return core
 
@@ -300,11 +284,11 @@ def _eval_hessian(
         lambda: _build_hessian_core(f_scalar, coloring, chunk_size),
     )
     if core is not None:
-        data = core(*args)
+        data, _value = core(*args)
         aux = f(*args)[1] if has_aux else None
     else:
         f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
-        compressed, aux = _compute_hvps(
+        compressed, _value, aux = _hessian_compressed(
             f_scalar, args, coloring, chunk_size, f_aux=f_aux
         )
         data = _decompress_data(coloring, compressed)
@@ -354,14 +338,14 @@ def _eval_value_and_hessian(
         call_cache,
         output_format,
         False,
-        lambda: _build_value_and_hessian_core(f_scalar, coloring, chunk_size),
+        lambda: _build_hessian_core(f_scalar, coloring, chunk_size),
     )
     if core is not None:
-        value, data = core(*args)
+        data, value = core(*args)
         aux = f(*args)[1] if has_aux else None
     else:
         f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
-        value, compressed, aux = _value_and_compute_hvps(
+        compressed, value, aux = _hessian_compressed(
             f_scalar, args, coloring, chunk_size, f_aux=f_aux
         )
         data = _decompress_data(coloring, compressed)
