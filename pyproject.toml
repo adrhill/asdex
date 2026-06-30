@@ -83,7 +83,7 @@ build-backend = "hatchling.build"
 packages = ["src/asdex"]
 
 [tool.pytest.ini_options]
-addopts = "--tb=short -q --no-header -m 'not (slow or benchmark or cutest)'"
+addopts = "--tb=short -m 'not (slow or benchmark or cutest)'"
 testpaths = ["tests"]
 filterwarnings = [
     "ignore:Setting `jax_pmap_shmap_merge`:DeprecationWarning",
