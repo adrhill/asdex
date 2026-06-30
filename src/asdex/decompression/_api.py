@@ -19,6 +19,7 @@ from typing import Any
 import jax
 
 from asdex._api_utils import _ensure_index, merge_args_kwargs, merge_sample_inputs
+from asdex._doc_helper import _fill_doc
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.decompression._compress import (
@@ -32,7 +33,6 @@ from asdex.decompression._decompress import (
     _decompress_to_format,
     _validate_compressed,
 )
-from asdex.decompression._doc_helper import _fill_doc
 from asdex.decompression._evaluate import (
     _eval_hessian,
     _eval_jacobian,
@@ -73,7 +73,7 @@ def jacobian(
     {jit}
 
     Args:
-        f: Function whose Jacobian is to be computed.
+        f: {f_jac}
         *sample_args: {sample_args}
         argnums: {argnums}
         has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
@@ -221,15 +221,14 @@ def hessian(
     {jit}
 
     Args:
-        f: Scalar-valued function whose Hessian is to be computed.
+        f: {f_hess}
         *sample_args: {sample_args}
         argnums: {argnums}
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
-        holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
-            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
-        mode: AD mode for Hessian computation.
-        symmetric: Whether to use symmetric (star) coloring.
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_hess}
+        mode: {mode_hess}
+        symmetric: {symmetric}
         output_format: {format_hess}
         chunk_size: {chunk_size}
         **sample_kwargs: {sample_kwargs}
@@ -295,15 +294,14 @@ def value_and_hessian(
     {jit}
 
     Args:
-        f: Scalar-valued function whose Hessian is to be computed.
+        f: {f_hess}
         *sample_args: {sample_args}
         argnums: {argnums}
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
-        holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
-            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
-        mode: AD mode for Hessian computation.
-        symmetric: Whether to use symmetric (star) coloring.
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_hess}
+        mode: {mode_hess}
+        symmetric: {symmetric}
         output_format: {format_hess}
         chunk_size: {chunk_size}
         **sample_kwargs: {sample_kwargs}
@@ -372,13 +370,13 @@ def jacobian_from_coloring(
     {jit}
 
     Args:
-        f: Function whose Jacobian is to be computed.
-        coloring: Pre-computed colored sparsity pattern.
+        f: {f_jac}
+        coloring: {coloring}
         output_format: {format_jac}
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
-        holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
-        chunk_size: Maximum number of colors to process in parallel.
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        chunk_size: {chunk_size}
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
@@ -421,14 +419,13 @@ def hessian_from_coloring(
     {jit}
 
     Args:
-        f: Scalar-valued function whose Hessian is to be computed.
-        coloring: Pre-computed colored sparsity pattern.
+        f: {f_hess}
+        coloring: {coloring}
         output_format: {format_hess}
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
-        holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
-            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
-        chunk_size: Maximum number of colors to process in parallel.
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_hess}
+        chunk_size: {chunk_size}
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
@@ -469,13 +466,13 @@ def value_and_jacobian_from_coloring(
     {jit}
 
     Args:
-        f: Function whose Jacobian is to be computed.
-        coloring: Pre-computed colored sparsity pattern.
+        f: {f_jac}
+        coloring: {coloring}
         output_format: {format_jac}
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
-        holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Whether to allow differentiating with respect to integer inputs.
-        chunk_size: Maximum number of colors to process in parallel.
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        chunk_size: {chunk_size}
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
@@ -516,14 +513,13 @@ def value_and_hessian_from_coloring(
     {jit}
 
     Args:
-        f: Scalar-valued function whose Hessian is to be computed.
-        coloring: Pre-computed colored sparsity pattern.
+        f: {f_hess}
+        coloring: {coloring}
         output_format: {format_hess}
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
-        holomorphic: Whether ``f`` is promised to be holomorphic.
-        allow_int: Unsupported for Hessians; passing ``True`` raises ``TypeError``
-            (integer inputs cannot be differentiated twice, matching ``jax.hessian``).
-        chunk_size: Maximum number of colors to process in parallel.
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_hess}
+        chunk_size: {chunk_size}
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
@@ -983,6 +979,7 @@ def value_and_compressed_hessian_from_coloring(
 # Public API: decompression
 
 
+@_fill_doc
 def decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Array:
     """Gather a compressed matrix ``B`` into sparse values in pattern order.
 
@@ -1001,7 +998,7 @@ def decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arra
     to assemble a custom format.
 
     Args:
-        coloring: The colored pattern that produced ``compressed``.
+        coloring: {coloring_compressed}
         compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``,
             as returned by [`compressed_jacobian`][asdex.compressed_jacobian] or
             [`compressed_hessian`][asdex.compressed_hessian].
@@ -1038,7 +1035,7 @@ def decompress(
     ``B``'s natural domain is the 2-D compressed matrix.
 
     Args:
-        coloring: The colored pattern that produced ``compressed``.
+        coloring: {coloring_compressed}
         compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``.
         output_format: {format_flat}
 
