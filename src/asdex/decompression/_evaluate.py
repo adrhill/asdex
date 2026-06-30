@@ -1,10 +1,14 @@
 """Composition of compress and decompress for the high-level functions.
 
-The four ``_eval_*`` functions glue the two stages together for the one-shot
-``jacobian``/``hessian``/``value_and_*`` family:
+One worker per AD mode (``_jacobian_with_value``, ``_hessian_with_value``) glues
+the two stages together for the one-shot ``jacobian``/``hessian``/``value_and_*``
+family:
 validate, compute ``B`` via the same engine the public ``compressed_*`` use,
 gather it with ``_decompress_data``, then build the pytree/tensor output with
 ``_build_jacobian``/``_build_hessian``.
+Each worker always produces ``(value, aux, matrix)``;
+the four public ``_eval_*`` entry points project that triple into the shape their
+caller expects (value-free or value-and-matrix).
 
 This glue lives in its own module because it depends on *both* stages,
 and folding it into ``_compress.py`` or ``_decompress.py`` would force those two
@@ -129,24 +133,30 @@ def _build_hessian_core(
 
 
 # Unified evaluation
+#
+# Each AD mode has one worker that always produces ``(value, aux, matrix)``;
+# the public ``_eval_*`` wrappers below project that triple into the shape their
+# caller expects.
+# ``need_value`` lets the value-free wrappers skip the forward ``f`` call on the
+# empty path, where the value would otherwise be computed only to be discarded
+# (the non-empty path computes it for free either way).
+# ``aux`` is ``None`` unless ``has_aux``.
 
 
-def _eval_jacobian(
+def _jacobian_with_value(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     output_format: OutputFormat,
     *,
+    need_value: bool,
     has_aux: bool,
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
     call_cache: _CallCache | None,
-) -> Any:
-    """Evaluate the sparse Jacobian of ``f`` at ``args``.
-
-    Returns the block structure by default, ``(jac, aux)`` with ``has_aux=True``.
-    """
+) -> tuple[Any, Any, Any]:
+    """Compute ``(value, aux, jac)`` for the sparse Jacobian of ``f`` at ``args``."""
     sparsity = coloring.sparsity
     _validate_args(args, sparsity)
     selected = _selected_args(args, sparsity)
@@ -161,9 +171,10 @@ def _eval_jacobian(
             coloring, _empty_data(args, sparsity), output_format, out_struct
         )
         if has_aux:
-            _, aux = f(*args)
-            return jac, aux
-        return jac
+            value, aux = f(*args)
+            return value, aux, jac
+        value = f(*args) if need_value else None
+        return value, None, jac
 
     core = _cached_jit_core(
         call_cache,
@@ -182,6 +193,96 @@ def _eval_jacobian(
 
     validate_output_dtypes(y, coloring.mode, holomorphic)
     jac = _build_jacobian(coloring, data, output_format, out_struct)
+    return y, aux, jac
+
+
+def _hessian_with_value(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    output_format: OutputFormat,
+    *,
+    need_value: bool,
+    has_aux: bool,
+    holomorphic: bool,
+    allow_int: bool,
+    chunk_size: int | None,
+    call_cache: _CallCache | None,
+) -> tuple[Any, Any, Any]:
+    """Compute ``(value, aux, hess)`` for the sparse Hessian of scalar ``f`` at ``args``."""
+    sparsity = coloring.sparsity
+    _validate_args(args, sparsity)
+    selected = _selected_args(args, sparsity)
+    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
+
+    f_scalar_raw = _strip_aux(f) if has_aux else f
+    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
+    out_struct = _cached_out_struct(f_scalar, args, call_cache)
+    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
+
+    if sparsity.nnz == 0:
+        hess = _build_hessian(coloring, _empty_data(args, sparsity), output_format)
+        # Compute the value through the squeezing wrappers
+        # so it has shape (), consistent with the non-empty path.
+        if has_aux:
+            out, aux = _cached_scalar_aux_fn(f, call_cache)(*args)
+            return (jnp.asarray(out) if need_value else None), aux, hess
+        value = jnp.asarray(f_scalar(*args)) if need_value else None
+        return value, None, hess
+
+    # On the jitted path, aux is computed by a separate f call below
+    # (aux may contain non-JAX types, which cannot be jit outputs),
+    # so has_aux does not block the internal jit here.
+    core = _cached_jit_core(
+        call_cache,
+        output_format,
+        False,
+        lambda: _build_hessian_core(f_scalar, coloring, chunk_size),
+    )
+    if core is not None:
+        data, value = core(*args)
+        aux = f(*args)[1] if has_aux else None
+    else:
+        f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
+        compressed, value, aux = _hessian_compressed(
+            f_scalar, args, coloring, chunk_size, f_aux=f_aux
+        )
+        data = _decompress_data(coloring, compressed)
+    hess = _build_hessian(coloring, data, output_format)
+    return value, aux, hess
+
+
+# Public entry points: project the worker's ``(value, aux, matrix)`` triple
+
+
+def _eval_jacobian(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    output_format: OutputFormat,
+    *,
+    has_aux: bool,
+    holomorphic: bool,
+    allow_int: bool,
+    chunk_size: int | None,
+    call_cache: _CallCache | None,
+) -> Any:
+    """Evaluate the sparse Jacobian of ``f`` at ``args``.
+
+    Returns the block structure by default, ``(jac, aux)`` with ``has_aux=True``.
+    """
+    _, aux, jac = _jacobian_with_value(
+        f,
+        args,
+        coloring,
+        output_format,
+        need_value=False,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+        chunk_size=chunk_size,
+        call_cache=call_cache,
+    )
     if has_aux:
         return jac, aux
     return jac
@@ -204,45 +305,21 @@ def _eval_value_and_jacobian(
     Returns ``(value, jac)`` by default; ``((value, aux), jac)`` when ``has_aux=True``,
     matching ``jax.value_and_grad``'s ordering.
     """
-    sparsity = coloring.sparsity
-    _validate_args(args, sparsity)
-    selected = _selected_args(args, sparsity)
-    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
-
-    m = sparsity.m
-    f_out = _strip_aux(f) if has_aux else f
-    out_struct = _cached_out_struct(f_out, args, call_cache)
-
-    if m == 0 or sparsity.nnz == 0:
-        empty = _build_jacobian(
-            coloring, _empty_data(args, sparsity), output_format, out_struct
-        )
-        if has_aux:
-            value, aux = f(*args)
-            return (value, aux), empty
-        value = f(*args)
-        return value, empty
-
-    core = _cached_jit_core(
-        call_cache,
+    value, aux, jac = _jacobian_with_value(
+        f,
+        args,
+        coloring,
         output_format,
-        has_aux,
-        lambda: _build_jacobian_core(f, coloring, chunk_size),
+        need_value=True,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+        chunk_size=chunk_size,
+        call_cache=call_cache,
     )
-    if core is not None:
-        data, y = core(*args)
-        aux = None
-    else:
-        compressed, y, aux = _jacobian_compressed(
-            f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
-        )
-        data = _decompress_data(coloring, compressed)
-
-    validate_output_dtypes(y, coloring.mode, holomorphic)
-    jac = _build_jacobian(coloring, data, output_format, out_struct)
     if has_aux:
-        return (y, aux), jac
-    return y, jac
+        return (value, aux), jac
+    return value, jac
 
 
 def _eval_hessian(
@@ -258,42 +335,18 @@ def _eval_hessian(
     call_cache: _CallCache | None,
 ) -> Any:
     """Evaluate the sparse Hessian of a scalar-valued ``f`` at ``args``."""
-    sparsity = coloring.sparsity
-    _validate_args(args, sparsity)
-    selected = _selected_args(args, sparsity)
-    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
-
-    f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
-    out_struct = _cached_out_struct(f_scalar, args, call_cache)
-    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
-
-    if sparsity.nnz == 0:
-        hess = _build_hessian(coloring, _empty_data(args, sparsity), output_format)
-        if has_aux:
-            _, aux = f(*args)
-            return hess, aux
-        return hess
-
-    # On the jitted path, aux is computed by a separate f call below
-    # (aux may contain non-JAX types, which cannot be jit outputs),
-    # so has_aux does not block the internal jit here.
-    core = _cached_jit_core(
-        call_cache,
+    _, aux, hess = _hessian_with_value(
+        f,
+        args,
+        coloring,
         output_format,
-        False,
-        lambda: _build_hessian_core(f_scalar, coloring, chunk_size),
+        need_value=False,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+        chunk_size=chunk_size,
+        call_cache=call_cache,
     )
-    if core is not None:
-        data, _value = core(*args)
-        aux = f(*args)[1] if has_aux else None
-    else:
-        f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
-        compressed, _value, aux = _hessian_compressed(
-            f_scalar, args, coloring, chunk_size, f_aux=f_aux
-        )
-        data = _decompress_data(coloring, compressed)
-    hess = _build_hessian(coloring, data, output_format)
     if has_aux:
         return hess, aux
     return hess
@@ -311,46 +364,19 @@ def _eval_value_and_hessian(
     chunk_size: int | None,
     call_cache: _CallCache | None,
 ) -> Any:
-    """Evaluate ``f(*args)`` and the sparse Hessian of ``f`` at ``args``."""
-    sparsity = coloring.sparsity
-    _validate_args(args, sparsity)
-    selected = _selected_args(args, sparsity)
-    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
-
-    f_scalar_raw = _strip_aux(f) if has_aux else f
-    f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
-    out_struct = _cached_out_struct(f_scalar, args, call_cache)
-    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
-
-    if sparsity.nnz == 0:
-        empty = _build_hessian(coloring, _empty_data(args, sparsity), output_format)
-        # Compute the value through the squeezing wrappers
-        # so it has shape (), consistent with the non-empty path.
-        if has_aux:
-            out, aux = _cached_scalar_aux_fn(f, call_cache)(*args)
-            return (jnp.asarray(out), aux), empty
-        value = jnp.asarray(f_scalar(*args))
-        return value, empty
-
-    # On the jitted path, aux is computed by a separate f call below
-    # (aux may contain non-JAX types, which cannot be jit outputs),
-    # so has_aux does not block the internal jit here.
-    core = _cached_jit_core(
-        call_cache,
+    """Evaluate ``f(*args)`` and the sparse Hessian of a scalar-valued ``f`` at ``args``."""
+    value, aux, hess = _hessian_with_value(
+        f,
+        args,
+        coloring,
         output_format,
-        False,
-        lambda: _build_hessian_core(f_scalar, coloring, chunk_size),
+        need_value=True,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+        chunk_size=chunk_size,
+        call_cache=call_cache,
     )
-    if core is not None:
-        data, value = core(*args)
-        aux = f(*args)[1] if has_aux else None
-    else:
-        f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
-        compressed, value, aux = _hessian_compressed(
-            f_scalar, args, coloring, chunk_size, f_aux=f_aux
-        )
-        data = _decompress_data(coloring, compressed)
-    hess = _build_hessian(coloring, data, output_format)
     if has_aux:
         return (value, aux), hess
     return value, hess
