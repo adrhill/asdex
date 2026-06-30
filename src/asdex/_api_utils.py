@@ -20,7 +20,7 @@ import functools
 import inspect
 import operator
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -28,8 +28,7 @@ import numpy as np
 from jax import ShapeDtypeStruct, dtypes
 from jax.tree_util import tree_map
 
-if TYPE_CHECKING:
-    from asdex.pattern import SparsityPattern
+from asdex.pattern import SparsityPattern
 
 # Argnums normalization
 
