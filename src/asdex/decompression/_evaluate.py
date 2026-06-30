@@ -32,6 +32,7 @@ from asdex.decompression._compress import (
     _cached_out_struct,
     _cached_scalar_aux_fn,
     _cached_scalar_fn,
+    _CallCache,
     _strip_aux,
     _validate_args,
 )
@@ -62,7 +63,7 @@ def _empty_data(args: tuple[Any, ...], sparsity: SparsityPattern) -> jax.Array:
 
 
 def _cached_jit_core(
-    cache: dict[Any, Any] | None,
+    cache: _CallCache | None,
     output_format: OutputFormat,
     has_aux: bool,
     build: Callable[[], Callable[..., Any]],
@@ -140,7 +141,7 @@ def _eval_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    call_cache: dict[Any, Any] | None,
+    call_cache: _CallCache | None,
 ) -> Any:
     """Evaluate the sparse Jacobian of ``f`` at ``args``.
 
@@ -196,7 +197,7 @@ def _eval_value_and_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    call_cache: dict[Any, Any] | None,
+    call_cache: _CallCache | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Jacobian of ``f`` at ``args``.
 
@@ -254,7 +255,7 @@ def _eval_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    call_cache: dict[Any, Any] | None,
+    call_cache: _CallCache | None,
 ) -> Any:
     """Evaluate the sparse Hessian of a scalar-valued ``f`` at ``args``."""
     sparsity = coloring.sparsity
@@ -308,7 +309,7 @@ def _eval_value_and_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    call_cache: dict[Any, Any] | None,
+    call_cache: _CallCache | None,
 ) -> Any:
     """Evaluate ``f(*args)`` and the sparse Hessian of ``f`` at ``args``."""
     sparsity = coloring.sparsity

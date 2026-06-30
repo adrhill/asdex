@@ -17,7 +17,7 @@ This module never imports the decompress side: it stops at ``B``.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import jax
 import jax.numpy as jnp
@@ -79,6 +79,15 @@ def _validate_args(args: tuple[Any, ...], sparsity: SparsityPattern) -> None:
 # those can change the output structure between calls with identical avals,
 # so nothing derived from f may be reused.
 
+# The closed set of slots the cache may hold.
+# Spelling a slot wrong is a type error here, not a silent ``get`` miss.
+# ``out_struct`` carries an extra aval sub-key since it varies by call shape;
+# the rest are per-closure singletons keyed by the slot name alone.
+_CallCacheKey = (
+    Literal["f_scalar", "f_scalar_aux", "jit_core"] | tuple[Literal["out_struct"], Any]
+)
+_CallCache = dict[_CallCacheKey, Any]
+
 
 def _aval_key(args: tuple[Any, ...]) -> Any:
     """Hashable aval description of ``args``."""
@@ -89,7 +98,7 @@ def _aval_key(args: tuple[Any, ...]) -> Any:
 def _cached_out_struct(
     f_out: Callable[..., Any],
     args: tuple[Any, ...],
-    cache: dict[Any, Any] | None,
+    cache: _CallCache | None,
 ) -> Any:
     """``jax.eval_shape(f_out, *args)``, memoized on the avals of ``args``."""
     if cache is None:
@@ -105,7 +114,7 @@ def _cached_out_struct(
 def _cached_scalar_fn(
     f_out: Callable[..., Any],
     sparsity: SparsityPattern,
-    cache: dict[Any, Any] | None,
+    cache: _CallCache | None,
 ) -> Callable[..., Any]:
     """Memoized ``_ensure_scalar(f_out, sparsity.input_avals)``.
 
@@ -140,7 +149,7 @@ def _scalar_with_aux(f: Callable[..., Any]) -> Callable[..., Any]:
 
 def _cached_scalar_aux_fn(
     f: Callable[..., Any],
-    cache: dict[Any, Any] | None,
+    cache: _CallCache | None,
 ) -> Callable[..., Any]:
     """Memoized ``_scalar_with_aux(f)``.
 
@@ -192,7 +201,7 @@ def _compress_jacobian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    call_cache: dict[Any, Any] | None,
+    call_cache: _CallCache | None,
 ) -> tuple[jax.Array, Any, Any]:
     """Compress the Jacobian of ``f`` at ``args``, returning ``(B, value, aux)``.
 
@@ -231,7 +240,7 @@ def _compress_hessian(
     holomorphic: bool,
     allow_int: bool,
     chunk_size: int | None,
-    call_cache: dict[Any, Any] | None,
+    call_cache: _CallCache | None,
 ) -> tuple[jax.Array, Any, Any]:
     """Compress the Hessian of a scalar-valued ``f`` at ``args``.
 

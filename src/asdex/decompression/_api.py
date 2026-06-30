@@ -23,6 +23,7 @@ from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.decompression._compress import (
     _assert_chunk_size,
+    _CallCache,
     _compress_hessian,
     _compress_jacobian,
 )
@@ -116,7 +117,7 @@ def jacobian(
         symmetric=symmetric,
     )
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -178,7 +179,7 @@ def value_and_jacobian(
         symmetric=symmetric,
     )
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -252,7 +253,7 @@ def hessian(
         symmetric=symmetric,
     )
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -326,7 +327,7 @@ def value_and_hessian(
         symmetric=symmetric,
     )
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -382,7 +383,7 @@ def jacobian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -432,7 +433,7 @@ def hessian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -479,7 +480,7 @@ def value_and_jacobian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -527,7 +528,7 @@ def value_and_hessian_from_coloring(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -605,7 +606,7 @@ def compressed_jacobian(
         symmetric=symmetric,
     )
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -649,7 +650,7 @@ def compressed_jacobian_from_coloring(
     """
     _assert_chunk_size(chunk_size)
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -718,7 +719,7 @@ def compressed_hessian(
         symmetric=symmetric,
     )
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -762,7 +763,7 @@ def compressed_hessian_from_coloring(
     """
     _assert_chunk_size(chunk_size)
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -820,7 +821,7 @@ def value_and_compressed_jacobian(
         symmetric=symmetric,
     )
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -861,7 +862,7 @@ def value_and_compressed_jacobian_from_coloring(
     """
     _assert_chunk_size(chunk_size)
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -918,7 +919,7 @@ def value_and_compressed_hessian(
         symmetric=symmetric,
     )
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
@@ -959,7 +960,7 @@ def value_and_compressed_hessian_from_coloring(
     """
     _assert_chunk_size(chunk_size)
 
-    call_cache: dict[Any, Any] = {}
+    call_cache: _CallCache = {}
 
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
