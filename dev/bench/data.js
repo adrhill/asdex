@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782743720107,
+  "lastUpdate": 1782819830708,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -17310,6 +17310,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00000770027362447902",
             "extra": "mean: 23.675958467943776 usec\nrounds: 15169"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f542c8aa083136f2b407dd512d7e3fb85cf647f3",
+          "message": "test: restore default pytest output verbosity (#156)\n\nDrop the `-q --no-header` flags from `addopts` and remove the\n`pytest_report_teststatus` hook that swallowed passing-test output.\nBoth suppressed per-test progress and the run header, making it hard\nto see which tests ran. Keep `--tb=short` and the default marker\nfilter for slow/benchmark/cutest.\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-06-30T13:43:13+02:00",
+          "tree_id": "d242d923258dec0f55dedb23d9063b641f52dbea",
+          "url": "https://github.com/adrhill/asdex/commit/f542c8aa083136f2b407dd512d7e3fb85cf647f3"
+        },
+        "date": 1782819830035,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1088.6965677748144,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009261407439691519",
+            "extra": "mean: 918.5295789476942 usec\nrounds: 57"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27554.10874123968,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002467523775486118",
+            "extra": "mean: 36.29222811708368 usec\nrounds: 7483"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 87098.44571636461,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001590024344955008",
+            "extra": "mean: 11.481261138189446 usec\nrounds: 23792"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 63265.278371561704,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000020767279226205963",
+            "extra": "mean: 15.806458546296522 usec\nrounds: 14088"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 86974.52812964174,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000011910027317444998",
+            "extra": "mean: 11.497619147866244 usec\nrounds: 24692"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 19.409374895771514,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02994451850616527",
+            "extra": "mean: 51.52149440000038 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2868.8368053936697,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007847522989685768",
+            "extra": "mean: 348.5733305289135 usec\nrounds: 2496"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1904.913883359268,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002065912203058511",
+            "extra": "mean: 524.9581142411147 usec\nrounds: 1278"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1910.2840704782222,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014481160319854891",
+            "extra": "mean: 523.4823529411829 usec\nrounds: 1088"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4662.518032531156,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010419838657531501",
+            "extra": "mean: 214.47638229446736 usec\nrounds: 3016"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 137.0824182824393,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011137922904149097",
+            "extra": "mean: 7.2948815211272295 msec\nrounds: 71"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27602.04371850981,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002229075466962118",
+            "extra": "mean: 36.22920136632508 usec\nrounds: 20639"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 62166.94924477367,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002893021214013081",
+            "extra": "mean: 16.08571776721164 usec\nrounds: 17234"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 53207.24802355078,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000035046348288304197",
+            "extra": "mean: 18.794431908174925 usec\nrounds: 12630"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 64004.87651403132,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002409539356201566",
+            "extra": "mean: 15.623809535524646 usec\nrounds: 16255"
           }
         ]
       }
