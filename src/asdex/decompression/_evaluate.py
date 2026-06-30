@@ -46,10 +46,8 @@ from asdex.decompression._decompress import (
     _decompress_data,
 )
 from asdex.differentiation import _hessian_compressed, _jacobian_compressed
-from asdex.modes import OutputFormat
+from asdex.modes import _HOST_FORMATS, OutputFormat
 from asdex.pattern import ColoredPattern, SparsityPattern
-
-_HOST_FORMATS = ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc")
 
 
 def _empty_data(args: tuple[Any, ...], sparsity: SparsityPattern) -> jax.Array:
