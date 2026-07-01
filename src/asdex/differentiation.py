@@ -36,12 +36,16 @@ def _chunked_vmap(
     fn: Callable[..., Any],
     seeds: jax.Array,
     chunk_size: int | None,
-) -> jax.Array:
+) -> Any:
     """Vmap over seeds with bounded parallelism via sequential chunk processing.
 
     When ``chunk_size`` is ``None`` or exceeds the number of seeds, falls back to
     regular ``jax.vmap``. Otherwise, processes ``chunk_size`` seeds in parallel
     per chunk, with chunks processed sequentially via ``jax.lax.map``.
+
+    Returns whatever ``fn`` returns, batched along a leading seed axis.
+    ``fn`` may return a pytree (e.g. a ``(row, primal)`` pair),
+    in which case every leaf is batched.
 
     Args:
         fn: Function to vmap over, taking a single seed vector.
@@ -200,22 +204,17 @@ def _hessian_compressed(
     coloring: ColoredPattern,
     chunk_size: int | None,
     *,
-    need_value: bool = True,
     f_aux: Callable[..., Any] | None = None,
-) -> tuple[jax.Array, jax.Array | None, Any]:
+) -> tuple[jax.Array, jax.Array, Any]:
     """One HVP per color for a scalar-valued ``f``, by mode.
 
-    Mirrors ``_jacobian_compressed``: a single engine serves both the value and
-    value-free callers.
-    The primal value is free for ``fwd_over_rev`` / ``rev_over_rev``
-    (it rides the outer forward pass) and always returned there.
-    Only ``rev_over_fwd`` cannot lift it out of the vmapped HVPs,
-    so it costs one extra ``f`` call:
-    value-free callers pass ``need_value=False`` to skip it,
-    in which case the returned value is ``None``.
-    ``f_aux`` is the aux-preserving variant of ``f`` (returns ``(out, aux)``);
-    the returned aux is ``None`` when it is not given.
-    Requesting aux always forces the value, since aux rides the same ``f`` call.
+    Mirrors ``_jacobian_compressed``: one batched engine per mode.
+    The primal value rides the AD forward pass for free in every mode and is
+    always returned, so the engine never needs a dedicated value call
+    (``rev_over_fwd`` lifts it out of the vmapped HVPs as the ``jax.grad`` aux).
+    ``f_aux`` is the aux-preserving variant of ``f`` (returns ``(out, aux)``),
+    used only to recover ``aux``.
+    The returned aux is ``None`` when it is not given.
     Returns ``(compressed, value, aux)``.
     """
     _assert_hessian_mode(coloring.mode)
@@ -226,7 +225,7 @@ def _hessian_compressed(
             )
         case "rev_over_fwd":
             return _hessian_compressed_rev_over_fwd(
-                f, args, coloring, chunk_size, need_value, f_aux
+                f, args, coloring, chunk_size, f_aux
             )
         case "rev_over_rev":
             return _hessian_compressed_rev_over_rev(
@@ -263,42 +262,36 @@ def _hessian_compressed_rev_over_fwd(
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     chunk_size: int | None,
-    need_value: bool,
     f_aux: Callable[..., Any] | None,
-) -> tuple[jax.Array, jax.Array | None, Any]:
-    """Reverse-over-forward HVPs; value and aux need one dedicated ``f`` call.
+) -> tuple[jax.Array, jax.Array, Any]:
+    """Reverse-over-forward HVPs that lift the value from the HVP forward pass.
 
-    The forward passes happen inside the vmapped HVPs below,
-    so neither value nor aux can be lifted out of them.
-    Unlike the other Hessian modes the primal value is not free here,
-    so a value-free caller passes ``need_value=False`` to skip the extra call
-    and the returned value is ``None``.
-    When ``f_aux`` is given the value rides that call, so it is always returned.
+    Each inner ``jax.jvp`` already evaluates ``f`` at ``args`` to build its
+    tangent, so returning that primal as the ``jax.grad`` aux lifts the value
+    out of the vmapped HVPs for free, matching the other two Hessian modes.
+    The primal does not depend on the seed, so every batched copy is identical
+    and the first one is the value.
+    ``aux`` cannot ride along, since the HVP differentiates the aux-stripped
+    ``f``, so ``has_aux`` spends one dedicated ``f_aux`` call to recover it.
     """
     sparsity = coloring.sparsity
     dtype = _uniform_selected_dtype(args, sparsity)
     seeds = coloring._device_seeds(dtype)
     grad_argnums = sparsity.argnums
-    if f_aux is not None:
-        out, aux = f_aux(*args)
-        value = jnp.asarray(out)
-    elif need_value:
-        value, aux = jnp.asarray(f(*args)), None
-    else:
-        value, aux = None, None
 
-    def single_hvp(v: jax.Array) -> jax.Array:
+    def single_hvp(v: jax.Array) -> tuple[jax.Array, jax.Array]:
         tangents = _build_tangents_from_seed(v, args, sparsity)
 
-        def inner(*primals: Any) -> jax.Array:
-            _, out_tangent = jax.jvp(f, primals, tangents)
-            return out_tangent
+        def inner(*primals: Any) -> tuple[jax.Array, jax.Array]:
+            primal, out_tangent = jax.jvp(f, primals, tangents)
+            return out_tangent, primal
 
-        grads = jax.grad(inner, argnums=grad_argnums)(*args)
-        return _flatten_grad_output(grads)
+        grads, primal = jax.grad(inner, argnums=grad_argnums, has_aux=True)(*args)
+        return _flatten_grad_output(grads), primal
 
-    H_compressed = _chunked_vmap(single_hvp, seeds, chunk_size)
-    return H_compressed, value, aux
+    H_compressed, primals = _chunked_vmap(single_hvp, seeds, chunk_size)
+    aux = f_aux(*args)[1] if f_aux is not None else None
+    return H_compressed, primals[0], aux
 
 
 def _hessian_compressed_rev_over_rev(

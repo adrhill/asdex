@@ -1,12 +1,15 @@
 """Forward-evaluation counts for the one-shot Jacobian and Hessian APIs.
 
-These pin how many times the user function ``f`` is invoked per call, so a
-value-free API never pays for a primal value it discards.
-The value rides the AD forward pass for free in every mode except the Hessian's
-``rev_over_fwd``, whose forward passes happen inside the vmapped HVPs and so
-cannot be lifted out.
-There the value costs one dedicated ``f`` call that only ``value_and_hessian``
-should pay.
+These pin how many times the user function ``f`` is invoked per call.
+On a non-empty pattern the primal value rides the AD forward pass for free in
+every mode, so a value-free API and its ``value_and_*`` counterpart each invoke
+``f`` exactly once.
+The Hessian's ``rev_over_fwd`` lifts the value out of the vmapped HVPs as the
+``jax.grad`` aux (each inner ``jax.jvp`` already evaluates ``f``) rather than
+paying a dedicated ``f`` call.
+The only place a value-free call saves an ``f`` evaluation is the empty-pattern
+short-circuit, which has no forward pass to ride and is exercised in the
+compression tests.
 """
 
 import jax.numpy as jnp
@@ -46,7 +49,7 @@ def _hess_f(x):
 
 @pytest.mark.jacobian
 def test_jacobian_value_free_matches_value_and_call_count(jacobian_mode):
-    """Value-free and value-returning Jacobians invoke ``f`` equally often.
+    """Value-free and value-returning Jacobians both invoke ``f`` exactly once.
 
     In both fwd and rev the primal value is a byproduct of the forward pass,
     so returning it costs no extra ``f`` call.
@@ -63,21 +66,23 @@ def test_jacobian_value_free_matches_value_and_call_count(jacobian_mode):
     c_val["n"] = 0
     value, _ = fn_val(x)
 
-    assert c_free["n"] == c_val["n"]
+    assert c_free["n"] == 1
+    assert c_val["n"] == 1
     assert_allclose(value, _jac_f(x), rtol=1e-6)
 
 
-# Hessian: the value is free except in rev_over_fwd
+# Hessian: the value rides the forward pass for free in every mode
 
 
 @pytest.mark.hessian
-def test_hessian_value_free_skips_discarded_value_call(hessian_mode):
-    """Value-free Hessian skips the primal ``f`` call unless the mode needs it.
+def test_hessian_value_rides_forward_pass_for_free(hessian_mode):
+    """Every Hessian mode invokes ``f`` exactly once, value-free or not.
 
     ``fwd_over_rev`` and ``rev_over_rev`` carry the value on the outer forward
-    pass, so both variants call ``f`` equally often.
-    ``rev_over_fwd`` cannot, so only ``value_and_hessian`` pays the extra call
-    and the value-free path invokes ``f`` strictly fewer times.
+    pass.
+    ``rev_over_fwd`` lifts it out of the vmapped HVPs as the ``jax.grad`` aux
+    (each inner ``jax.jvp`` already evaluates ``f``), so it no longer pays a
+    dedicated ``f`` call for the value either.
     """
     x = jnp.arange(1.0, 7.0)
 
@@ -91,10 +96,6 @@ def test_hessian_value_free_skips_discarded_value_call(hessian_mode):
     c_val["n"] = 0
     value, _ = fn_val(x)
 
-    # Only rev_over_fwd cannot lift the value out of the vmapped HVPs.
-    value_rides_forward_pass = hessian_mode != "rev_over_fwd"
-    if value_rides_forward_pass:
-        assert c_free["n"] == c_val["n"]
-    else:
-        assert c_free["n"] < c_val["n"]
+    assert c_free["n"] == 1
+    assert c_val["n"] == 1
     assert_allclose(value, _hess_f(x), rtol=1e-6)

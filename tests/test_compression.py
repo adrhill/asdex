@@ -256,18 +256,18 @@ def test_value_and_compressed_hessian_from_coloring(hessian_mode):
     assert_allclose(B, compressed_hessian_from_coloring(_hess_f, coloring)(x))
 
 
-# rev_over_fwd value-free skips the discarded forward pass
+# rev_over_fwd rides the value on the HVP forward pass
 
 
 @pytest.mark.hessian
-def test_compressed_hessian_rev_over_fwd_value_free_skips_f_call():
-    """Value-free rev_over_fwd compressed Hessian skips the discarded value call.
+def test_compressed_hessian_rev_over_fwd_value_rides_forward_pass():
+    """rev_over_fwd lifts the value out of the vmapped HVPs, costing no extra call.
 
-    rev_over_fwd is the one Hessian mode whose primal value cannot ride the HVP
-    forward pass, so it costs a dedicated ``f`` call.
-    The value-free ``compressed_hessian`` must skip that call,
-    while ``value_and_compressed_hessian`` still pays it to return the value,
-    so the value-free path invokes ``f`` strictly fewer times.
+    Each inner ``jax.jvp`` already evaluates ``f`` to build its tangent,
+    so the primal is returned as the ``jax.grad`` aux instead of paying a
+    dedicated ``f`` call.
+    Both ``compressed_hessian`` and ``value_and_compressed_hessian`` therefore
+    invoke ``f`` exactly once.
     """
     counter = {"n": 0}
 
@@ -287,7 +287,43 @@ def test_compressed_hessian_rev_over_fwd_value_free_skips_f_call():
     value, _ = with_value(x)
     val_calls = counter["n"]
 
-    assert free_calls < val_calls
+    assert free_calls == 1
+    assert val_calls == 1
+    assert_allclose(value, f(x), rtol=1e-6)
+
+
+# Empty pattern: the value has no forward pass to ride
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_empty_value_free_skips_f_call(hessian_mode):
+    """On an empty Hessian the value-free call skips the dedicated ``f`` call.
+
+    A structurally linear ``f`` has an all-zero Hessian (``nnz == 0``),
+    so the short-circuit returns without running any HVP.
+    With no forward pass to ride, ``compressed_hessian`` skips ``f`` entirely,
+    while ``value_and_compressed_hessian`` pays one call to return the value.
+    """
+    counter = {"n": 0}
+
+    def f(x):
+        counter["n"] += 1
+        return jnp.sum(3.0 * x)  # linear: empty Hessian
+
+    x = jnp.arange(1.0, 6.0)
+    value_free = compressed_hessian(f, x, mode=hessian_mode)
+    with_value = value_and_compressed_hessian(f, x, mode=hessian_mode)
+
+    counter["n"] = 0
+    value_free(x)
+    free_calls = counter["n"]
+
+    counter["n"] = 0
+    value, _ = with_value(x)
+    val_calls = counter["n"]
+
+    assert free_calls == 0
+    assert val_calls == 1
     assert_allclose(value, f(x), rtol=1e-6)
 
 

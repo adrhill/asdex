@@ -3,6 +3,7 @@
 ## Version `v0.4.1`
 * ![Feature][badge-feature] Add compressed-differentiation API (`compressed_jacobian`, `compressed_hessian`, their `value_and_*` and `*_from_coloring` variants) returning the raw compressed matrix `B` ([#155])
 * ![Feature][badge-feature] Add `decompress` and `decompress_data` to turn a compressed matrix back into a sparse matrix or its raw values ([#155])
+* ![Enhancement][badge-enhancement] Compute the primal value for free in reverse-over-forward Hessians, so `value_and_hessian(mode="rev_over_fwd")` no longer costs an extra function evaluation ([#155])
 * ![Maintenance][badge-maintenance] Split `decompression.py` into a package and extract the batched-AD engine into `differentiation.py` ([#155])
 * ![Documentation][badge-docs] Update README and how-to guides with the new features ([#154])
 

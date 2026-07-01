@@ -251,10 +251,10 @@ def _compress_hessian(
 
     Mirrors ``_compress_jacobian``: a single function serves both the value and
     value-free callers, returning ``(B, value, aux)``.
-    The value rides the HVP forward pass for free in ``fwd_over_rev`` /
-    ``rev_over_rev``; only ``rev_over_fwd`` (and the empty short-circuit) need a
-    dedicated ``f`` call, which a value-free caller skips with
-    ``need_value=False`` to receive ``value=None``.
+    On the non-empty path the value rides the HVP forward pass for free in every
+    mode, so ``need_value`` only matters on the empty short-circuit,
+    where a value-free caller passes ``need_value=False`` to skip the forward
+    ``f`` call and receive ``value=None``.
     ``aux`` is ``None`` unless ``has_aux=True``.
     """
     sparsity = coloring.sparsity
@@ -279,6 +279,6 @@ def _compress_hessian(
 
     f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
     compressed, value, aux = _hessian_compressed(
-        f_scalar, args, coloring, chunk_size, need_value=need_value, f_aux=f_aux
+        f_scalar, args, coloring, chunk_size, f_aux=f_aux
     )
     return compressed, value, aux
