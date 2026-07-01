@@ -10,6 +10,10 @@ Never remove or simplify a test to make it pass.
 ## Structure
 
 - Top-level test files (`test_*.py`) cover the public modules in `src/asdex/`.
+  The `decompression/` package is split across two files by public-surface concern:
+  `test_decompression.py` covers the sparse `jacobian` / `hessian` family (and their `*_from_coloring` variants and output formats) against JAX references,
+  while `test_compression.py` covers the public `compressed_*` / `value_and_compressed_*` API returning a standalone `B`,
+  plus `decompress` / `decompress_data` called directly on a caller-supplied `B`.
 - `_interpret/` mirrors the handler modules: `_interpret/test_foo.py` tests `src/asdex/detection/_interpret/_foo.py`.
 - `e2e/` contains end-to-end tests covering the full pipeline from public API through detection, coloring, and decompression.
 - External-package handler tests live in subfolders (e.g., `_interpret/_equinox/`).
