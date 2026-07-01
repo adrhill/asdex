@@ -425,7 +425,7 @@ class TestIntegration:
         assert len(output) > 0
 
 
-# --- Save/Load tests ---
+# Save/Load tests
 
 
 def test_save_load_sparsity_roundtrip(tmp_path):
@@ -657,7 +657,7 @@ def test_load_colored_pattern_invalid_mode(tmp_path):
         ColoredPattern.load(path)
 
 
-# --- Multi-input pattern tests ---
+# Multi-input pattern tests
 
 
 def test_example_input_with_int_argnums():

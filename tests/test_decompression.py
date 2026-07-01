@@ -1244,7 +1244,7 @@ def test_hessian_output_format_empty_pattern(all_output_format, to_dense):
     assert_allclose(to_dense(result), np.zeros((3, 3)))
 
 
-# --- Empty result with has_aux tests ---
+# Empty result with has_aux tests
 
 
 @pytest.mark.jacobian
@@ -1335,7 +1335,7 @@ def test_value_and_hessian_empty_with_has_aux():
     assert aux == 42
 
 
-# --- Empty bcoo output format ---
+# Empty bcoo output format
 
 
 @pytest.mark.jacobian
@@ -1352,7 +1352,7 @@ def test_jacobian_empty_bcoo_format():
     assert jac.shape == (0, 3)
 
 
-# --- Argument validation tests ---
+# Argument validation tests
 
 
 @pytest.mark.jacobian
@@ -1403,7 +1403,7 @@ def test_jacobian_shape_mismatch():
         jac_fn(jnp.array([1.0, 2.0]))
 
 
-# --- Internal function edge cases ---
+# Internal function edge cases
 
 
 def test_flatten_selected_cotangents_empty():

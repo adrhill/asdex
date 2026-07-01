@@ -12,7 +12,6 @@ import pytest
 from asdex import jacobian_sparsity
 
 # 1D input
-# --------
 
 
 @pytest.mark.array_ops
@@ -45,7 +44,6 @@ def test_unstack_1d_jacobian_verification():
 
 
 # 2D inputs
-# ---------
 
 
 @pytest.mark.array_ops
@@ -130,7 +128,6 @@ def test_unstack_2d_nonsquare_jacobian_verification():
 
 
 # 3D inputs
-# ---------
 
 
 @pytest.mark.array_ops
@@ -180,7 +177,6 @@ def test_unstack_3d_axis2():
 
 
 # 4D inputs
-# ---------
 
 
 @pytest.mark.array_ops
@@ -200,7 +196,6 @@ def test_unstack_4d_axis2():
 
 
 # Edge cases
-# ----------
 
 
 @pytest.mark.array_ops
@@ -246,7 +241,6 @@ def test_unstack_constants_no_dependency():
 
 
 # Const chain verification
-# ------------------------
 
 
 @pytest.mark.array_ops
@@ -274,7 +268,6 @@ def test_unstack_const_propagation_with_gather():
 
 
 # Compositions
-# ------------
 
 
 @pytest.mark.array_ops
@@ -325,7 +318,6 @@ def test_double_unstack():
 
 
 # Non-contiguous patterns
-# -----------------------
 
 
 @pytest.mark.array_ops

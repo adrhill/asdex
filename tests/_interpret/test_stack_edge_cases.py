@@ -19,7 +19,6 @@ import pytest
 from asdex import jacobian_sparsity
 
 # vmap interaction
-# ----------------
 
 
 @pytest.mark.vmap
@@ -62,7 +61,6 @@ def test_unstack_inside_vmap():
 
 
 # 5D arrays
-# ---------
 
 
 @pytest.mark.array_ops
@@ -98,7 +96,6 @@ def test_unstack_5d():
 
 
 # Deep nesting
-# ------------
 
 
 @pytest.mark.array_ops
@@ -137,7 +134,6 @@ def test_triple_unstack():
 
 
 # lax.stack direct
-# ----------------
 
 
 @pytest.mark.array_ops
@@ -156,7 +152,6 @@ def test_lax_stack_direct():
 
 
 # Aliased inputs
-# --------------
 
 
 @pytest.mark.array_ops
@@ -184,7 +179,6 @@ def test_stack_same_array_twice():
 
 
 # Prime dimensions
-# ----------------
 
 
 @pytest.mark.array_ops
@@ -220,7 +214,6 @@ def test_unstack_prime_dims():
 
 
 # Conservative fallbacks
-# ----------------------
 
 
 @pytest.mark.control_flow
@@ -289,7 +282,6 @@ def test_stack_mixed_const_nonconst():
 
 
 # Const propagation chains
-# ------------------------
 
 
 @pytest.mark.array_ops
