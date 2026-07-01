@@ -3,7 +3,7 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import StateBounds, StateIndices, atom_shape
+from ._common import StateBounds, StateIndices, atom_shape
 from ._elementwise import prop_zero_derivative
 
 

@@ -2,7 +2,7 @@
 
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     PropJaxprFn,
     StateConsts,

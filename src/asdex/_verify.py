@@ -14,13 +14,13 @@ from asdex._api_utils import (
     output_size,
     unflatten_to_pytree,
 )
-from asdex._doc_helper import _fill_doc
-from asdex._kwarg_defaults import (
+from asdex._defaults import (
     _DEFAULT_NUM_PROBES,
     _DEFAULT_SEED,
     _DEFAULT_TOL,
     _DEFAULT_VERIFY_METHOD,
 )
+from asdex._docstrings import _fill_doc
 from asdex._modes import _assert_jacobian_mode
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex.coloring import InvalidColoringError

@@ -9,7 +9,7 @@ corrupting the rendered docstring.
 import pytest
 
 import asdex
-from asdex._doc_helper import _FRAGMENTS, _fill_doc
+from asdex._docstrings import _FRAGMENTS, _fill_doc
 
 
 def test_fill_doc_substitutes_registered_placeholder():

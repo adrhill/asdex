@@ -19,8 +19,7 @@ from typing import Any
 import jax
 
 from asdex._api_utils import _ensure_index, merge_args_kwargs, merge_sample_inputs
-from asdex._doc_helper import _fill_doc
-from asdex._kwarg_defaults import (
+from asdex._defaults import (
     _DEFAULT_ALLOW_INT,
     _DEFAULT_ARGNUMS,
     _DEFAULT_CHUNK_SIZE,
@@ -31,6 +30,7 @@ from asdex._kwarg_defaults import (
     _DEFAULT_SYMMETRIC_HESSIAN,
     _DEFAULT_SYMMETRIC_JACOBIAN,
 )
+from asdex._docstrings import _fill_doc
 from asdex._modes import (
     HessianMode,
     JacobianMode,

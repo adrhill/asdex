@@ -6,7 +6,7 @@ so all random primitives produce outputs with empty dependency sets.
 
 from jax._src.core import JaxprEqn
 
-from ._commons import StateIndices, atom_numel, empty_index_sets
+from ._common import StateIndices, atom_numel, empty_index_sets
 
 
 def prop_random(eqn: JaxprEqn, state_indices: StateIndices) -> None:

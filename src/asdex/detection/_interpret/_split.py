@@ -2,7 +2,7 @@
 
 from jax._src.core import JaxprEqn
 
-from ._commons import StateIndices, atom_shape, index_sets, transform_indices
+from ._common import StateIndices, atom_shape, index_sets, transform_indices
 
 
 def prop_split(eqn: JaxprEqn, state_indices: StateIndices) -> None:

@@ -16,7 +16,7 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
-from asdex._kwarg_defaults import _DEFAULT_POSTPROCESS
+from asdex._defaults import _DEFAULT_POSTPROCESS
 from asdex._pattern import SparsityPattern
 from asdex.coloring._graph import (
     _build_edge_arrays,

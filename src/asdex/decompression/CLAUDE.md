@@ -80,7 +80,7 @@ before the `PROMISE_IN_BOUNDS` gather that would otherwise read out of bounds ra
   turn a caller-supplied `B` into a 2-D sparse matrix or the flat `(nnz,)` data vector in pattern order.
 
 The one-shot, `*_from_coloring`, and decompress functions share their argument docs
-through the `@_fill_doc` fragments in `src/asdex/_doc_helper.py`.
+through the `@_fill_doc` fragments in `src/asdex/_docstrings.py`.
 The `compressed_*` functions deliberately cross-reference their non-compressed sibling for shared arguments instead,
 so `B`'s layout is documented in exactly one place.
 

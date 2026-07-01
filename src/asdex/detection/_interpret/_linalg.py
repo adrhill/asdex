@@ -3,7 +3,7 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from asdex.detection._interpret._commons import (
+from asdex.detection._interpret._common import (
     IndexSet,
     StateIndices,
     atom_shape,

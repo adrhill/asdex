@@ -4,7 +4,7 @@ from itertools import product
 
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateIndices,
     atom_shape,

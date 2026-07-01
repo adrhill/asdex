@@ -7,7 +7,7 @@ but not across other dimensions.
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateIndices,
     atom_numel,

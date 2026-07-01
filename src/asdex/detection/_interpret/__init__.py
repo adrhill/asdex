@@ -13,7 +13,7 @@ from jax._src.core import Jaxpr, JaxprEqn, Var
 
 from ._argmax import prop_argmax
 from ._broadcast import prop_broadcast_in_dim
-from ._commons import (
+from ._common import (
     IndexSet,
     StateBounds,
     StateConsts,

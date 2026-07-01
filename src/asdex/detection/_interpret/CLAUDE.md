@@ -6,7 +6,7 @@ through primitives to determine Jacobian sparsity patterns.
 ## Structure
 
 - `__init__.py` — `prop_jaxpr`, `prop_dispatch`, fallback handling.
-- `_commons.py` — shared types (`IndexSet`, `StateIndices`, `StateConsts`) and utilities.
+- `_common.py` — shared types (`IndexSet`, `StateIndices`, `StateConsts`) and utilities.
 - Each JAX primitive has its own module: `_foo.py` contains `prop_foo`.
   Includes `_cumsum.py` for cumulative sum.
 - Handlers for external packages (Equinox, Flax, etc.) live in their own subfolders
@@ -28,7 +28,7 @@ through primitives to determine Jacobian sparsity patterns.
 - **"map"**: numpy integer arrays that map output positions to input positions.
   Not index sets.
 
-**Construction** — always use the factory helpers from `_commons`:
+**Construction** — always use the factory helpers from `_common`:
 - `empty_index_set()` instead of `set()`
 - `singleton_index_set(i)` instead of `{i}`
 - `empty_index_sets(n)` instead of `[set() for _ in range(n)]`
@@ -50,7 +50,7 @@ not every handler.
 
 **Docstrings** — avoid the term "deps"; prefer "index sets" or "input index sets".
 
-## Common Utilities in `_commons.py`
+## Common Utilities in `_common.py`
 
 - **`position_map(shape)`** —
   builds an array where each element holds its own flat position.

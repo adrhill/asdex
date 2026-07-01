@@ -9,7 +9,7 @@ so that ``select_n`` can pick the correct branch.
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateBounds,
     StateConsts,
     StateIndices,

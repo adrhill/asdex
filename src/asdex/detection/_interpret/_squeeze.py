@@ -3,7 +3,7 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import StateConsts, StateIndices, index_sets, propagate_const_unary
+from ._common import StateConsts, StateIndices, index_sets, propagate_const_unary
 
 
 def prop_squeeze(

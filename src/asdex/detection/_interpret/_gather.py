@@ -6,7 +6,7 @@ Naming: ``si_`` is short for ``start_indices``, the second input to ``lax.gather
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateBounds,
     StateConsts,
     StateIndices,

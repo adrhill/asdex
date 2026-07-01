@@ -17,11 +17,11 @@ from asdex._api_utils import (
     avals_from_args,
     merge_sample_inputs,
 )
-from asdex._doc_helper import _fill_doc
-from asdex._kwarg_defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
+from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
+from asdex._docstrings import _fill_doc
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import prop_jaxpr
-from asdex.detection._interpret._commons import empty_index_sets
+from asdex.detection._interpret._common import empty_index_sets
 
 
 @_fill_doc

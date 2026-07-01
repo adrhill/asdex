@@ -5,7 +5,7 @@ from functools import partial
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateConsts,
     StateIndices,
     atom_shape,

@@ -17,7 +17,7 @@ https://docs.jax.dev/en/latest/_autosummary/jax.lax.platform_dependent.html
 
 from jax._src.core import JaxprEqn
 
-from ._commons import StateIndices, empty_index_sets
+from ._common import StateIndices, empty_index_sets
 
 
 def prop_platform_index(eqn: JaxprEqn, state_indices: StateIndices) -> None:

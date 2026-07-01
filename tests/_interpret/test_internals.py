@@ -16,7 +16,7 @@ from asdex.detection._interpret import (
     prop_dispatch,
     prop_jaxpr,
 )
-from asdex.detection._interpret._commons import atom_shape, singleton_index_set
+from asdex.detection._interpret._common import atom_shape, singleton_index_set
 from asdex.detection._interpret._reshape import prop_reshape
 
 
