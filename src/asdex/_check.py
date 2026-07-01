@@ -17,6 +17,10 @@ from asdex._defaults import (
     _DEFAULT_TOL,
     _DEFAULT_VERIFY_METHOD,
 )
+from asdex._differentiation import (
+    _build_tangents_from_seed,
+    _flatten_selected_cotangents,
+)
 from asdex._docstrings import _fill_doc
 from asdex._errors import InvalidColoringError, VerificationError
 from asdex._pattern import ColoredPattern, SparsityPattern
@@ -330,8 +334,9 @@ def _flatten_jacobian_to_dense(
 ) -> jax.Array:
     """Flatten a PyTree of Jacobian blocks into a (m, n) dense matrix.
 
-    This mirrors decompression._assemble_jacobian_blocks in reverse:
-    that function splits a (m, n) matrix into blocks, this reassembles them.
+    This mirrors decompression._assemble_jacobian in reverse:
+    that function splits the Jacobian into per-leaf blocks
+    with (out_tree, in_tree) structure, this reassembles them into a dense (m, n).
 
     Args:
         J_pytree: PyTree of BCOO/array blocks with structure (out_tree, in_tree).
@@ -351,7 +356,7 @@ def _flatten_jacobian_to_dense(
     dense = jnp.zeros((m, n))
 
     # J_pytree has structure (out_tree, in_tree) - flatten to get blocks
-    # in the same order as _assemble_jacobian_blocks produces them
+    # in the same order as _assemble_jacobian produces them
     out_row_offset = 0
     for out_idx, out_size in enumerate(out_leaf_sizes):
         in_col_offset = 0
@@ -475,17 +480,8 @@ def _check_jacobian_matvec(
             case "fwd":
                 v = jax.random.normal(keys[i], shape=(n,))
                 sparse_result = (J_sparse @ v).ravel()
-                tangent = _unflatten_to_pytree(v, sparsity.example_input)
-                if multi_input:
-                    tangents = tuple(
-                        tangent[j]
-                        if j in sparsity._argnums_tuple
-                        else jax.tree.map(jnp.zeros_like, args[j])
-                        for j in range(len(args))
-                    )
-                    _, ref_result = jax.jvp(f, args, tangents)
-                else:
-                    _, ref_result = jax.jvp(f, args, (tangent,))
+                tangents = _build_tangents_from_seed(v, args, sparsity)
+                _, ref_result = jax.jvp(f, args, tangents)
                 ref_result = _flatten_pytree(ref_result)
             case "rev":
                 v = jax.random.normal(keys[i], shape=(m,))
@@ -493,8 +489,7 @@ def _check_jacobian_matvec(
                 _, vjp_fn = jax.vjp(f, *args)
                 cotangent = _unflatten_to_pytree(v, out_struct)
                 ref_results = vjp_fn(cotangent)
-                selected = tuple(ref_results[j] for j in sparsity._argnums_tuple)
-                ref_result = _flatten_pytree(selected if multi_input else selected[0])
+                ref_result = _flatten_selected_cotangents(ref_results, sparsity)
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -546,37 +541,19 @@ def _check_hessian_matvec(
         case "fwd_over_rev":
 
             def hvp(v: jax.Array) -> jax.Array:
-                tangent = unflatten_tangent(v)
-                if multi_input:
-                    tangents = tuple(
-                        tangent[j]
-                        if j in sparsity._argnums_tuple
-                        else jax.tree.map(jnp.zeros_like, args[j])
-                        for j in range(len(args))
-                    )
-                    _, result = jax.jvp(jax.grad(f, argnums=argnums), args, tangents)
-                else:
-                    _, result = jax.jvp(jax.grad(f), args, (tangent,))
+                tangents = _build_tangents_from_seed(v, args, sparsity)
+                _, result = jax.jvp(jax.grad(f, argnums=argnums), args, tangents)
                 return _flatten_pytree(result)
 
         case "rev_over_fwd":
 
             def hvp(v: jax.Array) -> jax.Array:
-                tangent = unflatten_tangent(v)
-                if multi_input:
-                    tangents = tuple(
-                        tangent[j]
-                        if j in sparsity._argnums_tuple
-                        else jax.tree.map(jnp.zeros_like, args[j])
-                        for j in range(len(args))
-                    )
+                tangents = _build_tangents_from_seed(v, args, sparsity)
 
-                    def fwd_fn(*ps: Any) -> jax.Array:
-                        return jax.jvp(f, ps, tangents)[1]
+                def fwd_fn(*ps: Any) -> jax.Array:
+                    return jax.jvp(f, ps, tangents)[1]
 
-                    result = jax.grad(fwd_fn, argnums=argnums)(*args)
-                else:
-                    result = jax.grad(lambda p: jax.jvp(f, (p,), (tangent,))[1])(*args)
+                result = jax.grad(fwd_fn, argnums=argnums)(*args)
                 return _flatten_pytree(result)
 
         case "rev_over_rev":
@@ -586,12 +563,8 @@ def _check_hessian_matvec(
 
                 def inner(*ys: Any) -> jax.Array:
                     grads = jax.grad(f, argnums=argnums)(*ys)
-                    if multi_input:
-                        grad_leaves = jax.tree_util.tree_leaves(grads)
-                        tangent_leaves = jax.tree_util.tree_leaves(tangent)
-                    else:
-                        grad_leaves = jax.tree_util.tree_leaves(grads)
-                        tangent_leaves = jax.tree_util.tree_leaves(tangent)
+                    grad_leaves = jax.tree_util.tree_leaves(grads)
+                    tangent_leaves = jax.tree_util.tree_leaves(tangent)
                     dots = [
                         jnp.vdot(g, t)
                         for g, t in zip(grad_leaves, tangent_leaves, strict=True)
