@@ -1,4 +1,4 @@
-"""Type aliases for AD modes and output formats, plus AD-mode validators."""
+"""Type aliases for AD modes and output formats, plus AD-mode and output-format validators."""
 
 from typing import Literal, get_args
 
@@ -56,6 +56,39 @@ _OUTPUT_FORMATS = tuple(
 # Output formats backed by host (non-JAX) arrays.
 # These cannot be returned from a caller-side ``jax.jit``.
 _HOST_FORMATS = ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc")
+
+
+def _assert_output_format(output_format: str) -> None:
+    """Raise if *output_format* is not a valid, usable ``OutputFormat``.
+
+    Raises:
+        ValueError: If *output_format* is not a valid ``OutputFormat``.
+        ImportError: If *output_format* is a scipy format and scipy is not installed.
+            Checked here so that requesting a scipy format fails at construction time
+            rather than at the first call.
+    """
+    if output_format not in _OUTPUT_FORMATS:
+        raise ValueError(
+            f"Unknown output_format {output_format!r}. "
+            "Expected 'bcoo', 'dense', 'numpy_dense', 'scipy_coo', 'scipy_csr', or 'scipy_csc'."
+        )
+    if output_format in get_args(ScipyOutputFormat):
+        _assert_scipy_installed(output_format)
+
+
+def _assert_scipy_installed(output_format: str) -> None:
+    """Raise ``ImportError`` if scipy is not installed.
+
+    The hint points at the optional dependency
+    so a scipy format fails with an actionable message rather than a bare import error.
+    """
+    try:
+        import scipy.sparse  # noqa: PLC0415, F401
+    except ImportError as e:
+        raise ImportError(
+            f"scipy is required for output_format={output_format!r}. "
+            "Install it with: pip install 'asdex[scipy]'"
+        ) from e
 
 
 def _assert_jacobian_mode(mode: str) -> None:
