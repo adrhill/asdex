@@ -17,6 +17,7 @@ from numba import njit
 from numpy.typing import NDArray
 
 from asdex._defaults import _DEFAULT_POSTPROCESS
+from asdex._errors import InvalidColoringError
 from asdex._pattern import SparsityPattern, StarSet
 from asdex.coloring._graph import (
     _build_edge_arrays,
@@ -24,7 +25,6 @@ from asdex.coloring._graph import (
     _build_symmetric_csr,
 )
 from asdex.coloring._postprocessing import _postprocess_star_coloring
-from asdex.coloring._types import InvalidColoringError
 
 
 def color_symmetric(

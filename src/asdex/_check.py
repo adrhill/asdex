@@ -16,6 +16,7 @@ from asdex._defaults import (
     _DEFAULT_VERIFY_METHOD,
 )
 from asdex._docstrings import _fill_doc
+from asdex._errors import InvalidColoringError, VerificationError
 from asdex._modes import _assert_jacobian_mode
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex._pytree import (
@@ -23,21 +24,7 @@ from asdex._pytree import (
     output_size,
     unflatten_to_pytree,
 )
-from asdex.coloring import InvalidColoringError
 from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
-
-
-class VerificationError(AssertionError):
-    """Raised when asdex's sparse result does not match JAX's dense reference.
-
-    This indicates that the detected sparsity pattern is missing nonzeros,
-    which is a bug — asdex's patterns should always be conservative
-    (i.e., contain at least all true nonzeros).
-    If you encounter this error,
-    please help out asdex's development by reporting this at
-    https://github.com/adrhill/asdex/issues.
-    """
-
 
 # Coloring validators
 

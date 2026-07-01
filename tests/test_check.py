@@ -372,7 +372,7 @@ def test_check_jacobian_multi_arg(mode, method):
 def test_check_jacobian_multi_arg_single_argnum():
     """check_jacobian_correctness should work with single argnum from multi-arg function.
 
-    Currently _verify.py doesn't handle the case where argnums is an int
+    Currently _check.py doesn't handle the case where argnums is an int
     but f takes multiple arguments.
     """
 
@@ -404,7 +404,7 @@ def test_check_hessian_multi_arg(mode, method):
 def test_check_hessian_multi_arg_single_argnum():
     """check_hessian_correctness should work with single argnum from multi-arg function.
 
-    Currently _verify.py doesn't handle the case where argnums is an int
+    Currently _check.py doesn't handle the case where argnums is an int
     but f takes multiple arguments.
     """
 

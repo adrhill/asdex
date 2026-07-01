@@ -16,7 +16,9 @@ ASD exploits sparsity to reduce the cost of computing sparse Jacobians and Hessi
 src/asdex/
 ├── __init__.py         # Public API
 ├── _arguments.py       # Argument handling and validation (argnums, kwargs binding, dtype/structure checks)
+├── _check.py           # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
 ├── _display.py         # Display/formatting utilities
+├── _errors.py          # Errors and warnings (VerificationError, InvalidColoringError, DenseColoringWarning)
 ├── _plotting.py        # Matplotlib visualizations for SparsityPattern and ColoredPattern
 ├── coloring/           # Graph coloring (row, column, symmetric) and convenience functions
 ├── decompression/      # Compress (one VJP/JVP/HVP per color, producing B) then decompress it into the sparse matrix, plus the public API
@@ -25,8 +27,7 @@ src/asdex/
 ├── _differentiation.py # Batched-AD engine: one VJP/JVP/HVP per color, producing the compressed matrix B
 ├── _modes.py           # Type aliases for AD mode and output format selection (JacobianMode, HessianMode, OutputFormat)
 ├── _pattern.py         # SparsityPattern and ColoredPattern data structures
-├── _pytree.py          # Generic PyTree <-> flat array plumbing (flatten, unflatten, size, dtype)
-└── _verify.py          # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
+└── _pytree.py          # Generic PyTree <-> flat array plumbing (flatten, unflatten, size, dtype)
 ```
 
 The interpreter internals are described in `src/asdex/detection/_interpret/CLAUDE.md`.

@@ -29,6 +29,7 @@ from asdex._defaults import (
     _DEFAULT_SYMMETRIC_JACOBIAN,
 )
 from asdex._docstrings import _fill_doc
+from asdex._errors import DenseColoringWarning
 from asdex._modes import (
     HessianMode,
     JacobianMode,
@@ -38,7 +39,6 @@ from asdex._modes import (
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex.coloring._color_greedy import color_cols, color_rows
 from asdex.coloring._color_symmetric import color_symmetric
-from asdex.coloring._types import DenseColoringWarning
 from asdex.detection import hessian_sparsity as _detect_hessian_sparsity
 from asdex.detection import jacobian_sparsity as _detect_jacobian_sparsity
 
