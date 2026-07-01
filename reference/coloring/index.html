@@ -1536,7 +1536,7 @@
 <h2 id="sparsity-detection-and-coloring">Sparsity Detection and Coloring<a class="headerlink" href="#sparsity-detection-and-coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Jacobian sparsity and color in one step.</p>
@@ -1560,7 +1560,7 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>Function whose Jacobian is to be computed.</p>
+<p>{f_jac}</p>
 </div>
 </td>
 <td>
@@ -1576,8 +1576,7 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample arguments of <code>f</code>.
-Only structure and dtypes are used, values are ignored.</p>
+<p>{sample_args}</p>
 </div>
 </td>
 <td>
@@ -1593,12 +1592,11 @@ Only structure and dtypes are used, values are ignored.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Specifies which positional argument(s) to differentiate
-with respect to (default <code>0</code>).</p>
+<p>{argnums}</p>
 </div>
 </td>
 <td>
-<code>0</code>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1610,12 +1608,11 @@ with respect to (default <code>0</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>If <code>True</code>, <code>f</code> is assumed to return <code>(output, aux)</code>
-where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
+<p>{has_aux_detect}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1627,19 +1624,15 @@ where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
 
   
       module-attribute
-   (asdex.modes.JacobianMode)" href="../#asdex.JacobianMode">JacobianMode</a> | None</code>
+   (asdex._types.JacobianMode)" href="../#asdex.JacobianMode">JacobianMode</a> | None</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>AD mode.
-<code>"fwd"</code> uses JVPs (forward-mode AD),
-<code>"rev"</code> uses VJPs (reverse-mode AD),
-<code>None</code> picks whichever of fwd/rev needs fewer colors
-(unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
+<p>{mode_jac_coloring}</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code><span title="asdex._defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1651,12 +1644,11 @@ where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to use symmetric (star) coloring.
-Requires a square Jacobian.</p>
+<p>{symmetric_jac}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1668,14 +1660,11 @@ Requires a square Jacobian.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Only read when <code>symmetric=True</code>.
-Prune colors never used as hubs and compact the remaining ones
-(reduces the number of VJPs/JVPs during decompression).
-Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+<p>{postprocess_jac}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1687,8 +1676,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample keyword arguments to pass to <code>f</code> during sparsity detection.
-Non-traceable values (bools, strings, ints) are bound statically.</p>
+<p>{sample_kwargs_detect}</p>
 </div>
 </td>
 <td>
@@ -1713,7 +1701,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -1732,7 +1720,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_HESSIAN</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Hessian sparsity and color in one step.</p>
@@ -1756,7 +1744,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Scalar-valued function taking one or more positional arrays.</p>
+<p>{f_hess}</p>
 </div>
 </td>
 <td>
@@ -1772,8 +1760,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample arguments of <code>f</code>.
-Only structure and dtypes are used, values are ignored.</p>
+<p>{sample_args}</p>
 </div>
 </td>
 <td>
@@ -1789,12 +1776,11 @@ Only structure and dtypes are used, values are ignored.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Specifies which positional argument(s) to differentiate
-with respect to (default <code>0</code>).</p>
+<p>{argnums}</p>
 </div>
 </td>
 <td>
-<code>0</code>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1806,12 +1792,11 @@ with respect to (default <code>0</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>If <code>True</code>, <code>f</code> is assumed to return <code>(output, aux)</code>
-where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
+<p>{has_aux_detect}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1823,19 +1808,15 @@ where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
 
   
       module-attribute
-   (asdex.modes.HessianMode)" href="../#asdex.HessianMode">HessianMode</a> | None</code>
+   (asdex._types.HessianMode)" href="../#asdex.HessianMode">HessianMode</a> | None</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>AD composition strategy for Hessian-vector products.
-<code>"fwd_over_rev"</code> uses forward-over-reverse,
-<code>"rev_over_fwd"</code> uses reverse-over-forward,
-<code>"rev_over_rev"</code> uses reverse-over-reverse.
-Defaults to <code>"fwd_over_rev"</code>.</p>
+<p>{mode_hess}</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code><span title="asdex._defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1847,12 +1828,11 @@ Defaults to <code>"fwd_over_rev"</code>.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to use symmetric (star) coloring.
-Defaults to True (exploits H = H^T for fewer colors).</p>
+<p>{symmetric_hess}</p>
 </div>
 </td>
 <td>
-<code>True</code>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_HESSIAN">_DEFAULT_SYMMETRIC_HESSIAN</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1864,14 +1844,11 @@ Defaults to True (exploits H = H^T for fewer colors).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Only read when <code>symmetric=True</code>.
-Prune colors never used as hubs and compact the remaining ones
-(reduces the number of HVPs during decompression).
-Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+<p>{postprocess_hess}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1883,8 +1860,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample keyword arguments to pass to <code>f</code> during sparsity detection.
-Non-traceable values (bools, strings, ints) are bound statically.</p>
+<p>{sample_kwargs_detect}</p>
 </div>
 </td>
 <td>
@@ -1909,7 +1885,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -1928,7 +1904,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 </div><h2 id="coloring-known-sparsity-patterns">Coloring Known Sparsity Patterns<a class="headerlink" href="#coloring-known-sparsity-patterns" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring_from_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Color a sparsity pattern for sparse Jacobian computation.</p>
@@ -1955,17 +1931,11 @@ computed together in a single VJP (or JVP).</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
-
-
-  
-      dataclass
-  " href="../#asdex.SparsityPattern"><code>SparsityPattern</code></a>, NumPy array,
-or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
+<p>{sparsity_jac}</p>
 </div>
 </td>
 <td>
@@ -1981,19 +1951,15 @@ or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
 
   
       module-attribute
-   (asdex.modes.JacobianMode)" href="../#asdex.JacobianMode">JacobianMode</a> | None</code>
+   (asdex._types.JacobianMode)" href="../#asdex.JacobianMode">JacobianMode</a> | None</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>AD mode.
-<code>"fwd"</code> uses JVPs (column coloring),
-<code>"rev"</code> uses VJPs (row coloring).
-<code>None</code> picks whichever of fwd/rev needs fewer colors
-(unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
+<p>{mode_jac_coloring}</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code><span title="asdex._defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2005,12 +1971,11 @@ or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to use symmetric (star) coloring.
-Requires a square pattern.</p>
+<p>{symmetric_jac}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2022,14 +1987,11 @@ Requires a square pattern.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Only read when <code>symmetric=True</code>.
-Prune colors never used as hubs and compact the remaining ones
-(reduces the number of VJPs/JVPs during decompression).
-Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+<p>{postprocess_jac}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
 </td>
 </tr>
 </tbody>
@@ -2050,7 +2012,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2069,7 +2031,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_coloring_from_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_HESSIAN</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Color a sparsity pattern for sparse Hessian computation.</p>
@@ -2094,17 +2056,11 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
-
-
-  
-      dataclass
-  " href="../#asdex.SparsityPattern"><code>SparsityPattern</code></a>, NumPy array,
-or JAX BCOO matrix of shape <code>(n, n)</code>.</p>
+<p>{sparsity_hess}</p>
 </div>
 </td>
 <td>
@@ -2120,19 +2076,15 @@ or JAX BCOO matrix of shape <code>(n, n)</code>.</p>
 
   
       module-attribute
-   (asdex.modes.HessianMode)" href="../#asdex.HessianMode">HessianMode</a> | None</code>
+   (asdex._types.HessianMode)" href="../#asdex.HessianMode">HessianMode</a> | None</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>AD composition strategy for Hessian-vector products.
-<code>"fwd_over_rev"</code> uses forward-over-reverse,
-<code>"rev_over_fwd"</code> uses reverse-over-forward,
-<code>"rev_over_rev"</code> uses reverse-over-reverse.
-Defaults to <code>"fwd_over_rev"</code>.</p>
+<p>{mode_hess}</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code><span title="asdex._defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2144,12 +2096,11 @@ Defaults to <code>"fwd_over_rev"</code>.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to use symmetric (star) coloring.
-Defaults to True (exploits Hessian symmetry for fewer colors).</p>
+<p>{symmetric_hess}</p>
 </div>
 </td>
 <td>
-<code>True</code>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_HESSIAN">_DEFAULT_SYMMETRIC_HESSIAN</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2161,16 +2112,11 @@ Defaults to True (exploits Hessian symmetry for fewer colors).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Only read when <code>symmetric=True</code>.
-Prune colors never used as hubs and compact the remaining ones
-(reduces the number of HVPs during decompression).
-Pruned vertices get the neutral color <code>-1</code> in the output
-(no HVP is computed for them).
-Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+<p>{postprocess_hess}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
 </td>
 </tr>
 </tbody>
@@ -2191,7 +2137,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2240,12 +2186,11 @@ by using a combined seed vector.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>SparsityPattern of shape (m, n) representing the
-Jacobian sparsity pattern</p>
+<p>{sparsity_pattern_jac}</p>
 </div>
 </td>
 <td>
@@ -2313,12 +2258,11 @@ by using a combined tangent vector.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>SparsityPattern of shape (m, n) representing the
-Jacobian sparsity pattern</p>
+<p>{sparsity_pattern_jac}</p>
 </div>
 </td>
 <td>
@@ -2356,7 +2300,7 @@ Jacobian sparsity pattern</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.color_symmetric">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_symmetric</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">forced_colors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_symmetric</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">,</span> <span class="n">forced_colors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.color_symmetric" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Greedy symmetric coloring for sparse Hessian computation.</p>
@@ -2387,12 +2331,11 @@ Hessian decompression can use hub-based extraction.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>SparsityPattern of shape <code>(n, n)</code> representing the
-symmetric Hessian sparsity pattern.</p>
+<p>{sparsity_pattern_hess}</p>
 </div>
 </td>
 <td>
@@ -2408,15 +2351,11 @@ symmetric Hessian sparsity pattern.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>If <code>True</code>, replace colors that are never used as a hub color
-(and not forced by a diagonal entry) with <code>-1</code> (neutral),
-then compact remaining colors down. This reduces the number of HVPs
-needed during decompression. Defaults to <code>False</code>,
-matching SparseMatrixColorings.jl's <code>postprocessing=false</code> default.</p>
+<p>{postprocess_symmetric}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2428,9 +2367,7 @@ matching SparseMatrixColorings.jl's <code>postprocessing=false</code> default.</
 </td>
 <td>
 <div class="doc-md-description">
-<p>Optional pre-computed color assignment of shape <code>(n,)</code>.
-When provided, the algorithm verifies it satisfies the star-coloring
-constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
+<p>{forced_colors}</p>
 </div>
 </td>
 <td>
@@ -2450,7 +2387,7 @@ constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>, <span title="asdex.coloring._types.StarSet">StarSet</span>]</code>
+<code><span title="tuple">tuple</span>[<span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>], <span title="int">int</span>, <span title="asdex._pattern.StarSet">StarSet</span>]</code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2489,7 +2426,7 @@ constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
 </tr>
 <tr class="doc-section-item">
 <td>
-<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex.coloring._types.InvalidColoringError)" href="#asdex.InvalidColoringError">InvalidColoringError</a></code>
+<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex._errors.InvalidColoringError)" href="#asdex.InvalidColoringError">InvalidColoringError</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2528,11 +2465,11 @@ constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Jacobian sparsity pattern of shape <code>(m, n)</code>.</p>
+<p>{sparsity_pattern_jac}</p>
 </div>
 </td>
 <td>
@@ -2548,7 +2485,7 @@ constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Row color assignment, shape <code>(m,)</code>.</p>
+<p>{colors_rows}</p>
 </div>
 </td>
 <td>
@@ -2568,7 +2505,7 @@ constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex.coloring.InvalidColoringError)" href="#asdex.InvalidColoringError">InvalidColoringError</a></code>
+<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex._errors.InvalidColoringError)" href="#asdex.InvalidColoringError">InvalidColoringError</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2607,11 +2544,11 @@ constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Jacobian sparsity pattern of shape <code>(m, n)</code>.</p>
+<p>{sparsity_pattern_jac}</p>
 </div>
 </td>
 <td>
@@ -2627,7 +2564,7 @@ constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Column color assignment, shape <code>(n,)</code>.</p>
+<p>{colors_cols}</p>
 </div>
 </td>
 <td>
@@ -2647,7 +2584,7 @@ constraints and raises :class:<code>InvalidColoringError</code> otherwise.</p>
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex.coloring.InvalidColoringError)" href="#asdex.InvalidColoringError">InvalidColoringError</a></code>
+<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex._errors.InvalidColoringError)" href="#asdex.InvalidColoringError">InvalidColoringError</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2694,11 +2631,11 @@ from the P4 check as they represent the absence of a color.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Hessian sparsity pattern of shape <code>(n, n)</code>.</p>
+<p>{sparsity_pattern_hess}</p>
 </div>
 </td>
 <td>
@@ -2714,7 +2651,7 @@ from the P4 check as they represent the absence of a color.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Vertex color assignment, shape <code>(n,)</code>.</p>
+<p>{colors_vertex}</p>
 </div>
 </td>
 <td>
@@ -2744,7 +2681,7 @@ from the P4 check as they represent the absence of a color.</p>
 </tr>
 <tr class="doc-section-item">
 <td>
-<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex.coloring.InvalidColoringError)" href="#asdex.InvalidColoringError">InvalidColoringError</a></code>
+<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex._errors.InvalidColoringError)" href="#asdex.InvalidColoringError">InvalidColoringError</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2764,7 +2701,7 @@ from the P4 check as they represent the absence of a color.</p>
 <p class="doc doc-class-bases">
               Bases: <code><span title="ValueError">ValueError</span></code></p>
 <p>Raised when a user-supplied coloring violates a star-coloring constraint.</p>
-<p>See <a class="autorefs autorefs-internal" title="asdex.color_symmetric(sparsity, *, postprocess=False, forced_colors=None)" href="#asdex.color_symmetric"><code>color_symmetric</code></a> with <code>forced_colors</code>.</p>
+<p>See <a class="autorefs autorefs-internal" title="asdex.color_symmetric(sparsity, *, postprocess=_DEFAULT_POSTPROCESS, forced_colors=None)" href="#asdex.color_symmetric"><code>color_symmetric</code></a> with <code>forced_colors</code>.</p>
 </div>
 </div>
 

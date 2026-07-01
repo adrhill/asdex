@@ -1846,7 +1846,7 @@
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -1894,7 +1894,7 @@ A value of <code>-1</code> means "neutral": the vertex is not seeded
 <tr class="doc-section-item">
 <td><code><span title="asdex.ColoredPattern.mode">mode</span></code></td>
 <td>
-<code><span title="asdex.modes.ColoringMode">ColoringMode</span></code>
+<code><span title="asdex._types.ColoringMode">ColoringMode</span></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -1911,13 +1911,13 @@ Resolved, never <code>"auto"</code>.
 <tr class="doc-section-item">
 <td><code><span title="asdex.ColoredPattern.star_set">star_set</span></code></td>
 <td>
-<code><span title="asdex.coloring.StarSet">StarSet</span> | None</code>
+<code><span title="asdex._pattern.StarSet">StarSet</span> | None</code>
 </td>
 <td>
 <div class="doc-md-description">
 <p>Star-coloring structure (hub/spoke assignment per edge).
 Present only for symmetric colorings produced by
-<a class="autorefs autorefs-internal" title="asdex.color_symmetric(sparsity, *, postprocess=False, forced_colors=None)" href="../#asdex.color_symmetric"><code>color_symmetric</code></a>;
+<a class="autorefs autorefs-internal" title="asdex.color_symmetric(sparsity, *, postprocess=_DEFAULT_POSTPROCESS, forced_colors=None)" href="../#asdex.color_symmetric"><code>color_symmetric</code></a>;
 <code>None</code> otherwise.</p>
 </div>
 </td>

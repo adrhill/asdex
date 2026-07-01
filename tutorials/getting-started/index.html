@@ -1371,7 +1371,7 @@ We can verify that <code>asdex</code> produces the same result as <code>jax.jaco
 <a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>
 <a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">J_asdex</span><span class="p">,</span> <span class="n">J_jax</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
 </code></pre></div>
-<p><code>asdex</code> also provides <a class="autorefs autorefs-internal" title="asdex.check_jacobian_correctness(f, x, coloring, *, method='matvec', num_probes=25, seed=0, rtol=None, atol=None)" href="../../reference/jacobian/#asdex.check_jacobian_correctness"><code>check_jacobian_correctness</code></a>
+<p><code>asdex</code> also provides <a class="autorefs autorefs-internal" title="asdex.check_jacobian_correctness(f, x, coloring, *, method=_DEFAULT_VERIFY_METHOD, num_probes=_DEFAULT_NUM_PROBES, seed=_DEFAULT_SEED, rtol=_DEFAULT_TOL, atol=_DEFAULT_TOL)" href="../../reference/jacobian/#asdex.check_jacobian_correctness"><code>check_jacobian_correctness</code></a>
 as a convenience for this comparison, see <a href="../../how-to/verification/">Verifying Correctness</a>.</p>
 <p>On larger problems, the speedup from coloring becomes significant.
 Let's benchmark on a 5000-dimensional input
@@ -1394,9 +1394,9 @@ This time, we use <a href="../../reference/#asdex.jacobian"><code>asdex.jacobian
 <a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="n">t_asdex</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">timeit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">jac_fn_asdex</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span>
 <a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="n">t_jax</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">timeit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">jac_fn_jax</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>asdex.jacobian:      1.35 ms
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>jax.jacobian:       13.41 ms
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>speedup:             10.0x
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>asdex.jacobian:      1.16 ms
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>jax.jacobian:       11.50 ms
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>speedup:              9.9x
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Precompute for Repeated Evaluations</p>

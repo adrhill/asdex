@@ -1249,7 +1249,7 @@
 <h1 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">¶</a></h1>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect global Jacobian sparsity pattern for <code>f</code>.</p>
@@ -1276,7 +1276,7 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Function whose Jacobian sparsity pattern is to be detected.</p>
+<p>{f_jac_detect}</p>
 </div>
 </td>
 <td>
@@ -1292,8 +1292,7 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample arguments of <code>f</code>.
-Only structure and dtypes are used, values are ignored.</p>
+<p>{sample_args}</p>
 </div>
 </td>
 <td>
@@ -1309,12 +1308,11 @@ Only structure and dtypes are used, values are ignored.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Specifies which positional argument(s) to differentiate
-with respect to (default <code>0</code>).</p>
+<p>{argnums}</p>
 </div>
 </td>
 <td>
-<code>0</code>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1326,13 +1324,11 @@ with respect to (default <code>0</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
-When True, only <code>output</code> is analyzed for sparsity;
-the auxiliary branch of the computation is not traced.</p>
+<p>{has_aux_detect}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1344,8 +1340,7 @@ the auxiliary branch of the computation is not traced.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample keyword arguments of <code>f</code>.
-Non-traceable values (bools, strings) are bound statically.</p>
+<p>{sample_kwargs_detect}</p>
 </div>
 </td>
 <td>
@@ -1370,7 +1365,7 @@ Non-traceable values (bools, strings) are bound statically.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -1386,7 +1381,7 @@ flat size of the selected inputs.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.hessian_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">hessian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.hessian_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect global Hessian sparsity pattern for a scalar-valued <code>f</code>.</p>
@@ -1415,7 +1410,7 @@ it is automatically squeezed to scalar.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Scalar-valued function taking one or more positional arrays.</p>
+<p>{f_hess_detect}</p>
 </div>
 </td>
 <td>
@@ -1431,8 +1426,7 @@ it is automatically squeezed to scalar.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample arguments of <code>f</code>.
-Only structure and dtypes are used, values are ignored.</p>
+<p>{sample_args}</p>
 </div>
 </td>
 <td>
@@ -1448,12 +1442,11 @@ Only structure and dtypes are used, values are ignored.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Specifies which positional argument(s) to differentiate
-with respect to (default <code>0</code>).</p>
+<p>{argnums}</p>
 </div>
 </td>
 <td>
-<code>0</code>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1465,12 +1458,11 @@ with respect to (default <code>0</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether <code>f</code> returns <code>(scalar_output, auxiliary_data)</code>.
-When True, aux is stripped before detection.</p>
+<p>{has_aux_detect}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1482,8 +1474,7 @@ When True, aux is stripped before detection.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample keyword arguments of <code>f</code>.
-Non-traceable values (bools, strings) are bound statically.</p>
+<p>{sample_kwargs_detect}</p>
 </div>
 </td>
 <td>
@@ -1508,7 +1499,7 @@ Non-traceable values (bools, strings) are bound statically.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">

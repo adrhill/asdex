@@ -1694,7 +1694,7 @@
 <a class="headerlink" href="#asdex.jacobian" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing sparse Jacobians.</p>
-<p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, *args, argnums=0, has_aux=False, mode=None, symmetric=False, postprocess=False, **kwargs)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
+<p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, *args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, postprocess=_DEFAULT_POSTPROCESS, **kwargs)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
 and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format=_DEFAULT_OUTPUT_FORMAT, *, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, chunk_size=_DEFAULT_CHUNK_SIZE)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
 in one call.</p>
 <p>{jit}</p>
@@ -1754,7 +1754,7 @@ in one call.</p>
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1766,13 +1766,11 @@ in one call.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>,
-mirroring <code>jax.jacrev</code>.
-When True, the returned function yields <code>(jac, aux)</code>.</p>
+<p>{has_aux}</p>
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1784,13 +1782,11 @@ When True, the returned function yields <code>(jac, aux)</code>.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether <code>f</code> is promised to be holomorphic,
-mirroring <code>jax.jacrev</code>.
-Validates dtype compatibility at call time.</p>
+<p>{holomorphic}</p>
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_HOLOMORPHIC">_DEFAULT_HOLOMORPHIC</span></code>
+<code><span title="asdex._defaults._DEFAULT_HOLOMORPHIC">_DEFAULT_HOLOMORPHIC</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1802,12 +1798,11 @@ Validates dtype compatibility at call time.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to allow differentiating with respect to
-integer-valued inputs, mirroring <code>jax.jacrev</code>.</p>
+<p>{allow_int_jac}</p>
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_ALLOW_INT">_DEFAULT_ALLOW_INT</span></code>
+<code><span title="asdex._defaults._DEFAULT_ALLOW_INT">_DEFAULT_ALLOW_INT</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1819,18 +1814,15 @@ integer-valued inputs, mirroring <code>jax.jacrev</code>.</p>
 
   
       module-attribute
-   (asdex.modes.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
+   (asdex._types.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>AD mode.
-<code>"fwd"</code> uses JVPs (forward-mode AD),
-<code>"rev"</code> uses VJPs (reverse-mode AD).
-<code>None</code> picks whichever of fwd/rev needs fewer colors.</p>
+<p>{mode_jac}</p>
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
+<code><span title="asdex._defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1842,12 +1834,11 @@ integer-valued inputs, mirroring <code>jax.jacrev</code>.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to use symmetric (star) coloring.
-Requires a square Jacobian.</p>
+<p>{symmetric_jac}</p>
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1855,7 +1846,7 @@ Requires a square Jacobian.</p>
 <code>output_format</code>
 </td>
 <td>
-<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+<code><span title="asdex._types.OutputFormat">OutputFormat</span></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -1863,7 +1854,7 @@ Requires a square Jacobian.</p>
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
+<code><span title="asdex._defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -1879,7 +1870,7 @@ Requires a square Jacobian.</p>
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_CHUNK_SIZE">_DEFAULT_CHUNK_SIZE</span></code>
+<code><span title="asdex._defaults._DEFAULT_CHUNK_SIZE">_DEFAULT_CHUNK_SIZE</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2011,7 +2002,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2027,7 +2018,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 <code>output_format</code>
 </td>
 <td>
-<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+<code><span title="asdex._types.OutputFormat">OutputFormat</span></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2035,7 +2026,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
+<code><span title="asdex._defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2051,7 +2042,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2067,7 +2058,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_HOLOMORPHIC">_DEFAULT_HOLOMORPHIC</span></code>
+<code><span title="asdex._defaults._DEFAULT_HOLOMORPHIC">_DEFAULT_HOLOMORPHIC</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2083,7 +2074,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_ALLOW_INT">_DEFAULT_ALLOW_INT</span></code>
+<code><span title="asdex._defaults._DEFAULT_ALLOW_INT">_DEFAULT_ALLOW_INT</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2099,7 +2090,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_CHUNK_SIZE">_DEFAULT_CHUNK_SIZE</span></code>
+<code><span title="asdex._defaults._DEFAULT_CHUNK_SIZE">_DEFAULT_CHUNK_SIZE</span></code>
 </td>
 </tr>
 </tbody>
@@ -2150,7 +2141,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2166,7 +2157,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 <code>output_format</code>
 </td>
 <td>
-<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+<code><span title="asdex._types.OutputFormat">OutputFormat</span></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2174,7 +2165,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
+<code><span title="asdex._defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2190,7 +2181,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2206,7 +2197,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_HOLOMORPHIC">_DEFAULT_HOLOMORPHIC</span></code>
+<code><span title="asdex._defaults._DEFAULT_HOLOMORPHIC">_DEFAULT_HOLOMORPHIC</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2222,7 +2213,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_ALLOW_INT">_DEFAULT_ALLOW_INT</span></code>
+<code><span title="asdex._defaults._DEFAULT_ALLOW_INT">_DEFAULT_ALLOW_INT</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2238,7 +2229,7 @@ to <code>f</code> at call time (matching <code>jax.jacfwd</code> / <code>jax.jac
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_CHUNK_SIZE">_DEFAULT_CHUNK_SIZE</span></code>
+<code><span title="asdex._defaults._DEFAULT_CHUNK_SIZE">_DEFAULT_CHUNK_SIZE</span></code>
 </td>
 </tr>
 </tbody>
@@ -2429,7 +2420,7 @@ this is always the flat 2-D matrix regardless of input/output pytree structure:
 </td>
 <td>
 <div class="doc-md-description">
-<p>The compressed matrix <code>B</code> of shape <code>(num_colors, dim)</code>.</p>
+<p>{compressed}</p>
 </div>
 </td>
 <td>
@@ -2446,7 +2437,7 @@ this is always the flat 2-D matrix regardless of input/output pytree structure:
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2462,7 +2453,7 @@ this is always the flat 2-D matrix regardless of input/output pytree structure:
 <code>output_format</code>
 </td>
 <td>
-<code><span title="asdex.modes.OutputFormat">OutputFormat</span></code>
+<code><span title="asdex._types.OutputFormat">OutputFormat</span></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2470,7 +2461,7 @@ this is always the flat 2-D matrix regardless of input/output pytree structure:
 </div>
 </td>
 <td>
-<code><span title="asdex._kwarg_defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
+<code><span title="asdex._defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
 </td>
 </tr>
 </tbody>
@@ -2569,9 +2560,7 @@ to assemble a custom format.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>The compressed matrix <code>B</code> of shape <code>(num_colors, dim)</code>,
-as returned by <a class="autorefs autorefs-internal" title="asdex.compressed_jacobian(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="#asdex.compressed_jacobian"><code>compressed_jacobian</code></a> or
-<a class="autorefs autorefs-internal" title="asdex.compressed_hessian(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_HESSIAN, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="../#asdex.compressed_hessian"><code>compressed_hessian</code></a>.</p>
+<p>{compressed}</p>
 </div>
 </td>
 <td>
@@ -2588,7 +2577,7 @@ as returned by <a class="autorefs autorefs-internal" title="asdex.compressed_jac
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2651,7 +2640,7 @@ for the per-mode <code>dim</code>).</p>
 </div><h2 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Jacobian sparsity and color in one step.</p>
@@ -2675,7 +2664,7 @@ for the per-mode <code>dim</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Function whose Jacobian is to be computed.</p>
+<p>{f_jac}</p>
 </div>
 </td>
 <td>
@@ -2691,8 +2680,7 @@ for the per-mode <code>dim</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample arguments of <code>f</code>.
-Only structure and dtypes are used, values are ignored.</p>
+<p>{sample_args}</p>
 </div>
 </td>
 <td>
@@ -2708,12 +2696,11 @@ Only structure and dtypes are used, values are ignored.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Specifies which positional argument(s) to differentiate
-with respect to (default <code>0</code>).</p>
+<p>{argnums}</p>
 </div>
 </td>
 <td>
-<code>0</code>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2725,12 +2712,11 @@ with respect to (default <code>0</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>If <code>True</code>, <code>f</code> is assumed to return <code>(output, aux)</code>
-where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
+<p>{has_aux_detect}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2742,19 +2728,15 @@ where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
 
   
       module-attribute
-   (asdex.modes.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
+   (asdex._types.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>AD mode.
-<code>"fwd"</code> uses JVPs (forward-mode AD),
-<code>"rev"</code> uses VJPs (reverse-mode AD),
-<code>None</code> picks whichever of fwd/rev needs fewer colors
-(unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
+<p>{mode_jac_coloring}</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code><span title="asdex._defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2766,12 +2748,11 @@ where <code>aux</code> is auxiliary data ignored by sparsity detection.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to use symmetric (star) coloring.
-Requires a square Jacobian.</p>
+<p>{symmetric_jac}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2783,14 +2764,11 @@ Requires a square Jacobian.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Only read when <code>symmetric=True</code>.
-Prune colors never used as hubs and compact the remaining ones
-(reduces the number of VJPs/JVPs during decompression).
-Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+<p>{postprocess_jac}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2802,8 +2780,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample keyword arguments to pass to <code>f</code> during sparsity detection.
-Non-traceable values (bools, strings, ints) are bound statically.</p>
+<p>{sample_kwargs_detect}</p>
 </div>
 </td>
 <td>
@@ -2828,7 +2805,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2847,7 +2824,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring_from_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Color a sparsity pattern for sparse Jacobian computation.</p>
@@ -2874,17 +2851,11 @@ computed together in a single VJP (or JVP).</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a> | <span title="numpy.typing.NDArray">NDArray</span> | <span title="jax.experimental.sparse.BCOO">BCOO</span></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
-
-
-  
-      dataclass
-  " href="../#asdex.SparsityPattern"><code>SparsityPattern</code></a>, NumPy array,
-or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
+<p>{sparsity_jac}</p>
 </div>
 </td>
 <td>
@@ -2900,19 +2871,15 @@ or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
 
   
       module-attribute
-   (asdex.modes.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
+   (asdex._types.JacobianMode)" href="#asdex.JacobianMode">JacobianMode</a> | None</code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>AD mode.
-<code>"fwd"</code> uses JVPs (column coloring),
-<code>"rev"</code> uses VJPs (row coloring).
-<code>None</code> picks whichever of fwd/rev needs fewer colors
-(unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
+<p>{mode_jac_coloring}</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code><span title="asdex._defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2924,12 +2891,11 @@ or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether to use symmetric (star) coloring.
-Requires a square pattern.</p>
+<p>{symmetric_jac}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -2941,14 +2907,11 @@ Requires a square pattern.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Only read when <code>symmetric=True</code>.
-Prune colors never used as hubs and compact the remaining ones
-(reduces the number of VJPs/JVPs during decompression).
-Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
+<p>{postprocess_jac}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
 </td>
 </tr>
 </tbody>
@@ -2969,7 +2932,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -2988,7 +2951,7 @@ Defaults to <code>False</code>, matching SparseMatrixColorings.jl.</p>
 </div><h2 id="sparsity-detection">Sparsity Detection<a class="headerlink" href="#sparsity-detection" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect global Jacobian sparsity pattern for <code>f</code>.</p>
@@ -3015,7 +2978,7 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Function whose Jacobian sparsity pattern is to be detected.</p>
+<p>{f_jac_detect}</p>
 </div>
 </td>
 <td>
@@ -3031,8 +2994,7 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample arguments of <code>f</code>.
-Only structure and dtypes are used, values are ignored.</p>
+<p>{sample_args}</p>
 </div>
 </td>
 <td>
@@ -3048,12 +3010,11 @@ Only structure and dtypes are used, values are ignored.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Specifies which positional argument(s) to differentiate
-with respect to (default <code>0</code>).</p>
+<p>{argnums}</p>
 </div>
 </td>
 <td>
-<code>0</code>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -3065,13 +3026,11 @@ with respect to (default <code>0</code>).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
-When True, only <code>output</code> is analyzed for sparsity;
-the auxiliary branch of the computation is not traced.</p>
+<p>{has_aux_detect}</p>
 </div>
 </td>
 <td>
-<code>False</code>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -3083,8 +3042,7 @@ the auxiliary branch of the computation is not traced.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Sample keyword arguments of <code>f</code>.
-Non-traceable values (bools, strings) are bound statically.</p>
+<p>{sample_kwargs_detect}</p>
 </div>
 </td>
 <td>
@@ -3109,7 +3067,7 @@ Non-traceable values (bools, strings) are bound statically.</p>
 
   
       dataclass
-   (asdex.pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
+   (asdex._pattern.SparsityPattern)" href="../#asdex.SparsityPattern">SparsityPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
@@ -3125,7 +3083,7 @@ flat size of the selected inputs.</p>
 </div><h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.check_jacobian_correctness">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'matvec'</span><span class="p">,</span> <span class="n">num_probes</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">check_jacobian_correctness</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">_DEFAULT_VERIFY_METHOD</span><span class="p">,</span> <span class="n">num_probes</span><span class="o">=</span><span class="n">_DEFAULT_NUM_PROBES</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">_DEFAULT_SEED</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">_DEFAULT_TOL</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">_DEFAULT_TOL</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.check_jacobian_correctness" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Verify asdex's sparse Jacobian against a JAX reference at a given input.</p>
@@ -3149,7 +3107,7 @@ flat size of the selected inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Function whose Jacobian is to be verified.</p>
+<p>{f_jac_verify}</p>
 </div>
 </td>
 <td>
@@ -3165,9 +3123,7 @@ flat size of the selected inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Input at which to evaluate the Jacobian.
-For multi-input functions (where <code>argnums</code> is a tuple),
-pass a tuple of all positional arguments.</p>
+<p x_multi_input="x_multi_input">{x_jac}</p>
 </div>
 </td>
 <td>
@@ -3184,12 +3140,11 @@ pass a tuple of all positional arguments.</p>
 
   
       dataclass
-   (asdex.pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
+   (asdex._pattern.ColoredPattern)" href="../#asdex.ColoredPattern">ColoredPattern</a></code>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Pre-computed colored pattern from
-:func:<code>~asdex.jacobian_coloring</code>.</p>
+<p>{coloring_jac_verify}</p>
 </div>
 </td>
 <td>
@@ -3205,15 +3160,11 @@ pass a tuple of all positional arguments.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Verification method.
-<code>"matvec"</code> uses randomized matrix-vector products,
-which is O(k) in the number of probes.
-<code>"dense"</code> materializes the full dense Jacobian,
-which is O(n^2).</p>
+<p>{verify_method}</p>
 </div>
 </td>
 <td>
-<code>'matvec'</code>
+<code><span title="asdex._defaults._DEFAULT_VERIFY_METHOD">_DEFAULT_VERIFY_METHOD</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -3225,11 +3176,11 @@ which is O(n^2).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Number of random probe vectors (only used by <code>"matvec"</code>).</p>
+<p>{num_probes}</p>
 </div>
 </td>
 <td>
-<code>25</code>
+<code><span title="asdex._defaults._DEFAULT_NUM_PROBES">_DEFAULT_NUM_PROBES</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -3241,11 +3192,11 @@ which is O(n^2).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>PRNG seed for reproducibility (only used by <code>"matvec"</code>).</p>
+<p>{seed}</p>
 </div>
 </td>
 <td>
-<code>0</code>
+<code><span title="asdex._defaults._DEFAULT_SEED">_DEFAULT_SEED</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -3257,12 +3208,11 @@ which is O(n^2).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Relative tolerance for comparison.
-Defaults to 1e-5 for <code>"matvec"</code> and 1e-7 for <code>"dense"</code>.</p>
+<p>{rtol}</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code><span title="asdex._defaults._DEFAULT_TOL">_DEFAULT_TOL</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -3274,12 +3224,11 @@ Defaults to 1e-5 for <code>"matvec"</code> and 1e-7 for <code>"dense"</code>.</p
 </td>
 <td>
 <div class="doc-md-description">
-<p>Absolute tolerance for comparison.
-Defaults to 1e-5 for <code>"matvec"</code> and 1e-7 for <code>"dense"</code>.</p>
+<p>{atol}</p>
 </div>
 </td>
 <td>
-<code>None</code>
+<code><span title="asdex._defaults._DEFAULT_TOL">_DEFAULT_TOL</span></code>
 </td>
 </tr>
 </tbody>
@@ -3295,7 +3244,7 @@ Defaults to 1e-5 for <code>"matvec"</code> and 1e-7 for <code>"dense"</code>.</p
 <tbody>
 <tr class="doc-section-item">
 <td>
-<code><a class="autorefs autorefs-internal" title="asdex.VerificationError (asdex.verify.VerificationError)" href="../#asdex.VerificationError">VerificationError</a></code>
+<code><a class="autorefs autorefs-internal" title="asdex.VerificationError (asdex._errors.VerificationError)" href="../#asdex.VerificationError">VerificationError</a></code>
 </td>
 <td>
 <div class="doc-md-description">
