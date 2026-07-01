@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._pattern import ColoredPattern, SparsityPattern, _compressed_pattern
 
 
 def _import_matplotlib() -> Any:
@@ -96,12 +96,7 @@ def _spy_colored(
     if ax is None:
         _, ax = plt.subplots()
 
-    if compressed:
-        from asdex._display import _compressed_pattern  # noqa: PLC0415
-
-        pattern = _compressed_pattern(colored)
-    else:
-        pattern = colored.sparsity
+    pattern = _compressed_pattern(colored) if compressed else colored.sparsity
 
     # Build grid with NaN for zeros, color index for nonzeros
     grid = np.full((pattern.m, pattern.n), np.nan)

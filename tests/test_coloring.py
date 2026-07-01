@@ -28,7 +28,7 @@ from asdex import (
     jacobian_coloring,
     jacobian_coloring_from_sparsity,
 )
-from asdex._display import _compressed_pattern
+from asdex._pattern import _compressed_pattern
 from asdex.coloring import (
     InvalidColoringError,
     StarSet,
