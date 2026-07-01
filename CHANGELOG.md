@@ -2,16 +2,15 @@
 
 ## Version `v0.4.1`
 * ![Feature][badge-feature] Add compressed-differentiation API (`compressed_jacobian`, `compressed_hessian`, their `value_and_*` and `*_from_coloring` variants) returning the raw compressed matrix `B` ([#155])
-* ![Feature][badge-feature] Add `decompress` and `decompress_data` to turn a compressed matrix back into a sparse matrix or its raw values ([#155])
-* ![Enhancement][badge-enhancement] Compute the primal value for free in reverse-over-forward Hessians, so `value_and_hessian(mode="rev_over_fwd")` no longer costs an extra function evaluation ([#155])
-* ![Maintenance][badge-maintenance] Split `decompression.py` into a package and extract the batched-AD engine into `differentiation.py` ([#155])
+* ![Feature][badge-feature] Add `decompress` and `decompress_data` to turn a compressed matrix back into a sparse matrix or its raw values respectively ([#155])
+* ![Bugfix][badge-bugfix] Compute the primal value for free in reverse-over-forward Hessians, so `value_and_hessian(mode="rev_over_fwd")` no longer costs an extra function evaluation ([#155])
 * ![Documentation][badge-docs] Update README and how-to guides with new `v0.3` and `v0.4` features ([#154])
 
 ```python
 coloring = asdex.jacobian_coloring(f, x)
 B = asdex.compressed_jacobian_from_coloring(f, coloring)(x)  # compressed matrix
 J = asdex.decompress(B, coloring)                            # back to a sparse matrix
-data = asdex.decompress_data(B, coloring)                    # raw values, jittable
+data = asdex.decompress_data(B, coloring)                    # raw values
 ```
 
 ## Version `v0.4.0`
