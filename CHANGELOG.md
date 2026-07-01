@@ -1,6 +1,6 @@
 # asdex
 
-## Version `v0.4.1`
+## Version `v0.5.0`
 * ![Feature][badge-feature] Add compressed-differentiation API (`compressed_jacobian`, `compressed_hessian`, their `value_and_*` and `*_from_coloring` variants) returning the raw compressed matrix `B` ([#155])
 * ![Feature][badge-feature] Add `decompress` and `decompress_data` to turn a compressed matrix back into a sparse matrix or its raw values respectively ([#155])
 * ![Bugfix][badge-bugfix] Compute the primal value for free in reverse-over-forward Hessians, so `value_and_hessian(mode="rev_over_fwd")` no longer costs an extra function evaluation ([#155])
