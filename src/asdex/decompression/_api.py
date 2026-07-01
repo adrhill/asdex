@@ -18,7 +18,12 @@ from typing import Any
 
 import jax
 
-from asdex._api_utils import _ensure_index, merge_args_kwargs, merge_sample_inputs
+from asdex._arguments import (
+    _assert_chunk_size,
+    _ensure_index,
+    merge_args_kwargs,
+    merge_sample_inputs,
+)
 from asdex._defaults import (
     _DEFAULT_ALLOW_INT,
     _DEFAULT_ARGNUMS,
@@ -41,7 +46,6 @@ from asdex._pattern import ColoredPattern
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.decompression._compress import (
-    _assert_chunk_size,
     _CallCache,
     _compress_hessian,
     _compress_jacobian,

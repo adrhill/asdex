@@ -26,9 +26,10 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 
-from asdex._api_utils import (
+from asdex._arguments import (
     _selected_args,
     _selected_dtype,
+    _validate_args,
     validate_input_dtypes,
     validate_output_dtypes,
 )
@@ -41,7 +42,6 @@ from asdex.decompression._compress import (
     _cached_scalar_fn,
     _CallCache,
     _strip_aux,
-    _validate_args,
 )
 from asdex.decompression._decompress import (
     _build_hessian,

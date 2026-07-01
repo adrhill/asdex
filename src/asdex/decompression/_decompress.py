@@ -30,6 +30,7 @@ from asdex._modes import (
     _import_scipy_coo_array,
 )
 from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._pytree import to_numpy_pytree
 
 
 class _BCOOLeaf:
@@ -109,11 +110,6 @@ def _assert_scipy_supported_hessian(
         "SciPy sparse formats only support 2D Hessians: "
         f"output_format={fmt!r} requires the input to be a single flat (1D) array."
     )
-
-
-def _to_numpy_pytree(pytree: Any) -> Any:
-    """Convert each JAX array leaf in a pytree to ``numpy.ndarray``."""
-    return jax.tree_util.tree_map(np.asarray, pytree)
 
 
 # Gather: compressed B -> (nnz,) data in sparsity order
@@ -268,7 +264,7 @@ def _build_jacobian(
             return _assemble_jacobian(data, coloring, output_format, out_struct)
         case "numpy_dense":
             jac = _assemble_jacobian(data, coloring, "dense", out_struct)
-            return _to_numpy_pytree(jac)
+            return to_numpy_pytree(jac)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -304,7 +300,7 @@ def _build_hessian(
             return _assemble_hessian(data, coloring, output_format)
         case "numpy_dense":
             hess = _assemble_hessian(data, coloring, "dense")
-            return _to_numpy_pytree(hess)
+            return to_numpy_pytree(hess)
         case _ as unreachable:
             assert_never(unreachable)
 

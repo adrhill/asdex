@@ -29,7 +29,7 @@ from asdex import (
     value_and_jacobian,
     value_and_jacobian_from_coloring,
 )
-from asdex._api_utils import _selected_dtype
+from asdex._arguments import _selected_dtype
 from asdex._differentiation import (
     _flatten_grad_output,
     _flatten_selected_cotangents,

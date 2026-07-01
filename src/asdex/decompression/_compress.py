@@ -7,8 +7,8 @@ short-circuit empty patterns, then call the batched-AD engine in
 ``differentiation.py`` and return the compressed matrix ``B`` of shape
 ``(num_colors, dim)`` (plus the forward value and aux).
 
-It also holds the input-prep helpers shared with the composition layer
-(``_validate_args``, the cached ``out_struct``/scalar-wrapper memos),
+It also holds the per-closure call cache shared with the composition layer
+(the cached ``out_struct``/scalar-wrapper memos),
 so the one-shot path and the public ``compressed_*`` path prepare inputs the
 same way.
 This module never imports the decompress side: it stops at ``B``.
@@ -22,50 +22,16 @@ from typing import Any, Literal
 import jax
 import jax.numpy as jnp
 
-from asdex._api_utils import (
+from asdex._arguments import (
     _selected_args,
     _selected_dtype,
+    _validate_args,
     validate_input_dtypes,
     validate_output_dtypes,
 )
 from asdex._differentiation import _hessian_compressed, _jacobian_compressed
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex.detection._api import _ensure_scalar, _strip_aux
-
-
-def _assert_chunk_size(chunk_size: int | None) -> None:
-    """Validate chunk_size parameter."""
-    if chunk_size is not None and chunk_size <= 0:
-        raise ValueError(f"chunk_size must be positive, got {chunk_size}")
-
-
-def _validate_args(args: tuple[Any, ...], sparsity: SparsityPattern) -> None:
-    """Check ``args`` match the pattern's declared positional-arg structure."""
-    if len(args) != len(sparsity.input_avals):
-        raise ValueError(
-            f"Expected {len(sparsity.input_avals)} positional argument(s), "
-            f"got {len(args)}."
-        )
-    for i, (arg, aval) in enumerate(zip(args, sparsity.input_avals, strict=True)):
-        user_tree = jax.tree_util.tree_structure(arg)
-        aval_tree = jax.tree_util.tree_structure(aval)
-        if user_tree != aval_tree:
-            raise ValueError(
-                f"Argument {i} pytree structure {user_tree} does not match "
-                f"the colored pattern, which expects {aval_tree}."
-            )
-        user_leaves = jax.tree_util.tree_leaves(arg)
-        aval_leaves = jax.tree_util.tree_leaves(aval)
-        for k, (leaf, expected) in enumerate(
-            zip(user_leaves, aval_leaves, strict=True)
-        ):
-            leaf_shape = tuple(getattr(leaf, "shape", ()))
-            if leaf_shape != tuple(expected.shape):
-                raise ValueError(
-                    f"Argument {i} leaf {k} shape {leaf_shape} does not match "
-                    f"expected {tuple(expected.shape)}."
-                )
-
 
 # Per-closure call cache
 #

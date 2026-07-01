@@ -13,7 +13,7 @@ import pytest
 from jax import ShapeDtypeStruct
 
 import asdex
-from asdex._api_utils import (
+from asdex._arguments import (
     _check_input_dtype_fwd,
     _check_input_dtype_rev,
     _check_output_dtype_rev,

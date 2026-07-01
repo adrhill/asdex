@@ -1,17 +1,27 @@
-"""Input-side API helpers: argnums normalization, dtype validation, kwargs binding.
+"""Argument handling and validation at the public API boundary.
 
-Handles everything that runs at the public API boundary before AD kicks in:
+Everything that reconciles the caller's positional args, keyword args,
+and ``argnums`` against the traced function,
+then checks the differentiated arguments are well-formed,
+before AD kicks in:
 
 - ``_ensure_index`` / ``_ensure_inbounds`` normalize ``argnums`` exactly once
   at definition time, mirroring ``jax._src.api_util``.
   The int-vs-tuple distinction is load-bearing: it determines whether the
   returned Jacobian is a single pytree or a tuple of pytrees.
 - ``avals_from_args`` extracts ``ShapeDtypeStruct`` pytrees from sample inputs.
-- ``_validate_input_dtypes`` / ``_validate_output_dtypes`` gate AD on dtype
+- ``merge_sample_inputs`` / ``merge_args_kwargs`` resolve keyword arguments to
+  positions and bind non-traceable arguments statically.
+- ``validate_input_dtypes`` / ``validate_output_dtypes`` gate AD on dtype
   compatibility, honoring the ``holomorphic`` and ``allow_int`` kwargs.
   The checks mirror ``jax._src.api._check_{input,output}_dtype_{jacrev,jacfwd}``
   but are reimplemented here to avoid coupling to jax's private API.
-- ``output_size`` computes the total number of elements in a PyTree output.
+- ``_validate_args`` / ``_assert_chunk_size`` check call-time arguments against
+  the pattern's declared structure and shapes.
+- ``_selected_args`` and friends slice out the differentiated input subspace.
+
+The generic ``pytree <-> flat array`` plumbing these build on
+lives in ``asdex._pytree``.
 """
 
 from __future__ import annotations
@@ -233,6 +243,43 @@ def validate_output_dtypes(y: Any, mode: str, holomorphic: bool) -> None:
         check = lambda a: _check_output_dtype_rev(holomorphic, a)  # noqa: E731
     for leaf in jax.tree_util.tree_leaves(y):
         check(leaf)
+
+
+# Call-argument structure validation
+
+
+def _assert_chunk_size(chunk_size: int | None) -> None:
+    """Validate chunk_size parameter."""
+    if chunk_size is not None and chunk_size <= 0:
+        raise ValueError(f"chunk_size must be positive, got {chunk_size}")
+
+
+def _validate_args(args: tuple[Any, ...], sparsity: SparsityPattern) -> None:
+    """Check ``args`` match the pattern's declared positional-arg structure."""
+    if len(args) != len(sparsity.input_avals):
+        raise ValueError(
+            f"Expected {len(sparsity.input_avals)} positional argument(s), "
+            f"got {len(args)}."
+        )
+    for i, (arg, aval) in enumerate(zip(args, sparsity.input_avals, strict=True)):
+        user_tree = jax.tree_util.tree_structure(arg)
+        aval_tree = jax.tree_util.tree_structure(aval)
+        if user_tree != aval_tree:
+            raise ValueError(
+                f"Argument {i} pytree structure {user_tree} does not match "
+                f"the colored pattern, which expects {aval_tree}."
+            )
+        user_leaves = jax.tree_util.tree_leaves(arg)
+        aval_leaves = jax.tree_util.tree_leaves(aval)
+        for k, (leaf, expected) in enumerate(
+            zip(user_leaves, aval_leaves, strict=True)
+        ):
+            leaf_shape = tuple(getattr(leaf, "shape", ()))
+            if leaf_shape != tuple(expected.shape):
+                raise ValueError(
+                    f"Argument {i} leaf {k} shape {leaf_shape} does not match "
+                    f"expected {tuple(expected.shape)}."
+                )
 
 
 # Kwargs handling
@@ -501,40 +548,6 @@ def merge_sample_inputs(
         return f_original(*full_args)
 
     return tuple(traceable_args), f_bound, remapped_argnums
-
-
-# Output PyTree utilities
-
-
-def output_size(pytree: Any) -> int:
-    """Compute the total number of elements in a PyTree of arrays.
-
-    Used to determine the number of output dimensions for Jacobian computation,
-    mirroring JAX's approach of flattening PyTree outputs.
-    """
-    leaves = jax.tree_util.tree_leaves(pytree)
-    return sum(np.size(leaf) for leaf in leaves)
-
-
-def flatten_pytree(pytree: Any) -> jax.Array:
-    """Flatten a PyTree of arrays into a single 1D array."""
-    leaves = jax.tree_util.tree_leaves(pytree)
-    return jnp.concatenate([jnp.asarray(leaf).ravel() for leaf in leaves])
-
-
-def unflatten_to_pytree(flat: jax.Array, struct: Any) -> Any:
-    """Unflatten a 1D array into a PyTree matching the given structure.
-
-    Mirrors JAX's _unravel_array_into_pytree for cotangent construction.
-    """
-    leaves, treedef = jax.tree_util.tree_flatten(struct)
-    sizes = [np.size(leaf) for leaf in leaves]
-    splits = np.cumsum(sizes[:-1])
-    parts = jnp.split(flat, splits)
-    reshaped = [
-        part.reshape(leaf.shape) for part, leaf in zip(parts, leaves, strict=True)
-    ]
-    return jax.tree_util.tree_unflatten(treedef, reshaped)
 
 
 # Selected-input helpers

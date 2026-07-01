@@ -9,11 +9,6 @@ import numpy as np
 from jax.experimental.sparse import BCOO
 from numpy.typing import ArrayLike, NDArray
 
-from asdex._api_utils import (
-    flatten_pytree,
-    output_size,
-    unflatten_to_pytree,
-)
 from asdex._defaults import (
     _DEFAULT_NUM_PROBES,
     _DEFAULT_SEED,
@@ -23,6 +18,11 @@ from asdex._defaults import (
 from asdex._docstrings import _fill_doc
 from asdex._modes import _assert_jacobian_mode
 from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._pytree import (
+    flatten_pytree,
+    output_size,
+    unflatten_to_pytree,
+)
 from asdex.coloring import InvalidColoringError
 from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
 

@@ -16,7 +16,7 @@ and the public API surface that exposes it.
 - `_compress.py` — **stage 1**.
   Validate the call arguments and dtypes, short-circuit empty patterns,
   call the batched-AD engine in `_differentiation.py`, and return `B` (plus the forward value and aux).
-  Also holds the input-prep helpers and the per-closure call cache shared with the composition layer.
+  Also holds the per-closure call cache shared with the composition layer.
 - `_decompress.py` — **stage 2**, the pure consumer of `B`.
   Gathers `B` into the `(nnz,)` data vector in pattern order (`_decompress_data`),
   then either assembles the pytree/tensor output for the high-level functions (`_build_jacobian` / `_build_hessian`)

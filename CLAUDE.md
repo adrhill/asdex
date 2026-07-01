@@ -15,7 +15,7 @@ ASD exploits sparsity to reduce the cost of computing sparse Jacobians and Hessi
 ```
 src/asdex/
 ├── __init__.py         # Public API
-├── _api_utils.py       # Input-side API helpers (argnums normalization, dtype validation)
+├── _arguments.py       # Argument handling and validation (argnums, kwargs binding, dtype/structure checks)
 ├── _display.py         # Display/formatting utilities
 ├── _plotting.py        # Matplotlib visualizations for SparsityPattern and ColoredPattern
 ├── coloring/           # Graph coloring (row, column, symmetric) and convenience functions
@@ -25,6 +25,7 @@ src/asdex/
 ├── _differentiation.py # Batched-AD engine: one VJP/JVP/HVP per color, producing the compressed matrix B
 ├── _modes.py           # Type aliases for AD mode and output format selection (JacobianMode, HessianMode, OutputFormat)
 ├── _pattern.py         # SparsityPattern and ColoredPattern data structures
+├── _pytree.py          # Generic PyTree <-> flat array plumbing (flatten, unflatten, size, dtype)
 └── _verify.py          # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
 ```
 

@@ -11,7 +11,7 @@ import numpy as np
 from jax._src.core import ClosedJaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 
-from asdex._api_utils import (
+from asdex._arguments import (
     _ensure_inbounds,
     _ensure_index,
     avals_from_args,
