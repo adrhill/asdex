@@ -4,20 +4,20 @@ from itertools import product
 
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateIndices,
-    atom_shape,
-    check_no_index_sets,
-    empty_index_set,
-    flat_to_coords,
-    index_sets,
-    numel,
-    row_strides,
+    _atom_shape,
+    _check_no_index_sets,
+    _empty_index_set,
+    _flat_to_coords,
+    _index_sets,
+    _numel,
+    _row_strides,
 )
 
 
-def prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Convolution slides a kernel over the input, computing weighted sums.
 
     Each output element depends on a local spatial window of input elements
@@ -50,18 +50,18 @@ def prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> Non
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.conv_general_dilated.html
     """
-    lhs_indices = index_sets(state_indices, eqn.invars[0])  # Input image dependencies
+    lhs_indices = _index_sets(state_indices, eqn.invars[0])  # Input image dependencies
     # TODO: include kernel (rhs) index sets in output dependencies.
-    check_no_index_sets(state_indices, eqn.invars[1], eqn.primitive.name)
+    _check_no_index_sets(state_indices, eqn.invars[1], eqn.primitive.name)
 
-    out_shape = atom_shape(eqn.outvars[0])
-    out_size = numel(out_shape)
+    out_shape = _atom_shape(eqn.outvars[0])
+    out_size = _numel(out_shape)
 
     batch_group_count = eqn.params.get("batch_group_count", 1)
 
     # Get shapes from avals
-    lhs_shape = atom_shape(eqn.invars[0])
-    rhs_shape = atom_shape(eqn.invars[1])
+    lhs_shape = _atom_shape(eqn.invars[0])
+    rhs_shape = _atom_shape(eqn.invars[1])
 
     # Parse dimension numbers
     dim_nums = eqn.params["dimension_numbers"]
@@ -87,8 +87,8 @@ def prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> Non
     feature_group_count = eqn.params.get("feature_group_count", 1)
     # JAX requires at most one of these to be > 1 at a time.
 
-    lhs_strides = row_strides(lhs_shape)
-    out_strides = row_strides(out_shape)
+    lhs_strides = _row_strides(lhs_shape)
+    out_strides = _row_strides(out_shape)
 
     # Get spatial sizes
     lhs_spatial_sizes = [lhs_shape[d] for d in lhs_spatial_dims]
@@ -110,7 +110,7 @@ def prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> Non
     out_indices: list[IndexSet] = []
 
     for out_flat in range(out_size):
-        out_coord = flat_to_coords(out_flat, out_strides)
+        out_coord = _flat_to_coords(out_flat, out_strides)
 
         out_batch_idx = out_coord[out_batch_dim]
         out_feature_idx = out_coord[out_feature_dim]
@@ -125,7 +125,7 @@ def prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> Non
         in_batch_idx = out_batch_idx + batch_group * n_out_batches
 
         # Collect dependencies from input
-        elem_deps: IndexSet = empty_index_set()
+        elem_deps: IndexSet = _empty_index_set()
 
         # For each position in the kernel window
         for kernel_offsets in product(*[range(k) for k in kernel_spatial_sizes]):

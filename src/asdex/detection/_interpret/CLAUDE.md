@@ -5,9 +5,9 @@ through primitives to determine Jacobian sparsity patterns.
 
 ## Structure
 
-- `__init__.py` — `prop_jaxpr`, `prop_dispatch`, fallback handling.
-- `_commons.py` — shared types (`IndexSet`, `StateIndices`, `StateConsts`) and utilities.
-- Each JAX primitive has its own module: `_foo.py` contains `prop_foo`.
+- `__init__.py` — `_prop_jaxpr`, `_prop_dispatch`, fallback handling.
+- `_common.py` — shared types (`IndexSet`, `StateIndices`, `StateConsts`) and utilities.
+- Each JAX primitive has its own module: `_foo.py` contains `_prop_foo`.
   Includes `_cumsum.py` for cumulative sum.
 - Handlers for external packages (Equinox, Flax, etc.) live in their own subfolders
   (e.g., `_equinox/`).
@@ -28,59 +28,59 @@ through primitives to determine Jacobian sparsity patterns.
 - **"map"**: numpy integer arrays that map output positions to input positions.
   Not index sets.
 
-**Construction** — always use the factory helpers from `_commons`:
-- `empty_index_set()` instead of `set()`
-- `singleton_index_set(i)` instead of `{i}`
-- `empty_index_sets(n)` instead of `[set() for _ in range(n)]`
-- `identity_index_sets(n)` instead of `[{i} for i in range(n)]`
+**Construction** — always use the factory helpers from `_common`:
+- `_empty_index_set()` instead of `set()`
+- `_singleton_index_set(i)` instead of `{i}`
+- `_empty_index_sets(n)` instead of `[set() for _ in range(n)]`
+- `_identity_index_sets(n)` instead of `[{i} for i in range(n)]`
 
 This ensures a future backend swap only requires changing the helpers,
 not every handler.
 
 **Variable names** — use these consistently across handlers:
-- `in_indices`: input index sets (from `index_sets(state_indices, atom)`)
-- `in_shape`: input array shape (from `atom_shape(atom)`)
-- `in_val`: const value for a unary input (from `atom_const_val(atom, state_consts)`)
+- `in_indices`: input index sets (from `_index_sets(state_indices, atom)`)
+- `in_shape`: input array shape (from `_atom_shape(atom)`)
+- `in_val`: const value for a unary input (from `_atom_const_val(atom, state_consts)`)
 - `in1_val` / `in2_val`: const values for binary inputs.
   Use descriptive prefixes when roles differ:
   `lhs_val` / `rhs_val` (dot_general), `pred_val` / `which_val` (select), etc.
 - `in_bounds` / `in1_bounds` / `in2_bounds`: value bounds for inputs
-  (from `atom_value_bounds(atom, state_consts, state_bounds)`)
+  (from `_atom_value_bounds(atom, state_consts, state_bounds)`)
 - `flat_map`: a flat integer array mapping output positions to input positions
 
 **Docstrings** — avoid the term "deps"; prefer "index sets" or "input index sets".
 
-## Common Utilities in `_commons.py`
+## Common Utilities in `_common.py`
 
-- **`position_map(shape)`** —
+- **`_position_map(shape)`** —
   builds an array where each element holds its own flat position.
   Applying operations (transpose, slice, flip) to this array
   reveals which input position each output position reads from.
-- **`permute_indices(in_indices, flat_map)`** —
+- **`_permute_indices(in_indices, flat_map)`** —
   builds output index sets by looking up ``in_indices[flat_map[i]]``
   for each output position.
   Used by handlers that already have a precomputed flat integer map
   (broadcast, tile, gather).
-- **`transform_indices(in_indices, in_shape, transform)`** —
+- **`_transform_indices(in_indices, in_shape, transform)`** —
   builds output index sets by applying ``transform`` to a position map of ``in_shape``.
   The transform function receives an ndarray and returns an ndarray;
-  the result is raveled and passed to ``permute_indices``.
+  the result is raveled and passed to ``_permute_indices``.
   Used by handlers where each output reads exactly one input element
   (transpose, rev, slice, reshape, split, dynamic_slice).
-- **`propagate_const_unary(eqn, state_consts, transform)`** —
+- **`_propagate_const_unary(eqn, state_consts, transform)`** —
   propagates a const value through a unary op by applying `transform`.
-  Mirrors `propagate_const_binary` for the single-input case.
-- **`enumerate_bounded_patterns(ranges, out_size, make_pattern)`** —
+  Mirrors `_propagate_const_binary` for the single-input case.
+- **`_enumerate_bounded_patterns(ranges, out_size, make_pattern)`** —
   enumerates all candidate index combinations from ``ranges``
   (capped at ``_MAX_ENUM_COMBINATIONS``),
   calls ``make_pattern`` for each,
   and unions the results element-wise.
-- **`conservative_indices(all_indices, out_size)`** —
+- **`_conservative_indices(all_indices, out_size)`** —
   conservative fallback where every output element depends on the union of all inputs.
-- **`atom_value_bounds(atom, state_consts, state_bounds)`** —
+- **`_atom_value_bounds(atom, state_consts, state_bounds)`** —
   returns `(lo, hi)` bounds for an atom:
   exact `(val, val)` for constants, tracked bounds for bounded variables, or `None`.
-- **`forward_value_bounds(state_bounds, outer_atoms, inner_vars)`** —
+- **`_forward_value_bounds(state_bounds, outer_atoms, inner_vars)`** —
   transfers known value bounds from outer-scope atoms to inner jaxpr variables.
 
 ## Index Set Aliasing
@@ -88,8 +88,8 @@ not every handler.
 Index sets in `StateIndices` are **shared, not copied**.
 Multiple output elements may reference the same `set[int]` object,
 and output sets may alias input sets.
-Handlers must therefore **never mutate** a set obtained from `state_indices` or `index_sets()`.
-Always build new sets (via `union_all`, `|`, or the factory helpers) instead of mutating in place.
+Handlers must therefore **never mutate** a set obtained from `state_indices` or `_index_sets()`.
+Always build new sets (via `_union_all`, `|`, or the factory helpers) instead of mutating in place.
 
 The one exception is `_fixed_point_loop` in `_while.py`,
 which explicitly copies carry sets before mutating them via `|=`.
@@ -117,7 +117,7 @@ Bounds flow through three roles:
 and **consumers** use them to tighten sparsity
 (`gather`, `scatter`, `dynamic_slice`, `dynamic_update_slice`, comparisons).
 
-**Invariant**: if bounds are unavailable (`atom_value_bounds` returns `None`),
+**Invariant**: if bounds are unavailable (`_atom_value_bounds` returns `None`),
 the handler must assume the worst and return a conservative pattern.
 
 ## Zero-Sized Arrays
@@ -130,8 +130,8 @@ that would crash on zero-sized shapes.
 
 ## Adding a New Handler
 
-1. Write `prop_<name>(eqn, state_indices, ...)` in the appropriate module.
-2. Add a `case` branch in `prop_dispatch`.
+1. Write `_prop_<name>(eqn, state_indices, ...)` in the appropriate module.
+2. Add a `case` branch in `_prop_dispatch`.
 3. Remove from the fallback `case` group if upgrading from conservative.
 4. Add tests in the corresponding `tests/_interpret/test_<module>.py` file.
 

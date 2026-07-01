@@ -4,17 +4,17 @@ from operator import itemgetter
 
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateConsts,
     StateIndices,
-    atom_shape,
-    index_sets,
-    propagate_const_unary,
-    transform_indices,
+    _atom_shape,
+    _index_sets,
+    _propagate_const_unary,
+    _transform_indices,
 )
 
 
-def prop_slice(
+def _prop_slice(
     eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
 ) -> None:
     """Slicing extracts a contiguous (possibly strided) subarray.
@@ -38,18 +38,18 @@ def prop_slice(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.slice.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
     start = eqn.params["start_indices"]
     limit = eqn.params["limit_indices"]
     slice_strides = eqn.params.get("strides") or tuple(1 for _ in start)
 
-    in_shape = atom_shape(eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     slices = tuple(
         slice(start[d], limit[d], slice_strides[d]) for d in range(len(start))
     )
 
-    state_indices[eqn.outvars[0]] = transform_indices(
+    state_indices[eqn.outvars[0]] = _transform_indices(
         in_indices, in_shape, lambda p: p[slices]
     )
 
-    propagate_const_unary(eqn, state_consts, itemgetter(slices))
+    _propagate_const_unary(eqn, state_consts, itemgetter(slices))

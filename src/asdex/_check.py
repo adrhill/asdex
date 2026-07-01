@@ -9,38 +9,39 @@ import numpy as np
 from jax.experimental.sparse import BCOO
 from numpy.typing import ArrayLike, NDArray
 
-from asdex._api_utils import (
-    flatten_pytree,
-    output_size,
-    unflatten_to_pytree,
+from asdex._defaults import (
+    _DEFAULT_DENSE_TOL,
+    _DEFAULT_MATVEC_TOL,
+    _DEFAULT_NUM_PROBES,
+    _DEFAULT_SEED,
+    _DEFAULT_TOL,
+    _DEFAULT_VERIFY_METHOD,
 )
-from asdex.coloring import InvalidColoringError
+from asdex._differentiation import (
+    _build_tangents_from_seed,
+    _flatten_selected_cotangents,
+)
+from asdex._docstrings import _fill_doc
+from asdex._errors import InvalidColoringError, VerificationError
+from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._pytree import (
+    _flatten_pytree,
+    _output_size,
+    _unflatten_to_pytree,
+)
+from asdex._types import _assert_jacobian_mode
 from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
-from asdex.modes import _assert_jacobian_mode
-from asdex.pattern import ColoredPattern, SparsityPattern
-
-
-class VerificationError(AssertionError):
-    """Raised when asdex's sparse result does not match JAX's dense reference.
-
-    This indicates that the detected sparsity pattern is missing nonzeros,
-    which is a bug — asdex's patterns should always be conservative
-    (i.e., contain at least all true nonzeros).
-    If you encounter this error,
-    please help out asdex's development by reporting this at
-    https://github.com/adrhill/asdex/issues.
-    """
-
 
 # Coloring validators
 
 
+@_fill_doc
 def check_coloring_rows(sparsity: SparsityPattern, colors: NDArray[np.int32]) -> None:
     """Check a row coloring: no column contains two rows with the same color.
 
     Args:
-        sparsity: Jacobian sparsity pattern of shape ``(m, n)``.
-        colors: Row color assignment, shape ``(m,)``.
+        sparsity: {sparsity_pattern_jac}
+        colors: {colors_rows}
 
     Raises:
         InvalidColoringError: If the coloring is invalid.
@@ -55,12 +56,13 @@ def check_coloring_rows(sparsity: SparsityPattern, colors: NDArray[np.int32]) ->
             raise InvalidColoringError(msg)
 
 
+@_fill_doc
 def check_coloring_cols(sparsity: SparsityPattern, colors: NDArray[np.int32]) -> None:
     """Check a column coloring: no row contains two columns with the same color.
 
     Args:
-        sparsity: Jacobian sparsity pattern of shape ``(m, n)``.
-        colors: Column color assignment, shape ``(n,)``.
+        sparsity: {sparsity_pattern_jac}
+        colors: {colors_cols}
 
     Raises:
         InvalidColoringError: If the coloring is invalid.
@@ -75,6 +77,7 @@ def check_coloring_cols(sparsity: SparsityPattern, colors: NDArray[np.int32]) ->
             raise InvalidColoringError(msg)
 
 
+@_fill_doc
 def check_coloring_symmetric(
     sparsity: SparsityPattern, colors: NDArray[np.int32]
 ) -> None:
@@ -90,8 +93,8 @@ def check_coloring_symmetric(
     from the P4 check as they represent the absence of a color.
 
     Args:
-        sparsity: Hessian sparsity pattern of shape ``(n, n)``.
-        colors: Vertex color assignment, shape ``(n,)``.
+        sparsity: {sparsity_pattern_hess}
+        colors: {colors_vertex}
 
     Raises:
         ValueError: If pattern is not square.
@@ -151,37 +154,30 @@ def check_coloring_symmetric(
                         raise InvalidColoringError(msg)
 
 
+@_fill_doc
 def check_jacobian_correctness(
     f: Callable[..., Any],
     x: Any,
     coloring: ColoredPattern,
     *,
-    method: Literal["matvec", "dense"] = "matvec",
-    num_probes: int = 25,
-    seed: int = 0,
-    rtol: float | None = None,
-    atol: float | None = None,
+    method: Literal["matvec", "dense"] = _DEFAULT_VERIFY_METHOD,
+    num_probes: int = _DEFAULT_NUM_PROBES,
+    seed: int = _DEFAULT_SEED,
+    rtol: float | None = _DEFAULT_TOL,
+    atol: float | None = _DEFAULT_TOL,
 ) -> None:
     """Verify asdex's sparse Jacobian against a JAX reference at a given input.
 
     Args:
-        f: Function whose Jacobian is to be verified.
-        x: Input at which to evaluate the Jacobian.
-            For multi-input functions (where ``argnums`` is a tuple),
-            pass a tuple of all positional arguments.
-        coloring: Pre-computed colored pattern from
-            :func:`~asdex.jacobian_coloring`.
-        method: Verification method.
-            ``"matvec"`` uses randomized matrix-vector products,
-            which is O(k) in the number of probes.
-            ``"dense"`` materializes the full dense Jacobian,
-            which is O(n^2).
-        num_probes: Number of random probe vectors (only used by ``"matvec"``).
-        seed: PRNG seed for reproducibility (only used by ``"matvec"``).
-        rtol: Relative tolerance for comparison.
-            Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``.
-        atol: Absolute tolerance for comparison.
-            Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``.
+        f: {f_jac_verify}
+        x: {x_jac}
+            {x_multi_input}
+        coloring: {coloring_jac_verify}
+        method: {verify_method}
+        num_probes: {num_probes}
+        seed: {seed}
+        rtol: {rtol}
+        atol: {atol}
 
     Raises:
         VerificationError: If the sparse and reference Jacobians disagree.
@@ -203,10 +199,10 @@ def check_jacobian_correctness(
 
     if multi_input:
         args = x
-        out_size = output_size(jax.eval_shape(f, *args))
+        out_size = _output_size(jax.eval_shape(f, *args))
     else:
         args = (x,)
-        out_size = output_size(jax.eval_shape(f, x))
+        out_size = _output_size(jax.eval_shape(f, x))
 
     if out_size != sparsity.m:
         raise VerificationError(
@@ -222,8 +218,8 @@ def check_jacobian_correctness(
             jac_fn = jax.jacfwd if ref_mode == "fwd" else jax.jacrev
             J_asdex = jacobian_from_coloring(f, coloring, output_format="dense")(*args)
             J_ref = jac_fn(f, argnums=argnums)(*args)
-            rtol_ = rtol if rtol is not None else 1e-7
-            atol_ = atol if atol is not None else 1e-7
+            rtol_ = rtol if rtol is not None else _DEFAULT_DENSE_TOL
+            atol_ = atol if atol is not None else _DEFAULT_DENSE_TOL
             if not _allclose_pytree(J_asdex, J_ref, rtol=rtol_, atol=atol_):
                 raise VerificationError(
                     "asdex's sparse Jacobian does not match JAX's dense reference. "
@@ -248,37 +244,30 @@ def check_jacobian_correctness(
             assert_never(unreachable)
 
 
+@_fill_doc
 def check_hessian_correctness(
     f: Callable[..., Any],
     x: Any,
     coloring: ColoredPattern,
     *,
-    method: Literal["matvec", "dense"] = "matvec",
-    num_probes: int = 25,
-    seed: int = 0,
-    rtol: float | None = None,
-    atol: float | None = None,
+    method: Literal["matvec", "dense"] = _DEFAULT_VERIFY_METHOD,
+    num_probes: int = _DEFAULT_NUM_PROBES,
+    seed: int = _DEFAULT_SEED,
+    rtol: float | None = _DEFAULT_TOL,
+    atol: float | None = _DEFAULT_TOL,
 ) -> None:
     """Verify asdex's sparse Hessian against a JAX reference at a given input.
 
     Args:
-        f: Scalar-valued function taking an array.
-        x: Input at which to evaluate the Hessian.
-            For multi-input functions (where ``argnums`` is a tuple),
-            pass a tuple of all positional arguments.
-        coloring: Pre-computed colored pattern from
-            :func:`~asdex.hessian_coloring`.
-        method: Verification method.
-            ``"matvec"`` uses randomized matrix-vector products,
-            which is O(k) in the number of probes.
-            ``"dense"`` materializes the full dense Hessian,
-            which is O(n^2).
-        num_probes: Number of random probe vectors (only used by ``"matvec"``).
-        seed: PRNG seed for reproducibility (only used by ``"matvec"``).
-        rtol: Relative tolerance for comparison.
-            Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``.
-        atol: Absolute tolerance for comparison.
-            Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``.
+        f: {f_hess_verify}
+        x: {x_hess}
+            {x_multi_input}
+        coloring: {coloring_hess_verify}
+        method: {verify_method}
+        num_probes: {num_probes}
+        seed: {seed}
+        rtol: {rtol}
+        atol: {atol}
 
     Raises:
         VerificationError: If the sparse and reference Hessians disagree.
@@ -304,8 +293,8 @@ def check_hessian_correctness(
         case "dense":
             H_asdex = hessian_from_coloring(f, coloring, output_format="dense")(*args)
             H_ref = jax.hessian(f, argnums=argnums)(*args)
-            rtol_ = rtol if rtol is not None else 1e-7
-            atol_ = atol if atol is not None else 1e-7
+            rtol_ = rtol if rtol is not None else _DEFAULT_DENSE_TOL
+            atol_ = atol if atol is not None else _DEFAULT_DENSE_TOL
             if not _allclose_pytree(H_asdex, H_ref, rtol=rtol_, atol=atol_):
                 raise VerificationError(
                     "asdex's sparse Hessian does not match JAX's dense reference. "
@@ -344,8 +333,9 @@ def _flatten_jacobian_to_dense(
 ) -> jax.Array:
     """Flatten a PyTree of Jacobian blocks into a (m, n) dense matrix.
 
-    This mirrors decompression._assemble_jacobian_blocks in reverse:
-    that function splits a (m, n) matrix into blocks, this reassembles them.
+    This mirrors decompression._assemble_jacobian in reverse:
+    that function splits the Jacobian into per-leaf blocks
+    with (out_tree, in_tree) structure, this reassembles them into a dense (m, n).
 
     Args:
         J_pytree: PyTree of BCOO/array blocks with structure (out_tree, in_tree).
@@ -365,7 +355,7 @@ def _flatten_jacobian_to_dense(
     dense = jnp.zeros((m, n))
 
     # J_pytree has structure (out_tree, in_tree) - flatten to get blocks
-    # in the same order as _assemble_jacobian_blocks produces them
+    # in the same order as _assemble_jacobian produces them
     out_row_offset = 0
     for out_idx, out_size in enumerate(out_leaf_sizes):
         in_col_offset = 0
@@ -465,8 +455,8 @@ def _check_jacobian_matvec(
     atol: float | None = None,
 ) -> None:
     """Verify a sparse Jacobian via randomized matvec products."""
-    rtol = rtol if rtol is not None else 1e-5
-    atol = atol if atol is not None else 1e-5
+    rtol = rtol if rtol is not None else _DEFAULT_MATVEC_TOL
+    atol = atol if atol is not None else _DEFAULT_MATVEC_TOL
     key = jax.random.key(seed)
     keys = jax.random.split(key, num_probes)
 
@@ -474,10 +464,10 @@ def _check_jacobian_matvec(
     args = x if multi_input else (x,)
 
     out_struct = jax.eval_shape(f, *args)
-    m = output_size(out_struct)
+    m = _output_size(out_struct)
 
     dyn_args = tuple(args[i] for i in sparsity._argnums_tuple)
-    n = sum(output_size(a) for a in dyn_args)
+    n = sum(_output_size(a) for a in dyn_args)
 
     # Flatten PyTree of BCOOs into a single (m, n) matrix if needed
     if not isinstance(J_sparse, BCOO):
@@ -489,26 +479,16 @@ def _check_jacobian_matvec(
             case "fwd":
                 v = jax.random.normal(keys[i], shape=(n,))
                 sparse_result = (J_sparse @ v).ravel()
-                tangent = unflatten_to_pytree(v, sparsity.example_input)
-                if multi_input:
-                    tangents = tuple(
-                        tangent[j]
-                        if j in sparsity._argnums_tuple
-                        else jax.tree.map(jnp.zeros_like, args[j])
-                        for j in range(len(args))
-                    )
-                    _, ref_result = jax.jvp(f, args, tangents)
-                else:
-                    _, ref_result = jax.jvp(f, args, (tangent,))
-                ref_result = flatten_pytree(ref_result)
+                tangents = _build_tangents_from_seed(v, args, sparsity)
+                _, ref_result = jax.jvp(f, args, tangents)
+                ref_result = _flatten_pytree(ref_result)
             case "rev":
                 v = jax.random.normal(keys[i], shape=(m,))
                 sparse_result = (v @ J_sparse).ravel()
                 _, vjp_fn = jax.vjp(f, *args)
-                cotangent = unflatten_to_pytree(v, out_struct)
+                cotangent = _unflatten_to_pytree(v, out_struct)
                 ref_results = vjp_fn(cotangent)
-                selected = tuple(ref_results[j] for j in sparsity._argnums_tuple)
-                ref_result = flatten_pytree(selected if multi_input else selected[0])
+                ref_result = _flatten_selected_cotangents(ref_results, sparsity)
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -536,13 +516,13 @@ def _check_hessian_matvec(
     atol: float | None = None,
 ) -> None:
     """Verify a sparse Hessian via randomized H @ v products."""
-    rtol = rtol if rtol is not None else 1e-5
-    atol = atol if atol is not None else 1e-5
+    rtol = rtol if rtol is not None else _DEFAULT_MATVEC_TOL
+    atol = atol if atol is not None else _DEFAULT_MATVEC_TOL
 
     multi_input = isinstance(sparsity.argnums, tuple)
     args = x if multi_input else (x,)
     dyn_args = tuple(args[i] for i in sparsity._argnums_tuple)
-    n = sum(output_size(a) for a in dyn_args)
+    n = sum(_output_size(a) for a in dyn_args)
 
     key = jax.random.key(seed)
     keys = jax.random.split(key, num_probes)
@@ -552,7 +532,7 @@ def _check_hessian_matvec(
         H_sparse = _stack_hessian_pytree(H_sparse, n)
 
     def unflatten_tangent(v: jax.Array) -> Any:
-        return unflatten_to_pytree(v, sparsity.example_input)
+        return _unflatten_to_pytree(v, sparsity.example_input)
 
     argnums = sparsity.argnums
 
@@ -560,38 +540,20 @@ def _check_hessian_matvec(
         case "fwd_over_rev":
 
             def hvp(v: jax.Array) -> jax.Array:
-                tangent = unflatten_tangent(v)
-                if multi_input:
-                    tangents = tuple(
-                        tangent[j]
-                        if j in sparsity._argnums_tuple
-                        else jax.tree.map(jnp.zeros_like, args[j])
-                        for j in range(len(args))
-                    )
-                    _, result = jax.jvp(jax.grad(f, argnums=argnums), args, tangents)
-                else:
-                    _, result = jax.jvp(jax.grad(f), args, (tangent,))
-                return flatten_pytree(result)
+                tangents = _build_tangents_from_seed(v, args, sparsity)
+                _, result = jax.jvp(jax.grad(f, argnums=argnums), args, tangents)
+                return _flatten_pytree(result)
 
         case "rev_over_fwd":
 
             def hvp(v: jax.Array) -> jax.Array:
-                tangent = unflatten_tangent(v)
-                if multi_input:
-                    tangents = tuple(
-                        tangent[j]
-                        if j in sparsity._argnums_tuple
-                        else jax.tree.map(jnp.zeros_like, args[j])
-                        for j in range(len(args))
-                    )
+                tangents = _build_tangents_from_seed(v, args, sparsity)
 
-                    def fwd_fn(*ps: Any) -> jax.Array:
-                        return jax.jvp(f, ps, tangents)[1]
+                def fwd_fn(*ps: Any) -> jax.Array:
+                    return jax.jvp(f, ps, tangents)[1]
 
-                    result = jax.grad(fwd_fn, argnums=argnums)(*args)
-                else:
-                    result = jax.grad(lambda p: jax.jvp(f, (p,), (tangent,))[1])(*args)
-                return flatten_pytree(result)
+                result = jax.grad(fwd_fn, argnums=argnums)(*args)
+                return _flatten_pytree(result)
 
         case "rev_over_rev":
 
@@ -600,12 +562,8 @@ def _check_hessian_matvec(
 
                 def inner(*ys: Any) -> jax.Array:
                     grads = jax.grad(f, argnums=argnums)(*ys)
-                    if multi_input:
-                        grad_leaves = jax.tree_util.tree_leaves(grads)
-                        tangent_leaves = jax.tree_util.tree_leaves(tangent)
-                    else:
-                        grad_leaves = jax.tree_util.tree_leaves(grads)
-                        tangent_leaves = jax.tree_util.tree_leaves(tangent)
+                    grad_leaves = jax.tree_util.tree_leaves(grads)
+                    tangent_leaves = jax.tree_util.tree_leaves(tangent)
                     dots = [
                         jnp.vdot(g, t)
                         for g, t in zip(grad_leaves, tangent_leaves, strict=True)
@@ -613,7 +571,7 @@ def _check_hessian_matvec(
                     return jnp.sum(jnp.stack(dots))
 
                 result = jax.grad(inner, argnums=argnums)(*args)
-                return flatten_pytree(result)
+                return _flatten_pytree(result)
 
         case _ as unreachable:
             assert_never(unreachable)
@@ -668,8 +626,8 @@ def _check_allclose(
     atol: float | None = None,
 ) -> None:
     """Compare sparse and dense results, raising VerificationError on mismatch."""
-    rtol = rtol if rtol is not None else 1e-7
-    atol = atol if atol is not None else 1e-7
+    rtol = rtol if rtol is not None else _DEFAULT_DENSE_TOL
+    atol = atol if atol is not None else _DEFAULT_DENSE_TOL
     sparse_np = np.asarray(sparse)
     dense_np = np.asarray(dense)
 
@@ -696,8 +654,8 @@ def _check_allclose(
 def _allclose_pytree(
     a: Any,
     b: Any,
-    rtol: float = 1e-7,
-    atol: float = 1e-7,
+    rtol: float = _DEFAULT_DENSE_TOL,
+    atol: float = _DEFAULT_DENSE_TOL,
 ) -> bool:
     """Check if two PyTrees are element-wise equal within tolerance."""
 

@@ -28,14 +28,14 @@ from asdex import (
     jacobian_coloring,
     jacobian_coloring_from_sparsity,
 )
-from asdex._display import _compressed_pattern
+from asdex._pattern import _compressed_pattern
 from asdex.coloring import (
     InvalidColoringError,
     StarSet,
+    _reconstruct_edge_arrays,
     color_cols,
     color_rows,
     color_symmetric,
-    reconstruct_edge_arrays,
 )
 
 
@@ -1570,7 +1570,7 @@ def test_star_set_edge_index_missing_edge_raises():
 
 @pytest.mark.coloring
 def test_reconstruct_edge_arrays_matches_color_symmetric():
-    """reconstruct_edge_arrays rebuilds exactly the arrays color_symmetric produced.
+    """_reconstruct_edge_arrays rebuilds exactly the arrays color_symmetric produced.
 
     ``ColoredPattern.load`` relies on this determinism
     to restore the edge arrays without persisting them.
@@ -1579,7 +1579,7 @@ def test_reconstruct_edge_arrays_matches_color_symmetric():
     sparsity = _make_symmetric_graph_no_diagonal(5, edges)
 
     _, _, star_set = color_symmetric(sparsity)
-    edge_lo, edge_hi, edge_pos = reconstruct_edge_arrays(
+    edge_lo, edge_hi, edge_pos = _reconstruct_edge_arrays(
         sparsity.rows, sparsity.cols, sparsity.n
     )
 
@@ -1602,7 +1602,7 @@ def test_reconstruct_edge_arrays_empty_no_aliasing(rows, cols, n):
     Returning one aliased array object three times would let
     in-place mutation of one array silently corrupt the others.
     """
-    edge_lo, edge_hi, edge_pos = reconstruct_edge_arrays(
+    edge_lo, edge_hi, edge_pos = _reconstruct_edge_arrays(
         np.asarray(rows, dtype=np.int32), np.asarray(cols, dtype=np.int32), n
     )
 

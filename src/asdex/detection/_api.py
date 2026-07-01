@@ -11,22 +11,25 @@ import numpy as np
 from jax._src.core import ClosedJaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 
-from asdex._api_utils import (
+from asdex._arguments import (
+    _avals_from_args,
     _ensure_inbounds,
     _ensure_index,
-    avals_from_args,
-    merge_sample_inputs,
+    _merge_sample_inputs,
 )
-from asdex.detection._interpret import prop_jaxpr
-from asdex.detection._interpret._commons import empty_index_sets
-from asdex.pattern import SparsityPattern
+from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
+from asdex._docstrings import _fill_doc
+from asdex._pattern import SparsityPattern
+from asdex.detection._interpret import _prop_jaxpr
+from asdex.detection._interpret._common import _empty_index_sets
 
 
+@_fill_doc
 def jacobian_sparsity(
     f: Callable,
     *args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
     **kwargs: Any,
 ) -> SparsityPattern:
     """Detect global Jacobian sparsity pattern for ``f``.
@@ -36,16 +39,11 @@ def jacobian_sparsity(
     The result is valid for all inputs.
 
     Args:
-        f: Function whose Jacobian sparsity pattern is to be detected.
-        *args: Sample arguments of ``f``.
-            Only structure and dtypes are used, values are ignored.
-        argnums: Specifies which positional argument(s) to differentiate
-            with respect to (default ``0``).
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
-            When True, only ``output`` is analyzed for sparsity;
-            the auxiliary branch of the computation is not traced.
-        **kwargs: Sample keyword arguments of ``f``.
-            Non-traceable values (bools, strings) are bound statically.
+        f: {f_jac_detect}
+        *args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux_detect}
+        **kwargs: {sample_kwargs_detect}
 
     Returns:
         SparsityPattern of shape ``(m, n_selected)``
@@ -53,8 +51,8 @@ def jacobian_sparsity(
             flat size of the selected inputs.
     """
     argnums = _ensure_index(argnums)
-    args, f, argnums = merge_sample_inputs(f, args, kwargs, argnums)
-    avals = avals_from_args(args)
+    args, f, argnums = _merge_sample_inputs(f, args, kwargs, argnums)
+    avals = _avals_from_args(args)
     selected = _argnums_tuple(argnums, len(args))
 
     # Resolve negative indices while preserving int-vs-tuple distinction
@@ -79,11 +77,12 @@ def jacobian_sparsity(
     )
 
 
+@_fill_doc
 def hessian_sparsity(
     f: Callable,
     *args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
     **kwargs: Any,
 ) -> SparsityPattern:
     """Detect global Hessian sparsity pattern for a scalar-valued ``f``.
@@ -96,21 +95,17 @@ def hessian_sparsity(
     it is automatically squeezed to scalar.
 
     Args:
-        f: Scalar-valued function taking one or more positional arrays.
-        *args: Sample arguments of ``f``.
-            Only structure and dtypes are used, values are ignored.
-        argnums: Specifies which positional argument(s) to differentiate
-            with respect to (default ``0``).
-        has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``.
-            When True, aux is stripped before detection.
-        **kwargs: Sample keyword arguments of ``f``.
-            Non-traceable values (bools, strings) are bound statically.
+        f: {f_hess_detect}
+        *args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux_detect}
+        **kwargs: {sample_kwargs_detect}
 
     Returns:
         Square SparsityPattern over the combined, selected input space.
     """
     argnums = _ensure_index(argnums)
-    args, f, argnums = merge_sample_inputs(f, args, kwargs, argnums)
+    args, f, argnums = _merge_sample_inputs(f, args, kwargs, argnums)
 
     f_out = _strip_aux(f) if has_aux else f
     f_scalar = _ensure_scalar(f_out, args)
@@ -179,12 +174,12 @@ def _build_input_indices(
                 col_offset += size
         else:
             for leaf in leaves:
-                input_indices.append(empty_index_sets(int(leaf.size)))  # noqa: PERF401
+                input_indices.append(_empty_index_sets(int(leaf.size)))  # noqa: PERF401
     return input_indices, n_selected
 
 
 def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
-    """Run ``prop_jaxpr`` and concatenate index sets across all output leaves.
+    """Run ``_prop_jaxpr`` and concatenate index sets across all output leaves.
 
     JAX flattens pytree-structured outputs into one ``outvar`` per leaf, so
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
@@ -194,7 +189,7 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
         var: np.asarray(val)
         for var, val in zip(jaxpr.constvars, closed_jaxpr.consts, strict=False)
     }
-    output_indices_list = prop_jaxpr(jaxpr, input_indices, state_consts)
+    output_indices_list = _prop_jaxpr(jaxpr, input_indices, state_consts)
     flat: list = []
     for out_deps in output_indices_list:
         flat.extend(out_deps)

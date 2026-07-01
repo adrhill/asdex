@@ -5,17 +5,17 @@ from functools import partial
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateConsts,
     StateIndices,
-    atom_shape,
-    index_sets,
-    permute_indices,
-    propagate_const_unary,
+    _atom_shape,
+    _index_sets,
+    _permute_indices,
+    _propagate_const_unary,
 )
 
 
-def prop_tile(
+def _prop_tile(
     eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
 ) -> None:
     """Tile repeats an array along each dimension.
@@ -35,8 +35,8 @@ def prop_tile(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.tile.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
-    in_shape = atom_shape(eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     reps = eqn.params["reps"]
 
     out_shape = tuple(s * r for s, r in zip(in_shape, reps, strict=True))
@@ -46,6 +46,6 @@ def prop_tile(
     in_coords = tuple(out_coords[d] % in_shape[d] for d in range(len(in_shape)))
     flat_map = np.ravel_multi_index(in_coords, in_shape).ravel()
 
-    state_indices[eqn.outvars[0]] = permute_indices(in_indices, flat_map)
+    state_indices[eqn.outvars[0]] = _permute_indices(in_indices, flat_map)
 
-    propagate_const_unary(eqn, state_consts, partial(np.tile, reps=reps))
+    _propagate_const_unary(eqn, state_consts, partial(np.tile, reps=reps))

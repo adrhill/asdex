@@ -2,19 +2,19 @@
 
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateIndices,
-    atom_shape,
-    empty_index_set,
-    flat_to_coords,
-    index_sets,
-    numel,
-    row_strides,
+    _atom_shape,
+    _empty_index_set,
+    _flat_to_coords,
+    _index_sets,
+    _numel,
+    _row_strides,
 )
 
 
-def prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Padding inserts constant-valued elements around an array.
 
     Each output element either maps back to exactly one input element
@@ -39,10 +39,10 @@ def prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.pad.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
-    pad_indices = index_sets(state_indices, eqn.invars[1])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
+    pad_indices = _index_sets(state_indices, eqn.invars[1])
 
-    in_shape = atom_shape(eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     padding_config = eqn.params["padding_config"]
     ndim = len(in_shape)
 
@@ -54,16 +54,16 @@ def prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
         for d, (low, high, interior) in enumerate(padding_config)
     )
 
-    in_strides = row_strides(in_shape)
-    out_strides = row_strides(out_shape)
-    out_size = numel(out_shape)
+    in_strides = _row_strides(in_shape)
+    out_strides = _row_strides(out_shape)
+    out_size = _numel(out_shape)
 
     # The padding value is a scalar; use its first (only) dep set.
-    pad_dep = pad_indices[0] if pad_indices else empty_index_set()
+    pad_dep = pad_indices[0] if pad_indices else _empty_index_set()
 
     out_indices: list[IndexSet] = []
     for out_flat in range(out_size):
-        out_coord = flat_to_coords(out_flat, out_strides)
+        out_coord = _flat_to_coords(out_flat, out_strides)
 
         # Reverse-map each output coordinate to an input coordinate.
         in_flat = 0

@@ -2,30 +2,30 @@
 
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     PropJaxprFn,
     StateConsts,
     StateIndices,
-    atom_shape,
-    forward_const_vals,
-    index_sets,
-    seed_const_vals,
+    _atom_shape,
+    _forward_const_vals,
+    _index_sets,
+    _seed_const_vals,
 )
 
 
-def prop_scan(
+def _prop_scan(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
-    prop_jaxpr: PropJaxprFn,
+    _prop_jaxpr: PropJaxprFn,
 ) -> None:
     """Scan applies a body jaxpr iteratively, threading carry across iterations.
 
     Unlike ``while_loop`` (unknown iteration count, same inputs each iteration),
     scan has a known ``length`` and different ``xs[t]`` per timestep.
     Dependencies are propagated via forward simulation:
-    one ``prop_jaxpr`` call per timestep, threading carry deps forward.
+    one ``_prop_jaxpr`` call per timestep, threading carry deps forward.
 
     Layout:
         invars:  [consts..., carry_init..., xs...]
@@ -56,35 +56,35 @@ def prop_scan(
     carry_final = eqn.outvars[:num_carry]
     ys = eqn.outvars[num_carry:]
 
-    seed_const_vals(state_consts, body_jaxpr.constvars, body_closed.consts)
-    forward_const_vals(state_consts, consts, body_jaxpr.invars[:num_consts])
+    _seed_const_vals(state_consts, body_jaxpr.constvars, body_closed.consts)
+    _forward_const_vals(state_consts, consts, body_jaxpr.invars[:num_consts])
 
     # Prepare const index sets for the body
-    const_inputs: list[list[IndexSet]] = [index_sets(state_indices, v) for v in consts]
+    const_inputs: list[list[IndexSet]] = [_index_sets(state_indices, v) for v in consts]
 
     # Initialize carry from carry_init
     carry_indices: list[list[IndexSet]] = [
-        index_sets(state_indices, v) for v in carry_init
+        _index_sets(state_indices, v) for v in carry_init
     ]
 
     # Pre-compute xs index sets and per-slice sizes
-    xs_all_indices: list[list[IndexSet]] = [index_sets(state_indices, v) for v in xs]
+    xs_all_indices: list[list[IndexSet]] = [_index_sets(state_indices, v) for v in xs]
     xs_slice_numels: list[int] = []
     for i, x_var in enumerate(xs):
-        x_shape = atom_shape(x_var)
+        x_shape = _atom_shape(x_var)
         if len(x_shape) == 0:
             raise AssertionError("scan xs must have a leading length dim")
         xs_slice_numels.append(len(xs_all_indices[i]) // x_shape[0])
 
     # Determine iteration length from xs or params
-    iter_length: int = atom_shape(xs[0])[0] if xs else length
+    iter_length: int = _atom_shape(xs[0])[0] if xs else length
 
     # Validate ys shapes
     for y_var in ys:
-        if len(atom_shape(y_var)) == 0:
+        if len(_atom_shape(y_var)) == 0:
             raise AssertionError("scan ys must have a leading length dim")
 
-    # Forward simulation: one prop_jaxpr call per timestep,
+    # Forward simulation: one _prop_jaxpr call per timestep,
     # threading carry forward and collecting per-timestep ys.
     num_ys = len(ys)
     ys_per_step: list[list[list[IndexSet]]] = [[] for _ in range(num_ys)]
@@ -97,7 +97,7 @@ def prop_scan(
             sn = xs_slice_numels[i]
             xs_slice_inputs.append(xs_all_indices[i][t * sn : (t + 1) * sn])
 
-        body_output = prop_jaxpr(
+        body_output = _prop_jaxpr(
             body_jaxpr, const_inputs + carry_indices + xs_slice_inputs, state_consts
         )
 

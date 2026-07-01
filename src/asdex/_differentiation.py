@@ -23,13 +23,10 @@ import jax
 import jax.numpy as jnp
 from jax import dtypes
 
-from asdex._api_utils import (
-    _uniform_selected_dtype,
-    flatten_pytree,
-    unflatten_to_pytree,
-)
-from asdex.modes import _assert_hessian_mode, _assert_jacobian_mode
-from asdex.pattern import ColoredPattern, SparsityPattern
+from asdex._arguments import _uniform_selected_dtype
+from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._pytree import _flatten_pytree, _pytree_dtype, _unflatten_to_pytree
+from asdex._types import _assert_hessian_mode, _assert_jacobian_mode
 
 
 def _chunked_vmap(
@@ -56,12 +53,6 @@ def _chunked_vmap(
     if chunk_size is None or chunk_size >= n:
         return jax.vmap(fn)(seeds)
     return jax.lax.map(fn, seeds, batch_size=chunk_size)
-
-
-def _output_dtype(pytree: Any) -> jnp.dtype:
-    """Get the result dtype for a PyTree of arrays."""
-    leaves = jax.tree_util.tree_leaves(pytree)
-    return dtypes.result_type(*leaves)
 
 
 # Jacobian over the selected input space
@@ -130,11 +121,11 @@ def _jacobian_compressed_vjp(
     """
     sparsity = coloring.sparsity
     y, vjp_fn, aux = _transform_with_aux(jax.vjp, f, args, has_aux=has_aux)
-    dtype = _output_dtype(y)
+    dtype = _pytree_dtype(y)
     seeds = coloring._device_seeds(dtype)
 
     def single_vjp(seed: jax.Array) -> jax.Array:
-        cotangent = unflatten_to_pytree(seed, out_struct)
+        cotangent = _unflatten_to_pytree(seed, out_struct)
         grads = vjp_fn(cotangent)
         return _flatten_selected_cotangents(grads, sparsity)
 
@@ -161,7 +152,7 @@ def _jacobian_compressed_jvp(
 
     def single_jvp(seed: jax.Array) -> jax.Array:
         tangents = _build_tangents_from_seed(seed, args, sparsity)
-        return flatten_pytree(jvp_fn(*tangents))
+        return _flatten_pytree(jvp_fn(*tangents))
 
     J_compressed = _chunked_vmap(single_jvp, seeds, chunk_size)
     return J_compressed, y, aux
@@ -393,10 +384,7 @@ def _flatten_grad_output(out: Any) -> jax.Array:
     ``jax.grad(f, argnums=...)`` already restricts its output to the selected
     positions, so every leaf contributes to the flat vector.
     """
-    leaves = jax.tree_util.tree_leaves(out)
-    if not leaves:
-        return jnp.zeros((0,))
-    return jnp.concatenate([leaf.ravel() for leaf in leaves])
+    return _flatten_pytree(out)
 
 
 def _build_grad_output_from_seed(

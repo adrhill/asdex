@@ -11,7 +11,6 @@ import pytest
 from asdex import jacobian_sparsity
 
 # 1D inputs
-# ---------
 
 
 @pytest.mark.array_ops
@@ -90,7 +89,6 @@ def test_stack_1d_jacobian_verification():
 
 
 # 2D inputs
-# ---------
 
 
 @pytest.mark.array_ops
@@ -170,7 +168,6 @@ def test_stack_2d_nonsquare_jacobian_verification():
 
 
 # 3D inputs
-# ---------
 
 
 @pytest.mark.array_ops
@@ -204,7 +201,6 @@ def test_stack_3d_axis2():
 
 
 # Multiple inputs
-# ---------------
 
 
 @pytest.mark.array_ops
@@ -221,7 +217,6 @@ def test_stack_three_inputs():
 
 
 # Edge cases
-# ----------
 
 
 @pytest.mark.array_ops
@@ -302,7 +297,6 @@ def test_stack_mixed_constants():
 
 
 # Const chain verification
-# ------------------------
 
 
 @pytest.mark.array_ops
@@ -331,7 +325,6 @@ def test_stack_const_propagation_with_gather():
 
 
 # Compositions
-# ------------
 
 
 @pytest.mark.array_ops

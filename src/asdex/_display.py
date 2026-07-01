@@ -1,4 +1,11 @@
-"""Pretty-printing for SparsityPattern and ColoredPattern.
+"""Text rendering primitives for sparse matrix visualizations.
+
+Turns the shape and ``(rows, cols)`` coordinates of a sparse ``(m, n)`` grid
+into dot, braille, and side-by-side/stacked string visualizations.
+These helpers know nothing about the pattern data structures:
+callers pass the raw shape and coordinate arrays,
+and [`asdex._pattern`][] builds the ``SparsityPattern`` / ``ColoredPattern``
+string representations on top of them.
 
 Adapted from SparseArrays.jl (MIT license)
 Copyright (c) 2018-2024 SparseArrays.jl contributors:
@@ -8,142 +15,23 @@ https://github.com/JuliaSparse/SparseArrays.jl/
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from asdex.pattern import ColoredPattern, SparsityPattern
+import numpy as np
+from numpy.typing import NDArray
 
 # Thresholds for switching from dot display to braille (Julia-style heuristics)
 _SMALL_ROWS = 16
 _SMALL_COLS = 40
 
-# Human-readable AD primitive names for display
-_MODE_PRIMITIVE: dict[str, str] = {
-    "fwd": "JVP",
-    "rev": "VJP",
-    "fwd_over_rev": "HVP",
-    "rev_over_fwd": "HVP",
-    "rev_over_rev": "HVP",
-}
 
-
-# SparsityPattern display
-
-
-def sparsity_str(pattern: SparsityPattern) -> str:
-    """Full string representation with header and visualization."""
-    header = (
-        f"SparsityPattern({pattern.m}×{pattern.n}, "
-        f"nnz={pattern.nnz}, sparsity={1 - pattern.density:.1%})"
-    )
-    return f"{header}\n{_render(pattern)}"
-
-
-def sparsity_repr(pattern: SparsityPattern) -> str:
-    """Compact single-line representation."""
-    return f"SparsityPattern(shape={pattern.shape}, nnz={pattern.nnz})"
-
-
-# ColoredPattern display
-
-
-def colored_repr(colored: ColoredPattern) -> str:
-    """Compact single-line representation."""
-    sp = colored.sparsity
-    m, n = sp.shape
-    c = colored.num_colors
-    primitive = _MODE_PRIMITIVE[colored.mode]
-    return (
-        f"ColoredPattern({m}×{n}, nnz={sp.nnz}, sparsity={1 - sp.density:.1%}, "
-        f"{primitive}, {c} {'color' if c == 1 else 'colors'})"
-    )
-
-
-def colored_str(colored: ColoredPattern) -> str:
-    """Full string representation with AD savings summary and visualization.
-
-    Column compression (fwd/symmetric) shows side-by-side with ``→``.
-    Row compression (rev) shows stacked with ``↓``.
-    """
-    m, n = colored.sparsity.shape
-    c = colored.num_colors
-    primitive = _MODE_PRIMITIVE[colored.mode]
-    s = "" if c == 1 else "s"
-
-    def _plural(count: int, word: str) -> str:
-        return f"{count} {word}" if count == 1 else f"{count} {word}s"
-
-    if colored.symmetric:
-        instead = f"instead of {_plural(n, 'HVP')}"
-    else:
-        instead = f"instead of {_plural(m, 'VJP')} or {_plural(n, 'JVP')}"
-    header = f"{colored_repr(colored)}\n  {c} {primitive}{s} ({instead})"
-
-    compressed = _compressed_pattern(colored)
-    left_lines = _render(colored.sparsity).split("\n")
-    right_lines = _render(compressed).split("\n")
-
-    if colored._compresses_columns:
-        viz = _render_side_by_side(left_lines, right_lines)
-    else:
-        viz = _render_stacked(left_lines, right_lines)
-
-    return f"{header}\n{viz}"
-
-
-def _compressed_pattern(colored: ColoredPattern) -> SparsityPattern:
-    """Build the compressed sparsity pattern after coloring.
-
-    For column compression (JVP/HVP, shape ``(m, num_colors)``):
-    entry ``(i, c)`` is present iff any column ``j``
-    with ``colors[j] == c`` has a nonzero at ``(i, j)``.
-
-    For row compression (VJP, shape ``(num_colors, n)``):
-    entry ``(c, j)`` is present iff any row ``i``
-    with ``colors[i] == c`` has a nonzero at ``(i, j)``.
-    """
-    cls = type(colored.sparsity)
-    comp_rows: list[int] = []
-    comp_cols: list[int] = []
-
-    if colored._compresses_columns:
-        # Compress columns: (m, n) → (m, num_colors)
-        seen: set[tuple[int, int]] = set()
-        for i, j in zip(colored.sparsity.rows, colored.sparsity.cols, strict=True):
-            c = int(colored.colors[j])
-            entry = (int(i), c)
-            if entry not in seen:
-                seen.add(entry)
-                comp_rows.append(entry[0])
-                comp_cols.append(entry[1])
-        shape = (colored.sparsity.m, colored.num_colors)
-    else:
-        # Compress rows: (m, n) → (num_colors, n)
-        seen = set()
-        for i, j in zip(colored.sparsity.rows, colored.sparsity.cols, strict=True):
-            c = int(colored.colors[i])
-            entry = (c, int(j))
-            if entry not in seen:
-                seen.add(entry)
-                comp_rows.append(entry[0])
-                comp_cols.append(entry[1])
-        shape = (colored.num_colors, colored.sparsity.n)
-
-    return cls.from_coo(comp_rows, comp_cols, shape)
-
-
-# Rendering helpers
-
-
-def _render(pattern: SparsityPattern) -> str:
+def _render(m: int, n: int, rows: NDArray[np.int32], cols: NDArray[np.int32]) -> str:
     """Render visualization without header.
 
     Uses dot display (●/⋅) for small matrices, braille for large ones.
     """
-    if pattern.m <= _SMALL_ROWS and pattern.n <= _SMALL_COLS:
-        return _render_dots(pattern)
+    if m <= _SMALL_ROWS and n <= _SMALL_COLS:
+        return _render_dots(m, n, rows, cols)
 
-    braille = _render_braille(pattern)
+    braille = _render_braille(m, n, rows, cols)
     braille_lines = braille.split("\n")
     if braille_lines and braille_lines[0] != "(empty)":
         n_lines = len(braille_lines)
@@ -159,24 +47,29 @@ def _render(pattern: SparsityPattern) -> str:
     return braille
 
 
-def _render_dots(pattern: SparsityPattern) -> str:
+def _render_dots(
+    m: int, n: int, rows: NDArray[np.int32], cols: NDArray[np.int32]
+) -> str:
     """Render small matrix using dots and bullets.
 
     Uses '⋅' for zeros and '●' for non-zeros.
     """
-    if pattern.m == 0 or pattern.n == 0:
+    if m == 0 or n == 0:
         return "(empty)"
 
-    dense = pattern.todense()
+    nonzeros = {(int(i), int(j)) for i, j in zip(rows, cols, strict=True)}
     lines = []
-    for i in range(pattern.m):
-        row_chars = ["●" if dense[i, j] else "⋅" for j in range(pattern.n)]
+    for i in range(m):
+        row_chars = ["●" if (i, j) in nonzeros else "⋅" for j in range(n)]
         lines.append(" ".join(row_chars))
     return "\n".join(lines)
 
 
 def _render_braille(
-    pattern: SparsityPattern,
+    m: int,
+    n: int,
+    rows: NDArray[np.int32],
+    cols: NDArray[np.int32],
     max_height: int = 20,
     max_width: int = 40,
 ) -> str:
@@ -186,18 +79,18 @@ def _render_braille(
     Large matrices are downsampled by linearly interpolating each
     non-zero position to the output grid.
     """
-    if pattern.m == 0 or pattern.n == 0:
+    if m == 0 or n == 0:
         return "(empty)"
 
     # Uniform scale preserving the aspect ratio (matches Julia's SparseArrays).
     # Pick the tighter constraint so neither dimension overflows.
-    if pattern.m > 4 * max_height or pattern.n > 2 * max_width:
-        s = min(2 * max_width / pattern.n, 4 * max_height / pattern.m)
-        scale_height = max(int(s * pattern.m), 8)
-        scale_width = max(int(s * pattern.n), 4)
+    if m > 4 * max_height or n > 2 * max_width:
+        s = min(2 * max_width / n, 4 * max_height / m)
+        scale_height = max(int(s * m), 8)
+        scale_width = max(int(s * n), 4)
     else:
-        scale_height = max(pattern.m, 8)
-        scale_width = max(pattern.n, 4)
+        scale_height = max(m, 8)
+        scale_width = max(n, 4)
 
     # Output braille grid dimensions
     out_rows = (scale_height - 1) // 4 + 1
@@ -209,9 +102,9 @@ def _render_braille(
     grid = [[0] * out_cols for _ in range(out_rows)]
 
     # Scale each non-zero to the output grid via linear interpolation
-    row_denom = max(pattern.m - 1, 1)
-    col_denom = max(pattern.n - 1, 1)
-    for i, j in zip(pattern.rows, pattern.cols, strict=True):
+    row_denom = max(m - 1, 1)
+    col_denom = max(n - 1, 1)
+    for i, j in zip(rows, cols, strict=True):
         si = round(int(i) * (scale_height - 1) / row_denom)
         sj = round(int(j) * (scale_width - 1) / col_denom)
         grid[si // 4][sj // 2] |= braille_bits[(sj % 2) * 4 + (si % 4)]

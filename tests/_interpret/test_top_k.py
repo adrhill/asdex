@@ -1,4 +1,4 @@
-"""Tests for the prop_top_k handler.
+"""Tests for the _prop_top_k handler.
 
 The values output has reduction-along-last-axis sparsity.
 The indices output has zero derivative.

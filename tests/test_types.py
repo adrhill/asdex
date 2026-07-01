@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 import asdex
-from asdex.modes import _assert_hessian_mode, _assert_jacobian_mode
-from asdex.pattern import SparsityPattern
+from asdex._pattern import SparsityPattern
+from asdex._types import _assert_hessian_mode, _assert_jacobian_mode
 
 # Invalid mode validation
 

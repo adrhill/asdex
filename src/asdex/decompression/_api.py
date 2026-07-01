@@ -18,9 +18,13 @@ from typing import Any
 
 import jax
 
-from asdex._api_utils import _ensure_index, merge_args_kwargs, merge_sample_inputs
-from asdex._doc_helper import _fill_doc
-from asdex._kwarg_defaults import (
+from asdex._arguments import (
+    _assert_chunk_size,
+    _ensure_index,
+    _merge_args_kwargs,
+    _merge_sample_inputs,
+)
+from asdex._defaults import (
     _DEFAULT_ALLOW_INT,
     _DEFAULT_ARGNUMS,
     _DEFAULT_CHUNK_SIZE,
@@ -31,10 +35,17 @@ from asdex._kwarg_defaults import (
     _DEFAULT_SYMMETRIC_HESSIAN,
     _DEFAULT_SYMMETRIC_JACOBIAN,
 )
+from asdex._docstrings import _fill_doc
+from asdex._pattern import ColoredPattern
+from asdex._types import (
+    HessianMode,
+    JacobianMode,
+    OutputFormat,
+    _assert_output_format,
+)
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.decompression._compress import (
-    _assert_chunk_size,
     _CallCache,
     _compress_hessian,
     _compress_jacobian,
@@ -50,13 +61,6 @@ from asdex.decompression._evaluate import (
     _eval_value_and_hessian,
     _eval_value_and_jacobian,
 )
-from asdex.modes import (
-    HessianMode,
-    JacobianMode,
-    OutputFormat,
-    _assert_output_format,
-)
-from asdex.pattern import ColoredPattern
 
 # Public API: one-shot entry points
 
@@ -87,20 +91,11 @@ def jacobian(
         f: {f_jac}
         *sample_args: {sample_args}
         argnums: {argnums}
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
-            mirroring ``jax.jacrev``.
-            When True, the returned function yields ``(jac, aux)``.
-        holomorphic: Whether ``f`` is promised to be holomorphic,
-            mirroring ``jax.jacrev``.
-            Validates dtype compatibility at call time.
-        allow_int: Whether to allow differentiating with respect to
-            integer-valued inputs, mirroring ``jax.jacrev``.
-        mode: AD mode.
-            ``"fwd"`` uses JVPs (forward-mode AD),
-            ``"rev"`` uses VJPs (reverse-mode AD).
-            ``None`` picks whichever of fwd/rev needs fewer colors.
-        symmetric: Whether to use symmetric (star) coloring.
-            Requires a square Jacobian.
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        mode: {mode_jac}
+        symmetric: {symmetric_jac}
         output_format: {format_jac}
         chunk_size: {chunk_size}
         **sample_kwargs: {sample_kwargs}
@@ -116,7 +111,7 @@ def jacobian(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = merge_sample_inputs(
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
     )
     coloring = _jacobian_coloring(
@@ -132,7 +127,7 @@ def jacobian(
 
     def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_jacobian(
             f_bound,
             merged_args,
@@ -178,7 +173,7 @@ def value_and_jacobian(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = merge_sample_inputs(
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
     )
     coloring = _jacobian_coloring(
@@ -194,7 +189,7 @@ def value_and_jacobian(
 
     def val_jac_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_value_and_jacobian(
             f_bound,
             merged_args,
@@ -239,7 +234,7 @@ def hessian(
         holomorphic: {holomorphic}
         allow_int: {allow_int_hess}
         mode: {mode_hess}
-        symmetric: {symmetric}
+        symmetric: {symmetric_hess}
         output_format: {format_hess}
         chunk_size: {chunk_size}
         **sample_kwargs: {sample_kwargs}
@@ -251,7 +246,7 @@ def hessian(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = merge_sample_inputs(
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
     )
     coloring = _hessian_coloring(
@@ -267,7 +262,7 @@ def hessian(
 
     def hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_hessian(
             f_bound,
             merged_args,
@@ -312,7 +307,7 @@ def value_and_hessian(
         holomorphic: {holomorphic}
         allow_int: {allow_int_hess}
         mode: {mode_hess}
-        symmetric: {symmetric}
+        symmetric: {symmetric_hess}
         output_format: {format_hess}
         chunk_size: {chunk_size}
         **sample_kwargs: {sample_kwargs}
@@ -324,7 +319,7 @@ def value_and_hessian(
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = merge_sample_inputs(
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
     )
     coloring = _hessian_coloring(
@@ -340,7 +335,7 @@ def value_and_hessian(
 
     def val_hess_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         return _eval_value_and_hessian(
             f_bound,
             merged_args,
@@ -396,7 +391,7 @@ def jacobian_from_coloring(
 
     def jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_jacobian(
             f_bound,
             merged_args,
@@ -445,7 +440,7 @@ def hessian_from_coloring(
 
     def hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_hessian(
             f_bound,
             merged_args,
@@ -492,7 +487,7 @@ def value_and_jacobian_from_coloring(
 
     def val_jac_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_value_and_jacobian(
             f_bound,
             merged_args,
@@ -539,7 +534,7 @@ def value_and_hessian_from_coloring(
 
     def val_hess_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
         return _eval_value_and_hessian(
             f_bound,
             merged_args,
@@ -602,7 +597,7 @@ def compressed_jacobian(
     """
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = merge_sample_inputs(
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
     )
     coloring = _jacobian_coloring(
@@ -618,7 +613,7 @@ def compressed_jacobian(
 
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         compressed, _value, aux = _compress_jacobian(
             f_bound,
             merged_args,
@@ -663,7 +658,7 @@ def compressed_jacobian_from_coloring(
 
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
         compressed, _value, aux = _compress_jacobian(
             f_bound,
             merged_args,
@@ -719,7 +714,7 @@ def compressed_hessian(
     """
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = merge_sample_inputs(
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
     )
     coloring = _hessian_coloring(
@@ -735,7 +730,7 @@ def compressed_hessian(
 
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         compressed, _value, aux = _compress_hessian(
             f_bound,
             merged_args,
@@ -780,7 +775,7 @@ def compressed_hessian_from_coloring(
 
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
         compressed, _value, aux = _compress_hessian(
             f_bound,
             merged_args,
@@ -823,7 +818,7 @@ def value_and_compressed_jacobian(
     """
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = merge_sample_inputs(
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
     )
     coloring = _jacobian_coloring(
@@ -839,7 +834,7 @@ def value_and_compressed_jacobian(
 
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         compressed, value, aux = _compress_jacobian(
             f_bound,
             merged_args,
@@ -880,7 +875,7 @@ def value_and_compressed_jacobian_from_coloring(
 
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
         compressed, value, aux = _compress_jacobian(
             f_bound,
             merged_args,
@@ -921,7 +916,7 @@ def value_and_compressed_hessian(
     """
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = merge_sample_inputs(
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
         f, sample_args, sample_kwargs, argnums
     )
     coloring = _hessian_coloring(
@@ -937,7 +932,7 @@ def value_and_compressed_hessian(
 
     def compressed_fn(*call_args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
         compressed, value, aux = _compress_hessian(
             f_bound,
             merged_args,
@@ -978,7 +973,7 @@ def value_and_compressed_hessian_from_coloring(
 
     def compressed_fn(*args: Any, **kwargs: Any) -> Any:
         expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = merge_args_kwargs(f, args, kwargs, expected_nargs)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
         compressed, value, aux = _compress_hessian(
             f_bound,
             merged_args,
@@ -1016,9 +1011,7 @@ def decompress_data(compressed: jax.Array, coloring: ColoredPattern) -> jax.Arra
     to assemble a custom format.
 
     Args:
-        compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``,
-            as returned by [`compressed_jacobian`][asdex.compressed_jacobian] or
-            [`compressed_hessian`][asdex.compressed_hessian].
+        compressed: {compressed}
         coloring: {coloring_compressed}
 
     Returns:
@@ -1053,7 +1046,7 @@ def decompress(
     ``B``'s natural domain is the 2-D compressed matrix.
 
     Args:
-        compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``.
+        compressed: {compressed}
         coloring: {coloring_compressed}
         output_format: {format_flat}
 

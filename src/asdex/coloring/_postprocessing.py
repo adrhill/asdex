@@ -13,7 +13,7 @@ See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 import numpy as np
 from numpy.typing import NDArray
 
-from asdex.coloring._types import StarSet
+from asdex._pattern import StarSet
 
 
 def _postprocess_star_coloring(

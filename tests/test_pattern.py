@@ -10,9 +10,9 @@ from jax.experimental.sparse import BCOO
 
 import asdex
 from asdex import ColoredPattern, SparsityPattern, jacobian_sparsity
+from asdex._check import _allclose_pytree
 from asdex._display import _render_braille, _render_dots
 from asdex.coloring import StarSet
-from asdex.verify import _allclose_pytree
 
 
 class TestValidation:
@@ -276,12 +276,15 @@ class TestVisualization:
     def test_render_dots_empty_matrix(self):
         """Dot rendering of empty matrix."""
         sparsity = SparsityPattern.from_coo([], [], (0, 0))
-        assert _render_dots(sparsity) == "(empty)"
+        assert (
+            _render_dots(sparsity.m, sparsity.n, sparsity.rows, sparsity.cols)
+            == "(empty)"
+        )
 
     def test_render_dots_small_diagonal(self):
         """Dot rendering of small diagonal pattern."""
         sparsity = SparsityPattern.from_coo([0, 1, 2], [0, 1, 2], (3, 3))
-        dots = _render_dots(sparsity)
+        dots = _render_dots(sparsity.m, sparsity.n, sparsity.rows, sparsity.cols)
 
         # Should show diagonal pattern
         lines = dots.split("\n")
@@ -292,7 +295,10 @@ class TestVisualization:
     def test_braille_empty_matrix(self):
         """Braille rendering of empty matrix."""
         sparsity = SparsityPattern.from_coo([], [], (0, 0))
-        assert _render_braille(sparsity) == "(empty)"
+        assert (
+            _render_braille(sparsity.m, sparsity.n, sparsity.rows, sparsity.cols)
+            == "(empty)"
+        )
 
     def test_braille_large_matrix_downsamples(self):
         """Large matrices are downsampled in braille."""
@@ -301,7 +307,14 @@ class TestVisualization:
         cols = list(range(100))
         sparsity = SparsityPattern.from_coo(rows, cols, (100, 100))
 
-        braille = _render_braille(sparsity, max_height=10, max_width=20)
+        braille = _render_braille(
+            sparsity.m,
+            sparsity.n,
+            sparsity.rows,
+            sparsity.cols,
+            max_height=10,
+            max_width=20,
+        )
         lines = braille.split("\n")
 
         # Should be within limits
@@ -316,7 +329,14 @@ class TestVisualization:
         cols = [i % 20 for i in range(len(rows))]
         sparsity = SparsityPattern.from_coo(rows, cols, (20000, 20))
 
-        braille = _render_braille(sparsity, max_height=20, max_width=40)
+        braille = _render_braille(
+            sparsity.m,
+            sparsity.n,
+            sparsity.rows,
+            sparsity.cols,
+            max_height=20,
+            max_width=40,
+        )
         lines = braille.split("\n")
 
         # Height should use most of the available space
@@ -405,7 +425,7 @@ class TestIntegration:
         assert len(output) > 0
 
 
-# --- Save/Load tests ---
+# Save/Load tests
 
 
 def test_save_load_sparsity_roundtrip(tmp_path):
@@ -637,7 +657,7 @@ def test_load_colored_pattern_invalid_mode(tmp_path):
         ColoredPattern.load(path)
 
 
-# --- Multi-input pattern tests ---
+# Multi-input pattern tests
 
 
 def test_example_input_with_int_argnums():

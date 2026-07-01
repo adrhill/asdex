@@ -3,20 +3,20 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateBounds,
     StateConsts,
     StateIndices,
-    atom_const_val,
-    atom_shape,
-    atom_value_bounds,
-    index_sets,
-    numel,
-    permute_indices,
+    _atom_const_val,
+    _atom_shape,
+    _atom_value_bounds,
+    _index_sets,
+    _numel,
+    _permute_indices,
 )
 
 
-def prop_broadcast_in_dim(
+def _prop_broadcast_in_dim(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -46,7 +46,7 @@ def prop_broadcast_in_dim(
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.broadcast_in_dim.html
     """
     in_atom = eqn.invars[0]
-    in_indices = index_sets(state_indices, in_atom)
+    in_indices = _index_sets(state_indices, in_atom)
     out_shape = eqn.params["shape"]
     broadcast_dims = eqn.params["broadcast_dimensions"]
     out_var = eqn.outvars[0]
@@ -55,7 +55,7 @@ def prop_broadcast_in_dim(
     # When the broadcast input is statically known (literal or traced from constants),
     # propagate its value so downstream handlers can use it
     # instead of falling back to conservative all-to-all dependencies.
-    in_val = atom_const_val(in_atom, state_consts)
+    in_val = _atom_const_val(in_atom, state_consts)
     if in_val is not None:
         intermediate_shape = [1] * len(out_shape)
         for i, out_dim in enumerate(broadcast_dims):
@@ -68,7 +68,7 @@ def prop_broadcast_in_dim(
     if state_bounds is not None:
         _propagate_bounds_broadcast(eqn, state_consts, state_bounds)
 
-    out_size = numel(out_shape)
+    out_size = _numel(out_shape)
     if out_size == 0:
         state_indices[out_var] = []
         return
@@ -84,7 +84,7 @@ def prop_broadcast_in_dim(
     # np.indices gives all output coordinates.
     # We select the output dim corresponding to each input dim via broadcast_dims.
     # Size-1 input dims are broadcast (every output reads index 0), so we clamp to 0.
-    in_shape = atom_shape(in_atom)
+    in_shape = _atom_shape(in_atom)
     out_coords = np.indices(out_shape)
     in_coords = tuple(
         out_coords[broadcast_dims[i]] if in_shape[i] > 1 else 0
@@ -92,7 +92,7 @@ def prop_broadcast_in_dim(
     )
     flat_map = np.ravel_multi_index(in_coords, in_shape).ravel()
 
-    state_indices[out_var] = permute_indices(in_indices, flat_map)
+    state_indices[out_var] = _permute_indices(in_indices, flat_map)
 
 
 def _propagate_bounds_broadcast(
@@ -103,7 +103,7 @@ def _propagate_bounds_broadcast(
     Broadcasting replicates values without changing them,
     so bounds are broadcast to the output shape.
     """
-    bounds = atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
+    bounds = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
     if bounds is None:
         return
     lo, hi = bounds

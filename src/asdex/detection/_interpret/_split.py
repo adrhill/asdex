@@ -2,10 +2,10 @@
 
 from jax._src.core import JaxprEqn
 
-from ._commons import StateIndices, atom_shape, index_sets, transform_indices
+from ._common import StateIndices, _atom_shape, _index_sets, _transform_indices
 
 
-def prop_split(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_split(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Split partitions an array into multiple sub-arrays along an axis.
 
     Each output element maps to exactly one input element,
@@ -27,8 +27,8 @@ def prop_split(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.split.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
-    in_shape = atom_shape(eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     axis = eqn.params["axis"]
     sizes = eqn.params["sizes"]
     ndim = len(in_shape)
@@ -38,7 +38,7 @@ def prop_split(eqn: JaxprEqn, state_indices: StateIndices) -> None:
         size_k = sizes[k]
         slices = [slice(None)] * ndim
         slices[axis] = slice(offset, offset + size_k)
-        state_indices[out_var] = transform_indices(
+        state_indices[out_var] = _transform_indices(
             in_indices, in_shape, lambda p, s=tuple(slices): p[s]
         )
         offset += size_k

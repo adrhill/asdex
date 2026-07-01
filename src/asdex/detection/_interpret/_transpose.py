@@ -5,17 +5,17 @@ from functools import partial
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateConsts,
     StateIndices,
-    atom_shape,
-    index_sets,
-    propagate_const_unary,
-    transform_indices,
+    _atom_shape,
+    _index_sets,
+    _propagate_const_unary,
+    _transform_indices,
 )
 
 
-def prop_transpose(
+def _prop_transpose(
     eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
 ) -> None:
     """Transpose permutes the dimensions of an array.
@@ -37,12 +37,12 @@ def prop_transpose(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.transpose.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
-    in_shape = atom_shape(eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     permutation = eqn.params["permutation"]
 
-    state_indices[eqn.outvars[0]] = transform_indices(
+    state_indices[eqn.outvars[0]] = _transform_indices(
         in_indices, in_shape, lambda p: p.transpose(permutation)
     )
 
-    propagate_const_unary(eqn, state_consts, partial(np.transpose, axes=permutation))
+    _propagate_const_unary(eqn, state_consts, partial(np.transpose, axes=permutation))

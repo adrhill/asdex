@@ -3,21 +3,21 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateBounds,
     StateConsts,
     StateIndices,
-    atom_const_val,
-    atom_numel,
-    atom_shape,
-    atom_value_bounds,
-    clear_where_zero,
-    copy_index_sets,
-    empty_index_sets,
-    index_sets,
-    numel,
-    propagate_const_binary,
-    union_elementwise,
+    _atom_const_val,
+    _atom_numel,
+    _atom_shape,
+    _atom_value_bounds,
+    _clear_where_zero,
+    _copy_index_sets,
+    _empty_index_sets,
+    _index_sets,
+    _numel,
+    _propagate_const_binary,
+    _union_elementwise,
 )
 
 # Ufuncs for evaluating constant values during tracing.
@@ -55,7 +55,7 @@ def _propagate_const(eqn: JaxprEqn, state_consts: StateConsts) -> None:
     """
     ufunc = _BINARY_CONST_UFUNCS.get(eqn.primitive.name)
     if ufunc is not None:
-        propagate_const_binary(eqn, state_consts, ufunc)
+        _propagate_const_binary(eqn, state_consts, ufunc)
 
 
 # Building blocks (private)
@@ -64,7 +64,7 @@ def _propagate_const(eqn: JaxprEqn, state_consts: StateConsts) -> None:
 def _zero_derivative(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Set empty index sets for zero-derivative outputs."""
     for outvar in eqn.outvars:
-        state_indices[outvar] = empty_index_sets(atom_numel(outvar))
+        state_indices[outvar] = _empty_index_sets(_atom_numel(outvar))
 
 
 def _binary_elementwise(
@@ -80,12 +80,12 @@ def _binary_elementwise(
     so the first input doesn't contribute to output dependencies.
     Likewise for ``is_der2_zero_globally`` and the second input.
     """
-    in1 = index_sets(state_indices, eqn.invars[0])
-    in2 = index_sets(state_indices, eqn.invars[1])
+    in1 = _index_sets(state_indices, eqn.invars[0])
+    in2 = _index_sets(state_indices, eqn.invars[1])
     out_size = 0 if len(in1) == 0 or len(in2) == 0 else max(len(in1), len(in2))
 
-    in1_shape = atom_shape(eqn.invars[0])
-    in2_shape = atom_shape(eqn.invars[1])
+    in1_shape = _atom_shape(eqn.invars[0])
+    in2_shape = _atom_shape(eqn.invars[1])
 
     # Fast path: same shape or scalar.
     # Modular indexing handles both correctly:
@@ -106,8 +106,8 @@ def _binary_elementwise(
     # respecting numpy-style broadcasting (size-1 dims read index 0).
     # Example: mul of (16,16) * (16,1) → (16,16).
     # out[p,d] depends on in1[p,d] and in2[p,0], not in2[d].
-    out_shape = atom_shape(eqn.outvars[0])
-    out_size = numel(out_shape)
+    out_shape = _atom_shape(eqn.outvars[0])
+    out_size = _numel(out_shape)
     out_coords = np.indices(out_shape)
     ndim = len(out_shape)
 
@@ -154,8 +154,8 @@ def _propagate_bounds_add(
     state_bounds: StateBounds,
 ) -> None:
     """Propagate value bounds through ``add`` or ``add_any`` via interval arithmetic."""
-    b1 = atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
-    b2 = atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
+    b1 = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
+    b2 = _atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
     if b1 is None or b2 is None:
         return
     lo1, hi1 = b1
@@ -169,8 +169,8 @@ def _propagate_bounds_sub(
     state_bounds: StateBounds,
 ) -> None:
     """Propagate value bounds through ``sub`` via interval arithmetic."""
-    b1 = atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
-    b2 = atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
+    b1 = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
+    b2 = _atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
     if b1 is None or b2 is None:
         return
     lo1, hi1 = b1
@@ -179,10 +179,10 @@ def _propagate_bounds_sub(
 
 
 # Composite handlers (public)
-# Each corresponds to exactly one dispatch case in prop_dispatch.
+# Each corresponds to exactly one dispatch case in _prop_dispatch.
 
 
-def prop_zero_derivative(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_zero_derivative(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Zero-derivative primitives (floor, ceil, sign, ...).
 
     Operations with zero derivative almost everywhere.
@@ -200,7 +200,7 @@ def prop_zero_derivative(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     _zero_derivative(eqn, state_indices)
 
 
-def prop_zero_derivative_const(
+def _prop_zero_derivative_const(
     eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
 ) -> None:
     """Zero-derivative primitives that also propagate const values.
@@ -213,7 +213,7 @@ def prop_zero_derivative_const(
     _propagate_const(eqn, state_consts)
 
 
-def prop_ternary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_ternary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Ternary elementwise operation where each output depends on all three inputs.
 
     Used for `regularized_incomplete_beta(a, b, x)` where each output element
@@ -229,12 +229,12 @@ def prop_ternary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None
         invars[1]: second input (b)
         invars[2]: third input (x)
     """
-    inputs = [index_sets(state_indices, invar) for invar in eqn.invars]
-    out_size = atom_numel(eqn.outvars[0])
-    state_indices[eqn.outvars[0]] = union_elementwise(inputs, out_size)
+    inputs = [_index_sets(state_indices, invar) for invar in eqn.invars]
+    out_size = _atom_numel(eqn.outvars[0])
+    state_indices[eqn.outvars[0]] = _union_elementwise(inputs, out_size)
 
 
-def prop_binary_const(
+def _prop_binary_const(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -272,7 +272,7 @@ def prop_binary_const(
     _propagate_const(eqn, state_consts)
 
 
-def prop_add(
+def _prop_add(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -287,7 +287,7 @@ def prop_add(
     _propagate_bounds_add(eqn, state_consts, state_bounds)
 
 
-def prop_sub(
+def _prop_sub(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -302,7 +302,7 @@ def prop_sub(
     _propagate_bounds_sub(eqn, state_consts, state_bounds)
 
 
-def prop_integer_pow(
+def _prop_integer_pow(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts | None = None,
@@ -328,23 +328,23 @@ def prop_integer_pow(
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.integer_pow.html
     """
     y = eqn.params.get("y", 1)
-    in_indices = index_sets(state_indices, eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
 
     if y == 0:
-        state_indices[eqn.outvars[0]] = empty_index_sets(len(in_indices))
+        state_indices[eqn.outvars[0]] = _empty_index_sets(len(in_indices))
     else:
-        state_indices[eqn.outvars[0]] = copy_index_sets(in_indices)
+        state_indices[eqn.outvars[0]] = _copy_index_sets(in_indices)
 
     # Const propagation.
     if state_consts is not None:
-        in_val = atom_const_val(eqn.invars[0], state_consts)
+        in_val = _atom_const_val(eqn.invars[0], state_consts)
         if in_val is not None:
             state_consts[eqn.outvars[0]] = np.power(in_val, y)
 
     # Zero-skipping: d(0^n)/dx = n * 0^(n-1) = 0 for n > 1.
     # For n = 1, d(x)/dx = 1 even at x = 0, so no skipping.
     if state_consts is not None and y > 1:
-        clear_where_zero(eqn, state_indices, state_consts, 0)
+        _clear_where_zero(eqn, state_indices, state_consts, 0)
 
     # Bounds propagation for [a,b]^n.
     if state_bounds is not None:
@@ -364,7 +364,7 @@ def _propagate_bounds_integer_pow(
       else [min(|a|,|b|)^n, max(|a|,|b|)^n].
     - n odd (monotone): [a^n, b^n].
     """
-    in_bounds = atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
+    in_bounds = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
     if in_bounds is None:
         return
 
@@ -389,7 +389,7 @@ def _propagate_bounds_integer_pow(
         state_bounds[eqn.outvars[0]] = (out_lo, out_hi)
 
 
-def prop_unary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_unary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Unary element-wise ops (exp, sin, etc.) apply a function to each element.
 
     Each output depends only on the corresponding input element.
@@ -405,12 +405,12 @@ def prop_unary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     Jaxpr:
         invars[0]: input array
     """
-    state_indices[eqn.outvars[0]] = copy_index_sets(
-        index_sets(state_indices, eqn.invars[0])
+    state_indices[eqn.outvars[0]] = _copy_index_sets(
+        _index_sets(state_indices, eqn.invars[0])
     )
 
 
-def prop_convert_element_type(
+def _prop_convert_element_type(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -438,11 +438,11 @@ def prop_convert_element_type(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.convert_element_type.html
     """
-    state_indices[eqn.outvars[0]] = copy_index_sets(
-        index_sets(state_indices, eqn.invars[0])
+    state_indices[eqn.outvars[0]] = _copy_index_sets(
+        _index_sets(state_indices, eqn.invars[0])
     )
 
-    in_val = atom_const_val(eqn.invars[0], state_consts)
+    in_val = _atom_const_val(eqn.invars[0], state_consts)
     if in_val is not None:
         new_dtype = eqn.params.get("new_dtype")
         if new_dtype is not None:
@@ -453,7 +453,7 @@ def prop_convert_element_type(
 
     # Propagate value bounds with dtype cast.
     if state_bounds is not None:
-        bounds = atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
+        bounds = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
         if bounds is not None:
             lo, hi = bounds
             new_dtype = eqn.params.get("new_dtype")
@@ -466,7 +466,7 @@ def prop_convert_element_type(
                 state_bounds[eqn.outvars[0]] = (lo, hi)
 
 
-def prop_clamp(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_clamp(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Clamp(lo, x, hi) returns lo when x < lo, hi when x > hi, else x.
 
     All three operands can contribute to the output depending on runtime values:
@@ -488,10 +488,10 @@ def prop_clamp(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.clamp.html
     """
-    lo = index_sets(state_indices, eqn.invars[0])
-    x = index_sets(state_indices, eqn.invars[1])
-    hi = index_sets(state_indices, eqn.invars[2])
+    lo = _index_sets(state_indices, eqn.invars[0])
+    x = _index_sets(state_indices, eqn.invars[1])
+    hi = _index_sets(state_indices, eqn.invars[2])
 
-    state_indices[eqn.outvars[0]] = union_elementwise(
-        [lo, x, hi], atom_numel(eqn.outvars[0])
+    state_indices[eqn.outvars[0]] = _union_elementwise(
+        [lo, x, hi], _atom_numel(eqn.outvars[0])
     )

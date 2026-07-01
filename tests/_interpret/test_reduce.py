@@ -1,4 +1,4 @@
-"""Tests for the prop_reduce handler.
+"""Tests for the _prop_reduce handler.
 
 All four reductions (sum, max, min, prod) share the same sparsity structure,
 so the core shape/axes tests are parametrized over the reduce function.

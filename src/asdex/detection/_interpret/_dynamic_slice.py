@@ -3,22 +3,22 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateBounds,
     StateConsts,
     StateIndices,
-    atom_const_val,
-    atom_shape,
-    atom_value_bounds,
-    check_no_index_sets,
-    clamp_starts,
-    conservative_indices,
-    copy_index_sets,
-    enumerate_bounded_patterns,
-    index_sets,
-    numel,
-    transform_indices,
+    _atom_const_val,
+    _atom_shape,
+    _atom_value_bounds,
+    _check_no_index_sets,
+    _clamp_starts,
+    _conservative_indices,
+    _copy_index_sets,
+    _enumerate_bounded_patterns,
+    _index_sets,
+    _numel,
+    _transform_indices,
 )
 
 
@@ -31,7 +31,7 @@ def _resolve_starts(
     """
     starts: list[int] = []
     for atom in eqn.invars[start_offset:]:
-        val = atom_const_val(atom, state_consts)
+        val = _atom_const_val(atom, state_consts)
         if val is None:
             return None
         starts.append(int(val.flat[0]))
@@ -50,7 +50,7 @@ def _resolve_start_bounds(
     """
     bounds: list[tuple[int, int]] = []
     for atom in eqn.invars[start_offset:]:
-        b = atom_value_bounds(atom, state_consts, state_bounds)
+        b = _atom_value_bounds(atom, state_consts, state_bounds)
         if b is None:
             return None
         lo, hi = b
@@ -58,7 +58,7 @@ def _resolve_start_bounds(
     return bounds
 
 
-def prop_dynamic_slice(
+def _prop_dynamic_slice(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -86,20 +86,20 @@ def prop_dynamic_slice(
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.dynamic_slice.html
     """
     operand = eqn.invars[0]
-    in_indices = index_sets(state_indices, operand)
+    in_indices = _index_sets(state_indices, operand)
     slice_sizes = eqn.params["slice_sizes"]
 
     # TODO: include start index sets in output dependencies.
     for start_atom in eqn.invars[1:]:
-        check_no_index_sets(state_indices, start_atom, eqn.primitive.name)
+        _check_no_index_sets(state_indices, start_atom, eqn.primitive.name)
 
     starts = _resolve_starts(eqn, 1, state_consts)
     if starts is not None:
-        in_shape = atom_shape(operand)
+        in_shape = _atom_shape(operand)
         slices = tuple(
             slice(s, s + sz) for s, sz in zip(starts, slice_sizes, strict=True)
         )
-        state_indices[eqn.outvars[0]] = transform_indices(
+        state_indices[eqn.outvars[0]] = _transform_indices(
             in_indices, in_shape, lambda p: p[slices]
         )
         return
@@ -107,25 +107,27 @@ def prop_dynamic_slice(
     # Try bounded enumeration.
     start_bounds = _resolve_start_bounds(eqn, 1, state_consts, state_bounds)
     if start_bounds is not None:
-        in_shape = atom_shape(operand)
+        in_shape = _atom_shape(operand)
         ranges = [range(lo, hi + 1) for lo, hi in start_bounds]
 
         def _make_slice(vals: tuple[int, ...]) -> list[set[int]]:
-            clamped = clamp_starts(vals, in_shape, slice_sizes)
+            clamped = _clamp_starts(vals, in_shape, slice_sizes)
             sl = tuple(
                 slice(s, s + sz) for s, sz in zip(clamped, slice_sizes, strict=True)
             )
-            return transform_indices(in_indices, in_shape, lambda p, sl=sl: p[sl])
+            return _transform_indices(in_indices, in_shape, lambda p, sl=sl: p[sl])
 
-        result = enumerate_bounded_patterns(ranges, numel(slice_sizes), _make_slice)
+        result = _enumerate_bounded_patterns(ranges, _numel(slice_sizes), _make_slice)
         if result is not None:
             state_indices[eqn.outvars[0]] = result
             return
 
-    state_indices[eqn.outvars[0]] = conservative_indices(in_indices, numel(slice_sizes))
+    state_indices[eqn.outvars[0]] = _conservative_indices(
+        in_indices, _numel(slice_sizes)
+    )
 
 
-def prop_dynamic_update_slice(
+def _prop_dynamic_update_slice(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -155,14 +157,14 @@ def prop_dynamic_update_slice(
     """
     operand = eqn.invars[0]
     update = eqn.invars[1]
-    operand_indices = index_sets(state_indices, operand)
-    upd_indices = index_sets(state_indices, update)
-    operand_shape = atom_shape(operand)
-    upd_shape = atom_shape(update)
+    operand_indices = _index_sets(state_indices, operand)
+    upd_indices = _index_sets(state_indices, update)
+    operand_shape = _atom_shape(operand)
+    upd_shape = _atom_shape(update)
 
     # TODO: include start index sets in output dependencies.
     for start_atom in eqn.invars[2:]:
-        check_no_index_sets(state_indices, start_atom, eqn.primitive.name)
+        _check_no_index_sets(state_indices, start_atom, eqn.primitive.name)
 
     starts = _resolve_starts(eqn, 2, state_consts)
     if starts is not None:
@@ -181,7 +183,7 @@ def prop_dynamic_update_slice(
         ranges = [range(lo, hi + 1) for lo, hi in start_bounds]
 
         def _make_update(vals: tuple[int, ...]) -> list[set[int]]:
-            clamped = clamp_starts(vals, operand_shape, upd_shape)
+            clamped = _clamp_starts(vals, operand_shape, upd_shape)
             return _dynamic_update_for_starts(
                 list(clamped),
                 operand_indices,
@@ -190,13 +192,15 @@ def prop_dynamic_update_slice(
                 upd_shape,
             )
 
-        result = enumerate_bounded_patterns(ranges, numel(operand_shape), _make_update)
+        result = _enumerate_bounded_patterns(
+            ranges, _numel(operand_shape), _make_update
+        )
         if result is not None:
             state_indices[eqn.outvars[0]] = result
             return
 
-    state_indices[eqn.outvars[0]] = conservative_indices(
-        operand_indices + upd_indices, numel(operand_shape)
+    state_indices[eqn.outvars[0]] = _conservative_indices(
+        operand_indices + upd_indices, _numel(operand_shape)
     )
 
 
@@ -208,7 +212,7 @@ def _dynamic_update_for_starts(
     upd_shape: tuple[int, ...],
 ) -> list[IndexSet]:
     """Compute output index sets for a dynamic_update_slice with known starts."""
-    out_indices: list[IndexSet] = copy_index_sets(operand_indices)
+    out_indices: list[IndexSet] = _copy_index_sets(operand_indices)
 
     upd_coords = np.indices(upd_shape)
     op_coords = tuple(s + upd_coords[d] for d, s in enumerate(starts))

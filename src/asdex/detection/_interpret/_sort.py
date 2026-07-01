@@ -7,18 +7,18 @@ but not across other dimensions.
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateIndices,
-    atom_numel,
-    atom_shape,
-    empty_index_sets,
-    index_sets,
-    union_all,
+    _atom_numel,
+    _atom_shape,
+    _empty_index_sets,
+    _index_sets,
+    _union_all,
 )
 
 
-def prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Sort reorders elements along one dimension.
 
     Each output element depends on all input elements in its slice
@@ -46,8 +46,8 @@ def prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.sort.html
     """
     dim = eqn.params["dimension"]
-    in_shape = atom_shape(eqn.invars[0])
-    total = atom_numel(eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
+    total = _atom_numel(eqn.invars[0])
 
     if total == 0:
         for outvar in eqn.outvars:
@@ -60,14 +60,14 @@ def prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     )
 
     # Union state_indices from all operands within each batch slice.
-    all_indices = [index_sets(state_indices, v) for v in eqn.invars]
+    all_indices = [_index_sets(state_indices, v) for v in eqn.invars]
     group_indices = [
-        union_all([ids[i] for ids in all_indices for i in g]) for g in groups
+        _union_all([ids[i] for ids in all_indices for i in g]) for g in groups
     ]
 
     # Broadcast each slice's state_indices back to every element in the slice.
     for outvar in eqn.outvars:
-        out: list[IndexSet] = empty_index_sets(total)
+        out: list[IndexSet] = _empty_index_sets(total)
         for gd, g in zip(group_indices, groups, strict=True):
             for i in g:
                 out[i] = gd

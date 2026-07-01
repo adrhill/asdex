@@ -3,17 +3,17 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateConsts,
     StateIndices,
-    atom_const_val,
-    atom_shape,
-    index_sets,
+    _atom_const_val,
+    _atom_shape,
+    _index_sets,
 )
 
 
-def prop_concatenate(
+def _prop_concatenate(
     eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
 ) -> None:
     """Concatenate joins arrays along a specified axis.
@@ -43,17 +43,17 @@ def prop_concatenate(
     all_indices: list[IndexSet] = []
     index_arrays = []
     for invar in eqn.invars:
-        in_indices = index_sets(state_indices, invar)
+        in_indices = _index_sets(state_indices, invar)
         offset = len(all_indices)
         all_indices.extend(in_indices)
-        shape = atom_shape(invar)
+        shape = _atom_shape(invar)
         index_arrays.append(np.arange(offset, offset + len(in_indices)).reshape(shape))
 
     permutation_map = np.concatenate(index_arrays, axis=dim).ravel()
     state_indices[eqn.outvars[0]] = [all_indices[i] for i in permutation_map]
 
     # Propagate state_consts so downstream gather/scatter can resolve indices.
-    vals = [atom_const_val(v, state_consts) for v in eqn.invars]
+    vals = [_atom_const_val(v, state_consts) for v in eqn.invars]
     if all(v is not None for v in vals):
         state_consts[eqn.outvars[0]] = np.concatenate(
             [v for v in vals if v is not None], axis=dim

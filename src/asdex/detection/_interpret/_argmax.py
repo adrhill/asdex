@@ -3,11 +3,11 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import StateBounds, StateIndices, atom_shape
-from ._elementwise import prop_zero_derivative
+from ._common import StateBounds, StateIndices, _atom_shape
+from ._elementwise import _prop_zero_derivative
 
 
-def prop_argmax(
+def _prop_argmax(
     eqn: JaxprEqn, state_indices: StateIndices, state_bounds: StateBounds
 ) -> None:
     """argmax/argmin returns the index of the extreme value along an axis.
@@ -31,12 +31,12 @@ def prop_argmax(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.argmax.html
     """
-    prop_zero_derivative(eqn, state_indices)
+    _prop_zero_derivative(eqn, state_indices)
 
     axes = eqn.params["axes"]
-    in_shape = atom_shape(eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     axis_size = in_shape[axes[0]]
     out_var = eqn.outvars[0]
-    lo = np.zeros(atom_shape(out_var), dtype=np.int64)
-    hi = np.full(atom_shape(out_var), axis_size - 1, dtype=np.int64)
+    lo = np.zeros(_atom_shape(out_var), dtype=np.int64)
+    hi = np.full(_atom_shape(out_var), axis_size - 1, dtype=np.int64)
     state_bounds[out_var] = (lo, hi)

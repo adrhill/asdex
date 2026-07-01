@@ -4,10 +4,22 @@ This is global sparsity detection - asdex analyzes the computation graph
 structure without evaluating derivatives, so results are valid for all inputs.
 """
 
-from asdex._plotting import spy
-from asdex.coloring import (
+from asdex._check import (
+    check_coloring_cols,
+    check_coloring_rows,
+    check_coloring_symmetric,
+    check_hessian_correctness,
+    check_jacobian_correctness,
+)
+from asdex._errors import (
     DenseColoringWarning,
     InvalidColoringError,
+    VerificationError,
+)
+from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._plotting import spy
+from asdex._types import HessianMode, JacobianMode, OutputFormat
+from asdex.coloring import (
     StarSet,
     color_cols,
     color_rows,
@@ -38,16 +50,6 @@ from asdex.decompression import (
     value_and_jacobian_from_coloring,
 )
 from asdex.detection import hessian_sparsity, jacobian_sparsity
-from asdex.modes import HessianMode, JacobianMode, OutputFormat
-from asdex.pattern import ColoredPattern, SparsityPattern
-from asdex.verify import (
-    VerificationError,
-    check_coloring_cols,
-    check_coloring_rows,
-    check_coloring_symmetric,
-    check_hessian_correctness,
-    check_jacobian_correctness,
-)
 
 __all__ = [
     "ColoredPattern",

@@ -1,4 +1,4 @@
-"""Tests for the prop_cumsum handler.
+"""Tests for the _prop_cumsum handler.
 
 Cumulative sum produces a lower-triangular (forward) or upper-triangular (reverse)
 dependency pattern along the scan axis,

@@ -3,19 +3,19 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateConsts,
     StateIndices,
-    atom_const_val,
-    atom_shape,
-    empty_index_set,
-    empty_index_sets,
-    index_sets,
+    _atom_const_val,
+    _atom_shape,
+    _empty_index_set,
+    _empty_index_sets,
+    _index_sets,
 )
 
 
-def prop_dot_general(
+def _prop_dot_general(
     eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
 ) -> None:
     """Dot_general contracts and batches two arrays.
@@ -43,11 +43,11 @@ def prop_dot_general(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.dot_general.html
     """
-    lhs_indices = index_sets(state_indices, eqn.invars[0])
-    rhs_indices = index_sets(state_indices, eqn.invars[1])
+    lhs_indices = _index_sets(state_indices, eqn.invars[0])
+    rhs_indices = _index_sets(state_indices, eqn.invars[1])
 
-    lhs_shape = atom_shape(eqn.invars[0])
-    rhs_shape = atom_shape(eqn.invars[1])
+    lhs_shape = _atom_shape(eqn.invars[0])
+    rhs_shape = _atom_shape(eqn.invars[1])
 
     (lhs_contract, rhs_contract), (lhs_batch, rhs_batch) = eqn.params[
         "dimension_numbers"
@@ -74,8 +74,8 @@ def prop_dot_general(
     # Get constant values for zero-skipping.
     # When an operand is a known constant with zeros,
     # those contracting positions contribute nothing to the derivative.
-    lhs_val = atom_const_val(eqn.invars[0], state_consts)
-    rhs_val = atom_const_val(eqn.invars[1], state_consts)
+    lhs_val = _atom_const_val(eqn.invars[0], state_consts)
+    rhs_val = _atom_const_val(eqn.invars[1], state_consts)
     lhs_val_flat = np.atleast_1d(lhs_val).ravel() if lhs_val is not None else None
     rhs_val_flat = np.atleast_1d(rhs_val).ravel() if rhs_val is not None else None
 
@@ -90,7 +90,7 @@ def prop_dot_general(
     if not out_shape:
         # Scalar output (e.g., vector dot product).
         # Skip terms where either factor is a known zero.
-        result: IndexSet = empty_index_set()
+        result: IndexSet = _empty_index_set()
         for i in range(len(lhs_indices)):
             lhs_zero = lhs_val_flat is not None and lhs_val_flat[i] == 0
             rhs_zero = rhs_val_flat is not None and rhs_val_flat[i] == 0
@@ -129,7 +129,7 @@ def prop_dot_general(
         else np.empty((0, 1), dtype=int)
     )
 
-    out_indices: list[IndexSet] = empty_index_sets(out_size)
+    out_indices: list[IndexSet] = _empty_index_sets(out_size)
 
     for c_idx in range(n_contract):
         lhs_coord = tuple(

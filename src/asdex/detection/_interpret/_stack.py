@@ -3,18 +3,18 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateConsts,
     StateIndices,
-    atom_const_val,
-    atom_shape,
-    index_sets,
-    numel,
+    _atom_const_val,
+    _atom_shape,
+    _index_sets,
+    _numel,
 )
 
 
-def prop_stack(
+def _prop_stack(
     eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
 ) -> None:
     """Stack joins arrays along a new axis.
@@ -44,8 +44,8 @@ def prop_stack(
         state_indices[out_var] = []
         return
 
-    in_shape = atom_shape(eqn.invars[0])
-    in_numel = numel(in_shape)
+    in_shape = _atom_shape(eqn.invars[0])
+    in_numel = _numel(in_shape)
     n_inputs = len(eqn.invars)
     out_numel = in_numel * n_inputs
 
@@ -58,7 +58,7 @@ def prop_stack(
     all_indices: list[IndexSet] = []
     index_arrays = []
     for invar in eqn.invars:
-        in_indices = index_sets(state_indices, invar)
+        in_indices = _index_sets(state_indices, invar)
         offset = len(all_indices)
         all_indices.extend(in_indices)
         index_arrays.append(
@@ -71,6 +71,6 @@ def prop_stack(
     state_indices[out_var] = [all_indices[i] for i in permutation_map]
 
     # Propagate const values for downstream gather/scatter.
-    vals = [atom_const_val(v, state_consts) for v in eqn.invars]
+    vals = [_atom_const_val(v, state_consts) for v in eqn.invars]
     if all(v is not None for v in vals):
         state_consts[out_var] = np.stack([v for v in vals if v is not None], axis=axis)

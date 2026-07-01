@@ -3,10 +3,10 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import StateIndices, atom_shape, index_sets, transform_indices
+from ._common import StateIndices, _atom_shape, _index_sets, _transform_indices
 
 
-def prop_rev(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_rev(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Rev reverses an array along specified dimensions.
 
     Each output element maps to exactly one input element
@@ -26,10 +26,10 @@ def prop_rev(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.rev.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
-    in_shape = atom_shape(eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     dimensions = eqn.params["dimensions"]
 
-    state_indices[eqn.outvars[0]] = transform_indices(
+    state_indices[eqn.outvars[0]] = _transform_indices(
         in_indices, in_shape, lambda p: np.flip(p, axis=dimensions)
     )

@@ -16,7 +16,7 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
-from ._types import _empty_int32
+from asdex._pattern import _empty_int32
 
 
 def _build_csr(
@@ -171,7 +171,7 @@ def _build_edge_to_index_core(
                 counter += 1
 
 
-def reconstruct_edge_arrays(
+def _reconstruct_edge_arrays(
     rows: NDArray[np.int32],
     cols: NDArray[np.int32],
     n: int,

@@ -4,25 +4,25 @@ from collections.abc import Callable
 
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     PropJaxprFn,
     StateConsts,
     StateIndices,
-    forward_const_vals,
-    index_sets,
-    seed_const_vals,
+    _forward_const_vals,
+    _index_sets,
+    _seed_const_vals,
 )
 
 _MAX_FIXED_POINT_ITERS = 500
 """Safety bound for fixed-point iteration."""
 
 
-def prop_while(
+def _prop_while(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
-    prop_jaxpr: PropJaxprFn,
+    _prop_jaxpr: PropJaxprFn,
 ) -> None:
     """while_loop iterates a body until a condition becomes false.
 
@@ -53,22 +53,22 @@ def prop_while(
     carry_init = eqn.invars[body_nconsts + cond_nconsts :]
     assert len(carry_init) == n_carry
 
-    seed_const_vals(state_consts, body_jaxpr.constvars, body_closed.consts)
+    _seed_const_vals(state_consts, body_jaxpr.constvars, body_closed.consts)
     # Only forward state_consts for body consts, not carry (carry changes each iteration)
-    forward_const_vals(state_consts, body_consts, body_jaxpr.invars[:body_nconsts])
+    _forward_const_vals(state_consts, body_consts, body_jaxpr.invars[:body_nconsts])
 
     # Initialize carry state_indices from the initial values
     carry_indices: list[list[IndexSet]] = [
-        index_sets(state_indices, v) for v in carry_init
+        _index_sets(state_indices, v) for v in carry_init
     ]
 
     # body_jaxpr invars: [body_consts..., carry...]
     const_inputs: list[list[IndexSet]] = [
-        index_sets(state_indices, v) for v in body_consts
+        _index_sets(state_indices, v) for v in body_consts
     ]
 
     def iterate(carry: list[list[IndexSet]]) -> list[list[IndexSet]]:
-        return prop_jaxpr(body_jaxpr, const_inputs + carry, state_consts)
+        return _prop_jaxpr(body_jaxpr, const_inputs + carry, state_consts)
 
     _fixed_point_loop(iterate, carry_indices, n_carry)
 

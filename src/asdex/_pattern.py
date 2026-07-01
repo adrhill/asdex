@@ -7,7 +7,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, assert_never
+from typing import Any, assert_never
 
 import jax
 import jax.numpy as jnp
@@ -17,12 +17,8 @@ from jax.experimental.sparse import BCOO
 from jax.tree_util import tree_flatten
 from numpy.typing import NDArray
 
-from asdex._display import colored_repr, colored_str, sparsity_repr, sparsity_str
-from asdex.modes import ColoringMode, _assert_coloring_mode
-
-if TYPE_CHECKING:
-    from asdex.coloring import StarSet
-
+from asdex._display import _render, _render_side_by_side, _render_stacked
+from asdex._types import ColoringMode, _assert_coloring_mode
 
 # Serialization helpers
 
@@ -434,11 +430,73 @@ class SparsityPattern:
 
     def __str__(self) -> str:
         """Render sparsity pattern with header and dot/braille grid."""
-        return sparsity_str(self)
+        return _sparsity_str(self)
 
     def __repr__(self) -> str:
         """Return compact single-line representation."""
-        return sparsity_repr(self)
+        return _sparsity_repr(self)
+
+
+def _empty_int32() -> NDArray[np.int32]:
+    return np.empty(0, dtype=np.int32)
+
+
+@dataclass(frozen=True)
+class StarSet:
+    """Set of 2-colored stars produced by [`color_symmetric`][asdex.color_symmetric].
+
+    A star is a 2-colored subgraph with one *hub* vertex and one or more *spokes*.
+    All spokes share a single color; the hub has a different color.
+    For a Hessian entry ``H[i, j]``, the hub's HVP row contains the value
+    at the spoke's position — the spoke's own HVP is not needed.
+
+    Attributes:
+        star: Mapping from undirected edge index to star index, shape ``(num_edges,)``.
+        hub: Mapping from star index to hub vertex, shape ``(num_stars,)``.
+            ``hub[s] >= 0``: hub vertex (non-trivial star, or trivial star
+            whose hub was resolved by postprocessing).
+            ``hub[s] < 0``: trivial star with unresolved hub, encoded as
+            ``hub[s] = -(v + 1)`` where ``v`` is one of the edge's endpoints
+            (arbitrarily picked at construction time);
+            decode with ``v = -hub[s] - 1``.
+        edge_lo: Smaller endpoint per off-diagonal edge, shape ``(num_edges,)``.
+        edge_hi: Larger endpoint per off-diagonal edge, shape ``(num_edges,)``.
+        edge_pos: Edge index (into ``star``) per off-diagonal edge,
+            shape ``(num_edges,)``; a permutation of ``range(num_edges)``.
+
+    The edge arrays together map ``(min(i, j), max(i, j)) -> edge_idx``
+    and are sorted lexicographically by ``(edge_lo, edge_hi)``,
+    so lookups are plain binary searches.
+    Self-loops are not indexed.
+    """
+
+    star: NDArray[np.int32]
+    hub: NDArray[np.int32]
+    edge_lo: NDArray[np.int32] = field(default_factory=_empty_int32)
+    edge_hi: NDArray[np.int32] = field(default_factory=_empty_int32)
+    edge_pos: NDArray[np.int32] = field(default_factory=_empty_int32)
+
+    def edge_index(self, i: int, j: int) -> int:
+        """Edge index of the off-diagonal edge ``(i, j)``.
+
+        Raises ``KeyError`` if the edge is not in the star set.
+        """
+        a, b = (i, j) if i < j else (j, i)
+        start = int(np.searchsorted(self.edge_lo, a, side="left"))
+        stop = int(np.searchsorted(self.edge_lo, a, side="right"))
+        k = start + int(np.searchsorted(self.edge_hi[start:stop], b))
+        if k >= stop or self.edge_hi[k] != b:
+            raise KeyError((a, b))
+        return int(self.edge_pos[k])
+
+    def hub_vertex(self, i: int, j: int) -> int:
+        """Hub vertex of the star containing off-diagonal edge ``(i, j)``.
+
+        For unresolved trivial stars, returns the decoded default endpoint.
+        """
+        s = int(self.star[self.edge_index(i, j)])
+        h = int(self.hub[s])
+        return h if h >= 0 else -h - 1
 
 
 @dataclass(frozen=True, repr=False)
@@ -482,6 +540,33 @@ class ColoredPattern:
         All other modes compress columns.
         """
         return self.mode != "rev"
+
+    @property
+    def _compressed_dim(self) -> int:
+        """Second-axis length of the compressed matrix ``B``.
+
+        ``B`` has shape ``(num_colors, dim)``,
+        where ``dim`` is the space that compression preserves,
+        the opposite of the seeded space.
+        For ``"fwd"`` the seed lives in the input space,
+        so ``B``'s columns are the output space of size ``m``.
+        For ``"rev"`` and the Hessian modes the seed lives in the output
+        or cotangent space,
+        so ``B``'s columns are the selected input space of size ``n``.
+
+        Both compress (building ``B``) and decompress (consuming ``B``)
+        consult this to agree on ``B``'s layout without importing each other:
+        compress sizes the empty-pattern short-circuit,
+        decompress validates a caller-supplied ``B`` before its gather.
+        This equals the space the gather's ``elem_idx`` indexes.
+        """
+        match self.mode:
+            case "fwd":
+                return self.sparsity.m
+            case "rev" | "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
+                return self.sparsity.n
+            case _ as unreachable:
+                assert_never(unreachable)
 
     # Cached arrays for fast decompression
 
@@ -712,9 +797,9 @@ class ColoredPattern:
                     "Re-run asdex.hessian_coloring() to regenerate."
                 )
                 raise ValueError(msg)
-            from asdex.coloring import StarSet, reconstruct_edge_arrays  # noqa: PLC0415
+            from asdex.coloring import _reconstruct_edge_arrays  # noqa: PLC0415
 
-            edge_lo, edge_hi, edge_pos = reconstruct_edge_arrays(
+            edge_lo, edge_hi, edge_pos = _reconstruct_edge_arrays(
                 sparsity.rows, sparsity.cols, sparsity.n
             )
             star_set = StarSet(
@@ -738,8 +823,123 @@ class ColoredPattern:
 
     def __repr__(self) -> str:
         """Return compact single-line representation."""
-        return colored_repr(self)
+        return _colored_repr(self)
 
     def __str__(self) -> str:
         """Render colored pattern with sparsity grid and color assignments."""
-        return colored_str(self)
+        return _colored_str(self)
+
+
+# Display
+
+# Human-readable AD primitive names for display
+_MODE_PRIMITIVE: dict[str, str] = {
+    "fwd": "JVP",
+    "rev": "VJP",
+    "fwd_over_rev": "HVP",
+    "rev_over_fwd": "HVP",
+    "rev_over_rev": "HVP",
+}
+
+
+def _sparsity_str(pattern: SparsityPattern) -> str:
+    """Full string representation with header and visualization."""
+    header = (
+        f"SparsityPattern({pattern.m}×{pattern.n}, "
+        f"nnz={pattern.nnz}, sparsity={1 - pattern.density:.1%})"
+    )
+    grid = _render(pattern.m, pattern.n, pattern.rows, pattern.cols)
+    return f"{header}\n{grid}"
+
+
+def _sparsity_repr(pattern: SparsityPattern) -> str:
+    """Compact single-line representation."""
+    return f"SparsityPattern(shape={pattern.shape}, nnz={pattern.nnz})"
+
+
+def _colored_repr(colored: ColoredPattern) -> str:
+    """Compact single-line representation."""
+    sp = colored.sparsity
+    m, n = sp.shape
+    c = colored.num_colors
+    primitive = _MODE_PRIMITIVE[colored.mode]
+    return (
+        f"ColoredPattern({m}×{n}, nnz={sp.nnz}, sparsity={1 - sp.density:.1%}, "
+        f"{primitive}, {c} {'color' if c == 1 else 'colors'})"
+    )
+
+
+def _colored_str(colored: ColoredPattern) -> str:
+    """Full string representation with AD savings summary and visualization.
+
+    Column compression (fwd/symmetric) shows side-by-side with ``→``.
+    Row compression (rev) shows stacked with ``↓``.
+    """
+    m, n = colored.sparsity.shape
+    c = colored.num_colors
+    primitive = _MODE_PRIMITIVE[colored.mode]
+    s = "" if c == 1 else "s"
+
+    def _plural(count: int, word: str) -> str:
+        return f"{count} {word}" if count == 1 else f"{count} {word}s"
+
+    if colored.symmetric:
+        instead = f"instead of {_plural(n, 'HVP')}"
+    else:
+        instead = f"instead of {_plural(m, 'VJP')} or {_plural(n, 'JVP')}"
+    header = f"{_colored_repr(colored)}\n  {c} {primitive}{s} ({instead})"
+
+    sp = colored.sparsity
+    compressed = _compressed_pattern(colored)
+    left_lines = _render(sp.m, sp.n, sp.rows, sp.cols).split("\n")
+    right_lines = _render(
+        compressed.m, compressed.n, compressed.rows, compressed.cols
+    ).split("\n")
+
+    if colored._compresses_columns:
+        viz = _render_side_by_side(left_lines, right_lines)
+    else:
+        viz = _render_stacked(left_lines, right_lines)
+
+    return f"{header}\n{viz}"
+
+
+def _compressed_pattern(colored: ColoredPattern) -> SparsityPattern:
+    """Build the compressed sparsity pattern after coloring.
+
+    For column compression (JVP/HVP, shape ``(m, num_colors)``):
+    entry ``(i, c)`` is present iff any column ``j``
+    with ``colors[j] == c`` has a nonzero at ``(i, j)``.
+
+    For row compression (VJP, shape ``(num_colors, n)``):
+    entry ``(c, j)`` is present iff any row ``i``
+    with ``colors[i] == c`` has a nonzero at ``(i, j)``.
+    """
+    cls = type(colored.sparsity)
+    comp_rows: list[int] = []
+    comp_cols: list[int] = []
+
+    if colored._compresses_columns:
+        # Compress columns: (m, n) → (m, num_colors)
+        seen: set[tuple[int, int]] = set()
+        for i, j in zip(colored.sparsity.rows, colored.sparsity.cols, strict=True):
+            c = int(colored.colors[j])
+            entry = (int(i), c)
+            if entry not in seen:
+                seen.add(entry)
+                comp_rows.append(entry[0])
+                comp_cols.append(entry[1])
+        shape = (colored.sparsity.m, colored.num_colors)
+    else:
+        # Compress rows: (m, n) → (num_colors, n)
+        seen = set()
+        for i, j in zip(colored.sparsity.rows, colored.sparsity.cols, strict=True):
+            c = int(colored.colors[i])
+            entry = (c, int(j))
+            if entry not in seen:
+                seen.add(entry)
+                comp_rows.append(entry[0])
+                comp_cols.append(entry[1])
+        shape = (colored.num_colors, colored.sparsity.n)
+
+    return cls.from_coo(comp_rows, comp_cols, shape)

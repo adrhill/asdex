@@ -15,17 +15,19 @@ ASD exploits sparsity to reduce the cost of computing sparse Jacobians and Hessi
 ```
 src/asdex/
 ├── __init__.py         # Public API
-├── _api_utils.py       # Input-side API helpers (argnums normalization, dtype validation)
+├── _arguments.py       # Argument handling and validation (argnums, kwargs binding, dtype/structure checks)
+├── _check.py           # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
 ├── _display.py         # Display/formatting utilities
+├── _errors.py          # Errors and warnings (VerificationError, InvalidColoringError, DenseColoringWarning)
 ├── _plotting.py        # Matplotlib visualizations for SparsityPattern and ColoredPattern
 ├── coloring/           # Graph coloring (row, column, symmetric) and convenience functions
 ├── decompression/      # Compress (one VJP/JVP/HVP per color, producing B) then decompress it into the sparse matrix, plus the public API
 ├── detection/          # Jacobian and Hessian sparsity detection via jaxpr analysis
 │   └── _interpret/     # Custom jaxpr interpreter for index set propagation
-├── differentiation.py  # Batched-AD engine: one VJP/JVP/HVP per color, producing the compressed matrix B
-├── modes.py            # Type aliases for AD mode and output format selection (JacobianMode, HessianMode, OutputFormat)
-├── pattern.py          # SparsityPattern and ColoredPattern data structures
-└── verify.py           # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
+├── _differentiation.py # Batched-AD engine: one VJP/JVP/HVP per color, producing the compressed matrix B
+├── _pattern.py         # SparsityPattern and ColoredPattern data structures
+├── _pytree.py          # Generic PyTree <-> flat array plumbing (flatten, unflatten, size, dtype)
+└── _types.py           # Type aliases for AD modes and output formats (JacobianMode, HessianMode, OutputFormat) and mode validators
 ```
 
 The interpreter internals are described in `src/asdex/detection/_interpret/CLAUDE.md`.
@@ -59,7 +61,7 @@ jacobian_from_coloring(f, coloring)(x)  # from pre-computed coloring
   ├─ 1. DETECTION
   │     jacobian_sparsity(f, input_shape)
   │     ├─ make_jaxpr(f) → jaxpr
-  │     ├─ prop_jaxpr() → index sets
+  │     ├─ _prop_jaxpr() → index sets
   │     └─ SparsityPattern
   │
   ├─ 2. COLORING

@@ -372,7 +372,7 @@ def test_check_jacobian_multi_arg(mode, method):
 def test_check_jacobian_multi_arg_single_argnum():
     """check_jacobian_correctness should work with single argnum from multi-arg function.
 
-    Currently verify.py doesn't handle the case where argnums is an int
+    Currently _check.py doesn't handle the case where argnums is an int
     but f takes multiple arguments.
     """
 
@@ -383,6 +383,25 @@ def test_check_jacobian_multi_arg_single_argnum():
     coloring = jacobian_coloring(f, x, y, argnums=0)
     with pytest.raises(TypeError, match="missing 1 required positional argument"):
         check_jacobian_correctness(f, (x, y), coloring)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize("mode", ["fwd", "rev"])
+@pytest.mark.parametrize("method", ["matvec", "dense"])
+def test_check_jacobian_multi_arg_non_leading_argnum(mode, method):
+    """check_jacobian_correctness works when a tuple argnums skips the first arg.
+
+    A tuple argnums like ``(1,)`` selects only the second argument.
+    The fwd matvec path must map the flat probe to the selected position
+    rather than index the selected-order tangent tuple by original position.
+    """
+
+    def f(x, y):
+        return x * y + x**2
+
+    x, y = np.array([1.0, 2.0]), np.array([3.0, 4.0])
+    coloring = jacobian_coloring(f, x, y, argnums=(1,), mode=mode)
+    check_jacobian_correctness(f, (x, y), coloring, method=method)
 
 
 @pytest.mark.hessian
@@ -404,7 +423,7 @@ def test_check_hessian_multi_arg(mode, method):
 def test_check_hessian_multi_arg_single_argnum():
     """check_hessian_correctness should work with single argnum from multi-arg function.
 
-    Currently verify.py doesn't handle the case where argnums is an int
+    Currently _check.py doesn't handle the case where argnums is an int
     but f takes multiple arguments.
     """
 
@@ -415,6 +434,25 @@ def test_check_hessian_multi_arg_single_argnum():
     coloring = hessian_coloring(f, x, y, argnums=0)
     with pytest.raises(ValueError, match="Expected 2 positional argument"):
         check_hessian_correctness(f, (x, y), coloring)
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("mode", ["fwd_over_rev", "rev_over_fwd", "rev_over_rev"])
+@pytest.mark.parametrize("method", ["matvec", "dense"])
+def test_check_hessian_multi_arg_non_leading_argnum(mode, method):
+    """check_hessian_correctness works when a tuple argnums skips the first arg.
+
+    A tuple argnums like ``(1,)`` selects only the second argument.
+    The fwd_over_rev and rev_over_fwd matvec paths must map the flat probe
+    to the selected position rather than index by original position.
+    """
+
+    def f(x, y):
+        return jnp.sum(x**2) + jnp.dot(x, y) + jnp.sum(y**2)
+
+    x, y = np.array([1.0, 2.0]), np.array([3.0, 4.0])
+    coloring = hessian_coloring(f, x, y, argnums=(1,), mode=mode)
+    check_hessian_correctness(f, (x, y), coloring, method=method)
 
 
 # PyTree inputs with same-ndim blocks (happy path for _stack_bcoo_pytree)

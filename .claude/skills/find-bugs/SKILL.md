@@ -48,7 +48,7 @@ assert jnp.allclose(J_asdex, J_jax)
 - `SparsityPattern` and `ColoredPattern` serialization
 - Pickle roundtrips, JSON export/import if supported
 
-**Primitives** (check `src/asdex/detection/_interpret/__init__.py` `prop_dispatch`):
+**Primitives** (check `src/asdex/detection/_interpret/__init__.py` `_prop_dispatch`):
 - Control flow: `cond`, `scan`, `while_loop`, `fori_loop`
 - Index ops: `gather`, `scatter`, `dynamic_slice`, `dynamic_update_slice`
 - Reductions: `reduce`, `reduce_window`, `reduce_max`, `reduce_min`

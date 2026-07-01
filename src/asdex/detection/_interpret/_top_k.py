@@ -8,16 +8,16 @@ import math
 
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateIndices,
-    atom_numel,
-    atom_shape,
-    index_sets,
-    union_all,
+    _atom_numel,
+    _atom_shape,
+    _index_sets,
+    _union_all,
 )
 
 
-def prop_top_k(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_top_k(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """top_k selects the k largest elements along the last axis.
 
     Each value output depends on all input elements in its batch slice,
@@ -41,15 +41,15 @@ def prop_top_k(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.top_k.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
-    in_shape = atom_shape(eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     k = eqn.params["k"]
     last_dim = in_shape[-1]
     n_batches = math.prod(in_shape[:-1]) if len(in_shape) > 1 else 1
 
     # Union input state_indices within each batch slice (contiguous along last axis)
     group_indices = [
-        union_all(in_indices[b * last_dim : (b + 1) * last_dim])
+        _union_all(in_indices[b * last_dim : (b + 1) * last_dim])
         for b in range(n_batches)
     ]
 
@@ -57,4 +57,4 @@ def prop_top_k(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     state_indices[eqn.outvars[0]] = [
         group_indices[b] for b in range(n_batches) for _ in range(k)
     ]
-    state_indices[eqn.outvars[1]] = [set() for _ in range(atom_numel(eqn.outvars[1]))]
+    state_indices[eqn.outvars[1]] = [set() for _ in range(_atom_numel(eqn.outvars[1]))]

@@ -3,18 +3,18 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     StateConsts,
     StateIndices,
-    atom_shape,
-    index_sets,
-    numel,
-    propagate_const_unary,
-    transform_indices,
+    _atom_shape,
+    _index_sets,
+    _numel,
+    _propagate_const_unary,
+    _transform_indices,
 )
 
 
-def prop_reshape(
+def _prop_reshape(
     eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
 ) -> None:
     """Reshape changes array shape without changing data or element count.
@@ -42,8 +42,8 @@ def prop_reshape(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.reshape.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
-    out_size = numel(atom_shape(eqn.outvars[0]))
+    in_indices = _index_sets(state_indices, eqn.invars[0])
+    out_size = _numel(_atom_shape(eqn.outvars[0]))
     if len(in_indices) != out_size:
         msg = (
             f"Reshape size mismatch: input has {len(in_indices)} elements "
@@ -58,8 +58,8 @@ def prop_reshape(
         # dimensions is a permutation applied before the reshape.
         # Build the flat index mapping: position map transposed then raveled
         # tells us which original flat index each output position reads.
-        in_shape = atom_shape(eqn.invars[0])
-        state_indices[eqn.outvars[0]] = transform_indices(
+        in_shape = _atom_shape(eqn.invars[0])
+        state_indices[eqn.outvars[0]] = _transform_indices(
             in_indices, in_shape, lambda p: p.transpose(dimensions)
         )
     else:
@@ -72,4 +72,4 @@ def prop_reshape(
             return v.transpose(dimensions).reshape(new_sizes)
         return v.reshape(new_sizes)
 
-    propagate_const_unary(eqn, state_consts, _reshape_val)
+    _propagate_const_unary(eqn, state_consts, _reshape_val)

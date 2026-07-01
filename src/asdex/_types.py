@@ -1,6 +1,6 @@
-"""Type aliases and resolution for AD mode selection."""
+"""Type aliases for AD modes and output formats, plus AD-mode and output-format validators."""
 
-from typing import Any, Literal, get_args
+from typing import Literal, get_args
 
 JacobianMode = Literal["fwd", "rev"]
 """AD mode for Jacobian computation.
@@ -47,9 +47,48 @@ are kept as explicit entries,
 so the structure is independent of the input value.
 """
 
+# get_args on a ``|``-union of Literals returns the nested Literal types,
+# not their string values, so flatten one level to recover the values.
+_OUTPUT_FORMATS = tuple(
+    value for literal in get_args(OutputFormat) for value in get_args(literal)
+)
+
 # Output formats backed by host (non-JAX) arrays.
 # These cannot be returned from a caller-side ``jax.jit``.
 _HOST_FORMATS = ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc")
+
+
+def _assert_output_format(output_format: str) -> None:
+    """Raise if *output_format* is not a valid, usable ``OutputFormat``.
+
+    Raises:
+        ValueError: If *output_format* is not a valid ``OutputFormat``.
+        ImportError: If *output_format* is a scipy format and scipy is not installed.
+            Checked here so that requesting a scipy format fails at construction time
+            rather than at the first call.
+    """
+    if output_format not in _OUTPUT_FORMATS:
+        raise ValueError(
+            f"Unknown output_format {output_format!r}. "
+            "Expected 'bcoo', 'dense', 'numpy_dense', 'scipy_coo', 'scipy_csr', or 'scipy_csc'."
+        )
+    if output_format in get_args(ScipyOutputFormat):
+        _assert_scipy_installed(output_format)
+
+
+def _assert_scipy_installed(output_format: str) -> None:
+    """Raise ``ImportError`` if scipy is not installed.
+
+    The hint points at the optional dependency
+    so a scipy format fails with an actionable message rather than a bare import error.
+    """
+    try:
+        import scipy.sparse  # noqa: PLC0415, F401
+    except ImportError as e:
+        raise ImportError(
+            f"scipy is required for output_format={output_format!r}. "
+            "Install it with: pip install 'asdex[scipy]'"
+        ) from e
 
 
 def _assert_jacobian_mode(mode: str) -> None:
@@ -71,45 +110,3 @@ def _assert_coloring_mode(mode: str) -> None:
     """Raise ``ValueError`` if *mode* is not a valid ``ColoringMode``."""
     if mode not in (*get_args(JacobianMode), *get_args(HessianMode)):
         raise ValueError(f"Unknown mode {mode!r}.")
-
-
-def _assert_output_format(output_format: str) -> None:
-    """Raise if *output_format* is not a valid, usable ``OutputFormat``.
-
-    Raises:
-        ValueError: If *output_format* is not a valid ``OutputFormat``.
-        ImportError: If *output_format* is a scipy format and scipy is not installed.
-            Checked here so that requesting a scipy format fails at construction time
-            rather than at the first call.
-    """
-    # get_args on a union of Literals returns the nested Literal types, not the values.
-    # Flatten by unpacking each component.
-    valid = (
-        *get_args(JaxOutputFormat),
-        *get_args(NumpyOutputFormat),
-        *get_args(ScipyOutputFormat),
-    )
-    if output_format not in valid:
-        raise ValueError(
-            f"Unknown output_format {output_format!r}. "
-            "Expected 'bcoo', 'dense', 'numpy_dense', 'scipy_coo', 'scipy_csr', or 'scipy_csc'."
-        )
-    if output_format in get_args(ScipyOutputFormat):
-        _import_scipy_coo_array(output_format)
-
-
-def _import_scipy_coo_array(output_format: str) -> Any:
-    """Import and return ``scipy.sparse.coo_array``.
-
-    Raises:
-        ImportError: If scipy is not installed,
-            with a hint to install the optional dependency.
-    """
-    try:
-        from scipy.sparse import coo_array  # noqa: PLC0415
-    except ImportError as e:
-        raise ImportError(
-            f"scipy is required for output_format={output_format!r}. "
-            "Install it with: pip install 'asdex[scipy]'"
-        ) from e
-    return coo_array

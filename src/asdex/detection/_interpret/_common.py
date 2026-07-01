@@ -16,24 +16,24 @@ set[int] wins for the typical workload (small sparse sets, large universe).
 """
 
 
-def empty_index_set() -> IndexSet:
+def _empty_index_set() -> IndexSet:
     """Create an empty dependency set."""
     return set()
 
 
-def singleton_index_set(i: int) -> IndexSet:
+def _singleton_index_set(i: int) -> IndexSet:
     """Create a dependency set containing a single index."""
     return {i}
 
 
-def empty_index_sets(n: int) -> list[IndexSet]:
+def _empty_index_sets(n: int) -> list[IndexSet]:
     """Create n empty dependency sets."""
-    return [empty_index_set() for _ in range(n)]
+    return [_empty_index_set() for _ in range(n)]
 
 
-def identity_index_sets(n: int) -> list[IndexSet]:
+def _identity_index_sets(n: int) -> list[IndexSet]:
     """Create identity sets where element i depends on index i."""
-    return [singleton_index_set(i) for i in range(n)]
+    return [_singleton_index_set(i) for i in range(n)]
 
 
 StateIndices = dict[Var, list[IndexSet]]
@@ -57,7 +57,7 @@ Atom = Var | Literal
 PropJaxprFn = Callable[
     [Jaxpr, list[list[IndexSet]], StateConsts | None], list[list[IndexSet]]
 ]
-"""Signature of ``prop_jaxpr``, passed as callback to break circular imports."""
+"""Signature of ``_prop_jaxpr``, passed as callback to break circular imports."""
 
 
 _MAX_ENUM_COMBINATIONS = 64
@@ -81,7 +81,7 @@ or two indices each with up to 8 possible values).
 """
 
 
-def enumerate_bounded_patterns(
+def _enumerate_bounded_patterns(
     ranges: Sequence[range],
     out_size: int,
     make_pattern: Callable[[tuple[int, ...]], list[IndexSet] | None],
@@ -90,7 +90,7 @@ def enumerate_bounded_patterns(
 
     Used by ``gather``, ``scatter``, ``dynamic_slice``, and ``dynamic_update_slice``
     when indices are bounded but not statically known.
-    Each call site builds its own ``ranges`` (from ``atom_value_bounds``
+    Each call site builds its own ``ranges`` (from ``_atom_value_bounds``
     or ``_resolve_start_bounds``) and provides a ``make_pattern`` callback
     that computes the sparsity pattern for one concrete index combination.
 
@@ -118,43 +118,43 @@ def enumerate_bounded_patterns(
 # Shape and size
 
 
-def numel(shape: Sequence[int]) -> int:
+def _numel(shape: Sequence[int]) -> int:
     """Compute the total number of elements from a shape tuple."""
     return math.prod(shape) if shape else 1
 
 
-def atom_shape(atom: Atom) -> tuple[int, ...]:
+def _atom_shape(atom: Atom) -> tuple[int, ...]:
     """Get the shape of a variable or literal."""
     if isinstance(atom, Literal):
         return tuple(getattr(atom.val, "shape", ()))
     return tuple(getattr(atom.aval, "shape", ()))
 
 
-def atom_numel(atom: Atom) -> int:
+def _atom_numel(atom: Atom) -> int:
     """Get the total number of elements in a variable or literal."""
     if isinstance(atom, Literal):
         shape = getattr(atom.val, "shape", ())
-        return numel(tuple(shape)) if shape else 1
+        return _numel(tuple(shape)) if shape else 1
     shape = getattr(atom.aval, "shape", ())
-    return numel(tuple(shape)) if shape else 1
+    return _numel(tuple(shape)) if shape else 1
 
 
 # Atom value access
 
 
-def index_sets(state_indices: StateIndices, atom: Atom) -> list[IndexSet]:
+def _index_sets(state_indices: StateIndices, atom: Atom) -> list[IndexSet]:
     """Get the index sets for a variable or literal."""
     if isinstance(atom, Literal):
-        return empty_index_sets(atom_numel(atom))
-    return state_indices.get(atom, [empty_index_set()])
+        return _empty_index_sets(_atom_numel(atom))
+    return state_indices.get(atom, [_empty_index_set()])
 
 
-def copy_index_sets(src: list[IndexSet]) -> list[IndexSet]:
+def _copy_index_sets(src: list[IndexSet]) -> list[IndexSet]:
     """Deep-copy a list of index sets."""
     return [s.copy() for s in src]
 
 
-def atom_const_val(atom: Atom, state_consts: StateConsts) -> np.ndarray | None:
+def _atom_const_val(atom: Atom, state_consts: StateConsts) -> np.ndarray | None:
     """Get the concrete value of an atom, if statically known.
 
     The value is known in two cases:
@@ -171,7 +171,7 @@ def atom_const_val(atom: Atom, state_consts: StateConsts) -> np.ndarray | None:
     return None
 
 
-def atom_value_bounds(
+def _atom_value_bounds(
     atom: Atom,
     state_consts: StateConsts,
     state_bounds: StateBounds,
@@ -182,7 +182,7 @@ def atom_value_bounds(
     tracked bounds for bounded variables,
     or ``None`` when no information is available.
     """
-    val = atom_const_val(atom, state_consts)
+    val = _atom_const_val(atom, state_consts)
     if val is not None:
         return (val, val)
     if isinstance(atom, Var) and atom in state_bounds:
@@ -190,7 +190,7 @@ def atom_value_bounds(
     return None
 
 
-def propagate_const_unary(
+def _propagate_const_unary(
     eqn: JaxprEqn,
     state_consts: StateConsts,
     transform: Callable[[np.ndarray], np.ndarray],
@@ -202,12 +202,12 @@ def propagate_const_unary(
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
     static index arrays and fall back to conservative.
     """
-    in_val = atom_const_val(eqn.invars[0], state_consts)
+    in_val = _atom_const_val(eqn.invars[0], state_consts)
     if in_val is not None:
         state_consts[eqn.outvars[0]] = transform(in_val)
 
 
-def propagate_const_binary(
+def _propagate_const_binary(
     eqn: JaxprEqn,
     state_consts: StateConsts,
     transform: Callable[[np.ndarray, np.ndarray], np.ndarray],
@@ -219,8 +219,8 @@ def propagate_const_binary(
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
     static index arrays and fall back to conservative.
     """
-    in1 = atom_const_val(eqn.invars[0], state_consts)
-    in2 = atom_const_val(eqn.invars[1], state_consts)
+    in1 = _atom_const_val(eqn.invars[0], state_consts)
+    in2 = _atom_const_val(eqn.invars[1], state_consts)
     if in1 is not None and in2 is not None:
         state_consts[eqn.outvars[0]] = transform(in1, in2)
 
@@ -228,7 +228,7 @@ def propagate_const_binary(
 # Zero-skipping
 
 
-def broadcast_to_output(
+def _broadcast_to_output(
     val: np.ndarray, in_shape: tuple[int, ...], out_shape: tuple[int, ...]
 ) -> np.ndarray:
     """Broadcast a const value from input shape to output shape, returning a flat array.
@@ -242,7 +242,7 @@ def broadcast_to_output(
     return np.broadcast_to(arr.reshape(padded_shape), out_shape).ravel()
 
 
-def clear_where_zero(
+def _clear_where_zero(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -253,33 +253,33 @@ def clear_where_zero(
     Used by ``mul``, ``div``, and ``integer_pow`` for zero-skipping:
     ``d(0 * y)/dy = 0``, ``d(0 / y)/dy = 0``, ``d(0^n)/dx = 0`` for ``n > 1``.
     """
-    val = atom_const_val(eqn.invars[invar_idx], state_consts)
+    val = _atom_const_val(eqn.invars[invar_idx], state_consts)
     if val is None:
         return
-    out_shape = atom_shape(eqn.outvars[0])
-    in_shape = atom_shape(eqn.invars[invar_idx])
-    flat = broadcast_to_output(val, in_shape, out_shape)
+    out_shape = _atom_shape(eqn.outvars[0])
+    in_shape = _atom_shape(eqn.invars[invar_idx])
+    flat = _broadcast_to_output(val, in_shape, out_shape)
 
     out_indices = state_indices[eqn.outvars[0]]
     for i in range(len(out_indices)):
         if flat[i] == 0:
-            out_indices[i] = empty_index_set()
+            out_indices[i] = _empty_index_set()
 
 
 # Index set operations
 
 
-def union_all(sets: Sequence[IndexSet]) -> IndexSet:
+def _union_all(sets: Sequence[IndexSet]) -> IndexSet:
     """Union all sets together, returning a new set."""
     if not sets:
-        return empty_index_set()
-    result: IndexSet = empty_index_set()
+        return _empty_index_set()
+    result: IndexSet = _empty_index_set()
     for s in sets:
         result |= s
     return result
 
 
-def union_elementwise(
+def _union_elementwise(
     inputs: Sequence[list[IndexSet]], out_size: int
 ) -> list[IndexSet]:
     """Union multiple index set lists element-wise with scalar broadcasting.
@@ -289,10 +289,10 @@ def union_elementwise(
 
     TODO: use in more places (e.g. _binary_elementwise, select_n).
     """
-    return [union_all([inp[i % len(inp)] for inp in inputs]) for i in range(out_size)]
+    return [_union_all([inp[i % len(inp)] for inp in inputs]) for i in range(out_size)]
 
 
-def check_no_index_sets(
+def _check_no_index_sets(
     state_indices: StateIndices, atom: Atom, primitive_name: str
 ) -> None:
     """Verify that an atom carries no input dependencies.
@@ -303,7 +303,7 @@ def check_no_index_sets(
     This function validates that assumption
     and raises an informative error when it is violated.
     """
-    if any(index_sets(state_indices, atom)):
+    if any(_index_sets(state_indices, atom)):
         msg = (
             f"'{primitive_name}' handler assumes an auxiliary input "
             "has no dependency on the function's inputs, "
@@ -313,16 +313,16 @@ def check_no_index_sets(
         raise ValueError(msg)
 
 
-def conservative_indices(all_indices: list[IndexSet], out_size: int) -> list[IndexSet]:
+def _conservative_indices(all_indices: list[IndexSet], out_size: int) -> list[IndexSet]:
     """Build conservative output index sets where every element depends on the union of all inputs."""
-    combined = union_all(all_indices)
+    combined = _union_all(all_indices)
     return [combined] * out_size
 
 
 # Index clamping
 
 
-def clamp_starts(
+def _clamp_starts(
     starts: tuple[int, ...], in_shape: Sequence[int], slice_sizes: Sequence[int]
 ) -> tuple[int, ...]:
     """Clamp start indices to valid bounds.
@@ -340,17 +340,17 @@ def clamp_starts(
 # Position maps
 
 
-def position_map(shape: Sequence[int]) -> np.ndarray:
+def _position_map(shape: Sequence[int]) -> np.ndarray:
     """Build an array where each element holds its own flat position.
 
     For shape ``(2, 3)``, returns ``[[0, 1, 2], [3, 4, 5]]``.
     Applying operations (transpose, slice, etc.) to this array
     reveals which input position each output position reads from.
     """
-    return np.arange(numel(shape)).reshape(shape)
+    return np.arange(_numel(shape)).reshape(shape)
 
 
-def permute_indices(
+def _permute_indices(
     in_indices: list[IndexSet], flat_map: Sequence[int] | np.ndarray
 ) -> list[IndexSet]:
     """Build output index sets by looking up input positions from a flat map.
@@ -362,7 +362,7 @@ def permute_indices(
     return [in_indices[j] for j in flat_map]
 
 
-def transform_indices(
+def _transform_indices(
     in_indices: list[IndexSet],
     in_shape: Sequence[int],
     transform: Callable[[np.ndarray], np.ndarray] = lambda p: p,
@@ -380,14 +380,14 @@ def transform_indices(
     (transpose, rev, slice, reshape, split, dynamic_slice)
     where each output reads exactly one input element.
     """
-    flat_map = transform(position_map(in_shape)).ravel()
-    return permute_indices(in_indices, flat_map)
+    flat_map = transform(_position_map(in_shape)).ravel()
+    return _permute_indices(in_indices, flat_map)
 
 
 # Coordinate helpers
 
 
-def row_strides(shape: Sequence[int]) -> tuple[int, ...]:
+def _row_strides(shape: Sequence[int]) -> tuple[int, ...]:
     """Compute row-major strides for multi-dimensional index tracking.
 
     Used to convert between flat indices and coordinates when propagating
@@ -395,7 +395,7 @@ def row_strides(shape: Sequence[int]) -> tuple[int, ...]:
     Each stride tells how many flat elements to skip
     when incrementing one coordinate position.
 
-    For shape (2, 3, 4): row_strides = (12, 4, 1) since moving one step in dim 0
+    For shape (2, 3, 4): _row_strides = (12, 4, 1) since moving one step in dim 0
     skips 3*4=12 elements, dim 1 skips 4 elements, and dim 2 skips 1 element.
     """
     result: list[int] = []
@@ -406,7 +406,7 @@ def row_strides(shape: Sequence[int]) -> tuple[int, ...]:
     return tuple(reversed(result))
 
 
-def flat_to_coords(flat: int, strides: tuple[int, ...]) -> list[int]:
+def _flat_to_coords(flat: int, strides: tuple[int, ...]) -> list[int]:
     """Convert a flat index to multi-dimensional coordinates using row-major strides."""
     coord = []
     remaining = flat
@@ -419,7 +419,7 @@ def flat_to_coords(flat: int, strides: tuple[int, ...]) -> list[int]:
 # Const value propagation
 
 
-def seed_const_vals(state_consts: StateConsts, constvars, consts) -> None:
+def _seed_const_vals(state_consts: StateConsts, constvars, consts) -> None:
     """Populate state_consts for the captured constants of a ClosedJaxpr.
 
     Without this, gather/scatter inside nested jaxprs (cond branches,
@@ -430,19 +430,19 @@ def seed_const_vals(state_consts: StateConsts, constvars, consts) -> None:
         state_consts[var] = np.asarray(val)
 
 
-def forward_value_bounds(
+def _forward_value_bounds(
     state_bounds: StateBounds, outer_atoms: Sequence[Atom], inner_vars
 ) -> None:
     """Transfer known value bounds from outer-scope atoms to inner jaxpr variables.
 
-    Same idea as ``forward_const_vals`` but for value bounds.
+    Same idea as ``_forward_const_vals`` but for value bounds.
     """
     for outer, inner in zip(outer_atoms, inner_vars, strict=False):
         if isinstance(outer, Var) and outer in state_bounds:
             state_bounds[inner] = state_bounds[outer]
 
 
-def forward_const_vals(
+def _forward_const_vals(
     state_consts: StateConsts, outer_atoms: Sequence[Atom], inner_vars
 ) -> None:
     """Transfer known state_consts from outer-scope atoms to inner jaxpr variables.
@@ -455,6 +455,6 @@ def forward_const_vals(
     (gather, scatter, dynamic_slice) can resolve indices precisely.
     """
     for outer, inner in zip(outer_atoms, inner_vars, strict=False):
-        val = atom_const_val(outer, state_consts)
+        val = _atom_const_val(outer, state_consts)
         if val is not None:
             state_consts[inner] = val

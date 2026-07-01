@@ -3,20 +3,20 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._commons import (
+from ._common import (
     IndexSet,
     StateBounds,
     StateConsts,
     StateIndices,
-    atom_const_val,
-    atom_numel,
-    atom_shape,
-    atom_value_bounds,
-    check_no_index_sets,
-    conservative_indices,
-    enumerate_bounded_patterns,
-    index_sets,
-    numel,
+    _atom_const_val,
+    _atom_numel,
+    _atom_shape,
+    _atom_value_bounds,
+    _check_no_index_sets,
+    _conservative_indices,
+    _enumerate_bounded_patterns,
+    _index_sets,
+    _numel,
 )
 
 
@@ -57,7 +57,7 @@ def _scatter_flat_map(
     window_operand_dims = [d for d in range(op_ndim) if d not in removed]
     window_shape = tuple(updates_shape[d] for d in dim_nums.update_window_dims)
 
-    updates_size = numel(updates_shape)
+    updates_size = _numel(updates_shape)
     update_ndim = len(updates_shape)
     flat_map = np.full(updates_size, -1, dtype=np.intp)
 
@@ -125,9 +125,9 @@ def _scatter_for_indices(
     update_jaxpr = eqn.params.get("update_jaxpr")
     is_combine = update_jaxpr is not None
 
-    operand_shape = atom_shape(eqn.invars[0])
-    out_size = numel(operand_shape)
-    updates_shape = atom_shape(eqn.invars[2])
+    operand_shape = _atom_shape(eqn.invars[0])
+    out_size = _numel(operand_shape)
+    updates_shape = _atom_shape(eqn.invars[2])
 
     flat_map = _scatter_flat_map(concrete_indices, eqn, operand_shape, updates_shape)
 
@@ -157,7 +157,7 @@ def _scatter_for_indices(
     return out_indices
 
 
-def prop_scatter(
+def _prop_scatter(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -201,13 +201,13 @@ def prop_scatter(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scatter.html
     """
-    operand_indices = index_sets(state_indices, eqn.invars[0])
+    operand_indices = _index_sets(state_indices, eqn.invars[0])
     indices_atom = eqn.invars[1]
     # TODO: include scatter_indices index sets in output dependencies.
-    check_no_index_sets(state_indices, indices_atom, eqn.primitive.name)
-    updates_indices = index_sets(state_indices, eqn.invars[2])
+    _check_no_index_sets(state_indices, indices_atom, eqn.primitive.name)
+    updates_indices = _index_sets(state_indices, eqn.invars[2])
 
-    concrete_indices = atom_const_val(indices_atom, state_consts)
+    concrete_indices = _atom_const_val(indices_atom, state_consts)
 
     if concrete_indices is not None:
         state_indices[eqn.outvars[0]] = _scatter_for_indices(
@@ -219,12 +219,12 @@ def prop_scatter(
         return
 
     # Try bounded enumeration.
-    bounds = atom_value_bounds(indices_atom, state_consts, state_bounds)
+    bounds = _atom_value_bounds(indices_atom, state_consts, state_bounds)
     if bounds is not None:
         lo, hi = bounds
         lo_flat, hi_flat = lo.flatten(), hi.flatten()
-        si_shape = atom_shape(indices_atom)
-        out_size = atom_numel(eqn.outvars[0])
+        si_shape = _atom_shape(indices_atom)
+        out_size = _atom_numel(eqn.outvars[0])
         ranges = [
             range(int(lo_flat[i]), int(hi_flat[i]) + 1) for i in range(len(lo_flat))
         ]
@@ -235,12 +235,12 @@ def prop_scatter(
                 candidate, eqn, operand_indices, updates_indices
             )
 
-        result = enumerate_bounded_patterns(ranges, out_size, _make)
+        result = _enumerate_bounded_patterns(ranges, out_size, _make)
         if result is not None:
             state_indices[eqn.outvars[0]] = result
             return
 
     # Dynamic indices - conservative fallback.
-    state_indices[eqn.outvars[0]] = conservative_indices(
-        operand_indices + updates_indices, atom_numel(eqn.outvars[0])
+    state_indices[eqn.outvars[0]] = _conservative_indices(
+        operand_indices + updates_indices, _atom_numel(eqn.outvars[0])
     )

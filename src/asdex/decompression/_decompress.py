@@ -23,29 +23,27 @@ import numpy as np
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
-from asdex.decompression._common import _expected_compressed_dim
-from asdex.modes import (
+from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._pytree import _OpaqueLeaf, _to_numpy_pytree
+from asdex._types import (
     JaxOutputFormat,
     OutputFormat,
     ScipyOutputFormat,
-    _import_scipy_coo_array,
+    _assert_scipy_installed,
 )
-from asdex.pattern import ColoredPattern, SparsityPattern
 
 
-class _BCOOLeaf:
-    """Wrapper to hide BCOO's internal pytree structure from tree operations.
+def _import_scipy_coo_array(output_format: str) -> Any:
+    """Import and return ``scipy.sparse.coo_array``.
 
-    BCOO is registered as a pytree in JAX, which causes tree_transpose to descend
-    into its internal structure.
-    By wrapping BCOO in a plain class (not registered as a pytree), we can use
-    tree_transpose normally and then unwrap afterwards.
+    Raises:
+        ImportError: If scipy is not installed,
+            with a hint to install the optional dependency.
     """
+    _assert_scipy_installed(output_format)
+    from scipy.sparse import coo_array  # noqa: PLC0415
 
-    __slots__ = ("array",)
-
-    def __init__(self, array: BCOO) -> None:
-        self.array = array
+    return coo_array
 
 
 def _sparsity_to_scipy(
@@ -110,11 +108,6 @@ def _assert_scipy_supported_hessian(
         "SciPy sparse formats only support 2D Hessians: "
         f"output_format={fmt!r} requires the input to be a single flat (1D) array."
     )
-
-
-def _to_numpy_pytree(pytree: Any) -> Any:
-    """Convert each JAX array leaf in a pytree to ``numpy.ndarray``."""
-    return jax.tree_util.tree_map(np.asarray, pytree)
 
 
 # Gather: compressed B -> (nnz,) data in sparsity order
@@ -196,7 +189,7 @@ def _validate_compressed(compressed: jax.Array, coloring: ColoredPattern) -> Non
     Checked up front to favor an exception over a wrong result.
     """
     num_colors = coloring.num_colors
-    dim = _expected_compressed_dim(coloring)
+    dim = coloring._compressed_dim
     if compressed.ndim != 2 or compressed.shape != (num_colors, dim):
         raise ValueError(
             f"Compressed matrix has shape {tuple(compressed.shape)}, "
@@ -489,23 +482,23 @@ def _transpose_in_out_trees(
     """Transpose (in_tree, out_tree) structure to (out_tree, in_tree).
 
     For dense output, uses jax.tree_util.tree_transpose directly.
-    For BCOO output, wraps BCOO arrays in _BCOOLeaf to hide their internal pytree
+    For BCOO output, wraps BCOO arrays in _OpaqueLeaf to hide their internal pytree
     structure, transposes normally, then unwraps.
     """
 
     def is_bcoo(x: Any) -> bool:
         return isinstance(x, BCOO)
 
-    def is_bcoo_leaf(x: Any) -> bool:
-        return isinstance(x, _BCOOLeaf)
+    def is_opaque_leaf(x: Any) -> bool:
+        return isinstance(x, _OpaqueLeaf)
 
     def is_out_tree(x: Any) -> bool:
-        is_leaf = is_bcoo_leaf if output_format == "bcoo" else is_bcoo
+        is_leaf = is_opaque_leaf if output_format == "bcoo" else is_bcoo
         return jax.tree_util.tree_structure(x, is_leaf=is_leaf) == out_treedef
 
     if output_format == "bcoo":
         in_tree_of_out_trees = jax.tree_util.tree_map(
-            _BCOOLeaf, in_tree_of_out_trees, is_leaf=is_bcoo
+            _OpaqueLeaf, in_tree_of_out_trees, is_leaf=is_bcoo
         )
 
     in_treedef = jax.tree_util.tree_structure(
@@ -518,6 +511,6 @@ def _transpose_in_out_trees(
 
     if output_format == "bcoo":
         return jax.tree_util.tree_map(
-            lambda x: x.array, transposed, is_leaf=is_bcoo_leaf
+            lambda x: x.value, transposed, is_leaf=is_opaque_leaf
         )
     return transposed

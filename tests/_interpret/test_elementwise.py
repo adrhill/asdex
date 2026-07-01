@@ -853,7 +853,7 @@ def test_binary_minmax_second_arg_active(op):
 
 @pytest.mark.elementwise
 def test_clamp_sparsity():
-    """Clamp propagates dependencies from x (see prop_clamp docstring)."""
+    """Clamp propagates dependencies from x (see _prop_clamp docstring)."""
 
     def f(x):
         return lax.clamp(1.5, x, 3.5)
@@ -868,7 +868,7 @@ def test_clamp_sparsity():
 def test_clamp_conservative():
     """Clamp is conservative: detected pattern covers numerical Jacobian.
 
-    See prop_clamp docstring for why detection is conservative here.
+    See _prop_clamp docstring for why detection is conservative here.
     """
 
     def f(x):
