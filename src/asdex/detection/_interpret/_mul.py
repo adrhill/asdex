@@ -7,14 +7,14 @@ from ._common import (
     StateBounds,
     StateConsts,
     StateIndices,
-    atom_value_bounds,
-    clear_where_zero,
-    propagate_const_binary,
+    _atom_value_bounds,
+    _clear_where_zero,
+    _propagate_const_binary,
 )
 from ._elementwise import _binary_elementwise
 
 
-def prop_mul(
+def _prop_mul(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -37,9 +37,9 @@ def prop_mul(
         invars[1]: second input array
     """
     _binary_elementwise(eqn, state_indices)
-    propagate_const_binary(eqn, state_consts, np.multiply)
-    clear_where_zero(eqn, state_indices, state_consts, 0)
-    clear_where_zero(eqn, state_indices, state_consts, 1)
+    _propagate_const_binary(eqn, state_consts, np.multiply)
+    _clear_where_zero(eqn, state_indices, state_consts, 0)
+    _clear_where_zero(eqn, state_indices, state_consts, 1)
     _propagate_bounds_mul(eqn, state_consts, state_bounds)
 
 
@@ -53,8 +53,8 @@ def _propagate_bounds_mul(
     ``[a,b] * [c,d]`` → ``[min(ac,ad,bc,bd), max(ac,ad,bc,bd)]``.
     This handles all sign combinations correctly.
     """
-    in1_bounds = atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
-    in2_bounds = atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
+    in1_bounds = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
+    in2_bounds = _atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
     if in1_bounds is None or in2_bounds is None:
         return
 

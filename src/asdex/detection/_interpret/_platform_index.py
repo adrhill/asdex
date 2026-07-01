@@ -17,10 +17,10 @@ https://docs.jax.dev/en/latest/_autosummary/jax.lax.platform_dependent.html
 
 from jax._src.core import JaxprEqn
 
-from ._common import StateIndices, empty_index_sets
+from ._common import StateIndices, _empty_index_sets
 
 
-def prop_platform_index(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_platform_index(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Platform index produces a constant scalar with no input dependencies.
 
     The output is a scalar integer selecting the active platform.
@@ -42,4 +42,4 @@ def prop_platform_index(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.platform_dependent.html
     """
-    state_indices[eqn.outvars[0]] = empty_index_sets(1)
+    state_indices[eqn.outvars[0]] = _empty_index_sets(1)

@@ -35,7 +35,7 @@ What is the Jacobian structure (permutation, selection, block-diagonal, etc.)?
 - Follow the handler docstring style from `_interpret/CLAUDE.md`.
 - If the primitive preserves or predictably transforms input values,
   propagate statically-known const values through `state_consts`
-  (see `propagate_const_unary` / `propagate_const_binary` in `_commons.py`)
+  (see `_propagate_const_unary` / `_propagate_const_binary` in `_commons.py`)
   so downstream handlers can stay precise.
 - Handle zero-sized arrays: if the output has zero elements,
   assign `[]` to the output variable and return early,
@@ -45,9 +45,9 @@ What is the Jacobian structure (permutation, selection, block-diagonal, etc.)?
 
 In `src/asdex/detection/_interpret/__init__.py`:
 - Import the new handler
-- Add a `case "$ARGUMENTS":` branch in `prop_dispatch` calling the handler
+- Add a `case "$ARGUMENTS":` branch in `_prop_dispatch` calling the handler
 - If `"$ARGUMENTS"` is listed in the conservative fallback `case` group, remove it.
-  (Primitives not listed there currently hit the `case _: prop_throw_error` default,
+  (Primitives not listed there currently hit the `case _: _prop_throw_error` default,
   so there is nothing to remove.)
 
 ### 4. Update tests
@@ -89,7 +89,7 @@ Try to break the implementation by testing inputs the handler might not expect:
 - **Boundary parameters**: empty parameter lists, all-dimensions, single-dimension, negative indices (if applicable).
 - **Compositions**: the primitive chained with itself (e.g. double-reverse, transpose-of-transpose) or with related ops.
 - **Non-contiguous patterns**: inputs where dependencies are not simply `{i}` per element (e.g. from a prior broadcast or reduction) to verify `.copy()` and set merging behave correctly.
-- **Conservative audit**: for each test case, verify the result is strictly sparser than what `conservative_indices()` would produce. If the handler silently falls back on any shape the primitive supports, investigate.
+- **Conservative audit**: for each test case, verify the result is strictly sparser than what `_conservative_indices()` would produce. If the handler silently falls back on any shape the primitive supports, investigate.
   If the fallback cannot be fixed immediately, you **must** add a `@pytest.mark.fallback` test with a `TODO(primitive)` comment showing the precise expected pattern.
   Catching conservative patterns is extremely valuable for future development.
 - **Const chain**: if the primitive can appear between a literal and a downstream consumer (e.g. type conversions, reshapes, broadcasts on index arrays), write a test composing it with a downstream gather and verify the gather resolves precisely.
@@ -105,7 +105,7 @@ Review the implementation with fresh eyes and look for opportunities to reduce c
   Pattern: build a flat permutation or index array with `np.arange`, `np.flip`, `np.transpose`, `np.indices`, or `np.ravel_multi_index`,
   then index into `in_indices` in a single list comprehension.
   See `_rev.py`, `_reshape.py`, `_concatenate.py`, and `_broadcast.py` for examples.
-- **Remove unused imports**: after vectorizing, utilities like `flat_to_coords`, `row_strides`, and `numel` may no longer be needed.
+- **Remove unused imports**: after vectorizing, utilities like `_flat_to_coords`, `_row_strides`, and `_numel` may no longer be needed.
 - **Eliminate intermediate variables**: if a value is computed and used only once, inline it.
 - **Simplify special cases**: can a special-case branch be absorbed into the general case?
 

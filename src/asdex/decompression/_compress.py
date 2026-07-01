@@ -26,8 +26,8 @@ from asdex._arguments import (
     _selected_args,
     _selected_dtype,
     _validate_args,
-    validate_input_dtypes,
-    validate_output_dtypes,
+    _validate_input_dtypes,
+    _validate_output_dtypes,
 )
 from asdex._differentiation import _hessian_compressed, _jacobian_compressed
 from asdex._pattern import ColoredPattern, SparsityPattern
@@ -180,7 +180,7 @@ def _compress_jacobian(
     sparsity = coloring.sparsity
     _validate_args(args, sparsity)
     selected = _selected_args(args, sparsity)
-    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
+    _validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
@@ -196,7 +196,7 @@ def _compress_jacobian(
     compressed, y, aux = _jacobian_compressed(
         f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
     )
-    validate_output_dtypes(y, coloring.mode, holomorphic)
+    _validate_output_dtypes(y, coloring.mode, holomorphic)
     return compressed, y, aux
 
 
@@ -225,12 +225,12 @@ def _compress_hessian(
     sparsity = coloring.sparsity
     _validate_args(args, sparsity)
     selected = _selected_args(args, sparsity)
-    validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
+    _validate_input_dtypes(selected, coloring.mode, holomorphic, allow_int)
 
     f_scalar_raw = _strip_aux(f) if has_aux else f
     f_scalar = _cached_scalar_fn(f_scalar_raw, sparsity, call_cache)
     out_struct = _cached_out_struct(f_scalar, args, call_cache)
-    validate_output_dtypes(out_struct, coloring.mode, holomorphic)
+    _validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
         compressed = _empty_compressed(coloring, args)

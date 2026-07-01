@@ -24,7 +24,7 @@ from jax import dtypes
 from jax.experimental.sparse import BCOO
 
 from asdex._pattern import ColoredPattern, SparsityPattern
-from asdex._pytree import _OpaqueLeaf, to_numpy_pytree
+from asdex._pytree import _OpaqueLeaf, _to_numpy_pytree
 from asdex._types import (
     _OUTPUT_FORMATS,
     JaxOutputFormat,
@@ -284,7 +284,7 @@ def _build_jacobian(
             return _assemble_jacobian(data, coloring, output_format, out_struct)
         case "numpy_dense":
             jac = _assemble_jacobian(data, coloring, "dense", out_struct)
-            return to_numpy_pytree(jac)
+            return _to_numpy_pytree(jac)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -320,7 +320,7 @@ def _build_hessian(
             return _assemble_hessian(data, coloring, output_format)
         case "numpy_dense":
             hess = _assemble_hessian(data, coloring, "dense")
-            return to_numpy_pytree(hess)
+            return _to_numpy_pytree(hess)
         case _ as unreachable:
             assert_never(unreachable)
 

@@ -1,4 +1,4 @@
-"""Tests for the prop_sort handler.
+"""Tests for the _prop_sort handler.
 
 Sort along one dimension mixes elements within slices along that dimension,
 producing block-diagonal patterns for multi-dimensional arrays.

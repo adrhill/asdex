@@ -6,14 +6,14 @@ from jax._src.core import JaxprEqn
 from asdex.detection._interpret._common import (
     IndexSet,
     StateIndices,
-    atom_shape,
-    empty_index_set,
-    index_sets,
-    union_all,
+    _atom_shape,
+    _empty_index_set,
+    _index_sets,
+    _union_all,
 )
 
 
-def prop_qr(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_qr(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """QR decomposition: A = QR where Q is orthogonal and R is upper triangular.
 
     Q depends on all inputs (conservative).
@@ -31,18 +31,18 @@ def prop_qr(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     q_var, r_var = eqn.outvars
 
     # Collect all input index sets
-    in_indices = index_sets(state_indices, invar)
-    combined = union_all(in_indices)
+    in_indices = _index_sets(state_indices, invar)
+    combined = _union_all(in_indices)
 
     # Q: all elements depend on all inputs
-    q_shape = atom_shape(q_var)
+    q_shape = _atom_shape(q_var)
     q_numel = int(np.prod(q_shape))
     state_indices[q_var] = [combined] * q_numel
 
     # R: upper triangular
     # Upper triangle (including diagonal) depends on all inputs
     # Lower triangle is always 0 (no dependencies)
-    r_shape = atom_shape(r_var)
+    r_shape = _atom_shape(r_var)
     r_numel = int(np.prod(r_shape))
 
     if r_numel == 0:
@@ -62,6 +62,6 @@ def prop_qr(eqn: JaxprEqn, state_indices: StateIndices) -> None:
                     r_indices.append(combined)
                 else:
                     # Lower triangle: always zero
-                    r_indices.append(empty_index_set())
+                    r_indices.append(_empty_index_set())
 
     state_indices[r_var] = r_indices

@@ -14,10 +14,10 @@ from jax import ShapeDtypeStruct
 
 import asdex
 from asdex._arguments import (
+    _avals_from_args,
     _check_input_dtype_fwd,
     _check_input_dtype_rev,
     _check_output_dtype_rev,
-    avals_from_args,
 )
 
 warnings.filterwarnings("ignore", category=asdex.DenseColoringWarning)
@@ -1495,7 +1495,7 @@ def test_non_numeric_dtype_input_rev_raises():
 def test_jacobian_no_sample_inputs_raises():
     """Calling jacobian with no sample inputs raises TypeError."""
     with pytest.raises(TypeError, match="at least one"):
-        avals_from_args(())
+        _avals_from_args(())
 
 
 # VAR_KEYWORD and VAR_POSITIONAL signatures
@@ -1509,7 +1509,7 @@ def test_jacobian_function_with_var_keyword(
 ):
     """Functions with **kwargs in signature should work correctly.
 
-    Regression test for Copilot review: VAR_KEYWORD handling in merge_args_kwargs.
+    Regression test for Copilot review: VAR_KEYWORD handling in _merge_args_kwargs.
     """
 
     def f(x, **kw):
@@ -1896,7 +1896,7 @@ def test_hessian_different_bool_kwarg_at_call_time(
 def test_var_positional_extra_args_at_call_time():
     """Bug: Extra *args passed at call time but not detection time raises.
 
-    Copilot concern: merge_args_kwargs() silently truncates extra positional
+    Copilot concern: _merge_args_kwargs() silently truncates extra positional
     arguments via positional_args[:expected_nargs], potentially dropping
     user-supplied call-time positional arguments without raising.
 
@@ -2152,8 +2152,8 @@ def test_non_traceable_positional_before_traceable(
 ):
     """Non-traceable arg before a traceable arg in signature.
 
-    Copilot suppressed concern: merge_args_kwargs() assumes traced positional
-    arguments form a prefix. But merge_sample_inputs() can drop non-traceable
+    Copilot suppressed concern: _merge_args_kwargs() assumes traced positional
+    arguments form a prefix. But _merge_sample_inputs() can drop non-traceable
     POSITIONAL_OR_KEYWORD params that appear before later traceable params.
 
     Finding: Fixed - bools in positional args are now bound statically,

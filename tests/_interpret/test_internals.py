@@ -12,12 +12,12 @@ from jax._src.core import Literal, Primitive
 
 from asdex import jacobian_sparsity
 from asdex.detection._interpret import (
-    prop_closed_jaxpr,
-    prop_dispatch,
-    prop_jaxpr,
+    _prop_closed_jaxpr,
+    _prop_dispatch,
+    _prop_jaxpr,
 )
-from asdex.detection._interpret._common import atom_shape, singleton_index_set
-from asdex.detection._interpret._reshape import prop_reshape
+from asdex.detection._interpret._common import _atom_shape, _singleton_index_set
+from asdex.detection._interpret._reshape import _prop_reshape
 
 
 class FakeAval:
@@ -51,7 +51,7 @@ def test_nested_jaxpr_missing_param_raises():
     state_consts = {}
 
     with pytest.raises(ValueError, match="has no 'jaxpr' parameter"):
-        prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # ty: ignore[invalid-argument-type]
+        _prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_nested_jaxpr_missing_param_error_message():
@@ -61,7 +61,7 @@ def test_nested_jaxpr_missing_param_error_message():
     state_consts = {}
 
     with pytest.raises(ValueError, match="xla_call"):
-        prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # ty: ignore[invalid-argument-type]
+        _prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_custom_call_missing_param_raises():
@@ -71,7 +71,7 @@ def test_custom_call_missing_param_raises():
     state_consts = {}
 
     with pytest.raises(ValueError, match="has no 'call_jaxpr' parameter"):
-        prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # ty: ignore[invalid-argument-type]
+        _prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_custom_call_missing_param_error_message():
@@ -81,7 +81,7 @@ def test_custom_call_missing_param_error_message():
     state_consts = {}
 
     with pytest.raises(ValueError, match="custom_vjp_call"):
-        prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # ty: ignore[invalid-argument-type]
+        _prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_raises():
@@ -91,7 +91,7 @@ def test_unknown_primitive_raises():
     state_consts = {}
 
     with pytest.raises(NotImplementedError, match="No handler for primitive"):
-        prop_dispatch(eqn, state_indices, state_consts, {})  # ty: ignore[invalid-argument-type]
+        _prop_dispatch(eqn, state_indices, state_consts, {})  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_error_message():
@@ -101,23 +101,23 @@ def test_unknown_primitive_error_message():
     state_consts = {}
 
     with pytest.raises(NotImplementedError) as exc_info:
-        prop_dispatch(eqn, state_indices, state_consts, {})  # ty: ignore[invalid-argument-type]
+        _prop_dispatch(eqn, state_indices, state_consts, {})  # ty: ignore[invalid-argument-type]
 
     assert "fake_primitive" in str(exc_info.value)
     assert "https://github.com/adrhill/asdex/issues" in str(exc_info.value)
 
 
 def test_prop_jaxpr_default_const_vals():
-    """prop_jaxpr works when state_consts is not provided (defaults to {})."""
+    """_prop_jaxpr works when state_consts is not provided (defaults to {})."""
     dummy = jnp.zeros(2)
     closed_jaxpr = jax.make_jaxpr(lambda x: x + 1)(dummy)
     jaxpr = closed_jaxpr.jaxpr
 
-    input_indices = [[singleton_index_set(0), singleton_index_set(1)]]
+    input_indices = [[_singleton_index_set(0), _singleton_index_set(1)]]
     # Call without state_consts — should default to empty dict
-    result = prop_jaxpr(jaxpr, input_indices)
+    result = _prop_jaxpr(jaxpr, input_indices)
     assert len(result) == 1
-    assert result[0] == [singleton_index_set(0), singleton_index_set(1)]
+    assert result[0] == [_singleton_index_set(0), _singleton_index_set(1)]
 
 
 @pytest.mark.elementwise
@@ -133,13 +133,13 @@ def test_stop_gradient():
 
 
 def test_atom_shape_literal():
-    """atom_shape extracts shape from Literal values."""
+    """_atom_shape extracts shape from Literal values."""
     val = np.array([1.0, 2.0, 3.0])
     lit = Literal(val=val, aval=None)
-    assert atom_shape(lit) == (3,)
+    assert _atom_shape(lit) == (3,)
 
     scalar_lit = Literal(val=np.float32(1.0), aval=None)
-    assert atom_shape(scalar_lit) == ()
+    assert _atom_shape(scalar_lit) == ()
 
 
 def test_reshape_size_mismatch_raises():
@@ -155,10 +155,14 @@ def test_reshape_size_mismatch_raises():
     eqn.outvars = [out_var]
 
     state_indices = {
-        in_var: [singleton_index_set(0), singleton_index_set(1), singleton_index_set(2)]
+        in_var: [
+            _singleton_index_set(0),
+            _singleton_index_set(1),
+            _singleton_index_set(2),
+        ]
     }
     with pytest.raises(ValueError, match="Reshape size mismatch"):
-        prop_reshape(eqn, state_indices, {})  # ty: ignore[invalid-argument-type]
+        _prop_reshape(eqn, state_indices, {})  # ty: ignore[invalid-argument-type]
 
 
 # Integration tests for precise handlers

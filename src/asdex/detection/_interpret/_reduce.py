@@ -10,15 +10,15 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     StateIndices,
-    atom_shape,
-    empty_index_sets,
-    index_sets,
-    numel,
-    union_all,
+    _atom_shape,
+    _empty_index_sets,
+    _index_sets,
+    _numel,
+    _union_all,
 )
 
 
-def prop_reduce(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_reduce(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Reduction aggregates elements along specified axes.
 
     Each output depends on all input elements that reduce into it.
@@ -44,13 +44,13 @@ def prop_reduce(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.reduce_min.html
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.reduce_prod.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
     axes = eqn.params.get("axes", ())
-    in_shape = atom_shape(eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
 
     # Full reduction: single output depends on all inputs
     if len(axes) == len(in_shape):
-        state_indices[eqn.outvars[0]] = [union_all(in_indices)]
+        state_indices[eqn.outvars[0]] = [_union_all(in_indices)]
         return
 
     # Partial reduction: group input elements by their non-reduced coordinates.
@@ -58,14 +58,14 @@ def prop_reduce(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     # then union input state_indices into the corresponding output set.
     kept_dims = [d for d in range(len(in_shape)) if d not in axes]
     out_shape = tuple(in_shape[d] for d in kept_dims)
-    out_size = numel(out_shape)
+    out_size = _numel(out_shape)
 
     # For each input element, project to output coordinates (drop reduced dims)
     in_coords = np.indices(in_shape)
     out_coords = tuple(in_coords[d] for d in kept_dims)
     group_map = np.ravel_multi_index(out_coords, out_shape).ravel()
 
-    out_indices: list[IndexSet] = empty_index_sets(out_size)
+    out_indices: list[IndexSet] = _empty_index_sets(out_size)
     for in_flat, elem_deps in enumerate(in_indices):
         out_indices[group_map[in_flat]] |= elem_deps
 

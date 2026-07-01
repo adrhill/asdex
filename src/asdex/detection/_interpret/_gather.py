@@ -10,16 +10,16 @@ from ._common import (
     StateBounds,
     StateConsts,
     StateIndices,
-    atom_const_val,
-    atom_numel,
-    atom_shape,
-    atom_value_bounds,
-    conservative_indices,
-    enumerate_bounded_patterns,
-    index_sets,
-    permute_indices,
-    position_map,
-    union_all,
+    _atom_const_val,
+    _atom_numel,
+    _atom_shape,
+    _atom_value_bounds,
+    _conservative_indices,
+    _enumerate_bounded_patterns,
+    _index_sets,
+    _permute_indices,
+    _position_map,
+    _union_all,
 )
 
 
@@ -59,7 +59,7 @@ def _gather_flat_map(
     offset_operand_dims = [d for d in range(op_ndim) if d not in removed]
     offset_shape = tuple(slice_sizes[d] for d in offset_operand_dims)
 
-    op_pos = position_map(operand_shape)
+    op_pos = _position_map(operand_shape)
 
     slices = []
     for batch_idx in np.ndindex(*batching_shape) if batching_shape else [()]:
@@ -96,7 +96,7 @@ def _gather_flat_map(
     intermediate_shape = batching_shape + si_batch_shape + offset_shape
     assembled = all_results.reshape(intermediate_shape)
 
-    out_ndim = len(atom_shape(eqn.outvars[0]))
+    out_ndim = len(_atom_shape(eqn.outvars[0]))
     n_batch = len(batching_shape) + len(si_batch_shape)
 
     perm = [0] * out_ndim
@@ -111,7 +111,7 @@ def _gather_flat_map(
     return assembled.transpose(perm).flatten()
 
 
-def prop_gather(
+def _prop_gather(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
@@ -152,47 +152,47 @@ def prop_gather(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.gather.html
     """
-    operand_indices = index_sets(state_indices, eqn.invars[0])
-    si_index_sets = index_sets(state_indices, eqn.invars[1])
-    operand_shape = atom_shape(eqn.invars[0])
-    out_size = atom_numel(eqn.outvars[0])
+    operand_indices = _index_sets(state_indices, eqn.invars[0])
+    si_index_sets = _index_sets(state_indices, eqn.invars[1])
+    operand_shape = _atom_shape(eqn.invars[0])
+    out_size = _atom_numel(eqn.outvars[0])
 
     if out_size == 0:
         state_indices[eqn.outvars[0]] = []
         return
 
-    concrete_indices = atom_const_val(eqn.invars[1], state_consts)
+    concrete_indices = _atom_const_val(eqn.invars[1], state_consts)
     if concrete_indices is not None:
         flat_map = _gather_flat_map(concrete_indices, eqn, operand_shape)
-        state_indices[eqn.outvars[0]] = permute_indices(operand_indices, flat_map)
+        state_indices[eqn.outvars[0]] = _permute_indices(operand_indices, flat_map)
         return
 
     # Try bounded enumeration.
-    bounds = atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
+    bounds = _atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
     if bounds is not None:
         lo, hi = bounds
         lo_flat, hi_flat = lo.flatten(), hi.flatten()
-        si_shape = atom_shape(eqn.invars[1])
+        si_shape = _atom_shape(eqn.invars[1])
         ranges = [
             range(int(lo_flat[i]), int(hi_flat[i]) + 1) for i in range(len(lo_flat))
         ]
 
         def _make(vals: tuple[int, ...]) -> list[set[int]]:
             candidate = np.array(vals, dtype=lo.dtype).reshape(si_shape)
-            return permute_indices(
+            return _permute_indices(
                 operand_indices, _gather_flat_map(candidate, eqn, operand_shape)
             )
 
-        result = enumerate_bounded_patterns(ranges, out_size, _make)
+        result = _enumerate_bounded_patterns(ranges, out_size, _make)
         if result is not None:
             if any(si_index_sets):
-                combined_si = union_all(si_index_sets)
+                combined_si = _union_all(si_index_sets)
                 result = [iset | combined_si for iset in result]
             state_indices[eqn.outvars[0]] = result
             return
 
     # Conservative fallback: every output depends on all inputs.
     # Include both operand and start_indices dependencies.
-    state_indices[eqn.outvars[0]] = conservative_indices(
+    state_indices[eqn.outvars[0]] = _conservative_indices(
         operand_indices + si_index_sets, out_size
     )

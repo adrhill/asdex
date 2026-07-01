@@ -1,4 +1,4 @@
-"""Tests for the prop_platform_index handler.
+"""Tests for the _prop_platform_index handler.
 
 ``platform_index`` is used internally by ``jax.lax.platform_dependent``
 and by extension ``jnp.diag`` and other platform-dispatched ops.

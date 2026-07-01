@@ -9,10 +9,10 @@ before AD kicks in:
   at definition time, mirroring ``jax._src.api_util``.
   The int-vs-tuple distinction is load-bearing: it determines whether the
   returned Jacobian is a single pytree or a tuple of pytrees.
-- ``avals_from_args`` extracts ``ShapeDtypeStruct`` pytrees from sample inputs.
-- ``merge_sample_inputs`` / ``merge_args_kwargs`` resolve keyword arguments to
+- ``_avals_from_args`` extracts ``ShapeDtypeStruct`` pytrees from sample inputs.
+- ``_merge_sample_inputs`` / ``_merge_args_kwargs`` resolve keyword arguments to
   positions and bind non-traceable arguments statically.
-- ``validate_input_dtypes`` / ``validate_output_dtypes`` gate AD on dtype
+- ``_validate_input_dtypes`` / ``_validate_output_dtypes`` gate AD on dtype
   compatibility, honoring the ``holomorphic`` and ``allow_int`` kwargs.
   The checks mirror ``jax._src.api._check_{input,output}_dtype_{jacrev,jacfwd}``
   but are reimplemented here to avoid coupling to jax's private API.
@@ -85,7 +85,7 @@ def _to_aval(x: Any) -> ShapeDtypeStruct:
     return ShapeDtypeStruct(arr.shape, arr.dtype)
 
 
-def avals_from_args(args: tuple[Any, ...]) -> tuple[Any, ...]:
+def _avals_from_args(args: tuple[Any, ...]) -> tuple[Any, ...]:
     """Extract ShapeDtypeStruct pytrees from sample inputs.
 
     Returns pytrees with the same structure, but leaves replaced by shape+dtype metadata.
@@ -207,7 +207,7 @@ def _check_input_dtype_hessian(holomorphic: bool, x: Any) -> None:
     _check_input_dtype_rev(holomorphic, False, x)
 
 
-def validate_input_dtypes(
+def _validate_input_dtypes(
     selected: tuple[Any, ...], mode: str, holomorphic: bool, allow_int: bool
 ) -> None:
     """Run input-dtype validation over every leaf of the selected args."""
@@ -235,7 +235,7 @@ def validate_input_dtypes(
         check(leaf)
 
 
-def validate_output_dtypes(y: Any, mode: str, holomorphic: bool) -> None:
+def _validate_output_dtypes(y: Any, mode: str, holomorphic: bool) -> None:
     """Run output-dtype validation over every leaf of ``y`` for the given ``mode``."""
     if mode == "fwd":
         check = lambda a: _check_output_dtype_fwd(holomorphic, a)  # noqa: E731
@@ -285,7 +285,7 @@ def _validate_args(args: tuple[Any, ...], sparsity: SparsityPattern) -> None:
 # Kwargs handling
 
 
-def merge_args_kwargs(
+def _merge_args_kwargs(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
@@ -293,7 +293,7 @@ def merge_args_kwargs(
 ) -> tuple[tuple[Any, ...], Callable[..., Any]]:
     """Merge call-time args/kwargs, filtering to only traceable values.
 
-    Mirrors ``merge_sample_inputs`` to ensure consistent handling:
+    Mirrors ``_merge_sample_inputs`` to ensure consistent handling:
     1. Kwargs that were present at detection time are resolved to positions
     2. Kwargs only present at call time (not detection) are bound statically
     3. Non-traceable positional args are bound preserving their positions
@@ -307,7 +307,7 @@ def merge_args_kwargs(
         and ``f_bound`` has kwargs and non-traceables pre-bound.
     """
     if kwargs:
-        # Try resolving kwargs to positions (like merge_sample_inputs)
+        # Try resolving kwargs to positions (like _merge_sample_inputs)
         try:
             sig = inspect.signature(f)
             bound = sig.bind(*args, **kwargs)
@@ -423,7 +423,7 @@ def _is_jax_traceable(x: Any) -> bool:
     return True
 
 
-def merge_sample_inputs(
+def _merge_sample_inputs(
     f: Callable[..., Any],
     args: tuple[Any, ...],
     kwargs: dict[str, Any],

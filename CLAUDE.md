@@ -61,7 +61,7 @@ jacobian_from_coloring(f, coloring)(x)  # from pre-computed coloring
   ├─ 1. DETECTION
   │     jacobian_sparsity(f, input_shape)
   │     ├─ make_jaxpr(f) → jaxpr
-  │     ├─ prop_jaxpr() → index sets
+  │     ├─ _prop_jaxpr() → index sets
   │     └─ SparsityPattern
   │
   ├─ 2. COLORING

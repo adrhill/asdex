@@ -11,16 +11,16 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     StateIndices,
-    atom_shape,
-    empty_index_set,
-    index_sets,
-    numel,
-    position_map,
-    union_all,
+    _atom_shape,
+    _empty_index_set,
+    _index_sets,
+    _numel,
+    _position_map,
+    _union_all,
 )
 
 
-def prop_cumsum(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_cumsum(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Cumulative sum accumulates elements along a scan axis.
 
     Forward (`reverse=False`): `out[..., i, ...] = sum(in[..., 0:i+1, ...])`,
@@ -46,25 +46,25 @@ def prop_cumsum(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.cumsum.html
     """
-    in_indices = index_sets(state_indices, eqn.invars[0])
-    in_shape = atom_shape(eqn.invars[0])
+    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_shape = _atom_shape(eqn.invars[0])
     axis: int = eqn.params["axis"]
     reverse: bool = eqn.params["reverse"]
 
     scan_len = in_shape[axis]
-    out_indices: list[IndexSet] = [empty_index_set() for _ in range(numel(in_shape))]
+    out_indices: list[IndexSet] = [_empty_index_set() for _ in range(_numel(in_shape))]
 
     if scan_len == 0:
         state_indices[eqn.outvars[0]] = out_indices
         return
 
     # pos[k, f] = flat position of scan index k, lane f
-    pos = np.moveaxis(position_map(in_shape), axis, 0).reshape(scan_len, -1)
+    pos = np.moveaxis(_position_map(in_shape), axis, 0).reshape(scan_len, -1)
     n_lanes = pos.shape[1]
 
     for k in range(scan_len):
         contrib = pos[k:] if reverse else pos[: k + 1]
         for f in range(n_lanes):
-            out_indices[pos[k, f]] = union_all([in_indices[p] for p in contrib[:, f]])
+            out_indices[pos[k, f]] = _union_all([in_indices[p] for p in contrib[:, f]])
 
     state_indices[eqn.outvars[0]] = out_indices

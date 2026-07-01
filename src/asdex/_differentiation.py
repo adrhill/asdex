@@ -25,7 +25,7 @@ from jax import dtypes
 
 from asdex._arguments import _uniform_selected_dtype
 from asdex._pattern import ColoredPattern, SparsityPattern
-from asdex._pytree import flatten_pytree, pytree_dtype, unflatten_to_pytree
+from asdex._pytree import _flatten_pytree, _pytree_dtype, _unflatten_to_pytree
 from asdex._types import _assert_hessian_mode, _assert_jacobian_mode
 
 
@@ -121,11 +121,11 @@ def _jacobian_compressed_vjp(
     """
     sparsity = coloring.sparsity
     y, vjp_fn, aux = _transform_with_aux(jax.vjp, f, args, has_aux=has_aux)
-    dtype = pytree_dtype(y)
+    dtype = _pytree_dtype(y)
     seeds = coloring._device_seeds(dtype)
 
     def single_vjp(seed: jax.Array) -> jax.Array:
-        cotangent = unflatten_to_pytree(seed, out_struct)
+        cotangent = _unflatten_to_pytree(seed, out_struct)
         grads = vjp_fn(cotangent)
         return _flatten_selected_cotangents(grads, sparsity)
 
@@ -152,7 +152,7 @@ def _jacobian_compressed_jvp(
 
     def single_jvp(seed: jax.Array) -> jax.Array:
         tangents = _build_tangents_from_seed(seed, args, sparsity)
-        return flatten_pytree(jvp_fn(*tangents))
+        return _flatten_pytree(jvp_fn(*tangents))
 
     J_compressed = _chunked_vmap(single_jvp, seeds, chunk_size)
     return J_compressed, y, aux
@@ -384,7 +384,7 @@ def _flatten_grad_output(out: Any) -> jax.Array:
     ``jax.grad(f, argnums=...)`` already restricts its output to the selected
     positions, so every leaf contributes to the flat vector.
     """
-    return flatten_pytree(out)
+    return _flatten_pytree(out)
 
 
 def _build_grad_output_from_seed(

@@ -171,7 +171,7 @@ def _build_edge_to_index_core(
                 counter += 1
 
 
-def reconstruct_edge_arrays(
+def _reconstruct_edge_arrays(
     rows: NDArray[np.int32],
     cols: NDArray[np.int32],
     n: int,

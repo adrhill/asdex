@@ -12,16 +12,16 @@ from jax._src.core import ClosedJaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 
 from asdex._arguments import (
+    _avals_from_args,
     _ensure_inbounds,
     _ensure_index,
-    avals_from_args,
-    merge_sample_inputs,
+    _merge_sample_inputs,
 )
 from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
 from asdex._docstrings import _fill_doc
 from asdex._pattern import SparsityPattern
-from asdex.detection._interpret import prop_jaxpr
-from asdex.detection._interpret._common import empty_index_sets
+from asdex.detection._interpret import _prop_jaxpr
+from asdex.detection._interpret._common import _empty_index_sets
 
 
 @_fill_doc
@@ -51,8 +51,8 @@ def jacobian_sparsity(
             flat size of the selected inputs.
     """
     argnums = _ensure_index(argnums)
-    args, f, argnums = merge_sample_inputs(f, args, kwargs, argnums)
-    avals = avals_from_args(args)
+    args, f, argnums = _merge_sample_inputs(f, args, kwargs, argnums)
+    avals = _avals_from_args(args)
     selected = _argnums_tuple(argnums, len(args))
 
     # Resolve negative indices while preserving int-vs-tuple distinction
@@ -105,7 +105,7 @@ def hessian_sparsity(
         Square SparsityPattern over the combined, selected input space.
     """
     argnums = _ensure_index(argnums)
-    args, f, argnums = merge_sample_inputs(f, args, kwargs, argnums)
+    args, f, argnums = _merge_sample_inputs(f, args, kwargs, argnums)
 
     f_out = _strip_aux(f) if has_aux else f
     f_scalar = _ensure_scalar(f_out, args)
@@ -174,12 +174,12 @@ def _build_input_indices(
                 col_offset += size
         else:
             for leaf in leaves:
-                input_indices.append(empty_index_sets(int(leaf.size)))  # noqa: PERF401
+                input_indices.append(_empty_index_sets(int(leaf.size)))  # noqa: PERF401
     return input_indices, n_selected
 
 
 def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
-    """Run ``prop_jaxpr`` and concatenate index sets across all output leaves.
+    """Run ``_prop_jaxpr`` and concatenate index sets across all output leaves.
 
     JAX flattens pytree-structured outputs into one ``outvar`` per leaf, so
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
@@ -189,7 +189,7 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
         var: np.asarray(val)
         for var, val in zip(jaxpr.constvars, closed_jaxpr.consts, strict=False)
     }
-    output_indices_list = prop_jaxpr(jaxpr, input_indices, state_consts)
+    output_indices_list = _prop_jaxpr(jaxpr, input_indices, state_consts)
     flat: list = []
     for out_deps in output_indices_list:
         flat.extend(out_deps)

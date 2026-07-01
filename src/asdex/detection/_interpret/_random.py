@@ -6,10 +6,10 @@ so all random primitives produce outputs with empty dependency sets.
 
 from jax._src.core import JaxprEqn
 
-from ._common import StateIndices, atom_numel, empty_index_sets
+from ._common import StateIndices, _atom_numel, _empty_index_sets
 
 
-def prop_random(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_random(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Random primitives have zero derivative with respect to inputs.
 
     Random number generation is not differentiable,
@@ -32,4 +32,4 @@ def prop_random(eqn: JaxprEqn, state_indices: StateIndices) -> None:
         outvars: random key or random values
     """
     for outvar in eqn.outvars:
-        state_indices[outvar] = empty_index_sets(atom_numel(outvar))
+        state_indices[outvar] = _empty_index_sets(_atom_numel(outvar))

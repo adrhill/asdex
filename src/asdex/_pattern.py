@@ -797,9 +797,9 @@ class ColoredPattern:
                     "Re-run asdex.hessian_coloring() to regenerate."
                 )
                 raise ValueError(msg)
-            from asdex.coloring import reconstruct_edge_arrays  # noqa: PLC0415
+            from asdex.coloring import _reconstruct_edge_arrays  # noqa: PLC0415
 
-            edge_lo, edge_hi, edge_pos = reconstruct_edge_arrays(
+            edge_lo, edge_hi, edge_pos = _reconstruct_edge_arrays(
                 sparsity.rows, sparsity.cols, sparsity.n
             )
             star_set = StarSet(

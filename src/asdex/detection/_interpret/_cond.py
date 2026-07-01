@@ -7,18 +7,18 @@ from ._common import (
     PropJaxprFn,
     StateConsts,
     StateIndices,
-    copy_index_sets,
-    forward_const_vals,
-    index_sets,
-    seed_const_vals,
+    _copy_index_sets,
+    _forward_const_vals,
+    _index_sets,
+    _seed_const_vals,
 )
 
 
-def prop_cond(
+def _prop_cond(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
-    prop_jaxpr: PropJaxprFn,
+    _prop_jaxpr: PropJaxprFn,
 ) -> None:
     """cond/switch selects one of several branches based on an integer index.
 
@@ -40,7 +40,7 @@ def prop_cond(
     branches = eqn.params["branches"]
     operands = eqn.invars[1:]
     operand_indices: list[list[IndexSet]] = [
-        index_sets(state_indices, v) for v in operands
+        _index_sets(state_indices, v) for v in operands
     ]
 
     n_out = len(eqn.outvars)
@@ -48,16 +48,16 @@ def prop_cond(
     # Propagate each branch and collect per-branch output state_indices
     branch_outputs: list[list[list[IndexSet]]] = []
     for branch in branches:
-        seed_const_vals(state_consts, branch.jaxpr.constvars, branch.consts)
-        forward_const_vals(state_consts, operands, branch.jaxpr.invars)
-        out = prop_jaxpr(branch.jaxpr, operand_indices, state_consts)
+        _seed_const_vals(state_consts, branch.jaxpr.constvars, branch.consts)
+        _forward_const_vals(state_consts, operands, branch.jaxpr.invars)
+        out = _prop_jaxpr(branch.jaxpr, operand_indices, state_consts)
         branch_outputs.append(out)
 
     # Union across branches for each output variable
     for i in range(n_out):
         outvar = eqn.outvars[i]
         # Start from first branch, union with the rest
-        merged: list[IndexSet] = copy_index_sets(branch_outputs[0][i])
+        merged: list[IndexSet] = _copy_index_sets(branch_outputs[0][i])
         for branch_out in branch_outputs[1:]:
             for j in range(len(merged)):
                 merged[j] |= branch_out[i][j]
