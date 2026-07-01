@@ -16,7 +16,7 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
-from ._types import _empty_int32
+from asdex._pattern import _empty_int32
 
 
 def _build_csr(

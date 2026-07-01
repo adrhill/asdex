@@ -12,6 +12,7 @@ https://github.com/gdalle/SparseMatrixColorings.jl
 See also: Dalle & Montoison (2025), https://arxiv.org/abs/2505.07308
 """
 
+from asdex._pattern import StarSet
 from asdex.coloring._api import (
     hessian_coloring,
     hessian_coloring_from_sparsity,
@@ -21,7 +22,7 @@ from asdex.coloring._api import (
 from asdex.coloring._color_greedy import color_cols, color_rows
 from asdex.coloring._color_symmetric import color_symmetric
 from asdex.coloring._graph import reconstruct_edge_arrays
-from asdex.coloring._types import DenseColoringWarning, InvalidColoringError, StarSet
+from asdex.coloring._types import DenseColoringWarning, InvalidColoringError
 
 __all__ = [
     "DenseColoringWarning",
