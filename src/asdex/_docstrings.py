@@ -57,11 +57,57 @@ _F_JAC = "Function whose Jacobian is to be computed."
 
 _F_HESS = "Scalar-valued function whose Hessian is to be computed."
 
-_COLORING = "Pre-computed colored sparsity pattern of type ``ColoredPattern``."
+_F_JAC_DETECT = "Function whose Jacobian sparsity pattern is to be detected."
 
-_COLORING_COMPRESSED = "The ``ColoredPattern`` that produced ``compressed``."
+_F_HESS_DETECT = (
+    "Scalar-valued function whose Hessian sparsity pattern is to be detected."
+)
 
-_COMPRESSED = "The compressed matrix ``B`` of shape ``(num_colors, dim)``."
+_F_JAC_VERIFY = "Function whose Jacobian is to be verified."
+
+_F_HESS_VERIFY = "Scalar-valued function whose Hessian is to be verified."
+
+_COLORING = "Pre-computed colored sparsity pattern of type [`ColoredPattern`][asdex.ColoredPattern]."
+
+_COLORING_JAC_VERIFY = (
+    "Pre-computed colored pattern from [`jacobian_coloring`][asdex.jacobian_coloring]."
+)
+
+_COLORING_HESS_VERIFY = (
+    "Pre-computed colored pattern from [`hessian_coloring`][asdex.hessian_coloring]."
+)
+
+_COLORING_COMPRESSED = (
+    "The [`ColoredPattern`][asdex.ColoredPattern] that produced ``compressed``."
+)
+
+_COMPRESSED = (
+    "The compressed matrix ``B`` of shape ``(num_colors, dim)``, "
+    "as returned by [`compressed_jacobian`][asdex.compressed_jacobian] or "
+    "[`compressed_hessian`][asdex.compressed_hessian]."
+)
+
+_SPARSITY_JAC = """A [`SparsityPattern`][asdex.SparsityPattern], NumPy array,
+        or JAX BCOO matrix of shape ``(m, n)``."""
+
+_SPARSITY_HESS = """A [`SparsityPattern`][asdex.SparsityPattern], NumPy array,
+        or JAX BCOO matrix of shape ``(n, n)``."""
+
+# Low-level coloring inputs
+
+_SPARSITY_PATTERN_JAC = "Jacobian sparsity pattern of shape ``(m, n)``."
+
+_SPARSITY_PATTERN_HESS = "Hessian sparsity pattern of shape ``(n, n)``."
+
+_COLORS_ROWS = "Row color assignment, shape ``(m,)``."
+
+_COLORS_COLS = "Column color assignment, shape ``(n,)``."
+
+_COLORS_VERTEX = "Vertex color assignment, shape ``(n,)``."
+
+_FORCED_COLORS = """Optional pre-computed color assignment of shape ``(n,)``.
+        When provided, the algorithm verifies it satisfies the star-coloring
+        constraints and raises [`InvalidColoringError`][asdex.InvalidColoringError] otherwise."""
 
 # Sample inputs and differentiation options
 
@@ -70,6 +116,10 @@ _SAMPLE_ARGS = """Sample arguments of ``f``.
 
 _X_MULTI_INPUT = """For multi-input functions (where ``argnums`` is a tuple),
         pass a tuple of all positional arguments."""
+
+_X_JAC = "Input at which to evaluate the Jacobian."
+
+_X_HESS = "Input at which to evaluate the Hessian."
 
 _ARGNUMS = f"""Specifies which positional argument(s) to differentiate
         with respect to.
@@ -109,6 +159,7 @@ _MODE_HESS = f"""AD composition strategy for Hessian-vector products.
         Defaults to ``"{_DEFAULT_HESSIAN_MODE}"``."""
 
 _SYMMETRIC_JAC = f"""Whether to use symmetric coloring.
+        Requires a square Jacobian.
         Defaults to ``{_DEFAULT_SYMMETRIC_JACOBIAN}``."""
 
 _SYMMETRIC_HESS = f"""Whether to use symmetric coloring.
@@ -122,7 +173,15 @@ _POSTPROCESS_JAC = f"""Only read when ``symmetric=True``.
 _POSTPROCESS_HESS = f"""Only read when ``symmetric=True``.
         Prune colors never used as hubs and compact the remaining ones
         (reduces the number of HVPs during decompression).
+        Pruned vertices get the neutral color ``-1`` (no HVP is computed for them).
         Defaults to ``{_DEFAULT_POSTPROCESS}``."""
+
+_POSTPROCESS_SYMMETRIC = f"""If ``True``, replace colors that are never used as a hub color
+        (and not forced by a diagonal entry) with ``-1`` (neutral),
+        then compact remaining colors down.
+        This reduces the number of HVPs needed during decompression.
+        Defaults to ``{_DEFAULT_POSTPROCESS}``,
+        matching SparseMatrixColorings.jl's ``postprocessing=false`` default."""
 
 _CHUNK_SIZE = f"""Maximum number of colors to process in parallel.
         Defaults to ``{_DEFAULT_CHUNK_SIZE}``, processing all colors in a single vmapped batch.
@@ -185,11 +244,27 @@ _FRAGMENTS: dict[str, str] = {
     "jit": _JIT,
     "f_jac": _F_JAC,
     "f_hess": _F_HESS,
+    "f_jac_detect": _F_JAC_DETECT,
+    "f_hess_detect": _F_HESS_DETECT,
+    "f_jac_verify": _F_JAC_VERIFY,
+    "f_hess_verify": _F_HESS_VERIFY,
     "coloring": _COLORING,
+    "coloring_jac_verify": _COLORING_JAC_VERIFY,
+    "coloring_hess_verify": _COLORING_HESS_VERIFY,
     "coloring_compressed": _COLORING_COMPRESSED,
     "compressed": _COMPRESSED,
+    "sparsity_jac": _SPARSITY_JAC,
+    "sparsity_hess": _SPARSITY_HESS,
+    "sparsity_pattern_jac": _SPARSITY_PATTERN_JAC,
+    "sparsity_pattern_hess": _SPARSITY_PATTERN_HESS,
+    "colors_rows": _COLORS_ROWS,
+    "colors_cols": _COLORS_COLS,
+    "colors_vertex": _COLORS_VERTEX,
+    "forced_colors": _FORCED_COLORS,
     "sample_args": _SAMPLE_ARGS,
     "x_multi_input": _X_MULTI_INPUT,
+    "x_jac": _X_JAC,
+    "x_hess": _X_HESS,
     "argnums": _ARGNUMS,
     "has_aux": _HAS_AUX,
     "has_aux_detect": _HAS_AUX_DETECT,
@@ -203,6 +278,7 @@ _FRAGMENTS: dict[str, str] = {
     "symmetric_hess": _SYMMETRIC_HESS,
     "postprocess_jac": _POSTPROCESS_JAC,
     "postprocess_hess": _POSTPROCESS_HESS,
+    "postprocess_symmetric": _POSTPROCESS_SYMMETRIC,
     "chunk_size": _CHUNK_SIZE,
     "sample_kwargs": _SAMPLE_KWARGS,
     "sample_kwargs_detect": _SAMPLE_KWARGS_DETECT,

@@ -35,12 +35,13 @@ from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
 # Coloring validators
 
 
+@_fill_doc
 def check_coloring_rows(sparsity: SparsityPattern, colors: NDArray[np.int32]) -> None:
     """Check a row coloring: no column contains two rows with the same color.
 
     Args:
-        sparsity: Jacobian sparsity pattern of shape ``(m, n)``.
-        colors: Row color assignment, shape ``(m,)``.
+        sparsity: {sparsity_pattern_jac}
+        colors: {colors_rows}
 
     Raises:
         InvalidColoringError: If the coloring is invalid.
@@ -55,12 +56,13 @@ def check_coloring_rows(sparsity: SparsityPattern, colors: NDArray[np.int32]) ->
             raise InvalidColoringError(msg)
 
 
+@_fill_doc
 def check_coloring_cols(sparsity: SparsityPattern, colors: NDArray[np.int32]) -> None:
     """Check a column coloring: no row contains two columns with the same color.
 
     Args:
-        sparsity: Jacobian sparsity pattern of shape ``(m, n)``.
-        colors: Column color assignment, shape ``(n,)``.
+        sparsity: {sparsity_pattern_jac}
+        colors: {colors_cols}
 
     Raises:
         InvalidColoringError: If the coloring is invalid.
@@ -75,6 +77,7 @@ def check_coloring_cols(sparsity: SparsityPattern, colors: NDArray[np.int32]) ->
             raise InvalidColoringError(msg)
 
 
+@_fill_doc
 def check_coloring_symmetric(
     sparsity: SparsityPattern, colors: NDArray[np.int32]
 ) -> None:
@@ -90,8 +93,8 @@ def check_coloring_symmetric(
     from the P4 check as they represent the absence of a color.
 
     Args:
-        sparsity: Hessian sparsity pattern of shape ``(n, n)``.
-        colors: Vertex color assignment, shape ``(n,)``.
+        sparsity: {sparsity_pattern_hess}
+        colors: {colors_vertex}
 
     Raises:
         ValueError: If pattern is not square.
@@ -166,11 +169,10 @@ def check_jacobian_correctness(
     """Verify asdex's sparse Jacobian against a JAX reference at a given input.
 
     Args:
-        f: Function whose Jacobian is to be verified.
-        x: Input at which to evaluate the Jacobian.
+        f: {f_jac_verify}
+        x: {x_jac}
             {x_multi_input}
-        coloring: Pre-computed colored pattern from
-            :func:`~asdex.jacobian_coloring`.
+        coloring: {coloring_jac_verify}
         method: {verify_method}
         num_probes: {num_probes}
         seed: {seed}
@@ -257,11 +259,10 @@ def check_hessian_correctness(
     """Verify asdex's sparse Hessian against a JAX reference at a given input.
 
     Args:
-        f: Scalar-valued function taking an array.
-        x: Input at which to evaluate the Hessian.
+        f: {f_hess_verify}
+        x: {x_hess}
             {x_multi_input}
-        coloring: Pre-computed colored pattern from
-            :func:`~asdex.hessian_coloring`.
+        coloring: {coloring_hess_verify}
         method: {verify_method}
         num_probes: {num_probes}
         seed: {seed}

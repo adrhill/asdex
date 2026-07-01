@@ -65,7 +65,6 @@ def jacobian_coloring(
         has_aux: {has_aux_detect}
         mode: {mode_jac_coloring}
         symmetric: {symmetric_jac}
-            Requires a square Jacobian.
         postprocess: {postprocess_jac}
         **kwargs: {sample_kwargs_detect}
 
@@ -128,11 +127,9 @@ def jacobian_coloring_from_sparsity(
     computed together in a single VJP (or JVP).
 
     Args:
-        sparsity: A [`SparsityPattern`][asdex.SparsityPattern], NumPy array,
-            or JAX BCOO matrix of shape ``(m, n)``.
+        sparsity: {sparsity_jac}
         mode: {mode_jac_coloring}
         symmetric: {symmetric_jac}
-            Requires a square pattern.
         postprocess: {postprocess_jac}
 
     Returns:
@@ -220,13 +217,10 @@ def hessian_coloring_from_sparsity(
     """Color a sparsity pattern for sparse Hessian computation.
 
     Args:
-        sparsity: A [`SparsityPattern`][asdex.SparsityPattern], NumPy array,
-            or JAX BCOO matrix of shape ``(n, n)``.
+        sparsity: {sparsity_hess}
         mode: {mode_hess}
         symmetric: {symmetric_hess}
         postprocess: {postprocess_hess}
-            Pruned vertices get the neutral color ``-1`` in the output
-            (no HVP is computed for them).
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].

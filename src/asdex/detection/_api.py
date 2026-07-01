@@ -39,7 +39,7 @@ def jacobian_sparsity(
     The result is valid for all inputs.
 
     Args:
-        f: Function whose Jacobian sparsity pattern is to be detected.
+        f: {f_jac_detect}
         *args: {sample_args}
         argnums: {argnums}
         has_aux: {has_aux_detect}
@@ -95,7 +95,7 @@ def hessian_sparsity(
     it is automatically squeezed to scalar.
 
     Args:
-        f: Scalar-valued function taking one or more positional arrays.
+        f: {f_hess_detect}
         *args: {sample_args}
         argnums: {argnums}
         has_aux: {has_aux_detect}

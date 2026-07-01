@@ -17,6 +17,7 @@ from numba import njit
 from numpy.typing import NDArray
 
 from asdex._defaults import _DEFAULT_POSTPROCESS
+from asdex._docstrings import _fill_doc
 from asdex._errors import InvalidColoringError
 from asdex._pattern import SparsityPattern, StarSet
 from asdex.coloring._graph import (
@@ -27,6 +28,7 @@ from asdex.coloring._graph import (
 from asdex.coloring._postprocessing import _postprocess_star_coloring
 
 
+@_fill_doc
 def color_symmetric(
     sparsity: SparsityPattern,
     *,
@@ -44,16 +46,9 @@ def color_symmetric(
     Uses LargestFirst vertex ordering.
 
     Args:
-        sparsity: SparsityPattern of shape ``(n, n)`` representing the
-            symmetric Hessian sparsity pattern.
-        postprocess: If ``True``, replace colors that are never used as a hub color
-            (and not forced by a diagonal entry) with ``-1`` (neutral),
-            then compact remaining colors down. This reduces the number of HVPs
-            needed during decompression. Defaults to ``False``,
-            matching SparseMatrixColorings.jl's ``postprocessing=false`` default.
-        forced_colors: Optional pre-computed color assignment of shape ``(n,)``.
-            When provided, the algorithm verifies it satisfies the star-coloring
-            constraints and raises :class:`InvalidColoringError` otherwise.
+        sparsity: {sparsity_pattern_hess}
+        postprocess: {postprocess_symmetric}
+        forced_colors: {forced_colors}
 
     Returns:
         Tuple ``(colors, num_colors, star_set)`` where:

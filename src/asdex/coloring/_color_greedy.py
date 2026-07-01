@@ -17,10 +17,12 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
+from asdex._docstrings import _fill_doc
 from asdex._pattern import SparsityPattern
 from asdex.coloring._graph import _build_csr
 
 
+@_fill_doc
 def color_rows(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     """Greedy row-wise coloring for sparse Jacobian computation.
 
@@ -32,8 +34,7 @@ def color_rows(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     Uses LargestFirst vertex ordering for fewer colors.
 
     Args:
-        sparsity: SparsityPattern of shape (m, n) representing the
-            Jacobian sparsity pattern
+        sparsity: {sparsity_pattern_jac}
 
     Returns:
         Tuple of (colors, num_colors) where:
@@ -55,6 +56,7 @@ def color_rows(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     return colors, int(num_colors)
 
 
+@_fill_doc
 def color_cols(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     """Greedy column-wise coloring for sparse Jacobian computation.
 
@@ -66,8 +68,7 @@ def color_cols(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:
     Uses LargestFirst vertex ordering for fewer colors.
 
     Args:
-        sparsity: SparsityPattern of shape (m, n) representing the
-            Jacobian sparsity pattern
+        sparsity: {sparsity_pattern_jac}
 
     Returns:
         Tuple of (colors, num_colors) where:

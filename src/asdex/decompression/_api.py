@@ -92,16 +92,10 @@ def jacobian(
         *sample_args: {sample_args}
         argnums: {argnums}
         has_aux: {has_aux}
-            Mirrors ``jax.jacrev``.
-            When True, the returned function yields ``(jac, aux)``.
         holomorphic: {holomorphic}
-            Mirrors ``jax.jacrev``.
-            Validates dtype compatibility at call time.
         allow_int: {allow_int_jac}
-            Mirrors ``jax.jacrev``.
         mode: {mode_jac}
         symmetric: {symmetric_jac}
-            Requires a square Jacobian.
         output_format: {format_jac}
         chunk_size: {chunk_size}
         **sample_kwargs: {sample_kwargs}
@@ -1018,8 +1012,6 @@ def decompress_data(compressed: jax.Array, coloring: ColoredPattern) -> jax.Arra
 
     Args:
         compressed: {compressed}
-            As returned by [`compressed_jacobian`][asdex.compressed_jacobian] or
-            [`compressed_hessian`][asdex.compressed_hessian].
         coloring: {coloring_compressed}
 
     Returns:
