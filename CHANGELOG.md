@@ -5,13 +5,13 @@
 * ![Feature][badge-feature] Add `decompress` and `decompress_data` to turn a compressed matrix back into a sparse matrix or its raw values ([#155])
 * ![Enhancement][badge-enhancement] Compute the primal value for free in reverse-over-forward Hessians, so `value_and_hessian(mode="rev_over_fwd")` no longer costs an extra function evaluation ([#155])
 * ![Maintenance][badge-maintenance] Split `decompression.py` into a package and extract the batched-AD engine into `differentiation.py` ([#155])
-* ![Documentation][badge-docs] Update README and how-to guides with the new features ([#154])
+* ![Documentation][badge-docs] Update README and how-to guides with new `v0.3` and `v0.4` features ([#154])
 
 ```python
 coloring = asdex.jacobian_coloring(f, x)
 B = asdex.compressed_jacobian_from_coloring(f, coloring)(x)  # compressed matrix
-J = asdex.decompress(coloring, B)                            # back to a sparse matrix
-data = asdex.decompress_data(coloring, B)                    # raw values, jittable
+J = asdex.decompress(B, coloring)                            # back to a sparse matrix
+data = asdex.decompress_data(B, coloring)                    # raw values, jittable
 ```
 
 ## Version `v0.4.0`

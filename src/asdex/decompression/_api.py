@@ -998,7 +998,7 @@ def value_and_compressed_hessian_from_coloring(
 
 
 @_fill_doc
-def decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Array:
+def decompress_data(compressed: jax.Array, coloring: ColoredPattern) -> jax.Array:
     """Gather a compressed matrix ``B`` into sparse values in pattern order.
 
     Returns a plain ``jax.Array`` of shape ``(coloring.sparsity.nnz,)``
@@ -1016,10 +1016,10 @@ def decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arra
     to assemble a custom format.
 
     Args:
-        coloring: {coloring_compressed}
         compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``,
             as returned by [`compressed_jacobian`][asdex.compressed_jacobian] or
             [`compressed_hessian`][asdex.compressed_hessian].
+        coloring: {coloring_compressed}
 
     Returns:
         A ``jax.Array`` of shape ``(nnz,)`` with the sparse values in pattern order,
@@ -1037,8 +1037,8 @@ def decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arra
 
 @_fill_doc
 def decompress(
-    coloring: ColoredPattern,
     compressed: jax.Array,
+    coloring: ColoredPattern,
     output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
 ) -> Any:
     """Decompress a compressed matrix ``B`` into a 2-D sparse matrix.
@@ -1053,8 +1053,8 @@ def decompress(
     ``B``'s natural domain is the 2-D compressed matrix.
 
     Args:
-        coloring: {coloring_compressed}
         compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``.
+        coloring: {coloring_compressed}
         output_format: {format_flat}
 
     Returns:
@@ -1067,5 +1067,5 @@ def decompress(
             not installed.
     """
     _assert_output_format(output_format)
-    data = decompress_data(coloring, compressed)
+    data = decompress_data(compressed, coloring)
     return _decompress_to_format(coloring, data, output_format)

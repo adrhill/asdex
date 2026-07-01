@@ -513,8 +513,8 @@ Unlike [`jacobian`](../reference/index.md#asdex.jacobian),
 it always returns the flat 2-D \((m, n)\) matrix, regardless of input or output PyTree structure:
 
 ```python exec="true" session="jac-compress" source="above"
-J_bcoo = decompress(coloring, B)                          # BCOO (default)
-J_dense = decompress(coloring, B, output_format="dense")  # jax.Array
+J_bcoo = decompress(B, coloring)                          # BCOO (default)
+J_dense = decompress(B, coloring, output_format="dense")  # jax.Array
 ```
 
 For full control, [`decompress_data`](../reference/index.md#asdex.decompress_data) is the jittable
@@ -523,7 +523,7 @@ It returns just the structural non-zero values as a `jax.Array` of shape \((\tex
 ready to pair with `coloring.sparsity.rows` and `coloring.sparsity.cols` to build a custom container:
 
 ```python exec="true" session="jac-compress" source="above"
-data = decompress_data(coloring, B)  # the nnz values, in pattern order
+data = decompress_data(B, coloring)  # the nnz values, in pattern order
 rows = coloring.sparsity.rows        # row index of each value
 cols = coloring.sparsity.cols        # column index of each value
 # data, rows, and cols share one pattern order,

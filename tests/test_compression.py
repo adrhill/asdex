@@ -107,7 +107,7 @@ def test_compressed_jacobian_roundtrip(jacobian_mode, all_output_format, to_dens
     x = jnp.arange(1.0, 11.0)
     coloring = jacobian_coloring(_jac_f, x, mode=jacobian_mode)
     B = compressed_jacobian_from_coloring(_jac_f, coloring)(x)
-    J = decompress(coloring, B, output_format=all_output_format)
+    J = decompress(B, coloring, output_format=all_output_format)
     assert_allclose(to_dense(J), jax.jacobian(_jac_f)(x), rtol=1e-6)
 
 
@@ -141,7 +141,7 @@ def test_compressed_hessian_roundtrip(hessian_mode, all_output_format, to_dense)
     x = jnp.arange(1.0, 9.0)
     coloring = hessian_coloring(_hess_f, x, mode=hessian_mode)
     B = compressed_hessian_from_coloring(_hess_f, coloring)(x)
-    H = decompress(coloring, B, output_format=all_output_format)
+    H = decompress(B, coloring, output_format=all_output_format)
     assert_allclose(to_dense(H), jax.hessian(_hess_f)(x), rtol=1e-6, atol=1e-9)
 
 
@@ -164,7 +164,7 @@ def test_decompress_data_shape_and_dtype(jacobian_mode):
     x = jnp.arange(1.0, 11.0)
     coloring = jacobian_coloring(_jac_f, x, mode=jacobian_mode)
     B = compressed_jacobian_from_coloring(_jac_f, coloring)(x)
-    data = decompress_data(coloring, B)
+    data = decompress_data(B, coloring)
     assert isinstance(data, jax.Array)
     assert data.shape == (coloring.sparsity.nnz,)
     assert data.dtype == B.dtype
@@ -180,7 +180,7 @@ def test_decompress_data_feeds_public_to_bcoo(jacobian_mode):
     x = jnp.arange(1.0, 11.0)
     coloring = jacobian_coloring(_jac_f, x, mode=jacobian_mode)
     B = compressed_jacobian_from_coloring(_jac_f, coloring)(x)
-    data = decompress_data(coloring, B)
+    data = decompress_data(B, coloring)
     J = coloring.sparsity.to_bcoo(data).todense()
     assert_allclose(J, jax.jacobian(_jac_f)(x), rtol=1e-6)
 
@@ -195,9 +195,9 @@ def test_decompress_data_jittable(jacobian_mode):
 
     @jax.jit
     def pipeline(args):
-        return decompress_data(coloring, compress(args))
+        return decompress_data(compress(args), coloring)
 
-    assert_allclose(pipeline(x), decompress_data(coloring, B))
+    assert_allclose(pipeline(x), decompress_data(B, coloring))
 
 
 @pytest.mark.jacobian
@@ -206,7 +206,7 @@ def test_decompress_data_custom_coo_triple(jacobian_mode):
     x = jnp.arange(1.0, 11.0)
     coloring = jacobian_coloring(_jac_f, x, mode=jacobian_mode)
     B = compressed_jacobian_from_coloring(_jac_f, coloring)(x)
-    data = decompress_data(coloring, B)
+    data = decompress_data(B, coloring)
     rows, cols = coloring.sparsity.rows, coloring.sparsity.cols
     dense = np.zeros(coloring.sparsity.shape)
     dense[rows, cols] = np.asarray(data)
@@ -392,7 +392,7 @@ def test_compressed_jacobian_pytree_input(jacobian_mode, to_dense):
     assert B.ndim == 2
     assert B.shape == (coloring.num_colors, _expected_dim(coloring))
 
-    J = decompress(coloring, B, output_format="dense")
+    J = decompress(B, coloring, output_format="dense")
     assert J.shape == coloring.sparsity.shape
     assert_allclose(to_dense(J), _flat_reference_jacobian(f, params), rtol=1e-6)
 
@@ -409,7 +409,7 @@ def test_compressed_jacobian_pytree_output(jacobian_mode, to_dense):
     B = compressed_jacobian_from_coloring(f, coloring)(x)
     assert B.ndim == 2
 
-    J = decompress(coloring, B, output_format="dense")
+    J = decompress(B, coloring, output_format="dense")
     assert J.shape == coloring.sparsity.shape
     assert_allclose(to_dense(J), _flat_reference_jacobian(f, x), rtol=1e-6)
 
@@ -426,7 +426,7 @@ def test_compressed_hessian_pytree_input(hessian_mode, to_dense):
     B = compressed_hessian_from_coloring(f, coloring)(params)
     assert B.ndim == 2
 
-    H = decompress(coloring, B, output_format="dense")
+    H = decompress(B, coloring, output_format="dense")
     assert H.shape == coloring.sparsity.shape
     assert_allclose(
         to_dense(H), _flat_reference_hessian(f, params), rtol=1e-6, atol=1e-9
@@ -447,7 +447,7 @@ def test_decompress_data_wrong_num_colors_raises(jacobian_mode):
     with pytest.raises(
         ValueError, match=rf"shape \({coloring.num_colors + 1}, {dim}\)"
     ):
-        decompress_data(coloring, bad)
+        decompress_data(bad, coloring)
 
 
 @pytest.mark.jacobian
@@ -461,7 +461,7 @@ def test_decompress_data_wrong_dim_raises(jacobian_mode):
     with pytest.raises(
         ValueError, match=rf"shape \({coloring.num_colors}, {dim + 1}\)"
     ):
-        decompress_data(coloring, bad)
+        decompress_data(bad, coloring)
 
 
 @pytest.mark.jacobian
@@ -471,7 +471,7 @@ def test_decompress_propagates_validation(jacobian_mode):
     coloring = jacobian_coloring(_jac_f, x, mode=jacobian_mode)
     bad = jnp.zeros((coloring.num_colors, _expected_dim(coloring) + 1))
     with pytest.raises(ValueError, match="num_colors"):
-        decompress(coloring, bad)
+        decompress(bad, coloring)
 
 
 @pytest.mark.jacobian
@@ -480,7 +480,7 @@ def test_decompress_1d_compressed_raises():
     x = jnp.arange(1.0, 11.0)
     coloring = jacobian_coloring(_jac_f, x)
     with pytest.raises(ValueError, match="num_colors"):
-        decompress_data(coloring, jnp.zeros(coloring.num_colors))
+        decompress_data(jnp.zeros(coloring.num_colors), coloring)
 
 
 @pytest.mark.jacobian
@@ -490,7 +490,7 @@ def test_decompress_unknown_output_format_raises():
     coloring = jacobian_coloring(_jac_f, x)
     B = compressed_jacobian_from_coloring(_jac_f, coloring)(x)
     with pytest.raises(ValueError, match="Unknown output_format"):
-        decompress(coloring, B, output_format="scipy_cooo")  # ty: ignore[invalid-argument-type]
+        decompress(B, coloring, output_format="scipy_cooo")  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.jacobian
@@ -513,7 +513,7 @@ def test_decompress_scipy_without_scipy_raises(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", blocked_import)
 
     with pytest.raises(ImportError, match=r"pip install 'asdex\[scipy\]'"):
-        decompress(coloring, B, output_format="scipy_coo")
+        decompress(B, coloring, output_format="scipy_coo")
 
 
 # Output format types
@@ -526,15 +526,15 @@ def test_decompress_returns_expected_types():
     coloring = jacobian_coloring(_jac_f, x)
     B = compressed_jacobian_from_coloring(_jac_f, coloring)(x)
 
-    assert isinstance(decompress(coloring, B, output_format="bcoo"), BCOO)
-    assert isinstance(decompress(coloring, B, output_format="dense"), jax.Array)
-    assert isinstance(decompress(coloring, B, output_format="numpy_dense"), np.ndarray)
+    assert isinstance(decompress(B, coloring, output_format="bcoo"), BCOO)
+    assert isinstance(decompress(B, coloring, output_format="dense"), jax.Array)
+    assert isinstance(decompress(B, coloring, output_format="numpy_dense"), np.ndarray)
 
     from scipy.sparse import coo_array, csc_array, csr_array  # noqa: PLC0415
 
-    assert isinstance(decompress(coloring, B, output_format="scipy_coo"), coo_array)
-    assert isinstance(decompress(coloring, B, output_format="scipy_csr"), csr_array)
-    assert isinstance(decompress(coloring, B, output_format="scipy_csc"), csc_array)
+    assert isinstance(decompress(B, coloring, output_format="scipy_coo"), coo_array)
+    assert isinstance(decompress(B, coloring, output_format="scipy_csr"), csr_array)
+    assert isinstance(decompress(B, coloring, output_format="scipy_csc"), csc_array)
 
 
 # Empty / zero patterns
@@ -551,7 +551,7 @@ def test_compressed_jacobian_zero_pattern(to_dense):
     coloring = jacobian_coloring(f, x)
     B = compressed_jacobian_from_coloring(f, coloring)(x)
     assert B.shape == (coloring.num_colors, _expected_dim(coloring))
-    J = decompress(coloring, B, output_format="bcoo")
+    J = decompress(B, coloring, output_format="bcoo")
     assert to_dense(J).shape == coloring.sparsity.shape
     assert_allclose(to_dense(J), np.zeros((3, 3)))
 
