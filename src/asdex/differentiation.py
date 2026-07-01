@@ -200,16 +200,22 @@ def _hessian_compressed(
     coloring: ColoredPattern,
     chunk_size: int | None,
     *,
+    need_value: bool = True,
     f_aux: Callable[..., Any] | None = None,
-) -> tuple[jax.Array, jax.Array, Any]:
+) -> tuple[jax.Array, jax.Array | None, Any]:
     """One HVP per color for a scalar-valued ``f``, by mode.
 
-    Mirrors ``_jacobian_compressed``: the primal value always rides along,
-    free for ``fwd_over_rev`` / ``rev_over_rev`` and one extra ``f`` call for
-    ``rev_over_fwd``, so a single engine serves both the value and value-free
-    callers (the latter discard it, as the Jacobian engine's callers do).
+    Mirrors ``_jacobian_compressed``: a single engine serves both the value and
+    value-free callers.
+    The primal value is free for ``fwd_over_rev`` / ``rev_over_rev``
+    (it rides the outer forward pass) and always returned there.
+    Only ``rev_over_fwd`` cannot lift it out of the vmapped HVPs,
+    so it costs one extra ``f`` call:
+    value-free callers pass ``need_value=False`` to skip it,
+    in which case the returned value is ``None``.
     ``f_aux`` is the aux-preserving variant of ``f`` (returns ``(out, aux)``);
     the returned aux is ``None`` when it is not given.
+    Requesting aux always forces the value, since aux rides the same ``f`` call.
     Returns ``(compressed, value, aux)``.
     """
     _assert_hessian_mode(coloring.mode)
@@ -220,7 +226,7 @@ def _hessian_compressed(
             )
         case "rev_over_fwd":
             return _hessian_compressed_rev_over_fwd(
-                f, args, coloring, chunk_size, f_aux
+                f, args, coloring, chunk_size, need_value, f_aux
             )
         case "rev_over_rev":
             return _hessian_compressed_rev_over_rev(
@@ -257,12 +263,17 @@ def _hessian_compressed_rev_over_fwd(
     args: tuple[Any, ...],
     coloring: ColoredPattern,
     chunk_size: int | None,
+    need_value: bool,
     f_aux: Callable[..., Any] | None,
-) -> tuple[jax.Array, jax.Array, Any]:
+) -> tuple[jax.Array, jax.Array | None, Any]:
     """Reverse-over-forward HVPs; value and aux need one dedicated ``f`` call.
 
     The forward passes happen inside the vmapped HVPs below,
     so neither value nor aux can be lifted out of them.
+    Unlike the other Hessian modes the primal value is not free here,
+    so a value-free caller passes ``need_value=False`` to skip the extra call
+    and the returned value is ``None``.
+    When ``f_aux`` is given the value rides that call, so it is always returned.
     """
     sparsity = coloring.sparsity
     dtype = _uniform_selected_dtype(args, sparsity)
@@ -271,8 +282,10 @@ def _hessian_compressed_rev_over_fwd(
     if f_aux is not None:
         out, aux = f_aux(*args)
         value = jnp.asarray(out)
-    else:
+    elif need_value:
         value, aux = jnp.asarray(f(*args)), None
+    else:
+        value, aux = None, None
 
     def single_hvp(v: jax.Array) -> jax.Array:
         tangents = _build_tangents_from_seed(v, args, sparsity)

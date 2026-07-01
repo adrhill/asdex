@@ -256,6 +256,50 @@ def test_value_and_compressed_hessian_from_coloring(hessian_mode):
     assert_allclose(B, compressed_hessian_from_coloring(_hess_f, coloring)(x))
 
 
+# rev_over_fwd value-free skips the discarded forward pass
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_rev_over_fwd_value_free_skips_f_call():
+    """Value-free rev_over_fwd compressed Hessian skips the discarded value call.
+
+    rev_over_fwd is the one Hessian mode whose primal value cannot ride the HVP
+    forward pass, so it costs a dedicated ``f`` call.
+    The value-free ``compressed_hessian`` must skip that call,
+    while ``value_and_compressed_hessian`` still pays it to return the value,
+    so the value-free path invokes ``f`` strictly fewer times.
+    """
+    counter = {"n": 0}
+
+    def f(x):
+        counter["n"] += 1
+        return jnp.sum((x[1:] - x[:-1]) ** 2) + jnp.sum(x**3)
+
+    x = jnp.arange(1.0, 6.0)
+    value_free = compressed_hessian(f, x, mode="rev_over_fwd")
+    with_value = value_and_compressed_hessian(f, x, mode="rev_over_fwd")
+
+    counter["n"] = 0
+    value_free(x)
+    free_calls = counter["n"]
+
+    counter["n"] = 0
+    value, _ = with_value(x)
+    val_calls = counter["n"]
+
+    assert free_calls < val_calls
+    assert_allclose(value, f(x), rtol=1e-6)
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_value_free_matches_value_and(hessian_mode):
+    """Dropping the value never changes the compressed matrix in any mode."""
+    x = jnp.arange(1.0, 9.0)
+    B_free = compressed_hessian(_hess_f, x, mode=hessian_mode)(x)
+    _, B_val = value_and_compressed_hessian(_hess_f, x, mode=hessian_mode)(x)
+    assert_allclose(B_free, B_val)
+
+
 # Auxiliary outputs
 
 

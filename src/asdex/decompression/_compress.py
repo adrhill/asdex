@@ -202,10 +202,14 @@ def _compress_jacobian(
     allow_int: bool,
     chunk_size: int | None,
     call_cache: _CallCache | None,
+    need_value: bool = True,
 ) -> tuple[jax.Array, Any, Any]:
     """Compress the Jacobian of ``f`` at ``args``, returning ``(B, value, aux)``.
 
-    The forward value rides the compression pass, so it is free;
+    On the non-empty path the forward value rides the compression pass for free,
+    so ``need_value`` only matters on the empty short-circuit,
+    where a value-free caller passes ``need_value=False`` to skip the forward
+    ``f`` call and receive ``value=None``.
     ``aux`` is ``None`` unless ``has_aux=True``.
     """
     sparsity = coloring.sparsity
@@ -215,15 +219,15 @@ def _compress_jacobian(
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
-    out_struct = _cached_out_struct(f_out, args, call_cache)
 
     if m == 0 or sparsity.nnz == 0:
         compressed = _empty_compressed(coloring, args)
         if has_aux:
             value, aux = f(*args)
             return compressed, value, aux
-        return compressed, f(*args), None
+        return compressed, (f(*args) if need_value else None), None
 
+    out_struct = _cached_out_struct(f_out, args, call_cache)
     compressed, y, aux = _jacobian_compressed(
         f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
     )
@@ -241,14 +245,16 @@ def _compress_hessian(
     allow_int: bool,
     chunk_size: int | None,
     call_cache: _CallCache | None,
+    need_value: bool = True,
 ) -> tuple[jax.Array, Any, Any]:
     """Compress the Hessian of a scalar-valued ``f`` at ``args``.
 
     Mirrors ``_compress_jacobian``: a single function serves both the value and
     value-free callers, returning ``(B, value, aux)``.
-    The value rides the HVP forward pass where the mode allows
-    (``rev_over_fwd`` costs one extra ``f`` call),
-    so value-free callers simply discard it.
+    The value rides the HVP forward pass for free in ``fwd_over_rev`` /
+    ``rev_over_rev``; only ``rev_over_fwd`` (and the empty short-circuit) need a
+    dedicated ``f`` call, which a value-free caller skips with
+    ``need_value=False`` to receive ``value=None``.
     ``aux`` is ``None`` unless ``has_aux=True``.
     """
     sparsity = coloring.sparsity
@@ -268,10 +274,11 @@ def _compress_hessian(
         if has_aux:
             out, aux = _cached_scalar_aux_fn(f, call_cache)(*args)
             return compressed, jnp.asarray(out), aux
-        return compressed, jnp.asarray(f_scalar(*args)), None
+        value = jnp.asarray(f_scalar(*args)) if need_value else None
+        return compressed, value, None
 
     f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
     compressed, value, aux = _hessian_compressed(
-        f_scalar, args, coloring, chunk_size, f_aux=f_aux
+        f_scalar, args, coloring, chunk_size, need_value=need_value, f_aux=f_aux
     )
     return compressed, value, aux

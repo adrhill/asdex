@@ -616,6 +616,7 @@ def compressed_jacobian(
             allow_int=allow_int,
             chunk_size=chunk_size,
             call_cache=call_cache if f_bound is f else None,
+            need_value=False,
         )
         return (compressed, aux) if has_aux else compressed
 
@@ -660,6 +661,7 @@ def compressed_jacobian_from_coloring(
             allow_int=allow_int,
             chunk_size=chunk_size,
             call_cache=call_cache if f_bound is f else None,
+            need_value=False,
         )
         return (compressed, aux) if has_aux else compressed
 
@@ -729,6 +731,7 @@ def compressed_hessian(
             allow_int=allow_int,
             chunk_size=chunk_size,
             call_cache=call_cache if f_bound is f else None,
+            need_value=False,
         )
         return (compressed, aux) if has_aux else compressed
 
@@ -773,6 +776,7 @@ def compressed_hessian_from_coloring(
             allow_int=allow_int,
             chunk_size=chunk_size,
             call_cache=call_cache if f_bound is f else None,
+            need_value=False,
         )
         return (compressed, aux) if has_aux else compressed
 

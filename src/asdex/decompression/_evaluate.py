@@ -116,15 +116,20 @@ def _build_hessian_core(
     f_scalar: Callable[..., Any],
     coloring: ColoredPattern,
     chunk_size: int | None,
+    need_value: bool,
 ) -> Callable[..., Any]:
     """Array-valued Hessian core ``args -> (data, value)`` for the internal jit.
 
-    Mirrors ``_build_jacobian_core``: the value always rides along,
-    so value and value-free callers share one core (the latter discard it).
+    Mirrors ``_build_jacobian_core``.
+    ``need_value`` is baked in per closure and forwarded to the engine,
+    so a value-free ``rev_over_fwd`` core skips the extra ``f`` call
+    and returns ``value=None`` (a valid empty jit output).
     """
 
-    def core(*args: Any) -> tuple[jax.Array, jax.Array]:
-        compressed, value, _ = _hessian_compressed(f_scalar, args, coloring, chunk_size)
+    def core(*args: Any) -> tuple[jax.Array, jax.Array | None]:
+        compressed, value, _ = _hessian_compressed(
+            f_scalar, args, coloring, chunk_size, need_value=need_value
+        )
         return _decompress_data(coloring, compressed), value
 
     return core
@@ -235,7 +240,7 @@ def _hessian_with_value(
         call_cache,
         output_format,
         False,
-        lambda: _build_hessian_core(f_scalar, coloring, chunk_size),
+        lambda: _build_hessian_core(f_scalar, coloring, chunk_size, need_value),
     )
     if core is not None:
         data, value = core(*args)
@@ -243,7 +248,7 @@ def _hessian_with_value(
     else:
         f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
         compressed, value, aux = _hessian_compressed(
-            f_scalar, args, coloring, chunk_size, f_aux=f_aux
+            f_scalar, args, coloring, chunk_size, need_value=need_value, f_aux=f_aux
         )
         data = _decompress_data(coloring, compressed)
     hess = _build_hessian(coloring, data, output_format)
