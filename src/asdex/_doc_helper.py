@@ -1,20 +1,26 @@
-"""Shared docstring fragments for the public API in ``decompression._api``.
+"""Shared docstring fragments for the public API.
 
 The argument descriptions and the ``jax.jit`` note below are identical across
-many entry points in ``decompression._api``. They are written once here and
-interpolated into each ``{placeholder}`` by the ``@_fill_doc`` decorator, so a
-wording fix lands in one place. Only the *description* is interpolated. The
-``argname:`` prefix stays literal in each docstring so pydocstyle's D417 still
-sees every argument documented.
-Fragments are canonical (dedented): continuation lines sit at 0 spaces for the
-top-level ``{jit}`` note and 8 for the ``Args:`` descriptions. ``_fill_doc``
-runs ``inspect.cleandoc`` first so placeholders land at those columns
+many entry points in the public API. They are written once here and
+interpolated into each ``{placeholder}`` by the ``@_fill_doc`` decorator,
+so a wording fix lands in one place. Only the *description* is interpolated.
+The ``argname:`` prefix stays literal in each docstring
+so pydocstyle's D417 still sees every argument documented.
+Substitution matches only registered ``{placeholder}`` tokens (see ``_PLACEHOLDER``),
+so ordinary braces in a docstring pass through untouched
+and an unregistered placeholder fails loudly at import
+instead of corrupting the rendered text.
+Fragments are canonical (dedented):
+continuation lines sit at 0 spaces for the top-level ``{jit}`` note
+and 8 for the ``Args:`` descriptions.
+``_fill_doc`` runs ``inspect.cleandoc`` first so placeholders land at those columns
 regardless of the per-version docstring dedenting (which changed in 3.13).
 """
 
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -88,6 +94,35 @@ _FORMAT_FLAT = _FORMAT_HEAD + "\n        SciPy formats require scipy."
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
+# The registered fragments, keyed by the ``{placeholder}`` name they fill.
+_FRAGMENTS: dict[str, str] = {
+    "jit": _JIT,
+    "f_jac": _F_JAC,
+    "f_hess": _F_HESS,
+    "coloring": _COLORING,
+    "coloring_compressed": _COLORING_COMPRESSED,
+    "sample_args": _SAMPLE_ARGS,
+    "argnums": _ARGNUMS,
+    "has_aux": _HAS_AUX,
+    "holomorphic": _HOLOMORPHIC,
+    "allow_int_jac": _ALLOW_INT_JAC,
+    "allow_int_hess": _ALLOW_INT_HESS,
+    "mode_hess": _MODE_HESS,
+    "symmetric": _SYMMETRIC,
+    "chunk_size": _CHUNK_SIZE,
+    "sample_kwargs": _SAMPLE_KWARGS,
+    "format_jac": _FORMAT_JAC,
+    "format_hess": _FORMAT_HESS,
+    "format_flat": _FORMAT_FLAT,
+}
+
+# A placeholder is a fragment key wrapped in braces, e.g. ``{f_jac}``.
+# Restricting the token to a lowercase identifier means ordinary braces in a
+# docstring (dict literals, empty ``{}``, numeric format specs like ``{0:.2f}``)
+# never match, so ``str.format``'s "every brace is a field" fragility is gone:
+# only a genuine ``{placeholder}`` is ever touched.
+_PLACEHOLDER = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
+
 
 def _fill_doc(fn: _F) -> _F:
     """Interpolate the shared docstring fragments into ``fn.__doc__``.
@@ -97,26 +132,23 @@ def _fill_doc(fn: _F) -> _F:
     ``inspect.cleandoc`` normalizes the indentation first so the result is
     identical whether or not the interpreter already dedented ``__doc__``
     (auto-dedenting landed in Python 3.13).
+
+    Only registered ``{placeholder}`` tokens are substituted.
+    An unregistered one raises ``KeyError`` here at import time,
+    naming the offending function so the typo is caught immediately.
     """
-    if fn.__doc__ is not None:
-        fn.__doc__ = inspect.cleandoc(fn.__doc__).format(
-            jit=_JIT,
-            f_jac=_F_JAC,
-            f_hess=_F_HESS,
-            coloring=_COLORING,
-            coloring_compressed=_COLORING_COMPRESSED,
-            sample_args=_SAMPLE_ARGS,
-            argnums=_ARGNUMS,
-            has_aux=_HAS_AUX,
-            holomorphic=_HOLOMORPHIC,
-            allow_int_jac=_ALLOW_INT_JAC,
-            allow_int_hess=_ALLOW_INT_HESS,
-            mode_hess=_MODE_HESS,
-            symmetric=_SYMMETRIC,
-            chunk_size=_CHUNK_SIZE,
-            sample_kwargs=_SAMPLE_KWARGS,
-            format_jac=_FORMAT_JAC,
-            format_hess=_FORMAT_HESS,
-            format_flat=_FORMAT_FLAT,
-        )
+    if fn.__doc__ is None:
+        return fn
+
+    def replace(match: re.Match[str]) -> str:
+        key = match.group(1)
+        try:
+            return _FRAGMENTS[key]
+        except KeyError:
+            raise KeyError(
+                f"Unknown docstring placeholder '{{{key}}}' in "
+                f"{fn.__qualname__}. Known fragments: {sorted(_FRAGMENTS)}."
+            ) from None
+
+    fn.__doc__ = _PLACEHOLDER.sub(replace, inspect.cleandoc(fn.__doc__))
     return fn
