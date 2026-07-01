@@ -47,6 +47,10 @@ are kept as explicit entries,
 so the structure is independent of the input value.
 """
 
+# Output formats backed by host (non-JAX) arrays.
+# These cannot be returned from a caller-side ``jax.jit``.
+_HOST_FORMATS = ("numpy_dense", "scipy_coo", "scipy_csr", "scipy_csc")
+
 
 def _assert_jacobian_mode(mode: str) -> None:
     """Raise ``ValueError`` if *mode* is not a valid ``JacobianMode``."""

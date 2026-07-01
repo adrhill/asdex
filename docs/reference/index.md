@@ -49,3 +49,26 @@
 ::: asdex.JacobianMode
 ::: asdex.HessianMode
 ::: asdex.VerificationError
+
+## Compressed Differentiation
+
+Advanced entry points that stop at the compressed matrix \(B\),
+leaving decompression to the caller.
+See [Skipping Decompression](../how-to/jacobians.md#skipping-decompression).
+
+::: asdex.compressed_jacobian
+::: asdex.value_and_compressed_jacobian
+::: asdex.compressed_hessian
+::: asdex.value_and_compressed_hessian
+
+---
+
+::: asdex.compressed_jacobian_from_coloring
+::: asdex.value_and_compressed_jacobian_from_coloring
+::: asdex.compressed_hessian_from_coloring
+::: asdex.value_and_compressed_hessian_from_coloring
+
+---
+
+::: asdex.decompress
+::: asdex.decompress_data

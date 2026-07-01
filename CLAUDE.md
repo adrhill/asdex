@@ -19,15 +19,17 @@ src/asdex/
 ├── _display.py         # Display/formatting utilities
 ├── _plotting.py        # Matplotlib visualizations for SparsityPattern and ColoredPattern
 ├── coloring/           # Graph coloring (row, column, symmetric) and convenience functions
-├── decompression.py    # Sparse Jacobian (VJP/JVP) and Hessian (HVP) computation
+├── decompression/      # Compress (one VJP/JVP/HVP per color, producing B) then decompress it into the sparse matrix, plus the public API
 ├── detection/          # Jacobian and Hessian sparsity detection via jaxpr analysis
 │   └── _interpret/     # Custom jaxpr interpreter for index set propagation
+├── differentiation.py  # Batched-AD engine: one VJP/JVP/HVP per color, producing the compressed matrix B
 ├── modes.py            # Type aliases for AD mode and output format selection (JacobianMode, HessianMode, OutputFormat)
 ├── pattern.py          # SparsityPattern and ColoredPattern data structures
 └── verify.py           # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
 ```
 
 The interpreter internals are described in `src/asdex/detection/_interpret/CLAUDE.md`.
+The decompression internals are described in `src/asdex/decompression/CLAUDE.md`.
 The structure of the test folder is described in `tests/CLAUDE.md`.
 
 ## Development
@@ -64,7 +66,8 @@ jacobian_from_coloring(f, coloring)(x)  # from pre-computed coloring
   │     jacobian_coloring_from_sparsity(sparsity)
   │
   └─ 3. DECOMPRESSION
-        One VJP or JVP per color
+        Compress:   one VJP or JVP per color → B
+        Decompress: scatter B into the pattern
 
 Precompute: jacobian_coloring(f, shape) = detect + color
 ```
@@ -83,10 +86,17 @@ hessian_from_coloring(f, coloring)(x)  # from pre-computed coloring
   │     hessian_coloring_from_sparsity(sparsity)
   │
   └─ 3. DECOMPRESSION
-        One HVP per color (fwd-over-rev)
+        Compress:   one HVP per color (fwd-over-rev) → B
+        Decompress: scatter B into the pattern
 
 Precompute: hessian_coloring(f, shape) = detect + color_symmetric
 ```
+
+The decompression step splits into compress (build the dense `B`) and decompress (scatter `B` into the pattern),
+which never import each other.
+The `compressed_*` / `value_and_compressed_*` entry points stop at `B`,
+and `decompress` / `decompress_data` turn a caller-supplied `B` back into a sparse matrix.
+See `src/asdex/decompression/CLAUDE.md`.
 
 ## Commits
 

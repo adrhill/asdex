@@ -29,12 +29,12 @@ from asdex import (
     value_and_jacobian,
     value_and_jacobian_from_coloring,
 )
+from asdex._api_utils import _selected_dtype
 from asdex.coloring._color_symmetric import StarSet
-from asdex.decompression import (
-    _decompress_data,
+from asdex.decompression._decompress import _decompress_data
+from asdex.differentiation import (
     _flatten_grad_output,
     _flatten_selected_cotangents,
-    _selected_dtype,
 )
 from asdex.verify import _allclose_pytree
 
@@ -906,7 +906,7 @@ def test_decompress_data_grad_symmetric_coloring():
     color_idx, elem_idx = coloring._extraction_indices
 
     def via_gather(c):
-        return jnp.vdot(weights, _decompress_data(coloring, c))
+        return jnp.vdot(weights, _decompress_data(c, coloring))
 
     def via_indexing(c):
         return jnp.vdot(weights, c[color_idx, elem_idx])
