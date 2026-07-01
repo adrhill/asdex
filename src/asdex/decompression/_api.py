@@ -20,6 +20,17 @@ import jax
 
 from asdex._api_utils import _ensure_index, merge_args_kwargs, merge_sample_inputs
 from asdex._doc_helper import _fill_doc
+from asdex._kwarg_defaults import (
+    _DEFAULT_ALLOW_INT,
+    _DEFAULT_ARGNUMS,
+    _DEFAULT_CHUNK_SIZE,
+    _DEFAULT_HAS_AUX,
+    _DEFAULT_HOLOMORPHIC,
+    _DEFAULT_MODE,
+    _DEFAULT_OUTPUT_FORMAT,
+    _DEFAULT_SYMMETRIC_HESSIAN,
+    _DEFAULT_SYMMETRIC_JACOBIAN,
+)
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.decompression._compress import (
@@ -54,14 +65,14 @@ from asdex.pattern import ColoredPattern
 def jacobian(
     f: Callable[..., Any],
     *sample_args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    mode: JacobianMode | None = None,
-    symmetric: bool = False,
-    output_format: OutputFormat = "bcoo",
-    chunk_size: int | None = None,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    mode: JacobianMode | None = _DEFAULT_MODE,
+    symmetric: bool = _DEFAULT_SYMMETRIC_JACOBIAN,
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing sparse Jacobians.
@@ -141,14 +152,14 @@ def jacobian(
 def value_and_jacobian(
     f: Callable[..., Any],
     *sample_args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    mode: JacobianMode | None = None,
-    symmetric: bool = False,
-    output_format: OutputFormat = "bcoo",
-    chunk_size: int | None = None,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    mode: JacobianMode | None = _DEFAULT_MODE,
+    symmetric: bool = _DEFAULT_SYMMETRIC_JACOBIAN,
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Jacobian.
@@ -203,14 +214,14 @@ def value_and_jacobian(
 def hessian(
     f: Callable[..., Any],
     *sample_args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    mode: HessianMode | None = None,
-    symmetric: bool = True,
-    output_format: OutputFormat = "bcoo",
-    chunk_size: int | None = None,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    mode: HessianMode | None = _DEFAULT_MODE,
+    symmetric: bool = _DEFAULT_SYMMETRIC_HESSIAN,
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing sparse Hessians.
@@ -276,14 +287,14 @@ def hessian(
 def value_and_hessian(
     f: Callable[..., Any],
     *sample_args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    mode: HessianMode | None = None,
-    symmetric: bool = True,
-    output_format: OutputFormat = "bcoo",
-    chunk_size: int | None = None,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    mode: HessianMode | None = _DEFAULT_MODE,
+    symmetric: bool = _DEFAULT_SYMMETRIC_HESSIAN,
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing value and sparse Hessian.
@@ -352,12 +363,12 @@ def value_and_hessian(
 def jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
-    output_format: OutputFormat = "bcoo",
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
     *,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    chunk_size: int | None = None,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
 ) -> Callable[..., Any]:
     """Build a sparse Jacobian function from a pre-computed coloring.
 
@@ -405,12 +416,12 @@ def jacobian_from_coloring(
 def hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
-    output_format: OutputFormat = "bcoo",
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
     *,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    chunk_size: int | None = None,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
 ) -> Callable[..., Any]:
     """Build a sparse Hessian function from a pre-computed coloring.
 
@@ -454,12 +465,12 @@ def hessian_from_coloring(
 def value_and_jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
-    output_format: OutputFormat = "bcoo",
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
     *,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    chunk_size: int | None = None,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Jacobian from a pre-computed coloring.
 
@@ -501,12 +512,12 @@ def value_and_jacobian_from_coloring(
 def value_and_hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
-    output_format: OutputFormat = "bcoo",
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
     *,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    chunk_size: int | None = None,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
 ) -> Callable[..., Any]:
     """Build a function computing value and sparse Hessian from a pre-computed coloring.
 
@@ -554,13 +565,13 @@ def value_and_hessian_from_coloring(
 def compressed_jacobian(
     f: Callable[..., Any],
     *sample_args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    mode: JacobianMode | None = None,
-    symmetric: bool = False,
-    chunk_size: int | None = None,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    mode: JacobianMode | None = _DEFAULT_MODE,
+    symmetric: bool = _DEFAULT_SYMMETRIC_JACOBIAN,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing the compressed Jacobian.
@@ -628,10 +639,10 @@ def compressed_jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     *,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    chunk_size: int | None = None,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
 ) -> Callable[..., Any]:
     """Build a compressed Jacobian function from a pre-computed coloring.
 
@@ -672,13 +683,13 @@ def compressed_jacobian_from_coloring(
 def compressed_hessian(
     f: Callable[..., Any],
     *sample_args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    mode: HessianMode | None = None,
-    symmetric: bool = True,
-    chunk_size: int | None = None,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    mode: HessianMode | None = _DEFAULT_MODE,
+    symmetric: bool = _DEFAULT_SYMMETRIC_HESSIAN,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Detect sparsity, color, and return a function computing the compressed Hessian.
@@ -745,10 +756,10 @@ def compressed_hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     *,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    chunk_size: int | None = None,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
 ) -> Callable[..., Any]:
     """Build a compressed Hessian function from a pre-computed coloring.
 
@@ -789,13 +800,13 @@ def compressed_hessian_from_coloring(
 def value_and_compressed_jacobian(
     f: Callable[..., Any],
     *sample_args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    mode: JacobianMode | None = None,
-    symmetric: bool = False,
-    chunk_size: int | None = None,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    mode: JacobianMode | None = _DEFAULT_MODE,
+    symmetric: bool = _DEFAULT_SYMMETRIC_JACOBIAN,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Like [`compressed_jacobian`][asdex.compressed_jacobian], also returning the value.
@@ -848,10 +859,10 @@ def value_and_compressed_jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     *,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    chunk_size: int | None = None,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
 ) -> Callable[..., Any]:
     """Value and compressed Jacobian from a pre-computed coloring.
 
@@ -888,13 +899,13 @@ def value_and_compressed_jacobian_from_coloring(
 def value_and_compressed_hessian(
     f: Callable[..., Any],
     *sample_args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    mode: HessianMode | None = None,
-    symmetric: bool = True,
-    chunk_size: int | None = None,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    mode: HessianMode | None = _DEFAULT_MODE,
+    symmetric: bool = _DEFAULT_SYMMETRIC_HESSIAN,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
     **sample_kwargs: Any,
 ) -> Callable[..., Any]:
     """Like [`compressed_hessian`][asdex.compressed_hessian], also returning the value.
@@ -946,10 +957,10 @@ def value_and_compressed_hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
     *,
-    has_aux: bool = False,
-    holomorphic: bool = False,
-    allow_int: bool = False,
-    chunk_size: int | None = None,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
 ) -> Callable[..., Any]:
     """Value and compressed Hessian from a pre-computed coloring.
 
@@ -1028,7 +1039,7 @@ def decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arra
 def decompress(
     coloring: ColoredPattern,
     compressed: jax.Array,
-    output_format: OutputFormat = "bcoo",
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
 ) -> Any:
     """Decompress a compressed matrix ``B`` into a 2-D sparse matrix.
 
