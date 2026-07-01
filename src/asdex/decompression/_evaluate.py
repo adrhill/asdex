@@ -107,7 +107,7 @@ def _build_jacobian_core(
         compressed, y, _ = _jacobian_compressed(
             f, args, coloring, out_struct, has_aux=False, chunk_size=chunk_size
         )
-        return _decompress_data(coloring, compressed), y
+        return _decompress_data(compressed, coloring), y
 
     return core
 
@@ -126,7 +126,7 @@ def _build_hessian_core(
 
     def core(*args: Any) -> tuple[jax.Array, jax.Array]:
         compressed, value, _ = _hessian_compressed(f_scalar, args, coloring, chunk_size)
-        return _decompress_data(coloring, compressed), value
+        return _decompress_data(compressed, coloring), value
 
     return core
 
@@ -167,7 +167,7 @@ def _jacobian_with_value(
 
     if m == 0 or sparsity.nnz == 0:
         jac = _build_jacobian(
-            coloring, _empty_data(args, sparsity), output_format, out_struct
+            _empty_data(args, sparsity), coloring, output_format, out_struct
         )
         if has_aux:
             value, aux = f(*args)
@@ -188,10 +188,10 @@ def _jacobian_with_value(
         compressed, y, aux = _jacobian_compressed(
             f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
         )
-        data = _decompress_data(coloring, compressed)
+        data = _decompress_data(compressed, coloring)
 
     validate_output_dtypes(y, coloring.mode, holomorphic)
-    jac = _build_jacobian(coloring, data, output_format, out_struct)
+    jac = _build_jacobian(data, coloring, output_format, out_struct)
     return y, aux, jac
 
 
@@ -220,7 +220,7 @@ def _hessian_with_value(
     validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if sparsity.nnz == 0:
-        hess = _build_hessian(coloring, _empty_data(args, sparsity), output_format)
+        hess = _build_hessian(_empty_data(args, sparsity), coloring, output_format)
         # Compute the value through the squeezing wrappers
         # so it has shape (), consistent with the non-empty path.
         if has_aux:
@@ -246,8 +246,8 @@ def _hessian_with_value(
         compressed, value, aux = _hessian_compressed(
             f_scalar, args, coloring, chunk_size, f_aux=f_aux
         )
-        data = _decompress_data(coloring, compressed)
-    hess = _build_hessian(coloring, data, output_format)
+        data = _decompress_data(compressed, coloring)
+    hess = _build_hessian(data, coloring, output_format)
     return value, aux, hess
 
 

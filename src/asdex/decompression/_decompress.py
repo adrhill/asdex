@@ -120,7 +120,7 @@ def _to_numpy_pytree(pytree: Any) -> Any:
 # Gather: compressed B -> (nnz,) data in sparsity order
 
 
-def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Array:
+def _decompress_data(compressed: jax.Array, coloring: ColoredPattern) -> jax.Array:
     """Extract sparse data values from compressed gradient rows.
 
     Uses pre-computed gather indices on the ``ColoredPattern``
@@ -148,7 +148,7 @@ def _decompress_data(coloring: ColoredPattern, compressed: jax.Array) -> jax.Arr
     )
 
 
-def _scatter_dense(coloring: ColoredPattern, data: jax.Array) -> jax.Array:
+def _scatter_dense(data: jax.Array, coloring: ColoredPattern) -> jax.Array:
     """Scatter sparse data values into a dense zero array of the full shape."""
     sparsity = coloring.sparsity
     indices = sparsity._bcoo_indices  # (nnz, 2)
@@ -188,7 +188,7 @@ def _is_simple_output(out_struct: Any, sparsity: SparsityPattern) -> bool:
 # Public-side helpers: validation and flat (m, n) format dispatch
 
 
-def _validate_compressed(coloring: ColoredPattern, compressed: jax.Array) -> None:
+def _validate_compressed(compressed: jax.Array, coloring: ColoredPattern) -> None:
     """Check ``compressed`` has the ``(num_colors, dim)`` shape ``coloring`` expects.
 
     Decompression feeds ``compressed`` to a ``PROMISE_IN_BOUNDS`` gather,
@@ -205,7 +205,7 @@ def _validate_compressed(coloring: ColoredPattern, compressed: jax.Array) -> Non
 
 
 def _decompress_to_format(
-    coloring: ColoredPattern, data: jax.Array, output_format: OutputFormat
+    data: jax.Array, coloring: ColoredPattern, output_format: OutputFormat
 ) -> Any:
     """Build the flat ``(m, n)`` sparse matrix from gathered ``data``.
 
@@ -221,9 +221,9 @@ def _decompress_to_format(
                 data = jnp.zeros(sparsity.nnz, dtype=jnp.float_)
             return sparsity.to_bcoo(data=data)
         case "dense":
-            return _scatter_dense(coloring, data)
+            return _scatter_dense(data, coloring)
         case "numpy_dense":
-            return np.asarray(_scatter_dense(coloring, data))
+            return np.asarray(_scatter_dense(data, coloring))
         case "scipy_coo" | "scipy_csr" | "scipy_csc":
             return _sparsity_to_scipy(sparsity, data, output_format)
         case _ as unreachable:
@@ -234,8 +234,8 @@ def _decompress_to_format(
 
 
 def _build_jacobian(
-    coloring: ColoredPattern,
     data: jax.Array,
+    coloring: ColoredPattern,
     output_format: OutputFormat,
     out_struct: Any,
 ) -> Any:
@@ -266,17 +266,17 @@ def _build_jacobian(
             _assert_scipy_supported_jacobian(out_struct, sparsity, output_format)
             return _sparsity_to_scipy(sparsity, data, output_format)
         case "bcoo" | "dense":
-            return _assemble_jacobian(coloring, data, output_format, out_struct)
+            return _assemble_jacobian(data, coloring, output_format, out_struct)
         case "numpy_dense":
-            jac = _assemble_jacobian(coloring, data, "dense", out_struct)
+            jac = _assemble_jacobian(data, coloring, "dense", out_struct)
             return _to_numpy_pytree(jac)
         case _ as unreachable:
             assert_never(unreachable)
 
 
 def _build_hessian(
-    coloring: ColoredPattern,
     data: jax.Array,
+    coloring: ColoredPattern,
     output_format: OutputFormat,
 ) -> Any:
     """Build Hessian output from sparse data, avoiding BCOO.fromdense under JIT.
@@ -302,9 +302,9 @@ def _build_hessian(
             _assert_scipy_supported_hessian(sparsity, output_format)
             return _sparsity_to_scipy(sparsity, data, output_format)
         case "bcoo" | "dense":
-            return _assemble_hessian(coloring, data, output_format)
+            return _assemble_hessian(data, coloring, output_format)
         case "numpy_dense":
-            hess = _assemble_hessian(coloring, data, "dense")
+            hess = _assemble_hessian(data, coloring, "dense")
             return _to_numpy_pytree(hess)
         case _ as unreachable:
             assert_never(unreachable)
@@ -314,8 +314,8 @@ def _build_hessian(
 
 
 def _make_block_builder(
-    coloring: ColoredPattern,
     data: jax.Array,
+    coloring: ColoredPattern,
     output_format: JaxOutputFormat,
 ) -> Callable[[int, int, int, int], jax.Array | BCOO]:
     """Return a function extracting one ``(row, col)`` index window as a block.
@@ -346,7 +346,7 @@ def _make_block_builder(
 
         return build_block
 
-    dense = _scatter_dense(coloring, data)
+    dense = _scatter_dense(data, coloring)
 
     def slice_block(
         row_offset: int, row_size: int, col_offset: int, col_size: int
@@ -360,8 +360,8 @@ def _make_block_builder(
 
 
 def _assemble_jacobian(
-    coloring: ColoredPattern,
     data: jax.Array,
+    coloring: ColoredPattern,
     output_format: JaxOutputFormat,
     out_struct: Any,
 ) -> Any:
@@ -379,7 +379,7 @@ def _assemble_jacobian(
     Dense blocks are sliced from the scattered dense matrix.
     """
     sparsity = coloring.sparsity
-    build_block = _make_block_builder(coloring, data, output_format)
+    build_block = _make_block_builder(data, coloring, output_format)
 
     in_leaf_shapes = sparsity.leaf_shapes
     in_leaf_sizes = sparsity.leaf_sizes
@@ -418,8 +418,8 @@ def _assemble_jacobian(
 
 
 def _assemble_hessian(
-    coloring: ColoredPattern,
     data: jax.Array,
+    coloring: ColoredPattern,
     output_format: JaxOutputFormat,
 ) -> Any:
     """Split the flat Hessian data into a nested block grid.
@@ -435,7 +435,7 @@ def _assemble_hessian(
     Dense blocks are sliced from the scattered dense matrix.
     """
     sparsity = coloring.sparsity
-    build_block = _make_block_builder(coloring, data, output_format)
+    build_block = _make_block_builder(data, coloring, output_format)
 
     leaf_shapes = sparsity.leaf_shapes
     leaf_sizes = sparsity.leaf_sizes

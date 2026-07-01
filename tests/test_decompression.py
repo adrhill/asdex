@@ -906,7 +906,7 @@ def test_decompress_data_grad_symmetric_coloring():
     color_idx, elem_idx = coloring._extraction_indices
 
     def via_gather(c):
-        return jnp.vdot(weights, _decompress_data(coloring, c))
+        return jnp.vdot(weights, _decompress_data(c, coloring))
 
     def via_indexing(c):
         return jnp.vdot(weights, c[color_idx, elem_idx])

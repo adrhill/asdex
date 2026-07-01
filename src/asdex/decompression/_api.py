@@ -1031,8 +1031,8 @@ def decompress_data(compressed: jax.Array, coloring: ColoredPattern) -> jax.Arra
             (see [`compressed_jacobian`][asdex.compressed_jacobian]
             for the per-mode ``dim``).
     """
-    _validate_compressed(coloring, compressed)
-    return _decompress_data(coloring, compressed)
+    _validate_compressed(compressed, coloring)
+    return _decompress_data(compressed, coloring)
 
 
 @_fill_doc
@@ -1068,4 +1068,4 @@ def decompress(
     """
     _assert_output_format(output_format)
     data = decompress_data(compressed, coloring)
-    return _decompress_to_format(coloring, data, output_format)
+    return _decompress_to_format(data, coloring, output_format)
