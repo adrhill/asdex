@@ -30,7 +30,6 @@ from asdex._api_utils import (
 )
 from asdex._differentiation import _hessian_compressed, _jacobian_compressed
 from asdex._pattern import ColoredPattern, SparsityPattern
-from asdex.decompression._common import _expected_compressed_dim
 from asdex.detection._api import _ensure_scalar, _strip_aux
 
 
@@ -181,7 +180,7 @@ def _empty_compressed(coloring: ColoredPattern, args: tuple[Any, ...]) -> jax.Ar
     dtype = _selected_dtype(args, sparsity)
     if not jnp.issubdtype(dtype, jnp.inexact):
         dtype = jnp.float_
-    dim = _expected_compressed_dim(coloring)
+    dim = coloring._compressed_dim
     return jnp.zeros((coloring.num_colors, dim), dtype=dtype)
 
 

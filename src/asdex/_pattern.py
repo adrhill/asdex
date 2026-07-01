@@ -483,6 +483,33 @@ class ColoredPattern:
         """
         return self.mode != "rev"
 
+    @property
+    def _compressed_dim(self) -> int:
+        """Second-axis length of the compressed matrix ``B``.
+
+        ``B`` has shape ``(num_colors, dim)``,
+        where ``dim`` is the space that compression preserves,
+        the opposite of the seeded space.
+        For ``"fwd"`` the seed lives in the input space,
+        so ``B``'s columns are the output space of size ``m``.
+        For ``"rev"`` and the Hessian modes the seed lives in the output
+        or cotangent space,
+        so ``B``'s columns are the selected input space of size ``n``.
+
+        Both compress (building ``B``) and decompress (consuming ``B``)
+        consult this to agree on ``B``'s layout without importing each other:
+        compress sizes the empty-pattern short-circuit,
+        decompress validates a caller-supplied ``B`` before its gather.
+        This equals the space the gather's ``elem_idx`` indexes.
+        """
+        match self.mode:
+            case "fwd":
+                return self.sparsity.m
+            case "rev" | "fwd_over_rev" | "rev_over_fwd" | "rev_over_rev":
+                return self.sparsity.n
+            case _ as unreachable:
+                assert_never(unreachable)
+
     # Cached arrays for fast decompression
 
     @cached_property

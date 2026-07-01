@@ -24,7 +24,10 @@ and the public API surface that exposes it.
 - `_evaluate.py` — composition of both stages for the one-shot `jacobian` / `hessian` / `value_and_*` family.
   One worker per direction (`_jacobian_with_value`, `_hessian_with_value`) always yields `(value, aux, matrix)`,
   and the four `_eval_*` entry points project that triple into the shape each caller expects.
-- `_common.py` — the single shared layout fact, `_expected_compressed_dim`.
+
+The single shared layout fact, the second-axis length of `B`,
+lives as the `ColoredPattern._compressed_dim` property in `src/asdex/_pattern.py`,
+next to the other mode-derived facts (`_compresses_columns`, `_seed_matrix`).
 
 The batched-AD engine itself lives outside this package, in `src/asdex/_differentiation.py`.
 The compress stage calls into it; nothing else here touches raw AD.
@@ -38,13 +41,14 @@ so it stays agnostic to how `B` is later decompressed.
 `_decompress.py` starts from `B` and never looks back at how it was produced:
 it imports neither the compress side nor the AD engine.
 Their only shared knowledge is the second-axis length of `B`,
-which lives in the leaf module `_common.py` so each side reaches it without importing the other.
+which lives as `ColoredPattern._compressed_dim` in `src/asdex/_pattern.py`
+so each side reaches it through the `ColoredPattern` it already holds, without importing the other.
 
 `_evaluate.py` is the **only** module that depends on both stages.
 It exists precisely so that gluing them together does not force compress and decompress to import each other and lose their independence.
 Keep this boundary intact:
 if you find yourself importing `_decompress` from `_compress` (or vice versa),
-the shared fact belongs in `_common.py` instead.
+the shared fact belongs on `ColoredPattern` instead.
 
 ## The compressed matrix `B`
 
@@ -55,7 +59,7 @@ where `dim` is the space that compression *preserves* — the opposite of the se
 - `"rev"` and every Hessian mode seed the output / cotangent space,
   so `B`'s columns are the selected input space of size `n`.
 
-`_expected_compressed_dim` in `_common.py` is the single source of truth for this length.
+`ColoredPattern._compressed_dim` is the single source of truth for this length.
 Both sides consult it:
 compress uses it to size the all-zero `_empty_compressed` on the empty-pattern short-circuit,
 and decompress uses it to validate a caller-supplied `B` (`_validate_compressed`)

@@ -30,7 +30,6 @@ from asdex._modes import (
     _import_scipy_coo_array,
 )
 from asdex._pattern import ColoredPattern, SparsityPattern
-from asdex.decompression._common import _expected_compressed_dim
 
 
 class _BCOOLeaf:
@@ -196,7 +195,7 @@ def _validate_compressed(compressed: jax.Array, coloring: ColoredPattern) -> Non
     Checked up front to favor an exception over a wrong result.
     """
     num_colors = coloring.num_colors
-    dim = _expected_compressed_dim(coloring)
+    dim = coloring._compressed_dim
     if compressed.ndim != 2 or compressed.shape != (num_colors, dim):
         raise ValueError(
             f"Compressed matrix has shape {tuple(compressed.shape)}, "
