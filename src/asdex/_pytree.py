@@ -8,6 +8,10 @@ only how to ravel a PyTree of arrays into one flat vector and back.
 The differentiation engine, the verifier, and the decompression side
 each build their domain-specific wrangling on top of these leaves,
 so the plumbing lives here once instead of being re-derived in each.
+
+``_OpaqueLeaf`` rounds out the layer:
+it hides a value that is itself a registered pytree from tree operations,
+so those operations treat it as a single leaf.
 """
 
 from __future__ import annotations
@@ -66,3 +70,20 @@ def pytree_dtype(pytree: Any) -> jnp.dtype:
 def to_numpy_pytree(pytree: Any) -> Any:
     """Convert each JAX array leaf in a PyTree to ``numpy.ndarray``."""
     return jax.tree_util.tree_map(np.asarray, pytree)
+
+
+class _OpaqueLeaf:
+    """Wrap a value so pytree operations treat it as a single opaque leaf.
+
+    Some values are themselves registered pytrees
+    (``jax.experimental.sparse.BCOO`` is one),
+    so ``tree_map`` and ``tree_transpose`` descend into their internal structure
+    instead of stopping at them.
+    Wrapping such a value in this plain, unregistered class hides that structure:
+    tree operations see one leaf, and the value is recovered through ``.value``.
+    """
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: Any) -> None:
+        self.value = value

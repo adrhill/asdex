@@ -24,28 +24,13 @@ from jax import dtypes
 from jax.experimental.sparse import BCOO
 
 from asdex._pattern import ColoredPattern, SparsityPattern
-from asdex._pytree import to_numpy_pytree
+from asdex._pytree import _OpaqueLeaf, to_numpy_pytree
 from asdex._types import (
     _OUTPUT_FORMATS,
     JaxOutputFormat,
     OutputFormat,
     ScipyOutputFormat,
 )
-
-
-class _BCOOLeaf:
-    """Wrapper to hide BCOO's internal pytree structure from tree operations.
-
-    BCOO is registered as a pytree in JAX, which causes tree_transpose to descend
-    into its internal structure.
-    By wrapping BCOO in a plain class (not registered as a pytree), we can use
-    tree_transpose normally and then unwrap afterwards.
-    """
-
-    __slots__ = ("array",)
-
-    def __init__(self, array: BCOO) -> None:
-        self.array = array
 
 
 def _assert_output_format(output_format: str) -> None:
@@ -519,23 +504,23 @@ def _transpose_in_out_trees(
     """Transpose (in_tree, out_tree) structure to (out_tree, in_tree).
 
     For dense output, uses jax.tree_util.tree_transpose directly.
-    For BCOO output, wraps BCOO arrays in _BCOOLeaf to hide their internal pytree
+    For BCOO output, wraps BCOO arrays in _OpaqueLeaf to hide their internal pytree
     structure, transposes normally, then unwraps.
     """
 
     def is_bcoo(x: Any) -> bool:
         return isinstance(x, BCOO)
 
-    def is_bcoo_leaf(x: Any) -> bool:
-        return isinstance(x, _BCOOLeaf)
+    def is_opaque_leaf(x: Any) -> bool:
+        return isinstance(x, _OpaqueLeaf)
 
     def is_out_tree(x: Any) -> bool:
-        is_leaf = is_bcoo_leaf if output_format == "bcoo" else is_bcoo
+        is_leaf = is_opaque_leaf if output_format == "bcoo" else is_bcoo
         return jax.tree_util.tree_structure(x, is_leaf=is_leaf) == out_treedef
 
     if output_format == "bcoo":
         in_tree_of_out_trees = jax.tree_util.tree_map(
-            _BCOOLeaf, in_tree_of_out_trees, is_leaf=is_bcoo
+            _OpaqueLeaf, in_tree_of_out_trees, is_leaf=is_bcoo
         )
 
     in_treedef = jax.tree_util.tree_structure(
@@ -548,6 +533,6 @@ def _transpose_in_out_trees(
 
     if output_format == "bcoo":
         return jax.tree_util.tree_map(
-            lambda x: x.array, transposed, is_leaf=is_bcoo_leaf
+            lambda x: x.value, transposed, is_leaf=is_opaque_leaf
         )
     return transposed
