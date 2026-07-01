@@ -34,8 +34,8 @@ from asdex._arguments import (
     validate_output_dtypes,
 )
 from asdex._differentiation import _hessian_compressed, _jacobian_compressed
-from asdex._modes import _HOST_FORMATS, OutputFormat
 from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._types import _HOST_FORMATS, OutputFormat
 from asdex.decompression._compress import (
     _cached_out_struct,
     _cached_scalar_aux_fn,

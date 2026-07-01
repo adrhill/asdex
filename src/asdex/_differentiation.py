@@ -24,9 +24,9 @@ import jax.numpy as jnp
 from jax import dtypes
 
 from asdex._arguments import _uniform_selected_dtype
-from asdex._modes import _assert_hessian_mode, _assert_jacobian_mode
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex._pytree import flatten_pytree, pytree_dtype, unflatten_to_pytree
+from asdex._types import _assert_hessian_mode, _assert_jacobian_mode
 
 
 def _chunked_vmap(

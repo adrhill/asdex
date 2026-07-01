@@ -17,13 +17,13 @@ from asdex._defaults import (
 )
 from asdex._docstrings import _fill_doc
 from asdex._errors import InvalidColoringError, VerificationError
-from asdex._modes import _assert_jacobian_mode
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex._pytree import (
     flatten_pytree,
     output_size,
     unflatten_to_pytree,
 )
+from asdex._types import _assert_jacobian_mode
 from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
 
 # Coloring validators

@@ -30,13 +30,13 @@ from asdex._defaults import (
 )
 from asdex._docstrings import _fill_doc
 from asdex._errors import DenseColoringWarning
-from asdex._modes import (
+from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._types import (
     HessianMode,
     JacobianMode,
     _assert_hessian_mode,
     _assert_jacobian_mode,
 )
-from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex.coloring._color_greedy import color_cols, color_rows
 from asdex.coloring._color_symmetric import color_symmetric
 from asdex.detection import hessian_sparsity as _detect_hessian_sparsity

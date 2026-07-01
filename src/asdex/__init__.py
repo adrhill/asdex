@@ -16,9 +16,9 @@ from asdex._errors import (
     InvalidColoringError,
     VerificationError,
 )
-from asdex._modes import HessianMode, JacobianMode, OutputFormat
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex._plotting import spy
+from asdex._types import HessianMode, JacobianMode, OutputFormat
 from asdex.coloring import (
     StarSet,
     color_cols,

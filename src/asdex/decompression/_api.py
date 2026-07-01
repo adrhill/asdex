@@ -36,13 +36,12 @@ from asdex._defaults import (
     _DEFAULT_SYMMETRIC_JACOBIAN,
 )
 from asdex._docstrings import _fill_doc
-from asdex._modes import (
+from asdex._pattern import ColoredPattern
+from asdex._types import (
     HessianMode,
     JacobianMode,
     OutputFormat,
-    _assert_output_format,
 )
-from asdex._pattern import ColoredPattern
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.decompression._compress import (
@@ -51,6 +50,7 @@ from asdex.decompression._compress import (
     _compress_jacobian,
 )
 from asdex.decompression._decompress import (
+    _assert_output_format,
     _decompress_data,
     _decompress_to_format,
     _validate_compressed,

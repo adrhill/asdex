@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from asdex._modes import OutputFormat
+from asdex._types import OutputFormat
 
 # Detection, coloring, and differentiation
 _DEFAULT_ARGNUMS: int = 0

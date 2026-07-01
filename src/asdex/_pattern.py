@@ -18,7 +18,7 @@ from jax.tree_util import tree_flatten
 from numpy.typing import NDArray
 
 from asdex._display import _render, _render_side_by_side, _render_stacked
-from asdex._modes import ColoringMode, _assert_coloring_mode
+from asdex._types import ColoringMode, _assert_coloring_mode
 
 # Serialization helpers
 

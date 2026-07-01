@@ -15,7 +15,7 @@ compress produces ``B``, decompress consumes ``B``, and neither needs the other.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any, assert_never
+from typing import Any, assert_never, get_args
 
 import jax
 import jax.numpy as jnp
@@ -23,14 +23,14 @@ import numpy as np
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
-from asdex._modes import (
+from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex._pytree import to_numpy_pytree
+from asdex._types import (
+    _OUTPUT_FORMATS,
     JaxOutputFormat,
     OutputFormat,
     ScipyOutputFormat,
-    _import_scipy_coo_array,
 )
-from asdex._pattern import ColoredPattern, SparsityPattern
-from asdex._pytree import to_numpy_pytree
 
 
 class _BCOOLeaf:
@@ -46,6 +46,41 @@ class _BCOOLeaf:
 
     def __init__(self, array: BCOO) -> None:
         self.array = array
+
+
+def _assert_output_format(output_format: str) -> None:
+    """Raise if *output_format* is not a valid, usable ``OutputFormat``.
+
+    Raises:
+        ValueError: If *output_format* is not a valid ``OutputFormat``.
+        ImportError: If *output_format* is a scipy format and scipy is not installed.
+            Checked here so that requesting a scipy format fails at construction time
+            rather than at the first call.
+    """
+    if output_format not in _OUTPUT_FORMATS:
+        raise ValueError(
+            f"Unknown output_format {output_format!r}. "
+            "Expected 'bcoo', 'dense', 'numpy_dense', 'scipy_coo', 'scipy_csr', or 'scipy_csc'."
+        )
+    if output_format in get_args(ScipyOutputFormat):
+        _import_scipy_coo_array(output_format)
+
+
+def _import_scipy_coo_array(output_format: str) -> Any:
+    """Import and return ``scipy.sparse.coo_array``.
+
+    Raises:
+        ImportError: If scipy is not installed,
+            with a hint to install the optional dependency.
+    """
+    try:
+        from scipy.sparse import coo_array  # noqa: PLC0415
+    except ImportError as e:
+        raise ImportError(
+            f"scipy is required for output_format={output_format!r}. "
+            "Install it with: pip install 'asdex[scipy]'"
+        ) from e
+    return coo_array
 
 
 def _sparsity_to_scipy(
