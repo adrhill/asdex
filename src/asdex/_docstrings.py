@@ -36,9 +36,9 @@ _F_JAC = "Function whose Jacobian is to be computed."
 
 _F_HESS = "Scalar-valued function whose Hessian is to be computed."
 
-_COLORING = "Pre-computed colored sparsity pattern."
+_COLORING = "Pre-computed colored sparsity pattern of type ``ColoredPattern``."
 
-_COLORING_COMPRESSED = "The colored pattern that produced ``compressed``."
+_COLORING_COMPRESSED = "The ``ColoredPattern`` that produced ``compressed``."
 
 # Sample inputs and differentiation options
 
@@ -179,7 +179,8 @@ def _fill_doc(fn: _F) -> _F:
         except KeyError:
             raise KeyError(
                 f"Unknown docstring placeholder '{{{key}}}' in "
-                f"{fn.__qualname__}. Known fragments: {sorted(_FRAGMENTS)}."
+                f"{getattr(fn, '__qualname__', fn)}. "
+                f"Known fragments: {sorted(_FRAGMENTS)}."
             ) from None
 
     fn.__doc__ = _PLACEHOLDER.sub(replace, inspect.cleandoc(fn.__doc__))

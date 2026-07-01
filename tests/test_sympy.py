@@ -78,7 +78,7 @@ class SympyToJax:
         # Handle numbers
         if e.is_number:
             val = float(e.evalf())  # ty: ignore[unresolved-attribute]
-            return lambda x, v=val: v
+            return lambda x, v=val: jnp.asarray(v)
 
         # Handle unary functions via lookup
         if e.func in self.UNARY_MAP:
@@ -89,7 +89,7 @@ class SympyToJax:
         # Handle Add
         if e.func == sp.Add:
             term_fns = [self.convert(arg) for arg in e.args]
-            return lambda x, fns=term_fns: sum(f(x) for f in fns)
+            return lambda x, fns=term_fns: jnp.asarray(sum(f(x) for f in fns))
 
         # Handle Mul
         if e.func == sp.Mul:

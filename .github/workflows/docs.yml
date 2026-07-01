@@ -12,8 +12,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8
       - run: uv python install 3.12
       - run: uv sync --group docs --extra matplotlib
       - run: uv run mkdocs build --strict -f docs/mkdocs.yml
