@@ -16,6 +16,8 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
+from asdex._kwarg_defaults import _DEFAULT_POSTPROCESS
+from asdex._pattern import SparsityPattern
 from asdex.coloring._graph import (
     _build_edge_arrays,
     _build_edge_to_index,
@@ -23,13 +25,12 @@ from asdex.coloring._graph import (
 )
 from asdex.coloring._postprocessing import _postprocess_star_coloring
 from asdex.coloring._types import InvalidColoringError, StarSet
-from asdex.pattern import SparsityPattern
 
 
 def color_symmetric(
     sparsity: SparsityPattern,
     *,
-    postprocess: bool = False,
+    postprocess: bool = _DEFAULT_POSTPROCESS,
     forced_colors: NDArray[np.int32] | list[int] | None = None,
 ) -> tuple[NDArray[np.int32], int, StarSet]:
     """Greedy symmetric coloring for sparse Hessian computation.

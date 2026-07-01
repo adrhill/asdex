@@ -31,6 +31,13 @@ from asdex._kwarg_defaults import (
     _DEFAULT_SYMMETRIC_HESSIAN,
     _DEFAULT_SYMMETRIC_JACOBIAN,
 )
+from asdex._modes import (
+    HessianMode,
+    JacobianMode,
+    OutputFormat,
+    _assert_output_format,
+)
+from asdex._pattern import ColoredPattern
 from asdex.coloring import hessian_coloring as _hessian_coloring
 from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.decompression._compress import (
@@ -50,13 +57,6 @@ from asdex.decompression._evaluate import (
     _eval_value_and_hessian,
     _eval_value_and_jacobian,
 )
-from asdex.modes import (
-    HessianMode,
-    JacobianMode,
-    OutputFormat,
-    _assert_output_format,
-)
-from asdex.pattern import ColoredPattern
 
 # Public API: one-shot entry points
 

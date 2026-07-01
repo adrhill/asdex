@@ -17,8 +17,8 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
+from asdex._pattern import SparsityPattern
 from asdex.coloring._graph import _build_csr
-from asdex.pattern import SparsityPattern
 
 
 def color_rows(sparsity: SparsityPattern) -> tuple[NDArray[np.int32], int]:

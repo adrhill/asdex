@@ -28,10 +28,10 @@ from asdex._api_utils import (
     validate_input_dtypes,
     validate_output_dtypes,
 )
+from asdex._differentiation import _hessian_compressed, _jacobian_compressed
+from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex.decompression._common import _expected_compressed_dim
 from asdex.detection._api import _ensure_scalar, _strip_aux
-from asdex.differentiation import _hessian_compressed, _jacobian_compressed
-from asdex.pattern import ColoredPattern, SparsityPattern
 
 
 def _assert_chunk_size(chunk_size: int | None) -> None:

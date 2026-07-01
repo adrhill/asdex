@@ -28,7 +28,7 @@ import numpy as np
 from jax import ShapeDtypeStruct, dtypes
 from jax.tree_util import tree_map
 
-from asdex.pattern import SparsityPattern
+from asdex._pattern import SparsityPattern
 
 # Argnums normalization
 

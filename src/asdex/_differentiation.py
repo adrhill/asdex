@@ -28,8 +28,8 @@ from asdex._api_utils import (
     flatten_pytree,
     unflatten_to_pytree,
 )
-from asdex.modes import _assert_hessian_mode, _assert_jacobian_mode
-from asdex.pattern import ColoredPattern, SparsityPattern
+from asdex._modes import _assert_hessian_mode, _assert_jacobian_mode
+from asdex._pattern import ColoredPattern, SparsityPattern
 
 
 def _chunked_vmap(

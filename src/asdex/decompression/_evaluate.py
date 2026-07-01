@@ -32,6 +32,9 @@ from asdex._api_utils import (
     validate_input_dtypes,
     validate_output_dtypes,
 )
+from asdex._differentiation import _hessian_compressed, _jacobian_compressed
+from asdex._modes import _HOST_FORMATS, OutputFormat
+from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex.decompression._compress import (
     _cached_out_struct,
     _cached_scalar_aux_fn,
@@ -45,9 +48,6 @@ from asdex.decompression._decompress import (
     _build_jacobian,
     _decompress_data,
 )
-from asdex.differentiation import _hessian_compressed, _jacobian_compressed
-from asdex.modes import _HOST_FORMATS, OutputFormat
-from asdex.pattern import ColoredPattern, SparsityPattern
 
 
 def _empty_data(args: tuple[Any, ...], sparsity: SparsityPattern) -> jax.Array:

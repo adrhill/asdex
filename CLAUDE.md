@@ -22,10 +22,10 @@ src/asdex/
 ├── decompression/      # Compress (one VJP/JVP/HVP per color, producing B) then decompress it into the sparse matrix, plus the public API
 ├── detection/          # Jacobian and Hessian sparsity detection via jaxpr analysis
 │   └── _interpret/     # Custom jaxpr interpreter for index set propagation
-├── differentiation.py  # Batched-AD engine: one VJP/JVP/HVP per color, producing the compressed matrix B
-├── modes.py            # Type aliases for AD mode and output format selection (JacobianMode, HessianMode, OutputFormat)
-├── pattern.py          # SparsityPattern and ColoredPattern data structures
-└── verify.py           # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
+├── _differentiation.py # Batched-AD engine: one VJP/JVP/HVP per color, producing the compressed matrix B
+├── _modes.py           # Type aliases for AD mode and output format selection (JacobianMode, HessianMode, OutputFormat)
+├── _pattern.py         # SparsityPattern and ColoredPattern data structures
+└── _verify.py          # Correctness checks (check_jacobian_correctness, check_hessian_correctness)
 ```
 
 The interpreter internals are described in `src/asdex/detection/_interpret/CLAUDE.md`.

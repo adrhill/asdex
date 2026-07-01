@@ -14,7 +14,7 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from asdex.pattern import ColoredPattern, SparsityPattern
+    from asdex._pattern import ColoredPattern, SparsityPattern
 
 
 def _import_matplotlib() -> Any:
@@ -59,7 +59,7 @@ def spy(
     Returns:
         The matplotlib axes with the plot.
     """
-    from asdex.pattern import ColoredPattern  # noqa: PLC0415
+    from asdex._pattern import ColoredPattern  # noqa: PLC0415
 
     if isinstance(pattern, ColoredPattern):
         return _spy_colored(pattern, ax=ax, compressed=compressed, cmap=cmap, **kwargs)

@@ -14,10 +14,17 @@ from asdex._api_utils import (
     output_size,
     unflatten_to_pytree,
 )
+from asdex._doc_helper import _fill_doc
+from asdex._kwarg_defaults import (
+    _DEFAULT_NUM_PROBES,
+    _DEFAULT_SEED,
+    _DEFAULT_TOL,
+    _DEFAULT_VERIFY_METHOD,
+)
+from asdex._modes import _assert_jacobian_mode
+from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex.coloring import InvalidColoringError
 from asdex.decompression import hessian_from_coloring, jacobian_from_coloring
-from asdex.modes import _assert_jacobian_mode
-from asdex.pattern import ColoredPattern, SparsityPattern
 
 
 class VerificationError(AssertionError):
@@ -151,16 +158,17 @@ def check_coloring_symmetric(
                         raise InvalidColoringError(msg)
 
 
+@_fill_doc
 def check_jacobian_correctness(
     f: Callable[..., Any],
     x: Any,
     coloring: ColoredPattern,
     *,
-    method: Literal["matvec", "dense"] = "matvec",
-    num_probes: int = 25,
-    seed: int = 0,
-    rtol: float | None = None,
-    atol: float | None = None,
+    method: Literal["matvec", "dense"] = _DEFAULT_VERIFY_METHOD,
+    num_probes: int = _DEFAULT_NUM_PROBES,
+    seed: int = _DEFAULT_SEED,
+    rtol: float | None = _DEFAULT_TOL,
+    atol: float | None = _DEFAULT_TOL,
 ) -> None:
     """Verify asdex's sparse Jacobian against a JAX reference at a given input.
 
@@ -171,17 +179,11 @@ def check_jacobian_correctness(
             pass a tuple of all positional arguments.
         coloring: Pre-computed colored pattern from
             :func:`~asdex.jacobian_coloring`.
-        method: Verification method.
-            ``"matvec"`` uses randomized matrix-vector products,
-            which is O(k) in the number of probes.
-            ``"dense"`` materializes the full dense Jacobian,
-            which is O(n^2).
-        num_probes: Number of random probe vectors (only used by ``"matvec"``).
-        seed: PRNG seed for reproducibility (only used by ``"matvec"``).
-        rtol: Relative tolerance for comparison.
-            Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``.
-        atol: Absolute tolerance for comparison.
-            Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``.
+        method: {verify_method}
+        num_probes: {num_probes}
+        seed: {seed}
+        rtol: {rtol}
+        atol: {atol}
 
     Raises:
         VerificationError: If the sparse and reference Jacobians disagree.
@@ -248,16 +250,17 @@ def check_jacobian_correctness(
             assert_never(unreachable)
 
 
+@_fill_doc
 def check_hessian_correctness(
     f: Callable[..., Any],
     x: Any,
     coloring: ColoredPattern,
     *,
-    method: Literal["matvec", "dense"] = "matvec",
-    num_probes: int = 25,
-    seed: int = 0,
-    rtol: float | None = None,
-    atol: float | None = None,
+    method: Literal["matvec", "dense"] = _DEFAULT_VERIFY_METHOD,
+    num_probes: int = _DEFAULT_NUM_PROBES,
+    seed: int = _DEFAULT_SEED,
+    rtol: float | None = _DEFAULT_TOL,
+    atol: float | None = _DEFAULT_TOL,
 ) -> None:
     """Verify asdex's sparse Hessian against a JAX reference at a given input.
 
@@ -268,17 +271,11 @@ def check_hessian_correctness(
             pass a tuple of all positional arguments.
         coloring: Pre-computed colored pattern from
             :func:`~asdex.hessian_coloring`.
-        method: Verification method.
-            ``"matvec"`` uses randomized matrix-vector products,
-            which is O(k) in the number of probes.
-            ``"dense"`` materializes the full dense Hessian,
-            which is O(n^2).
-        num_probes: Number of random probe vectors (only used by ``"matvec"``).
-        seed: PRNG seed for reproducibility (only used by ``"matvec"``).
-        rtol: Relative tolerance for comparison.
-            Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``.
-        atol: Absolute tolerance for comparison.
-            Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``.
+        method: {verify_method}
+        num_probes: {num_probes}
+        seed: {seed}
+        rtol: {rtol}
+        atol: {atol}
 
     Raises:
         VerificationError: If the sparse and reference Hessians disagree.

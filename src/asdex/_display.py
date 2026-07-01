@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from asdex.pattern import ColoredPattern, SparsityPattern
+    from asdex._pattern import ColoredPattern, SparsityPattern
 
 # Thresholds for switching from dot display to braille (Julia-style heuristics)
 _SMALL_ROWS = 16

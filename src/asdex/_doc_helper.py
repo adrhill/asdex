@@ -50,6 +50,10 @@ _ARGNUMS = """Specifies which positional argument(s) to differentiate
 
 _HAS_AUX = "Whether ``f`` returns ``(output, auxiliary_data)``."
 
+_HAS_AUX_DETECT = """Whether ``f`` returns ``(output, auxiliary_data)``.
+        When True, the auxiliary output is ignored
+        and only ``output`` is analyzed for sparsity."""
+
 _HOLOMORPHIC = "Whether ``f`` is promised to be holomorphic."
 
 _ALLOW_INT_JAC = "Whether to allow differentiating with respect to integer inputs."
@@ -68,6 +72,27 @@ _CHUNK_SIZE = """Maximum number of colors to process in parallel.
 
 _SAMPLE_KWARGS = """Sample keyword arguments of ``f``.
         Merged with ``sample_args`` based on ``f``'s signature."""
+
+_SAMPLE_KWARGS_DETECT = """Sample keyword arguments of ``f``.
+        Non-traceable values (bools, strings, ints) are bound statically."""
+
+# Verification
+
+_VERIFY_METHOD = """Verification method.
+        ``"matvec"`` uses randomized matrix-vector products,
+        which is O(k) in the number of probes.
+        ``"dense"`` materializes the full dense matrix,
+        which is O(n^2)."""
+
+_NUM_PROBES = 'Number of random probe vectors (only used by ``"matvec"``).'
+
+_SEED = 'PRNG seed for reproducibility (only used by ``"matvec"``).'
+
+_RTOL = """Relative tolerance for comparison.
+        Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``."""
+
+_ATOL = """Absolute tolerance for comparison.
+        Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``."""
 
 # Output format
 
@@ -104,6 +129,7 @@ _FRAGMENTS: dict[str, str] = {
     "sample_args": _SAMPLE_ARGS,
     "argnums": _ARGNUMS,
     "has_aux": _HAS_AUX,
+    "has_aux_detect": _HAS_AUX_DETECT,
     "holomorphic": _HOLOMORPHIC,
     "allow_int_jac": _ALLOW_INT_JAC,
     "allow_int_hess": _ALLOW_INT_HESS,
@@ -111,6 +137,12 @@ _FRAGMENTS: dict[str, str] = {
     "symmetric": _SYMMETRIC,
     "chunk_size": _CHUNK_SIZE,
     "sample_kwargs": _SAMPLE_KWARGS,
+    "sample_kwargs_detect": _SAMPLE_KWARGS_DETECT,
+    "verify_method": _VERIFY_METHOD,
+    "num_probes": _NUM_PROBES,
+    "seed": _SEED,
+    "rtol": _RTOL,
+    "atol": _ATOL,
     "format_jac": _FORMAT_JAC,
     "format_hess": _FORMAT_HESS,
     "format_flat": _FORMAT_FLAT,

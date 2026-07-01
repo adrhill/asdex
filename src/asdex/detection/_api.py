@@ -17,16 +17,19 @@ from asdex._api_utils import (
     avals_from_args,
     merge_sample_inputs,
 )
+from asdex._doc_helper import _fill_doc
+from asdex._kwarg_defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
+from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import prop_jaxpr
 from asdex.detection._interpret._commons import empty_index_sets
-from asdex.pattern import SparsityPattern
 
 
+@_fill_doc
 def jacobian_sparsity(
     f: Callable,
     *args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
     **kwargs: Any,
 ) -> SparsityPattern:
     """Detect global Jacobian sparsity pattern for ``f``.
@@ -37,15 +40,10 @@ def jacobian_sparsity(
 
     Args:
         f: Function whose Jacobian sparsity pattern is to be detected.
-        *args: Sample arguments of ``f``.
-            Only structure and dtypes are used, values are ignored.
-        argnums: Specifies which positional argument(s) to differentiate
-            with respect to (default ``0``).
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``.
-            When True, only ``output`` is analyzed for sparsity;
-            the auxiliary branch of the computation is not traced.
-        **kwargs: Sample keyword arguments of ``f``.
-            Non-traceable values (bools, strings) are bound statically.
+        *args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux_detect}
+        **kwargs: {sample_kwargs_detect}
 
     Returns:
         SparsityPattern of shape ``(m, n_selected)``
@@ -79,11 +77,12 @@ def jacobian_sparsity(
     )
 
 
+@_fill_doc
 def hessian_sparsity(
     f: Callable,
     *args: Any,
-    argnums: int | Sequence[int] = 0,
-    has_aux: bool = False,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
     **kwargs: Any,
 ) -> SparsityPattern:
     """Detect global Hessian sparsity pattern for a scalar-valued ``f``.
@@ -97,14 +96,10 @@ def hessian_sparsity(
 
     Args:
         f: Scalar-valued function taking one or more positional arrays.
-        *args: Sample arguments of ``f``.
-            Only structure and dtypes are used, values are ignored.
-        argnums: Specifies which positional argument(s) to differentiate
-            with respect to (default ``0``).
-        has_aux: Whether ``f`` returns ``(scalar_output, auxiliary_data)``.
-            When True, aux is stripped before detection.
-        **kwargs: Sample keyword arguments of ``f``.
-            Non-traceable values (bools, strings) are bound statically.
+        *args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux_detect}
+        **kwargs: {sample_kwargs_detect}
 
     Returns:
         Square SparsityPattern over the combined, selected input space.

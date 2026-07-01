@@ -11,8 +11,8 @@ from jax.experimental.sparse import BCOO
 import asdex
 from asdex import ColoredPattern, SparsityPattern, jacobian_sparsity
 from asdex._display import _render_braille, _render_dots
+from asdex._verify import _allclose_pytree
 from asdex.coloring import StarSet
-from asdex.verify import _allclose_pytree
 
 
 class TestValidation:

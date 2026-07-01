@@ -15,7 +15,7 @@ and the public API surface that exposes it.
   Every function is a thin wrapper: normalize inputs, then delegate the numerics to the compress / decompress / evaluate stages.
 - `_compress.py` — **stage 1**.
   Validate the call arguments and dtypes, short-circuit empty patterns,
-  call the batched-AD engine in `differentiation.py`, and return `B` (plus the forward value and aux).
+  call the batched-AD engine in `_differentiation.py`, and return `B` (plus the forward value and aux).
   Also holds the input-prep helpers and the per-closure call cache shared with the composition layer.
 - `_decompress.py` — **stage 2**, the pure consumer of `B`.
   Gathers `B` into the `(nnz,)` data vector in pattern order (`_decompress_data`),
@@ -26,7 +26,7 @@ and the public API surface that exposes it.
   and the four `_eval_*` entry points project that triple into the shape each caller expects.
 - `_common.py` — the single shared layout fact, `_expected_compressed_dim`.
 
-The batched-AD engine itself lives outside this package, in `src/asdex/differentiation.py`.
+The batched-AD engine itself lives outside this package, in `src/asdex/_differentiation.py`.
 The compress stage calls into it; nothing else here touches raw AD.
 The engine reads only the input structure and the seeds off the `ColoredPattern`,
 never the nonzeros or the `OutputFormat`,

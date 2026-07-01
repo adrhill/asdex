@@ -23,14 +23,14 @@ import numpy as np
 from jax import dtypes
 from jax.experimental.sparse import BCOO
 
-from asdex.decompression._common import _expected_compressed_dim
-from asdex.modes import (
+from asdex._modes import (
     JaxOutputFormat,
     OutputFormat,
     ScipyOutputFormat,
     _import_scipy_coo_array,
 )
-from asdex.pattern import ColoredPattern, SparsityPattern
+from asdex._pattern import ColoredPattern, SparsityPattern
+from asdex.decompression._common import _expected_compressed_dim
 
 
 class _BCOOLeaf:
