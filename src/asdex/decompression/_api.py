@@ -585,8 +585,9 @@ def compressed_jacobian(
         A function that takes the same positional args as ``f`` and returns
             the compressed matrix ``B`` of shape ``(num_colors, dim)``,
             or ``(B, aux)`` when ``has_aux=True``.
-            ``dim`` is the input size ``n`` in ``"rev"`` mode
-            and the output size ``m`` in ``"fwd"`` mode.
+            ``dim`` is the flattened size of the differentiated inputs
+            (the leaves selected by ``argnums``) in ``"rev"`` mode,
+            and the flattened size of ``f``'s output in ``"fwd"`` mode.
     """
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
@@ -685,6 +686,8 @@ def compressed_hessian(
     Runs the same detect-and-color steps as [`hessian`][asdex.hessian],
     but stops at the dense compressed matrix ``B`` of shape ``(num_colors, n)``:
     one HVP per color, before decompression scatters ``B`` into the pattern.
+    ``n`` is the flattened size of the differentiated inputs
+    (the leaves selected by ``argnums``), so the Hessian is ``(n, n)``.
     Recover the sparse matrix with [`decompress`][asdex.decompress] or
     [`decompress_data`][asdex.decompress_data],
     or work with ``B`` directly.
@@ -700,8 +703,8 @@ def compressed_hessian(
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
-            the compressed matrix ``B`` of shape ``(num_colors, n)``
-            (``n`` the input size), or ``(B, aux)`` when ``has_aux=True``.
+            the compressed matrix ``B`` of shape ``(num_colors, n)``,
+            or ``(B, aux)`` when ``has_aux=True``.
     """
     _assert_chunk_size(chunk_size)
     argnums = _ensure_index(argnums)
