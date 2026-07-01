@@ -814,6 +814,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#skipping-decompression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skipping Decompression
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1553,6 +1564,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#skipping-decompression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skipping Decompression
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1996,6 +2018,57 @@ chunks are processed sequentially via <code>jax.lax.map</code>, lowering the pea
 <code>chunk_size</code> is accepted by <a href="../../reference/#asdex.hessian"><code>hessian</code></a>,
 <a href="../../reference/#asdex.value_and_hessian"><code>value_and_hessian</code></a>, and
 <a href="../../reference/#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>.</p>
+<h3 id="skipping-decompression">Skipping Decompression<a class="headerlink" href="#skipping-decompression" title="Permanent link">¶</a></h3>
+<p>To access the raw compressed matrix <span class="arithmatex">\(B\)</span> rather than the assembled sparse Hessian
+(to feed a custom solver, cross-check against a reference, or decompress lazily),
+use <a href="../../reference/#asdex.compressed_hessian"><code>compressed_hessian</code></a> and
+<a href="../../reference/#asdex.compressed_hessian_from_coloring"><code>compressed_hessian_from_coloring</code></a>.
+They run the same detect-and-color steps as <a href="../../reference/#asdex.hessian"><code>hessian</code></a>,
+but stop at <span class="arithmatex">\(B\)</span>, the dense matrix of one HVP per color of shape <span class="arithmatex">\((\text{num\_colors}, n)\)</span>,
+where <span class="arithmatex">\(n\)</span> is the input size.</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">compressed_hessian_from_coloring</span><span class="p">,</span> <span class="n">decompress</span><span class="p">,</span> <span class="n">decompress_data</span><span class="p">,</span> <span class="n">hessian_coloring</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">)</span>
+<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">hessian_coloring</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>
+<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="n">compressed_fn</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">compressed_hessian_from_coloring</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">coloring</span><span class="p">))</span>
+<a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="n">B</span> <span class="o">=</span> <span class="n">compressed_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># the dense compressed matrix, shape (num_colors, n)</span>
+</code></pre></div>
+<p><code>B</code> is a plain <code>jax.Array</code>, so the returned function stays jit-able by the caller.
+The compressed functions take no <code>output_format</code>, since formatting is the job of decompression.
+Each one has a <code>value_and_*</code> variant
+(<a href="../../reference/#asdex.value_and_compressed_hessian"><code>value_and_compressed_hessian</code></a>
+and its <code>*_from_coloring</code> form) that also returns the primal value.</p>
+<p><a href="../../reference/#asdex.decompress"><code>decompress</code></a> turns <span class="arithmatex">\(B\)</span> back into the sparse matrix
+in any <a href="#output-formats">output format</a>.
+Unlike <a href="../../reference/#asdex.hessian"><code>hessian</code></a>,
+it always returns the flat 2-D <span class="arithmatex">\((n, n)\)</span> matrix, regardless of input PyTree structure:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">H_bcoo</span> <span class="o">=</span> <span class="n">decompress</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>                          <span class="c1"># BCOO (default)</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">H_dense</span> <span class="o">=</span> <span class="n">decompress</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s2">"dense"</span><span class="p">)</span>  <span class="c1"># jax.Array</span>
+</code></pre></div>
+<p>For full control, <a href="../../reference/#asdex.decompress_data"><code>decompress_data</code></a> is the jittable
+primitive underneath <code>decompress</code>.
+It returns just the structural non-zero values as a <code>jax.Array</code> of shape <span class="arithmatex">\((\text{nnz},)\)</span> in pattern order,
+ready to pair with <code>coloring.sparsity.rows</code> and <code>coloring.sparsity.cols</code> to build a custom container:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">data</span> <span class="o">=</span> <span class="n">decompress_data</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>  <span class="c1"># the nnz values, in pattern order</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">rows</span> <span class="o">=</span> <span class="n">coloring</span><span class="o">.</span><span class="n">sparsity</span><span class="o">.</span><span class="n">rows</span>        <span class="c1"># row index of each value</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">cols</span> <span class="o">=</span> <span class="n">coloring</span><span class="o">.</span><span class="n">sparsity</span><span class="o">.</span><span class="n">cols</span>        <span class="c1"># column index of each value</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="c1"># data, rows, and cols share one pattern order,</span>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="c1"># so data[k] is the Hessian entry at (rows[k], cols[k]).</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>B.shape:       (3, 5)
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>type(H_bcoo):  BCOO  shape=(5, 5)
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>data.shape:    (13,)
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>data[0]:       402.0  at (rows[0], cols[0]) = (0, 0)
+</code></pre></div>
+<p>Because <code>decompress_data</code> always returns a <code>jax.Array</code>,
+it composes inside <code>jax.jit</code> and can feed a custom solver,
+whereas the host formats from <code>decompress</code> (<code>"numpy_dense"</code> and the scipy formats) cannot.</p>
 
 
 
