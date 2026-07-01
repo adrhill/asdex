@@ -155,6 +155,12 @@ The only intentional divergences are mode selection
 Hessians use symmetric coloring plus an HVP-mode choice)
 and PyTree *outputs*, which appear only in the Jacobian guide
 since a Hessian requires a scalar output.
+The *Skipping Decompression* Advanced section is the user-facing surface of the `decompression` package's compressed API:
+it covers the `compressed_*` / `value_and_compressed_*` entry points that stop at the compressed matrix \(B\)
+and the `decompress` / `decompress_data` functions that recover the sparse matrix.
+It is mirrored in both guides;
+its reference counterparts are the *Compressed Jacobian* / *Compressed Hessian* and *Decompression* groups
+in `reference/jacobian.md`, `reference/hessian.md`, and `reference/index.md`.
 Correctness checking lives in its own task page, `how-to/verification.md`,
 which both guides link to from a short *Verifying Results* pointer.
 
