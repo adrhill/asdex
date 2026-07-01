@@ -10,6 +10,8 @@ from jax.experimental.sparse import BCOO
 from numpy.typing import ArrayLike, NDArray
 
 from asdex._defaults import (
+    _DEFAULT_DENSE_TOL,
+    _DEFAULT_MATVEC_TOL,
     _DEFAULT_NUM_PROBES,
     _DEFAULT_SEED,
     _DEFAULT_TOL,
@@ -211,8 +213,8 @@ def check_jacobian_correctness(
             jac_fn = jax.jacfwd if ref_mode == "fwd" else jax.jacrev
             J_asdex = jacobian_from_coloring(f, coloring, output_format="dense")(*args)
             J_ref = jac_fn(f, argnums=argnums)(*args)
-            rtol_ = rtol if rtol is not None else 1e-7
-            atol_ = atol if atol is not None else 1e-7
+            rtol_ = rtol if rtol is not None else _DEFAULT_DENSE_TOL
+            atol_ = atol if atol is not None else _DEFAULT_DENSE_TOL
             if not _allclose_pytree(J_asdex, J_ref, rtol=rtol_, atol=atol_):
                 raise VerificationError(
                     "asdex's sparse Jacobian does not match JAX's dense reference. "
@@ -288,8 +290,8 @@ def check_hessian_correctness(
         case "dense":
             H_asdex = hessian_from_coloring(f, coloring, output_format="dense")(*args)
             H_ref = jax.hessian(f, argnums=argnums)(*args)
-            rtol_ = rtol if rtol is not None else 1e-7
-            atol_ = atol if atol is not None else 1e-7
+            rtol_ = rtol if rtol is not None else _DEFAULT_DENSE_TOL
+            atol_ = atol if atol is not None else _DEFAULT_DENSE_TOL
             if not _allclose_pytree(H_asdex, H_ref, rtol=rtol_, atol=atol_):
                 raise VerificationError(
                     "asdex's sparse Hessian does not match JAX's dense reference. "
@@ -449,8 +451,8 @@ def _check_jacobian_matvec(
     atol: float | None = None,
 ) -> None:
     """Verify a sparse Jacobian via randomized matvec products."""
-    rtol = rtol if rtol is not None else 1e-5
-    atol = atol if atol is not None else 1e-5
+    rtol = rtol if rtol is not None else _DEFAULT_MATVEC_TOL
+    atol = atol if atol is not None else _DEFAULT_MATVEC_TOL
     key = jax.random.key(seed)
     keys = jax.random.split(key, num_probes)
 
@@ -520,8 +522,8 @@ def _check_hessian_matvec(
     atol: float | None = None,
 ) -> None:
     """Verify a sparse Hessian via randomized H @ v products."""
-    rtol = rtol if rtol is not None else 1e-5
-    atol = atol if atol is not None else 1e-5
+    rtol = rtol if rtol is not None else _DEFAULT_MATVEC_TOL
+    atol = atol if atol is not None else _DEFAULT_MATVEC_TOL
 
     multi_input = isinstance(sparsity.argnums, tuple)
     args = x if multi_input else (x,)
@@ -652,8 +654,8 @@ def _check_allclose(
     atol: float | None = None,
 ) -> None:
     """Compare sparse and dense results, raising VerificationError on mismatch."""
-    rtol = rtol if rtol is not None else 1e-7
-    atol = atol if atol is not None else 1e-7
+    rtol = rtol if rtol is not None else _DEFAULT_DENSE_TOL
+    atol = atol if atol is not None else _DEFAULT_DENSE_TOL
     sparse_np = np.asarray(sparse)
     dense_np = np.asarray(dense)
 
@@ -680,8 +682,8 @@ def _check_allclose(
 def _allclose_pytree(
     a: Any,
     b: Any,
-    rtol: float = 1e-7,
-    atol: float = 1e-7,
+    rtol: float = _DEFAULT_DENSE_TOL,
+    atol: float = _DEFAULT_DENSE_TOL,
 ) -> bool:
     """Check if two PyTrees are element-wise equal within tolerance."""
 

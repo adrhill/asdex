@@ -4,6 +4,11 @@ The argument descriptions and the ``jax.jit`` note below are identical across
 many entry points in the public API. They are written once here and
 interpolated into each ``{placeholder}`` by the ``@_fill_doc`` decorator,
 so a wording fix lands in one place. Only the *description* is interpolated.
+A few fragments use f-strings to interpolate default values from
+``asdex._defaults`` at import time,
+so a documented default can never drift from the signature default it describes.
+That value interpolation is separate from the ``{placeholder}`` fragment
+substitution ``_fill_doc`` performs later.
 The ``argname:`` prefix stays literal in each docstring
 so pydocstyle's D417 still sees every argument documented.
 Substitution matches only registered ``{placeholder}`` tokens (see ``_PLACEHOLDER``),
@@ -23,6 +28,12 @@ import inspect
 import re
 from collections.abc import Callable
 from typing import Any, TypeVar
+
+from asdex._defaults import (
+    _DEFAULT_ARGNUMS,
+    _DEFAULT_DENSE_TOL,
+    _DEFAULT_MATVEC_TOL,
+)
 
 _JIT = """For repeated evaluation, wrap the returned function in ``jax.jit``:
 each unjitted call re-traces ``f``,
@@ -45,8 +56,9 @@ _COLORING_COMPRESSED = "The ``ColoredPattern`` that produced ``compressed``."
 _SAMPLE_ARGS = """Sample arguments of ``f``.
         Only structure and dtypes are used, values are ignored."""
 
-_ARGNUMS = """Specifies which positional argument(s) to differentiate
-        with respect to (default ``0``)."""
+_ARGNUMS = f"""Specifies which positional argument(s) to differentiate
+        with respect to.
+        Defaults to ``{_DEFAULT_ARGNUMS}``."""
 
 _HAS_AUX = "Whether ``f`` returns ``(output, auxiliary_data)``."
 
@@ -61,7 +73,13 @@ _ALLOW_INT_JAC = "Whether to allow differentiating with respect to integer input
 _ALLOW_INT_HESS = """Unsupported for Hessians; passing ``True`` raises ``TypeError``
         (integer inputs cannot be differentiated twice, matching ``jax.hessian``)."""
 
-_MODE_HESS = "AD mode for Hessian computation."
+_MODE_JAC = """AD mode for Jacobian computation.
+        ``"fwd"`` uses JVPs (forward-mode AD),
+        ``"rev"`` uses VJPs (reverse-mode AD).
+        Defaults to ``None``, which picks whichever of fwd/rev needs fewer colors."""
+
+_MODE_HESS = """AD mode for Hessian computation.
+        Defaults to ``None``, which selects ``"fwd_over_rev"``."""
 
 _SYMMETRIC = "Whether to use symmetric (star) coloring."
 
@@ -88,11 +106,11 @@ _NUM_PROBES = 'Number of random probe vectors (only used by ``"matvec"``).'
 
 _SEED = 'PRNG seed for reproducibility (only used by ``"matvec"``).'
 
-_RTOL = """Relative tolerance for comparison.
-        Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``."""
+_RTOL = f"""Relative tolerance for comparison.
+        Defaults to {_DEFAULT_MATVEC_TOL} for ``"matvec"`` and {_DEFAULT_DENSE_TOL} for ``"dense"``."""
 
-_ATOL = """Absolute tolerance for comparison.
-        Defaults to 1e-5 for ``"matvec"`` and 1e-7 for ``"dense"``."""
+_ATOL = f"""Absolute tolerance for comparison.
+        Defaults to {_DEFAULT_MATVEC_TOL} for ``"matvec"`` and {_DEFAULT_DENSE_TOL} for ``"dense"``."""
 
 # Output format
 
@@ -133,6 +151,7 @@ _FRAGMENTS: dict[str, str] = {
     "holomorphic": _HOLOMORPHIC,
     "allow_int_jac": _ALLOW_INT_JAC,
     "allow_int_hess": _ALLOW_INT_HESS,
+    "mode_jac": _MODE_JAC,
     "mode_hess": _MODE_HESS,
     "symmetric": _SYMMETRIC,
     "chunk_size": _CHUNK_SIZE,

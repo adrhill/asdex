@@ -99,10 +99,7 @@ def jacobian(
             Validates dtype compatibility at call time.
         allow_int: Whether to allow differentiating with respect to
             integer-valued inputs, mirroring ``jax.jacrev``.
-        mode: AD mode.
-            ``"fwd"`` uses JVPs (forward-mode AD),
-            ``"rev"`` uses VJPs (reverse-mode AD).
-            ``None`` picks whichever of fwd/rev needs fewer colors.
+        mode: {mode_jac}
         symmetric: Whether to use symmetric (star) coloring.
             Requires a square Jacobian.
         output_format: {format_jac}
