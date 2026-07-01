@@ -91,16 +91,16 @@ def jacobian(
         f: {f_jac}
         *sample_args: {sample_args}
         argnums: {argnums}
-        has_aux: Whether ``f`` returns ``(output, auxiliary_data)``,
-            mirroring ``jax.jacrev``.
+        has_aux: {has_aux}
+            Mirrors ``jax.jacrev``.
             When True, the returned function yields ``(jac, aux)``.
-        holomorphic: Whether ``f`` is promised to be holomorphic,
-            mirroring ``jax.jacrev``.
+        holomorphic: {holomorphic}
+            Mirrors ``jax.jacrev``.
             Validates dtype compatibility at call time.
-        allow_int: Whether to allow differentiating with respect to
-            integer-valued inputs, mirroring ``jax.jacrev``.
+        allow_int: {allow_int_jac}
+            Mirrors ``jax.jacrev``.
         mode: {mode_jac}
-        symmetric: Whether to use symmetric (star) coloring.
+        symmetric: {symmetric_jac}
             Requires a square Jacobian.
         output_format: {format_jac}
         chunk_size: {chunk_size}
@@ -240,7 +240,7 @@ def hessian(
         holomorphic: {holomorphic}
         allow_int: {allow_int_hess}
         mode: {mode_hess}
-        symmetric: {symmetric}
+        symmetric: {symmetric_hess}
         output_format: {format_hess}
         chunk_size: {chunk_size}
         **sample_kwargs: {sample_kwargs}
@@ -313,7 +313,7 @@ def value_and_hessian(
         holomorphic: {holomorphic}
         allow_int: {allow_int_hess}
         mode: {mode_hess}
-        symmetric: {symmetric}
+        symmetric: {symmetric_hess}
         output_format: {format_hess}
         chunk_size: {chunk_size}
         **sample_kwargs: {sample_kwargs}
@@ -1017,8 +1017,8 @@ def decompress_data(compressed: jax.Array, coloring: ColoredPattern) -> jax.Arra
     to assemble a custom format.
 
     Args:
-        compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``,
-            as returned by [`compressed_jacobian`][asdex.compressed_jacobian] or
+        compressed: {compressed}
+            As returned by [`compressed_jacobian`][asdex.compressed_jacobian] or
             [`compressed_hessian`][asdex.compressed_hessian].
         coloring: {coloring_compressed}
 
@@ -1054,7 +1054,7 @@ def decompress(
     ``B``'s natural domain is the 2-D compressed matrix.
 
     Args:
-        compressed: The compressed matrix ``B`` of shape ``(num_colors, dim)``.
+        compressed: {compressed}
         coloring: {coloring_compressed}
         output_format: {format_flat}
 

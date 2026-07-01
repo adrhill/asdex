@@ -168,8 +168,7 @@ def check_jacobian_correctness(
     Args:
         f: Function whose Jacobian is to be verified.
         x: Input at which to evaluate the Jacobian.
-            For multi-input functions (where ``argnums`` is a tuple),
-            pass a tuple of all positional arguments.
+            {x_multi_input}
         coloring: Pre-computed colored pattern from
             :func:`~asdex.jacobian_coloring`.
         method: {verify_method}
@@ -260,8 +259,7 @@ def check_hessian_correctness(
     Args:
         f: Scalar-valued function taking an array.
         x: Input at which to evaluate the Hessian.
-            For multi-input functions (where ``argnums`` is a tuple),
-            pass a tuple of all positional arguments.
+            {x_multi_input}
         coloring: Pre-computed colored pattern from
             :func:`~asdex.hessian_coloring`.
         method: {verify_method}

@@ -12,12 +12,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from asdex._types import OutputFormat
+from asdex._types import HessianMode, JacobianMode, OutputFormat
 
 # When changing a default here, check its documentation in ``_docstrings.py``.
-# Some fragments interpolate these constants and stay in sync automatically,
-# but fragments whose prose depends on what the value means (the ``mode`` fragments)
-# quote it literally and must be updated by hand.
+# The fragments interpolate these constants at import time,
+# so a documented default stays in sync automatically.
 
 # Detection, coloring, and differentiation
 _DEFAULT_ARGNUMS: int = 0
@@ -30,6 +29,11 @@ _DEFAULT_SYMMETRIC_HESSIAN: bool = True
 _DEFAULT_POSTPROCESS: bool = False
 _DEFAULT_OUTPUT_FORMAT: OutputFormat = "bcoo"
 _DEFAULT_CHUNK_SIZE: int | None = None
+# Resolved AD modes chosen when ``mode`` is left as ``_DEFAULT_MODE`` (None).
+# Hessians fall back to forward-over-reverse HVPs;
+# symmetric Jacobian coloring falls back to forward mode (JVPs).
+_DEFAULT_HESSIAN_MODE: HessianMode = "fwd_over_rev"
+_DEFAULT_SYMMETRIC_JACOBIAN_MODE: JacobianMode = "fwd"
 
 # Verification
 _DEFAULT_VERIFY_METHOD: Literal["matvec", "dense"] = "matvec"

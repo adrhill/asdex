@@ -31,8 +31,18 @@ from typing import Any, TypeVar
 
 from asdex._defaults import (
     _DEFAULT_ARGNUMS,
+    _DEFAULT_CHUNK_SIZE,
     _DEFAULT_DENSE_TOL,
+    _DEFAULT_HAS_AUX,
+    _DEFAULT_HESSIAN_MODE,
+    _DEFAULT_HOLOMORPHIC,
     _DEFAULT_MATVEC_TOL,
+    _DEFAULT_NUM_PROBES,
+    _DEFAULT_POSTPROCESS,
+    _DEFAULT_SYMMETRIC_HESSIAN,
+    _DEFAULT_SYMMETRIC_JACOBIAN,
+    _DEFAULT_SYMMETRIC_JACOBIAN_MODE,
+    _DEFAULT_VERIFY_METHOD,
 )
 
 _JIT = """For repeated evaluation, wrap the returned function in ``jax.jit``:
@@ -51,40 +61,71 @@ _COLORING = "Pre-computed colored sparsity pattern of type ``ColoredPattern``."
 
 _COLORING_COMPRESSED = "The ``ColoredPattern`` that produced ``compressed``."
 
+_COMPRESSED = "The compressed matrix ``B`` of shape ``(num_colors, dim)``."
+
 # Sample inputs and differentiation options
 
 _SAMPLE_ARGS = """Sample arguments of ``f``.
         Only structure and dtypes are used, values are ignored."""
 
+_X_MULTI_INPUT = """For multi-input functions (where ``argnums`` is a tuple),
+        pass a tuple of all positional arguments."""
+
 _ARGNUMS = f"""Specifies which positional argument(s) to differentiate
         with respect to.
         Defaults to ``{_DEFAULT_ARGNUMS}``."""
 
-_HAS_AUX = "Whether ``f`` returns ``(output, auxiliary_data)``."
+_HAS_AUX = f"""Whether ``f`` returns ``(output, auxiliary_data)``.
+        Defaults to ``{_DEFAULT_HAS_AUX}``."""
 
 _HAS_AUX_DETECT = """Whether ``f`` returns ``(output, auxiliary_data)``.
         When True, the auxiliary output is ignored
         and only ``output`` is analyzed for sparsity."""
 
-_HOLOMORPHIC = "Whether ``f`` is promised to be holomorphic."
+_HOLOMORPHIC = f"""Whether ``f`` is promised to be holomorphic.
+        Defaults to ``{_DEFAULT_HOLOMORPHIC}``."""
 
 _ALLOW_INT_JAC = "Whether to allow differentiating with respect to integer inputs."
 
 _ALLOW_INT_HESS = """Unsupported for Hessians; passing ``True`` raises ``TypeError``
         (integer inputs cannot be differentiated twice, matching ``jax.hessian``)."""
 
-_MODE_JAC = """AD mode for Jacobian computation.
+_MODE_JAC = f"""AD mode for Jacobian computation.
         ``"fwd"`` uses JVPs (forward-mode AD),
         ``"rev"`` uses VJPs (reverse-mode AD).
-        Defaults to ``None``, which picks whichever of fwd/rev needs fewer colors."""
+        Defaults to picking whichever of fwd/rev needs fewer colors
+        (unless ``symmetric`` is True, in which case defaults to ``"{_DEFAULT_SYMMETRIC_JACOBIAN_MODE}"``)."""
 
-_MODE_HESS = """AD mode for Hessian computation.
-        Defaults to ``None``, which selects ``"fwd_over_rev"``."""
+_MODE_JAC_COLORING = f"""AD mode.
+        ``"fwd"`` uses JVPs (column coloring),
+        ``"rev"`` uses VJPs (row coloring).
+        Defaults to picking whichever of fwd/rev needs fewer colors
+        (unless ``symmetric`` is True, in which case defaults to ``"{_DEFAULT_SYMMETRIC_JACOBIAN_MODE}"``)."""
 
-_SYMMETRIC = "Whether to use symmetric (star) coloring."
+_MODE_HESS = f"""AD composition strategy for Hessian-vector products.
+        ``"fwd_over_rev"`` uses forward-over-reverse,
+        ``"rev_over_fwd"`` uses reverse-over-forward,
+        ``"rev_over_rev"`` uses reverse-over-reverse.
+        Defaults to ``"{_DEFAULT_HESSIAN_MODE}"``."""
 
-_CHUNK_SIZE = """Maximum number of colors to process in parallel.
-        When ``None`` (default), all colors are processed in a single vmapped batch.
+_SYMMETRIC_JAC = f"""Whether to use symmetric coloring.
+        Defaults to ``{_DEFAULT_SYMMETRIC_JACOBIAN}``."""
+
+_SYMMETRIC_HESS = f"""Whether to use symmetric coloring.
+        Defaults to ``{_DEFAULT_SYMMETRIC_HESSIAN}``."""
+
+_POSTPROCESS_JAC = f"""Only read when ``symmetric=True``.
+        Prune colors never used as hubs and compact the remaining ones
+        (reduces the number of VJPs/JVPs during decompression).
+        Defaults to ``{_DEFAULT_POSTPROCESS}``."""
+
+_POSTPROCESS_HESS = f"""Only read when ``symmetric=True``.
+        Prune colors never used as hubs and compact the remaining ones
+        (reduces the number of HVPs during decompression).
+        Defaults to ``{_DEFAULT_POSTPROCESS}``."""
+
+_CHUNK_SIZE = f"""Maximum number of colors to process in parallel.
+        Defaults to ``{_DEFAULT_CHUNK_SIZE}``, processing all colors in a single vmapped batch.
         When specified, colors are processed in chunks of this size to reduce
         peak memory usage."""
 
@@ -96,13 +137,15 @@ _SAMPLE_KWARGS_DETECT = """Sample keyword arguments of ``f``.
 
 # Verification
 
-_VERIFY_METHOD = """Verification method.
+_VERIFY_METHOD = f"""Verification method.
         ``"matvec"`` uses randomized matrix-vector products,
         which is O(k) in the number of probes.
         ``"dense"`` materializes the full dense matrix,
-        which is O(n^2)."""
+        which is O(n^2).
+        Defaults to ``"{_DEFAULT_VERIFY_METHOD}"``."""
 
-_NUM_PROBES = 'Number of random probe vectors (only used by ``"matvec"``).'
+_NUM_PROBES = f"""Number of random probe vectors (only used by ``"matvec"``).
+        Defaults to ``{_DEFAULT_NUM_PROBES}``."""
 
 _SEED = 'PRNG seed for reproducibility (only used by ``"matvec"``).'
 
@@ -144,7 +187,9 @@ _FRAGMENTS: dict[str, str] = {
     "f_hess": _F_HESS,
     "coloring": _COLORING,
     "coloring_compressed": _COLORING_COMPRESSED,
+    "compressed": _COMPRESSED,
     "sample_args": _SAMPLE_ARGS,
+    "x_multi_input": _X_MULTI_INPUT,
     "argnums": _ARGNUMS,
     "has_aux": _HAS_AUX,
     "has_aux_detect": _HAS_AUX_DETECT,
@@ -152,8 +197,12 @@ _FRAGMENTS: dict[str, str] = {
     "allow_int_jac": _ALLOW_INT_JAC,
     "allow_int_hess": _ALLOW_INT_HESS,
     "mode_jac": _MODE_JAC,
+    "mode_jac_coloring": _MODE_JAC_COLORING,
     "mode_hess": _MODE_HESS,
-    "symmetric": _SYMMETRIC,
+    "symmetric_jac": _SYMMETRIC_JAC,
+    "symmetric_hess": _SYMMETRIC_HESS,
+    "postprocess_jac": _POSTPROCESS_JAC,
+    "postprocess_hess": _POSTPROCESS_HESS,
     "chunk_size": _CHUNK_SIZE,
     "sample_kwargs": _SAMPLE_KWARGS,
     "sample_kwargs_detect": _SAMPLE_KWARGS_DETECT,

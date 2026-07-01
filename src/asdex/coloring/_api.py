@@ -23,10 +23,12 @@ from numpy.typing import NDArray
 from asdex._defaults import (
     _DEFAULT_ARGNUMS,
     _DEFAULT_HAS_AUX,
+    _DEFAULT_HESSIAN_MODE,
     _DEFAULT_MODE,
     _DEFAULT_POSTPROCESS,
     _DEFAULT_SYMMETRIC_HESSIAN,
     _DEFAULT_SYMMETRIC_JACOBIAN,
+    _DEFAULT_SYMMETRIC_JACOBIAN_MODE,
 )
 from asdex._docstrings import _fill_doc
 from asdex._errors import DenseColoringWarning
@@ -61,17 +63,10 @@ def jacobian_coloring(
         *args: {sample_args}
         argnums: {argnums}
         has_aux: {has_aux_detect}
-        mode: AD mode.
-            ``"fwd"`` uses JVPs (forward-mode AD),
-            ``"rev"`` uses VJPs (reverse-mode AD),
-            ``None`` picks whichever of fwd/rev needs fewer colors
-            (unless ``symmetric`` is True, in which case defaults to ``"fwd"``).
-        symmetric: {symmetric}
+        mode: {mode_jac_coloring}
+        symmetric: {symmetric_jac}
             Requires a square Jacobian.
-        postprocess: Only read when ``symmetric=True``.
-            Prune colors never used as hubs and compact the remaining ones
-            (reduces the number of VJPs/JVPs during decompression).
-            Defaults to ``False``, matching SparseMatrixColorings.jl.
+        postprocess: {postprocess_jac}
         **kwargs: {sample_kwargs_detect}
 
     Returns:
@@ -99,21 +94,13 @@ def hessian_coloring(
     """Detect Hessian sparsity and color in one step.
 
     Args:
-        f: Scalar-valued function taking one or more positional arrays.
+        f: {f_hess}
         *args: {sample_args}
         argnums: {argnums}
         has_aux: {has_aux_detect}
-        mode: AD composition strategy for Hessian-vector products.
-            ``"fwd_over_rev"`` uses forward-over-reverse,
-            ``"rev_over_fwd"`` uses reverse-over-forward,
-            ``"rev_over_rev"`` uses reverse-over-reverse.
-            Defaults to ``"fwd_over_rev"``.
-        symmetric: {symmetric}
-            Defaults to True (exploits H = H^T for fewer colors).
-        postprocess: Only read when ``symmetric=True``.
-            Prune colors never used as hubs and compact the remaining ones
-            (reduces the number of HVPs during decompression).
-            Defaults to ``False``, matching SparseMatrixColorings.jl.
+        mode: {mode_hess}
+        symmetric: {symmetric_hess}
+        postprocess: {postprocess_hess}
         **kwargs: {sample_kwargs_detect}
 
     Returns:
@@ -143,17 +130,10 @@ def jacobian_coloring_from_sparsity(
     Args:
         sparsity: A [`SparsityPattern`][asdex.SparsityPattern], NumPy array,
             or JAX BCOO matrix of shape ``(m, n)``.
-        mode: AD mode.
-            ``"fwd"`` uses JVPs (column coloring),
-            ``"rev"`` uses VJPs (row coloring).
-            ``None`` picks whichever of fwd/rev needs fewer colors
-            (unless ``symmetric`` is True, in which case defaults to ``"fwd"``).
-        symmetric: {symmetric}
+        mode: {mode_jac_coloring}
+        symmetric: {symmetric_jac}
             Requires a square pattern.
-        postprocess: Only read when ``symmetric=True``.
-            Prune colors never used as hubs and compact the remaining ones
-            (reduces the number of VJPs/JVPs during decompression).
-            Defaults to ``False``, matching SparseMatrixColorings.jl.
+        postprocess: {postprocess_jac}
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
@@ -166,7 +146,7 @@ def jacobian_coloring_from_sparsity(
     if symmetric:
         return _color_jacobian_symmetric(
             sparsity,
-            mode if mode is not None else "fwd",
+            mode if mode is not None else _DEFAULT_SYMMETRIC_JACOBIAN_MODE,
             postprocess=postprocess,
         )
 
@@ -242,19 +222,11 @@ def hessian_coloring_from_sparsity(
     Args:
         sparsity: A [`SparsityPattern`][asdex.SparsityPattern], NumPy array,
             or JAX BCOO matrix of shape ``(n, n)``.
-        mode: AD composition strategy for Hessian-vector products.
-            ``"fwd_over_rev"`` uses forward-over-reverse,
-            ``"rev_over_fwd"`` uses reverse-over-forward,
-            ``"rev_over_rev"`` uses reverse-over-reverse.
-            Defaults to ``"fwd_over_rev"``.
-        symmetric: {symmetric}
-            Defaults to True (exploits Hessian symmetry for fewer colors).
-        postprocess: Only read when ``symmetric=True``.
-            Prune colors never used as hubs and compact the remaining ones
-            (reduces the number of HVPs during decompression).
+        mode: {mode_hess}
+        symmetric: {symmetric_hess}
+        postprocess: {postprocess_hess}
             Pruned vertices get the neutral color ``-1`` in the output
             (no HVP is computed for them).
-            Defaults to ``False``, matching SparseMatrixColorings.jl.
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
@@ -265,7 +237,7 @@ def hessian_coloring_from_sparsity(
         msg = f"Hessian sparsity pattern must be square, got shape {sparsity.shape}."
         raise ValueError(msg)
 
-    resolved_mode: HessianMode = mode if mode is not None else "fwd_over_rev"
+    resolved_mode: HessianMode = mode if mode is not None else _DEFAULT_HESSIAN_MODE
     if mode is not None:
         _assert_hessian_mode(mode)
 
