@@ -1,10 +1,15 @@
 # asdex
 
 ## Version `v0.5.0`
+This is not a breaking release for most users and has been tagged conservatively only for those importing from internal file paths.
+
 * ![Feature][badge-feature] Add compressed-differentiation API (`compressed_jacobian`, `compressed_hessian`, their `value_and_*` and `*_from_coloring` variants) returning the raw compressed matrix `B` ([#155])
 * ![Feature][badge-feature] Add `decompress` and `decompress_data` to turn a compressed matrix back into a sparse matrix or its raw values respectively ([#155])
 * ![Bugfix][badge-bugfix] Compute the primal value for free in reverse-over-forward Hessians, so `value_and_hessian(mode="rev_over_fwd")` no longer costs an extra function evaluation ([#155])
+* ![Bugfix][badge-bugfix] Correct sparse verification for non-leading tuple `argnums` ([#158])
 * ![Documentation][badge-docs] Update README and how-to guides with new `v0.3` and `v0.4` features ([#154])
+* ![Maintenance][badge-maintenance] Make internal modules private.
+  The top-level `asdex` namespace re-exports every public symbol unchanged, so this only affects code importing from internal file paths ([#158]).
 
 ```python
 coloring = asdex.jacobian_coloring(f, x)
@@ -119,6 +124,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#158]: https://github.com/adrhill/asdex/pull/158
 [#155]: https://github.com/adrhill/asdex/pull/155
 [#154]: https://github.com/adrhill/asdex/pull/154
 [#143]: https://github.com/adrhill/asdex/pull/143
