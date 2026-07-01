@@ -910,8 +910,8 @@ def value_and_compressed_hessian(
 ) -> Callable[..., Any]:
     """Like [`compressed_hessian`][asdex.compressed_hessian], also returning the value.
 
-    The primal value ``f(*args)`` rides the HVP forward pass where the mode allows,
-    so it is nearly free (``rev_over_fwd`` costs one extra ``f`` call).
+    The primal value ``f(*args)`` rides the HVP forward pass,
+    so it is nearly free.
     See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout
     and [`hessian`][asdex.hessian] for the shared arguments.
 
