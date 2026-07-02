@@ -30,19 +30,24 @@ including in pull requests, issues, and discussions.
 
 ## AI Policy
 
-<!-- TODO: elaborate on bullet points. -->
-- asdex is largely written with AI assitence, but based on existing hand-written code by the same authors (see Readme)
-- all of asdex code has been reviewed. As will be visible in most PRs, commits and code changes are iterated over multiple times
-- asdex does not permit "vibe-coding" in the sense of unreviewed and non-understood code
-- we **always accept AI-written bug reports** and feature requests and are very thankful for them. Don't shy away from using AI for bug reports
-- the maintainers welcome external AI-written PRs, but only under several conditions:
-  - the PR author has first gotten the maintainers approval by [Opening an issue](https://github.com/adrhill/asdex/issues) -- we'll generally accept these, and just want to help you out, so don't be shy. This also helps us to structure your PRs so we don't end up with multiple thousands of lines of code changes to review!
-  - the author has read and understands their own code, and is able to answer our questions in the PR review
-  - we _DON'T_ allow the use of AI to write answers in the PR review
-- Our reasoning is that:
-  - we want to continue growing the open source community and help (junior) developers. It's how we learned and we want to give back.
-  - however, if a contributor is just a middle-man forwarding prompts between us maintainers and an AI, our development is faster when we skip said middle man. We might as well prompt ourselves.
-  - In this case, just open a feature request or bug report, we are very thankful for them!
+asdex is largely written with assistance of LLM coding agents (colloquially referred to as AI),
+building on existing, hand-written, pre-AI code by the same authors ([SparseConnectivityTracer.jl](https://github.com/adrhill/SparseConnectivityTracer.jl), [SparseMatrixColorings.jl](https://github.com/gdalle/SparseMatrixColorings.jl), and [DifferentiationInterface.jl](https://github.com/JuliaDiff/DifferentiationInterface.jl)).
+This section describes how we use AI and how we expect contributors use it.
+
+* All asdex code is reviewed and understood before it is merged.
+    Commits and code changes are iterated over several times, as the commit history of most PRs shows.
+    We do not permit "vibe-coding", by which we mean unreviewed code that its human author did not verify.
+* We **always accept AI-written bug reports and feature requests** and are very thankful for them, so do not shy away from using AI to file them.
+* We **welcome external AI-assisted PRs, but only under a few conditions**:
+    1. You must first [open an issue](https://github.com/adrhill/asdex/issues) and get a maintainer's approval.
+        We will generally say yes and are glad to help, and it lets us scope the work so nobody ends up reviewing thousands of lines at once.
+    2. You must understand you own code, be able to walk us through it, and talk it over during the PR review.
+    3. You are not allowed to use AI to write your answers in PR reviews (with the exception of spell-checking and translation).
+
+Our reasoning is that we want to keep growing the open source community and support (junior) developers, the way we were supported when we learned.
+We gladly invest the extra review effort when a human developer learns from it, but an AI takes nothing away from our feedback.
+If a contributor only forwards prompts between us and an AI, we can develop faster by prompting it ourselves.
+In that case, please open a feature request or bug report instead, which we are always thankful for.
 
 ## Commit Messages
 
