@@ -29,7 +29,7 @@ including in pull requests, issues, and discussions.
 
 asdex is written with assistance of LLM coding agents (colloquially referred to as AI),
 building on existing, hand-written, pre-AI code by the same authors.[^prior-work]
-This section describes how we use AI and how we expect contributors use it.
+This section describes how we use AI and how we expect contributors to use it.
 
 [^prior-work]: [SparseConnectivityTracer.jl](https://github.com/adrhill/SparseConnectivityTracer.jl), [SparseMatrixColorings.jl](https://github.com/gdalle/SparseMatrixColorings.jl), and [DifferentiationInterface.jl](https://github.com/JuliaDiff/DifferentiationInterface.jl).
 
@@ -41,7 +41,7 @@ This section describes how we use AI and how we expect contributors use it.
     1. You must first [open an issue](https://github.com/adrhill/asdex/issues) and get a maintainer's approval.
         We will generally say yes and are glad to help.
         Issues allow us to scope the work so nobody ends up having to review thousands of lines at once.
-    2. You must understand you own code, be able to walk us through it, and talk it over during the PR review.
+    2. You must understand your own code, be able to walk us through it, and talk it over during the PR review.
     3. You are not allowed to use AI to write your answers in PR reviews (with the exception of spell-checking and translation).
 
 Our reasoning is that we want to support (junior) developers and keep growing the open source community.
