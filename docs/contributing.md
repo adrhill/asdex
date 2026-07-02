@@ -1,8 +1,7 @@
 # Contributor's Guide and AI Policy
 
 This document describes the practices we follow when contributing to asdex.
-Making them explicit helps contributors, new and old, understand what is expected of them.
-
+Making them explicit helps new contributors understand what is expected of them.
 They aim to make what can otherwise feel like a mysterious process clear to anyone opening their first issue or pull request (PR).
 
 ## Community Standards
@@ -17,7 +16,7 @@ including in pull requests, issues, and discussions.
     Agreeing on a plan before implementing is less effort for both PR authors and reviewers,
     and maintainers can point you to the files a change belongs in.
 * A PR should affect as little code as possible.
-    Reviewing couple of small PRs is faster than reviewing one large PR.
+    Reviewing a couple of small PRs is faster than reviewing one large PR.
 * PRs should match the existing code style present in the file.
     * Lint, format, and type checks are enforced by the git hooks from the [Development Setup](#development-setup) below.
     * Underscore-prefix any name that is not part of the public API.
@@ -62,7 +61,7 @@ Commit messages should follow the [Conventional Commits](https://www.conventiona
 ## Reviewing, Approving, and Merging PRs
 
 * PRs should pass CI tests before being merged.
-* PRs by people without merge rights must have approval from someone who has merge rights (who will usually then merge the PR).
+* PRs must have approval from someone who has merge rights.
 
 ## Releases
 
@@ -71,15 +70,14 @@ Commit messages should follow the [Conventional Commits](https://www.conventiona
 * Unreleased changes accumulate in [`CHANGELOG.md`](https://github.com/adrhill/asdex/blob/main/CHANGELOG.md), and a release adds a matching changelog entry and bumps the `version` field in [`pyproject.toml`](https://github.com/adrhill/asdex/blob/main/pyproject.toml).
 * A maintainer cuts the release by tagging the release commit `vX.Y.Z` and publishing a GitHub release.
 
-## Becoming a Collaborator (gaining merge rights)
+## Becoming a maintainer (gaining merge rights)
 
-* Collaborator merge rights are typically assigned at an Organizational level for all repositories in a GitHub organization, or at a Team level for a subset of repositories.
-* Before becoming a collaborator, it is usual to:
+* Before becoming a maintainer, it is usual to:
     * contribute several PRs,
     * review constructively and kindly several PRs,
     * contribute meaningfully to several discussions on issues.
 * Maintainers are listed in the `maintainers` field of [`pyproject.toml`](https://github.com/adrhill/asdex/blob/main/pyproject.toml). When someone is added as a maintainer, they should open a PR adding their name and contact there.
-* You may ask to be added as a collaborator. It is not rude to ask.
+* You may ask to be added as a maintainer. It is not rude to ask.
 
 ---
 
@@ -144,10 +142,6 @@ and the markers are registered in
 ---
 
 ## Further Guidance
-
-This page offers some further guidance on conventions that can be helpful when collaborating on projects.
-This is an expansion on the Collaborative Practices, with more details and extra guidance.
-Anything detailed here should be considered less important than the main Collaborative Practices.
 
 ### Guidance on contributing PRs
 
@@ -220,7 +214,6 @@ A maintainer prepares a release as follows:
     * The new feature in question is the ability to use with a different set of packages.
 * Changing a dependency to resolve a bug is a bug-fix.
     * i.e. pre/post-1.0 change patch version number.
-    * For instance, if a bug in a downstream dependency is causing a problem in your package, restricting compat to not allow that version would be a bug-fix.
 * Changing compatibility with dependencies **may** be a breaking release, if it breaks the user-facing interface.
     That is to say, if the dependency’s API leaks into your API.
     There are three ways that this can happen:
