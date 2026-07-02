@@ -165,6 +165,19 @@ def value_and_jacobian(
 
     {jit}
 
+    Args:
+        f: {f_jac}
+        *sample_args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        mode: {mode_jac}
+        symmetric: {symmetric_jac}
+        output_format: {format_jac}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
+
     Returns:
         A function that takes the same positional args as ``f`` and returns
             ``(value, jac)`` — or ``((value, aux), jac)`` when ``has_aux=True``,
@@ -557,6 +570,7 @@ def value_and_hessian_from_coloring(
 # They take no output_format: formatting is the job of decompress.
 
 
+@_fill_doc
 def compressed_jacobian(
     f: Callable[..., Any],
     *sample_args: Any,
@@ -581,11 +595,20 @@ def compressed_jacobian(
     The returned ``B`` is a plain ``jax.Array``,
     so the returned function is jit-able by the caller.
 
-    See [`jacobian`][asdex.jacobian] for the shared arguments
-    (``argnums``, ``has_aux``, ``holomorphic``, ``allow_int``, ``mode``,
-    ``symmetric``, ``chunk_size``, and the sample inputs).
     Unlike [`jacobian`][asdex.jacobian], it takes no ``output_format``:
     formatting is the job of [`decompress`][asdex.decompress].
+
+    Args:
+        f: {f_jac}
+        *sample_args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        mode: {mode_jac}
+        symmetric: {symmetric_jac}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -630,6 +653,7 @@ def compressed_jacobian(
     return compressed_fn
 
 
+@_fill_doc
 def compressed_jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
@@ -644,9 +668,15 @@ def compressed_jacobian_from_coloring(
     Like [`jacobian_from_coloring`][asdex.jacobian_from_coloring],
     but stops at the compressed matrix ``B`` of shape ``(num_colors, dim)``
     instead of materializing the sparse matrix.
-    See [`compressed_jacobian`][asdex.compressed_jacobian] for ``B``'s layout
-    and [`jacobian_from_coloring`][asdex.jacobian_from_coloring]
-    for the shared arguments.
+    See [`compressed_jacobian`][asdex.compressed_jacobian] for ``B``'s layout.
+
+    Args:
+        f: {f_jac}
+        coloring: {coloring}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        chunk_size: {chunk_size}
 
     Returns:
         A function returning ``B`` of shape ``(num_colors, dim)``,
@@ -675,6 +705,7 @@ def compressed_jacobian_from_coloring(
     return compressed_fn
 
 
+@_fill_doc
 def compressed_hessian(
     f: Callable[..., Any],
     *sample_args: Any,
@@ -701,11 +732,20 @@ def compressed_hessian(
     The returned ``B`` is a plain ``jax.Array``,
     so the returned function is jit-able by the caller.
 
-    See [`hessian`][asdex.hessian] for the shared arguments
-    (``argnums``, ``has_aux``, ``holomorphic``, ``allow_int``, ``mode``,
-    ``symmetric``, ``chunk_size``, and the sample inputs).
     Unlike [`hessian`][asdex.hessian], it takes no ``output_format``:
     formatting is the job of [`decompress`][asdex.decompress].
+
+    Args:
+        f: {f_hess}
+        *sample_args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_hess}
+        mode: {mode_hess}
+        symmetric: {symmetric_hess}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -747,6 +787,7 @@ def compressed_hessian(
     return compressed_fn
 
 
+@_fill_doc
 def compressed_hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
@@ -761,9 +802,15 @@ def compressed_hessian_from_coloring(
     Like [`hessian_from_coloring`][asdex.hessian_from_coloring],
     but stops at the compressed matrix ``B`` of shape ``(num_colors, n)``
     instead of materializing the sparse matrix.
-    See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout
-    and [`hessian_from_coloring`][asdex.hessian_from_coloring]
-    for the shared arguments.
+    See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout.
+
+    Args:
+        f: {f_hess}
+        coloring: {coloring}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_hess}
+        chunk_size: {chunk_size}
 
     Returns:
         A function returning ``B`` of shape ``(num_colors, n)``,
@@ -792,6 +839,7 @@ def compressed_hessian_from_coloring(
     return compressed_fn
 
 
+@_fill_doc
 def value_and_compressed_jacobian(
     f: Callable[..., Any],
     *sample_args: Any,
@@ -808,8 +856,19 @@ def value_and_compressed_jacobian(
 
     The primal value ``f(*args)`` rides the compression forward pass,
     so it is nearly free.
-    See [`compressed_jacobian`][asdex.compressed_jacobian] for ``B``'s layout
-    and [`jacobian`][asdex.jacobian] for the shared arguments.
+    See [`compressed_jacobian`][asdex.compressed_jacobian] for ``B``'s layout.
+
+    Args:
+        f: {f_jac}
+        *sample_args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        mode: {mode_jac}
+        symmetric: {symmetric_jac}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -850,6 +909,7 @@ def value_and_compressed_jacobian(
     return compressed_fn
 
 
+@_fill_doc
 def value_and_compressed_jacobian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
@@ -864,6 +924,14 @@ def value_and_compressed_jacobian_from_coloring(
     Like [`value_and_jacobian_from_coloring`][asdex.value_and_jacobian_from_coloring],
     but stops at the compressed matrix ``B``.
     See [`compressed_jacobian`][asdex.compressed_jacobian] for ``B``'s layout.
+
+    Args:
+        f: {f_jac}
+        coloring: {coloring}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        chunk_size: {chunk_size}
 
     Returns:
         A function returning ``(value, B)``,
@@ -891,6 +959,7 @@ def value_and_compressed_jacobian_from_coloring(
     return compressed_fn
 
 
+@_fill_doc
 def value_and_compressed_hessian(
     f: Callable[..., Any],
     *sample_args: Any,
@@ -907,8 +976,19 @@ def value_and_compressed_hessian(
 
     The primal value ``f(*args)`` rides the HVP forward pass,
     so it is nearly free.
-    See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout
-    and [`hessian`][asdex.hessian] for the shared arguments.
+    See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout.
+
+    Args:
+        f: {f_hess}
+        *sample_args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_hess}
+        mode: {mode_hess}
+        symmetric: {symmetric_hess}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
 
     Returns:
         A function that takes the same positional args as ``f`` and returns
@@ -948,6 +1028,7 @@ def value_and_compressed_hessian(
     return compressed_fn
 
 
+@_fill_doc
 def value_and_compressed_hessian_from_coloring(
     f: Callable[..., Any],
     coloring: ColoredPattern,
@@ -962,6 +1043,14 @@ def value_and_compressed_hessian_from_coloring(
     Like [`value_and_hessian_from_coloring`][asdex.value_and_hessian_from_coloring],
     but stops at the compressed matrix ``B``.
     See [`compressed_hessian`][asdex.compressed_hessian] for ``B``'s layout.
+
+    Args:
+        f: {f_hess}
+        coloring: {coloring}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_hess}
+        chunk_size: {chunk_size}
 
     Returns:
         A function returning ``(value, B)``,

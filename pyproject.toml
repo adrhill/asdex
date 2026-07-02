@@ -151,8 +151,10 @@ exclude_also = [
     "assert_never\\(",
 ]
 
+# These files import optional dependencies (matplotlib, griffe) that are absent
+# from the lean type-check environment (dev group only), so ignore unresolved imports.
 [[tool.ty.overrides]]
-include = ["src/asdex/_plotting.py"]
+include = ["src/asdex/_plotting.py", "docs/_griffe_extensions.py"]
 
 [tool.ty.overrides.rules]
 unresolved-import = "ignore"

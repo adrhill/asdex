@@ -483,7 +483,7 @@ To access the raw compressed matrix \(B\) rather than the assembled sparse Jacob
 use [`compressed_jacobian`](../reference/index.md#asdex.compressed_jacobian) and
 [`compressed_jacobian_from_coloring`](../reference/index.md#asdex.compressed_jacobian_from_coloring).
 They run the same detect-and-color steps as [`jacobian`](../reference/index.md#asdex.jacobian),
-but stop at \(B\), the dense matrix of one VJP or JVP per color of shape \((\text{num\_colors}, \text{dim})\).
+but stop at \(B\), the dense matrix of one VJP or JVP per color of shape `(num_colors, dim)`.
 Here `dim` is the input size \(n\) in `"rev"` mode and the output size \(m\) in `"fwd"` mode.
 
 ```python exec="true" session="jac-compress" source="above"
