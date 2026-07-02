@@ -8,6 +8,9 @@ license = "MIT"
 authors = [
     { name = "Adrian Hill", email = "gh@adrianhill.de" },
 ]
+maintainers = [
+    { name = "Adrian Hill", email = "gh@adrianhill.de" },
+]
 keywords = [
     "jax",
     "jaxpr",
@@ -146,7 +149,6 @@ indent-style = "space"
 exclude_also = [
     "case _ as unreachable:",
     "assert_never\\(",
-    "if TYPE_CHECKING:",
 ]
 
 [[tool.ty.overrides]]
