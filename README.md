@@ -16,6 +16,7 @@
   <a href="https://adrianhill.de/asdex/"><img src="https://img.shields.io/badge/docs-online-blue" alt="Docs"></a>
   <a href="https://adrianhill.de/asdex/dev/bench/"><img src="https://img.shields.io/badge/benchmarks-view-blue" alt="Benchmarks"></a>
   <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/news-changelog-yellow" alt="Changelog"></a>
+  <a href="https://adrianhill.de/asdex/contributing/"><img src="https://img.shields.io/badge/contributing-guide-blue" alt="Contributing"></a>
 </p>
 
 
@@ -105,6 +106,7 @@ Instead of 49 VJPs or 50 JVPs,
 - [How-To Guides](https://adrianhill.de/asdex/how-to/jacobians/): task-oriented recipes
 - [Explanation](https://adrianhill.de/asdex/explanation/sparsity-detection/): how and why it works
 - [API Reference](https://adrianhill.de/asdex/reference/): full API documentation
+- [Contributing](https://adrianhill.de/asdex/contributing/): guidelines for collaborating on asdex
 
 ## Acknowledgements
 
