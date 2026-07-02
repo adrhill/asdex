@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782991479271,
+  "lastUpdate": 1783012626483,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -17955,6 +17955,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000007362739416107718",
             "extra": "mean: 23.14023780448346 usec\nrounds: 16215"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d66ebf40e577561f38e37de7fb13c0ad98d24da2",
+          "message": "docs: render shared docstring fragments in the static API reference (#161)\n\n* docs: render shared docstring fragments in the static API reference\n\n`@_fill_doc` interpolates `{placeholder}` fragments into `__doc__` at import\ntime, but mkdocstrings reads docstrings statically off the AST and never runs\nthe decorator, so the reference site rendered raw `{f_jac}` / `{jit}` tokens.\n\nAdd a griffe extension (`docs/_griffe_extensions.py`) that re-runs the same\nsubstitution at build time, scoped to functions carrying `@_fill_doc`. Extract\nthe substitution into `_interpolate_fragments` so the runtime decorator and the\nextension share one source of truth, and decorate the `compressed_*` /\n`value_and_compressed_*` entry points (plus `value_and_jacobian`) so each\ndocuments its own arguments instead of cross-referencing a sibling.\n\nReorder the reference pages to keep each `*_from_coloring` next to its base\nfunction, and add a test that loads asdex through griffe with the extension and\nasserts no registered fragment token survives the static load.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* fix: ignore unresolved griffe import in docs extension type check\n\nThe docs griffe extension added in 39fc209 imports griffe, a docs-group\ndependency absent from the lean type-check environment (dev group only).\nCI's Linting job runs ty against that environment, so the import failed\nto resolve and the type check errored.\n\nExtend the existing unresolved-import override (already used for the\noptional matplotlib import in _plotting.py) to cover the docs extension.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-07-02T19:16:28+02:00",
+          "tree_id": "fd8038f32ba1639a672ae2970deeff262b11b651",
+          "url": "https://github.com/adrhill/asdex/commit/d66ebf40e577561f38e37de7fb13c0ad98d24da2"
+        },
+        "date": 1783012625408,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1071.511782975598,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008781114491703172",
+            "extra": "mean: 933.2608524593085 usec\nrounds: 61"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 28866.171065907387,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017655289806957856",
+            "extra": "mean: 34.642627098578295 usec\nrounds: 8458"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 80704.66699759553,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000011083809901354127",
+            "extra": "mean: 12.390857148692447 usec\nrounds: 24375"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 51930.12933924425,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015769123702612644",
+            "extra": "mean: 19.25664373888411 usec\nrounds: 16123"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 80098.00218924358,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000103750065509671",
+            "extra": "mean: 12.484705893629528 usec\nrounds: 26062"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 20.07565125731397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027676410189826053",
+            "extra": "mean: 49.811584549999566 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3554.1469903985467,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006221641196594674",
+            "extra": "mean: 281.3614638622092 usec\nrounds: 2615"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1753.5701446036483,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000036196647094275926",
+            "extra": "mean: 570.2651833331855 usec\nrounds: 1260"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1703.8902226417968,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004294273923735432",
+            "extra": "mean: 586.8922696495963 usec\nrounds: 827"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4319.138877393429,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000018205229920190694",
+            "extra": "mean: 231.527632795983 usec\nrounds: 2854"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 134.80675027416552,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010794942857206944",
+            "extra": "mean: 7.41802615941882 msec\nrounds: 69"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 28990.134221405253,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017195975328161984",
+            "extra": "mean: 34.494493621959045 usec\nrounds: 15052"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 47981.49784155078,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002950342275290246",
+            "extra": "mean: 20.84136688067343 usec\nrounds: 11993"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 40402.17005917115,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003484791163007657",
+            "extra": "mean: 24.75114575616721 usec\nrounds: 13502"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 47548.07413460776,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003548814558264287",
+            "extra": "mean: 21.0313460261086 usec\nrounds: 15652"
           }
         ]
       }
