@@ -103,3 +103,5 @@ plugins:
             show_root_heading: true
             show_source: false
             members_order: source
+            extensions:
+              - _griffe_extensions.py:FillDocstrings

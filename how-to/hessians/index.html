@@ -2051,7 +2051,7 @@ chunks are processed sequentially via <code>jax.lax.map</code>, lowering the pea
 use <a href="../../reference/#asdex.compressed_hessian"><code>compressed_hessian</code></a> and
 <a href="../../reference/#asdex.compressed_hessian_from_coloring"><code>compressed_hessian_from_coloring</code></a>.
 They run the same detect-and-color steps as <a href="../../reference/#asdex.hessian"><code>hessian</code></a>,
-but stop at <span class="arithmatex">\(B\)</span>, the dense matrix of one HVP per color of shape <span class="arithmatex">\((\text{num\_colors}, n)\)</span>,
+but stop at <span class="arithmatex">\(B\)</span>, the dense matrix of one HVP per color of shape <code>(num_colors, n)</code>,
 where <span class="arithmatex">\(n\)</span> is the input size.</p>
 <div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>

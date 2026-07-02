@@ -2062,7 +2062,7 @@ chunks are processed sequentially via <code>jax.lax.map</code>, lowering the pea
 use <a href="../../reference/#asdex.compressed_jacobian"><code>compressed_jacobian</code></a> and
 <a href="../../reference/#asdex.compressed_jacobian_from_coloring"><code>compressed_jacobian_from_coloring</code></a>.
 They run the same detect-and-color steps as <a href="../../reference/#asdex.jacobian"><code>jacobian</code></a>,
-but stop at <span class="arithmatex">\(B\)</span>, the dense matrix of one VJP or JVP per color of shape <span class="arithmatex">\((\text{num\_colors}, \text{dim})\)</span>.
+but stop at <span class="arithmatex">\(B\)</span>, the dense matrix of one VJP or JVP per color of shape <code>(num_colors, dim)</code>.
 Here <code>dim</code> is the input size <span class="arithmatex">\(n\)</span> in <code>"rev"</code> mode and the output size <span class="arithmatex">\(m\)</span> in <code>"fwd"</code> mode.</p>
 <div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>

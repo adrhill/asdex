@@ -1303,7 +1303,7 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{f_jac_detect}</p>
+<p>Function whose Jacobian sparsity pattern is to be detected.</p>
 </div>
 </td>
 <td>
@@ -1319,7 +1319,8 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sample_args}</p>
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
 </div>
 </td>
 <td>
@@ -1335,7 +1336,9 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{argnums}</p>
+<p>Specifies which positional argument(s) to differentiate
+with respect to.
+Defaults to <code>0</code>.</p>
 </div>
 </td>
 <td>
@@ -1351,7 +1354,9 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{has_aux_detect}</p>
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
+When True, the auxiliary output is ignored
+and only <code>output</code> is analyzed for sparsity.</p>
 </div>
 </td>
 <td>
@@ -1367,7 +1372,8 @@ The result is valid for all inputs.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sample_kwargs_detect}</p>
+<p>Sample keyword arguments of <code>f</code>.
+Non-traceable values (bools, strings, ints) are bound statically.</p>
 </div>
 </td>
 <td>
@@ -1437,7 +1443,7 @@ it is automatically squeezed to scalar.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{f_hess_detect}</p>
+<p>Scalar-valued function whose Hessian sparsity pattern is to be detected.</p>
 </div>
 </td>
 <td>
@@ -1453,7 +1459,8 @@ it is automatically squeezed to scalar.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sample_args}</p>
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
 </div>
 </td>
 <td>
@@ -1469,7 +1476,9 @@ it is automatically squeezed to scalar.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{argnums}</p>
+<p>Specifies which positional argument(s) to differentiate
+with respect to.
+Defaults to <code>0</code>.</p>
 </div>
 </td>
 <td>
@@ -1485,7 +1494,9 @@ it is automatically squeezed to scalar.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{has_aux_detect}</p>
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
+When True, the auxiliary output is ignored
+and only <code>output</code> is analyzed for sparsity.</p>
 </div>
 </td>
 <td>
@@ -1501,7 +1512,8 @@ it is automatically squeezed to scalar.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sample_kwargs_detect}</p>
+<p>Sample keyword arguments of <code>f</code>.
+Non-traceable values (bools, strings, ints) are bound statically.</p>
 </div>
 </td>
 <td>

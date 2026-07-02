@@ -1587,7 +1587,7 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{f_jac}</p>
+<p>Function whose Jacobian is to be computed.</p>
 </div>
 </td>
 <td>
@@ -1603,7 +1603,8 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sample_args}</p>
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
 </div>
 </td>
 <td>
@@ -1619,7 +1620,9 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{argnums}</p>
+<p>Specifies which positional argument(s) to differentiate
+with respect to.
+Defaults to <code>0</code>.</p>
 </div>
 </td>
 <td>
@@ -1635,7 +1638,9 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{has_aux_detect}</p>
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
+When True, the auxiliary output is ignored
+and only <code>output</code> is analyzed for sparsity.</p>
 </div>
 </td>
 <td>
@@ -1655,7 +1660,11 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{mode_jac_coloring}</p>
+<p>AD mode.
+<code>"fwd"</code> uses JVPs (column coloring),
+<code>"rev"</code> uses VJPs (row coloring).
+Defaults to picking whichever of fwd/rev needs fewer colors
+(unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
 </div>
 </td>
 <td>
@@ -1671,7 +1680,9 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{symmetric_jac}</p>
+<p>Whether to use symmetric coloring.
+Requires a square Jacobian.
+Defaults to <code>False</code>.</p>
 </div>
 </td>
 <td>
@@ -1687,7 +1698,10 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{postprocess_jac}</p>
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of VJPs/JVPs during decompression).
+Defaults to <code>False</code>.</p>
 </div>
 </td>
 <td>
@@ -1703,7 +1717,8 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sample_kwargs_detect}</p>
+<p>Sample keyword arguments of <code>f</code>.
+Non-traceable values (bools, strings, ints) are bound statically.</p>
 </div>
 </td>
 <td>
@@ -1771,7 +1786,7 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{f_hess}</p>
+<p>Scalar-valued function whose Hessian is to be computed.</p>
 </div>
 </td>
 <td>
@@ -1787,7 +1802,8 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sample_args}</p>
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
 </div>
 </td>
 <td>
@@ -1803,7 +1819,9 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{argnums}</p>
+<p>Specifies which positional argument(s) to differentiate
+with respect to.
+Defaults to <code>0</code>.</p>
 </div>
 </td>
 <td>
@@ -1819,7 +1837,9 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{has_aux_detect}</p>
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
+When True, the auxiliary output is ignored
+and only <code>output</code> is analyzed for sparsity.</p>
 </div>
 </td>
 <td>
@@ -1839,7 +1859,11 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{mode_hess}</p>
+<p>AD composition strategy for Hessian-vector products.
+<code>"fwd_over_rev"</code> uses forward-over-reverse,
+<code>"rev_over_fwd"</code> uses reverse-over-forward,
+<code>"rev_over_rev"</code> uses reverse-over-reverse.
+Defaults to <code>"fwd_over_rev"</code>.</p>
 </div>
 </td>
 <td>
@@ -1855,7 +1879,8 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{symmetric_hess}</p>
+<p>Whether to use symmetric coloring.
+Defaults to <code>True</code>.</p>
 </div>
 </td>
 <td>
@@ -1871,7 +1896,11 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{postprocess_hess}</p>
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of HVPs during decompression).
+Pruned vertices get the neutral color <code>-1</code> (no HVP is computed for them).
+Defaults to <code>False</code>.</p>
 </div>
 </td>
 <td>
@@ -1887,7 +1916,8 @@
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sample_kwargs_detect}</p>
+<p>Sample keyword arguments of <code>f</code>.
+Non-traceable values (bools, strings, ints) are bound statically.</p>
 </div>
 </td>
 <td>
@@ -1962,7 +1992,13 @@ computed together in a single VJP (or JVP).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sparsity_jac}</p>
+<p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+
+
+  
+      dataclass
+  " href="../#asdex.SparsityPattern"><code>SparsityPattern</code></a>, NumPy array,
+or JAX BCOO matrix of shape <code>(m, n)</code>.</p>
 </div>
 </td>
 <td>
@@ -1982,7 +2018,11 @@ computed together in a single VJP (or JVP).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{mode_jac_coloring}</p>
+<p>AD mode.
+<code>"fwd"</code> uses JVPs (column coloring),
+<code>"rev"</code> uses VJPs (row coloring).
+Defaults to picking whichever of fwd/rev needs fewer colors
+(unless <code>symmetric</code> is True, in which case defaults to <code>"fwd"</code>).</p>
 </div>
 </td>
 <td>
@@ -1998,7 +2038,9 @@ computed together in a single VJP (or JVP).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{symmetric_jac}</p>
+<p>Whether to use symmetric coloring.
+Requires a square Jacobian.
+Defaults to <code>False</code>.</p>
 </div>
 </td>
 <td>
@@ -2014,7 +2056,10 @@ computed together in a single VJP (or JVP).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{postprocess_jac}</p>
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of VJPs/JVPs during decompression).
+Defaults to <code>False</code>.</p>
 </div>
 </td>
 <td>
@@ -2087,7 +2132,13 @@ computed together in a single VJP (or JVP).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sparsity_hess}</p>
+<p>A <a class="autorefs autorefs-internal" title="asdex.SparsityPattern
+
+
+  
+      dataclass
+  " href="../#asdex.SparsityPattern"><code>SparsityPattern</code></a>, NumPy array,
+or JAX BCOO matrix of shape <code>(n, n)</code>.</p>
 </div>
 </td>
 <td>
@@ -2107,7 +2158,11 @@ computed together in a single VJP (or JVP).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{mode_hess}</p>
+<p>AD composition strategy for Hessian-vector products.
+<code>"fwd_over_rev"</code> uses forward-over-reverse,
+<code>"rev_over_fwd"</code> uses reverse-over-forward,
+<code>"rev_over_rev"</code> uses reverse-over-reverse.
+Defaults to <code>"fwd_over_rev"</code>.</p>
 </div>
 </td>
 <td>
@@ -2123,7 +2178,8 @@ computed together in a single VJP (or JVP).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{symmetric_hess}</p>
+<p>Whether to use symmetric coloring.
+Defaults to <code>True</code>.</p>
 </div>
 </td>
 <td>
@@ -2139,7 +2195,11 @@ computed together in a single VJP (or JVP).</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{postprocess_hess}</p>
+<p>Only read when <code>symmetric=True</code>.
+Prune colors never used as hubs and compact the remaining ones
+(reduces the number of HVPs during decompression).
+Pruned vertices get the neutral color <code>-1</code> (no HVP is computed for them).
+Defaults to <code>False</code>.</p>
 </div>
 </td>
 <td>
@@ -2217,7 +2277,7 @@ by using a combined seed vector.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sparsity_pattern_jac}</p>
+<p>Jacobian sparsity pattern of shape <code>(m, n)</code>.</p>
 </div>
 </td>
 <td>
@@ -2289,7 +2349,7 @@ by using a combined tangent vector.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sparsity_pattern_jac}</p>
+<p>Jacobian sparsity pattern of shape <code>(m, n)</code>.</p>
 </div>
 </td>
 <td>
@@ -2362,7 +2422,7 @@ Hessian decompression can use hub-based extraction.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sparsity_pattern_hess}</p>
+<p>Hessian sparsity pattern of shape <code>(n, n)</code>.</p>
 </div>
 </td>
 <td>
@@ -2378,7 +2438,12 @@ Hessian decompression can use hub-based extraction.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{postprocess_symmetric}</p>
+<p>If <code>True</code>, replace colors that are never used as a hub color
+(and not forced by a diagonal entry) with <code>-1</code> (neutral),
+then compact remaining colors down.
+This reduces the number of HVPs needed during decompression.
+Defaults to <code>False</code>,
+matching SparseMatrixColorings.jl's <code>postprocessing=false</code> default.</p>
 </div>
 </td>
 <td>
@@ -2394,7 +2459,9 @@ Hessian decompression can use hub-based extraction.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{forced_colors}</p>
+<p>Optional pre-computed color assignment of shape <code>(n,)</code>.
+When provided, the algorithm verifies it satisfies the star-coloring
+constraints and raises <a class="autorefs autorefs-internal" title="asdex.InvalidColoringError" href="#asdex.InvalidColoringError"><code>InvalidColoringError</code></a> otherwise.</p>
 </div>
 </td>
 <td>
@@ -2496,7 +2563,7 @@ Hessian decompression can use hub-based extraction.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sparsity_pattern_jac}</p>
+<p>Jacobian sparsity pattern of shape <code>(m, n)</code>.</p>
 </div>
 </td>
 <td>
@@ -2512,7 +2579,7 @@ Hessian decompression can use hub-based extraction.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{colors_rows}</p>
+<p>Row color assignment, shape <code>(m,)</code>.</p>
 </div>
 </td>
 <td>
@@ -2575,7 +2642,7 @@ Hessian decompression can use hub-based extraction.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sparsity_pattern_jac}</p>
+<p>Jacobian sparsity pattern of shape <code>(m, n)</code>.</p>
 </div>
 </td>
 <td>
@@ -2591,7 +2658,7 @@ Hessian decompression can use hub-based extraction.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{colors_cols}</p>
+<p>Column color assignment, shape <code>(n,)</code>.</p>
 </div>
 </td>
 <td>
@@ -2662,7 +2729,7 @@ from the P4 check as they represent the absence of a color.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{sparsity_pattern_hess}</p>
+<p>Hessian sparsity pattern of shape <code>(n, n)</code>.</p>
 </div>
 </td>
 <td>
@@ -2678,7 +2745,7 @@ from the P4 check as they represent the absence of a color.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>{colors_vertex}</p>
+<p>Vertex color assignment, shape <code>(n,)</code>.</p>
 </div>
 </td>
 <td>
