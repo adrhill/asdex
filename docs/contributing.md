@@ -143,72 +143,12 @@ This means you can update the `[compat]` section of a group of packages and test
     *   Returning an object of a type whose behavior has changed.
     *   Subtyping an object that has changed.
 
-### Dropping support for earlier versions of Julia
-
-*   Changing Julia version compatibility must be a non-breaking feature.
-*   It cannot alone be breaking, since Julia versions that are now unsupported will just never see this newer package release.
-*   Tagging the change as a Minor release makes it possible to release backported bug fixes for users stuck on the old Julia version.
-    For instance, if the current release is `5.4.0`, then we can still go back and release `5.3.1`.
-    * If the package is pre-1.0, minor releases count as breaking. Therefore, tag the release as a patch release unless one intends to
-    support earlier versions of Julia with backports (as needed).
-*   Dropping support for earlier versions of Julia has a cost - it prevents users on those versions, such as the Long-Term Support version, from using newer releases of your package - so there should usually be a compelling reason to drop support.
-
-### Accidental breaking releases
-
-**Do not panic**, these things sometimes slip through.
-
-It is important to fix it **as soon as possible**, as otherwise people start using the breaking change, and reverting it later causes more problems (c.f.[ Murphy's law](https://en.wikipedia.org/wiki/Murphy%27s_law)).
-
-To fix it:
-
-1. Make a PR which reverts the PR that made the breaking change.
-2. Bump the Patch version number in the Project.toml.
-    The breaking API change was a bug, so a Patch release is correct to fix it.
-3. Merge the PR and release the new version.
-
-Once the change is reverted, you can take stock and decide what to do.
-There are generally 2 options:
-
-1. Make a new PR to reimplement the feature in a non-breaking way.
-2. Make a new PR which reverts the reversion, bump the version number to signify it as breaking, and release the new breaking version.
-
-#### **Example**
-
-Consider a package which is currently on v1.14.2.
-I made a PR to add a new feature and tagged release v1.15.0.
-The next evening, we get bug reports that the new feature actually broke lots of real uses.
-
-Maybe I changed what I thought was an internal function, but one that was actually part of the public API; maybe I accidentally changed the return type, and that was something people depended on.
-Whatever it was, I broke it, and this was not caught in code review.
-
-To fix it, I revert the change, and then tag release v1.15.1.
-Hopefully, I can also add a test to prevent that part of the API from being broken by mistake.
-
-Now I look at my change again.
-If I can add the same functionality in a non-breaking way - for example, make a new internal function for my use - then I would do so and tag v1.15.2 or v1.16.0 depending on what had to change.Bu
-If I cannot make an equivalent non-breaking change, then I would have to make the breaking change and tag v2.0.0.
-
-### Accidental support for an unsupported dependency
-
-Say you were updating PackageA to support a new version of a dependency, PackageB.
-For example, you want PackageA v1.1.0 to support PackageB v0.5 and to discontinue supporting v0.4.
-But say you forgot to remove the compatibility for v0.4, which now no longer works, but other downstream packages that only use v0.4 are now pulling in PackageA v1.1.0 and getting errors.
-
-Simply releasing a patch for PackageA (v1.1.1) that removes support for v0.4 won't work in this instance because downstream packages will continue to pull in v1.1.0.
-It might seem sufficient to just pin the downstream packages to use v1.0.0, but there may be a lot of them to fix, and you can't be certain you're aware of them all.
-It also does nothing to prevent new compatibility issues from arising in the future.
-
-To fix this, you should still release a patch of PackageA (v1.1.1) that removes support for v0.4 of PackageB, but you should then mark v1.1.0 of PackageA as broken in the registry.
-To do this, simply make a PR to the registry, adding `yanked = true` to the `Version.toml` file under the version causing issues (in this case v1.1.0).
-This marks the release as broken and prevents it from being used by any package from then on.
 
 ## Guidance on automatically enforcing guidelines
 
 Many of these guidelines can and should be enforced automatically.
 
 - **GitHub:** [Defining the mergeability of pull requests](https://help.github.com/en/github/administering-a-repository/defining-the-mergeability-of-pull-requests)
-- **Bitbucket:** [Suggest or require checks before a merge](https://support.atlassian.com/bitbucket-cloud/docs/suggest-or-require-checks-before-a-merge/)
-- **GitLab:** [Status checks that are required to allow a merge requested [WIP]](https://gitlab.com/gitlab-org/gitlab/-/issues/15930)
 
 
 ---
@@ -253,43 +193,6 @@ However, we consider changes to these things to be non-breaking from the perspec
     Changing the string representation often breaks downstream packages tests, because it is hard to write test-cases that depend only on meaning (though unit tests with mocking can be shielded from this kind of breaking).
 
 (This guidance on non-breaking changes is inspired by [https://www.tensorflow.org/guide/versions](https://www.tensorflow.org/guide/versions).)
-
-## Clarity on the Definition of Breaking in Macros
-
-Note that the definition of breaking on macros is slightly larger than changes to its public API. This is due to the natural difficulty of documenting all parsable behaviors of
-macros and the difficulty of developing deprecation paths for changes to macro syntax. Thus in order to improve stability of the ecosystem with respect to macro changes, a more
-conservative definition of breaking is taken such that any change which does not have a backwards compatible alternative is considered breaking.
-
-For example, if a macro had accidentally parsed `@myequation 2x + 2 +` the same as `@myequation 2x + 2`, it is not breaking to remove support for the trailing operator. If the
-trailing operator meant something which is not expressible in another way, and it is used in downstream packages, then it is considered a breaking change to remove this support.
-
-## Implicit Public API and Downstream Breakage
-
-* Packages should be using downstream testing on major downstream packages and use cases
-* If a downstream package test breaks, the break should be investigated as to whether the change should be classified as breaking breaking.
-* If many downstream packages break due to a change that is on the non-public API, a judgement call should be made as to whether the public API should be expanded to match the general user expectation.
-   * It is recommended to err on the side of conservative. If the functionality is not difficult to support, it should continue to be supported. Documentation and testing should be added immediately and it should be elevated to public API via the `public` keyword or `export`.
-   * If it was not an intended to be used in an outside manner, a deprecation or warning should be employed to warn developer of a coming future break, and the internal usage should be changed to use the `_` internal identifier. For example, if `MyPackage.f` is used, a new function `MyPackage._f` should be created, used intnerally, and a deprecation notice telling users to not rely on `MyPackage.f` should be added.
-
-# Appendix:
-
-## Marking a Repository as following ColPrac:
-As mentioned at the top, community repositories following ColPrac, should link to it in their `README.md`.
-One way to do that is with a GitHub badge.
-
-[![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor's%20Guide-blueviolet)](https://github.com/SciML/ColPrac)
-
-```markdown
-[![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor's%20Guide-blueviolet)](https://github.com/SciML/ColPrac)
-```
-
-Typically, ColPrac serves in places of a `CONTRIBUTING.md`, having all the common guidance that you would otherwise put there.
-If your package has its own `CONTRIBUTING.md`, then you should also link to ColPrac there, and indicate how the content of ColPrac relates to the `CONTRIBUTING.md`.
-For example, by stating:
-
-> We follow the [ColPrac guide for collaborative practices](https://github.com/SciML/ColPrac).
-> New contributors should make sure to read that guide.
-> Below are some additional practices we follow.
 
 ## Acknowledgements
 
