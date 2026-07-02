@@ -7,18 +7,23 @@
 </p>
 
 <p align="center">
+  <a href="https://doi.org/10.5281/zenodo.18788242"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg" alt="DOI"></a>
+</p>
+<p align="center">
   <a href="https://github.com/adrhill/asdex/actions/workflows/ci.yml"><img src="https://github.com/adrhill/asdex/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://codecov.io/gh/adrhill/asdex"><img src="https://codecov.io/gh/adrhill/asdex/graph/badge.svg" alt="codecov"></a>
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
   <a href="https://pypi.org/project/asdex/"><img src="https://img.shields.io/pypi/v/asdex" alt="PyPI"></a>
-  <a href="https://doi.org/10.5281/zenodo.18788242"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg" alt="DOI"></a>
+</p>
+<p align="center">
+  <a href="https://adrianhill.de/asdex/contributing/"><img src="https://img.shields.io/badge/guide-contributing-blueviolet" alt="Contributing"></a>
+  <a href="https://adrianhill.de/asdex/contributing/#ai-policy"><img src="https://img.shields.io/badge/policy-AI usage-blueviolet" alt="AI Policy"></a>
 </p>
 <p align="center">
   <a href="https://adrianhill.de/asdex/"><img src="https://img.shields.io/badge/docs-online-blue" alt="Docs"></a>
   <a href="https://adrianhill.de/asdex/dev/bench/"><img src="https://img.shields.io/badge/benchmarks-view-blue" alt="Benchmarks"></a>
   <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/news-changelog-yellow" alt="Changelog"></a>
-  <a href="https://adrianhill.de/asdex/contributing/"><img src="https://img.shields.io/badge/contributing-guide-blue" alt="Contributing"></a>
 </p>
-
 
 `asdex` (pronounced _Aztecs_) exploits sparsity structure to efficiently materialize Jacobians and Hessians.
 It implements a custom [Jaxpr](https://docs.jax.dev/en/latest/jaxpr.html) interpreter
@@ -107,12 +112,14 @@ Instead of 49 VJPs or 50 JVPs,
 - [Explanation](https://adrianhill.de/asdex/explanation/sparsity-detection/): how and why it works
 - [API Reference](https://adrianhill.de/asdex/reference/): full API documentation
 - [Contributing](https://adrianhill.de/asdex/contributing/): guidelines for collaborating on asdex
+- [AI Policy](https://adrianhill.de/asdex/contributing/#ai-policy): guidelines for LLM contributions
 
 ## Acknowledgements
 
 Adrian Hill gratefully acknowledges funding from the German Federal Ministry of Education and Research under the grant BIFOLD26B.
 
-This package is built with Claude Code based on previous work by [Adrian Hill](https://github.com/adrhill), [Guillaume Dalle](https://github.com/gdalle), and [Alexis Montoison](https://github.com/amontoison) in the [Julia programming language](https://julialang.org):
+This package is [built with Claude Code](https://adrianhill.de/asdex/contributing/#ai-policy),
+based on previous work by [Adrian Hill](https://github.com/adrhill), [Guillaume Dalle](https://github.com/gdalle), and [Alexis Montoison](https://github.com/amontoison) in the [Julia programming language](https://julialang.org):
 
 - [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025)
 - [_Sparser, Better, Faster, Stronger: Efficient Automatic Differentiation for Sparse Jacobians and Hessians_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)
