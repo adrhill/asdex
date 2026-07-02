@@ -10,31 +10,29 @@
       
       
       
-        <link rel="canonical" href="https://adrianhill.de/asdex/tutorials/getting-started/">
+        <link rel="canonical" href="https://adrianhill.de/asdex/contributing/">
       
       
-        <link rel="prev" href="../..">
+        <link rel="prev" href="../reference/data-structures/">
       
-      
-        <link rel="next" href="../../how-to/jacobians/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/bw.svg">
+      <link rel="icon" href="../assets/bw.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Getting Started - asdex</title>
+        <title>Contributing - asdex</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,15 +51,15 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+      <link rel="stylesheet" href="../assets/_markdown_exec_pyodide.css">
     
-      <link rel="stylesheet" href="../../assets/_markdown_exec_ansi.css">
+      <link rel="stylesheet" href="../assets/_markdown_exec_ansi.css">
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -86,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#getting-started" class="md-skip">
+        <a href="#contributors-guide-and-ai-policy" class="md-skip">
           Skip to content
         </a>
       
@@ -102,7 +100,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="asdex" class="md-header__button md-logo" aria-label="asdex" data-md-component="logo">
+    <a href=".." title="asdex" class="md-header__button md-logo" aria-label="asdex" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" data-name="Layer 2" viewBox="31 159 585 528" fill="currentColor">
@@ -146,7 +144,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Getting Started
+              Contributing
             
           </span>
         </div>
@@ -262,7 +260,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="asdex" class="md-nav__button md-logo" aria-label="asdex" data-md-component="logo">
+    <a href=".." title="asdex" class="md-nav__button md-logo" aria-label="asdex" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" data-name="Layer 2" viewBox="31 159 585 528" fill="currentColor">
@@ -368,7 +366,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -400,8 +398,6 @@
       
   
   
-    
-  
   
   
     
@@ -414,11 +410,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
           <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
@@ -439,7 +435,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -454,37 +450,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../tutorials/getting-started/" class="md-nav__link">
         
   
   
@@ -500,70 +469,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-problem" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The Problem
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sparse-jacobians" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sparse Jacobians
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sparse-hessians" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sparse Hessians
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next Steps
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -635,7 +540,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/jacobians/" class="md-nav__link">
+      <a href="../how-to/jacobians/" class="md-nav__link">
         
   
   
@@ -663,7 +568,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/hessians/" class="md-nav__link">
+      <a href="../how-to/hessians/" class="md-nav__link">
         
   
   
@@ -691,7 +596,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/verification/" class="md-nav__link">
+      <a href="../how-to/verification/" class="md-nav__link">
         
   
   
@@ -719,7 +624,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/visualization/" class="md-nav__link">
+      <a href="../how-to/visualization/" class="md-nav__link">
         
   
   
@@ -747,7 +652,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/brusselator/" class="md-nav__link">
+      <a href="../how-to/brusselator/" class="md-nav__link">
         
   
   
@@ -834,7 +739,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../explanation/asd/" class="md-nav__link">
+      <a href="../explanation/asd/" class="md-nav__link">
         
   
   
@@ -862,7 +767,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../explanation/global-sparsity/" class="md-nav__link">
+      <a href="../explanation/global-sparsity/" class="md-nav__link">
         
   
   
@@ -890,7 +795,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../explanation/sparsity-detection/" class="md-nav__link">
+      <a href="../explanation/sparsity-detection/" class="md-nav__link">
         
   
   
@@ -918,7 +823,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../explanation/coloring/" class="md-nav__link">
+      <a href="../explanation/coloring/" class="md-nav__link">
         
   
   
@@ -1005,7 +910,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/" class="md-nav__link">
+      <a href="../reference/" class="md-nav__link">
         
   
   
@@ -1033,7 +938,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/jacobian/" class="md-nav__link">
+      <a href="../reference/jacobian/" class="md-nav__link">
         
   
   
@@ -1061,7 +966,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/hessian/" class="md-nav__link">
+      <a href="../reference/hessian/" class="md-nav__link">
         
   
   
@@ -1089,7 +994,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/sparsity/" class="md-nav__link">
+      <a href="../reference/sparsity/" class="md-nav__link">
         
   
   
@@ -1117,7 +1022,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/coloring/" class="md-nav__link">
+      <a href="../reference/coloring/" class="md-nav__link">
         
   
   
@@ -1145,7 +1050,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/data-structures/" class="md-nav__link">
+      <a href="../reference/data-structures/" class="md-nav__link">
         
   
   
@@ -1177,10 +1082,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1196,6 +1128,292 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#community-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Community Standards
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing PRs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ai-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI Policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commit-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commit Messages
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reviewing-approving-and-merging-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reviewing, Approving, and Merging PRs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Releases
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#becoming-a-maintainer-gaining-merge-rights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Becoming a maintainer (gaining merge rights)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Development Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installing-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#git-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Git hooks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-guidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Further Guidance
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Further Guidance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#guidance-on-contributing-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guidance on contributing PRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#guidance-on-reviewing-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guidance on reviewing PRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#guidance-on-package-releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guidance on Package Releases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guidance on Package Releases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#incrementing-the-package-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incrementing the package version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#preparing-a-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preparing a release
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changing-dependency-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing dependency compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition-of-public-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition of Public API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Definition of Public API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changes-that-are-considered-breaking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changes that are considered breaking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changes-that-are-not-considered-breaking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changes that are not considered breaking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acknowledgements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acknowledgements
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1254,10 +1472,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-problem" class="md-nav__link">
+  <a href="#community-standards" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Problem
+        Community Standards
       
     </span>
   </a>
@@ -1265,10 +1483,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sparse-jacobians" class="md-nav__link">
+  <a href="#contributing-prs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Sparse Jacobians
+        Contributing PRs
       
     </span>
   </a>
@@ -1276,10 +1494,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sparse-hessians" class="md-nav__link">
+  <a href="#ai-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Sparse Hessians
+        AI Policy
       
     </span>
   </a>
@@ -1287,10 +1505,232 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
+  <a href="#commit-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Next Steps
+        Commit Messages
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reviewing-approving-and-merging-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reviewing, Approving, and Merging PRs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Releases
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#becoming-a-maintainer-gaining-merge-rights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Becoming a maintainer (gaining merge rights)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#development-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Development Setup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Development Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installing-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installing dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#git-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Git hooks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-guidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Further Guidance
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Further Guidance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#guidance-on-contributing-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guidance on contributing PRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#guidance-on-reviewing-prs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guidance on reviewing PRs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#guidance-on-package-releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guidance on Package Releases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guidance on Package Releases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#incrementing-the-package-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incrementing the package version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#preparing-a-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preparing a release
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changing-dependency-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing dependency compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition-of-public-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition of Public API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Definition of Public API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changes-that-are-considered-breaking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changes that are considered breaking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changes-that-are-not-considered-breaking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changes that are not considered breaking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acknowledgements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acknowledgements
       
     </span>
   </a>
@@ -1317,149 +1757,282 @@
   
 
 
-<h1 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">¶</a></h1>
-<p>This tutorial walks through the three stages of <a href="../../explanation/asd/">automatic sparse differentiation</a>:
-<strong><a href="../../explanation/sparsity-detection/">detection</a></strong>, <strong><a href="../../explanation/coloring/">coloring</a></strong>, and <strong>decompression</strong>.</p>
-<h2 id="the-problem">The Problem<a class="headerlink" href="#the-problem" title="Permanent link">¶</a></h2>
-<p>For a function <span class="arithmatex">\(f: \mathbb{R}^n \to \mathbb{R}^m\)</span>, computing the full Jacobian <span class="arithmatex">\(J \in \mathbb{R}^{m \times n}\)</span> requires <span class="arithmatex">\(n\)</span> forward-mode or <span class="arithmatex">\(m\)</span> reverse-mode AD passes.
-In practice, for example in scientific machine learning,
-many Jacobians are <em>sparse</em> (i.e., most entries are structurally zero, regardless of the input).</p>
-<p><code>asdex</code> exploits this sparsity in three steps:
-1. <strong>Detect</strong> the sparsity pattern by tracing the computation graph
-2. <strong>Color</strong> the pattern so that structurally orthogonal rows (or columns) share a color
-3. <strong>Decompress</strong> one AD pass per color into the sparse Jacobian or Hessian</p>
-<p>This reduces the computational cost from <span class="arithmatex">\(m\)</span> (or <span class="arithmatex">\(n\)</span>) AD passes to just the number of colors,
-yielding significant speedups on large sparse problems,
-especially when the cost of detection and coloring can be amortized over repeated evaluations.
-The same approach applies to sparse Hessians via forward-over-reverse AD.</p>
-<h2 id="sparse-jacobians">Sparse Jacobians<a class="headerlink" href="#sparse-jacobians" title="Permanent link">¶</a></h2>
-<p>Consider the squared differences function
-<span class="arithmatex">\(f(x)_i = (x_{i+1} - x_i)^2\)</span>,
-which has a banded Jacobian.
-Detect the sparsity pattern and color it in one step:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_coloring</span>
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>
-<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span>
-<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>
-<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
-<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>
-<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>ColoredPattern(49×50, nnz=98, sparsity=96.0%, JVP, 2 colors)
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>  2 JVPs (instead of 49 VJPs or 50 JVPs)
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>⎡⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎤   ⎡⡇⢸⎤
-<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>⎢⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>⎢⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>⎢⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⎥ → ⎢⡇⢸⎥
-<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-13" id="__codelineno-0-13" name="__codelineno-0-13"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⠀⠀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-14" id="__codelineno-0-14" name="__codelineno-0-14"></a>⎢⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⡀⎥   ⎢⡇⢸⎥
-<a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a>⎣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⎦   ⎣⠁⠈⎦
-</code></pre></div>
-<p>The print-out shows the original sparsity pattern (left) compressed into just two colors (right).
-<code>asdex</code> automatically ran multiple coloring algorithms,
-selected column coloring (2 JVPs) over row coloring (2 VJPs) since JVPs are cheaper,
-reducing the cost from 49 VJPs or 50 JVPs without coloring to just 2 JVPs.
-Note that on small problems, this doesn't directly translate into a speedup of factor 25x,
-as the decompression overhead dominates.</p>
-<div class="admonition info">
-<p class="admonition-title">Global Sparsity Patterns</p>
-<p>The detected pattern is a <a href="../../explanation/global-sparsity/">global sparsity pattern</a>:
-it depends only on the function's structure, not on any particular input.
-This means it may contain extra nonzeros compared to the sparsity at a specific point,
-but it is guaranteed to be correct everywhere and can therefore be reused.</p>
-<p>If you encounter overly conservative patterns,
-please <a href="https://github.com/adrhill/asdex/issues">open an issue</a>.
-These reports directly drive improvements
-and are one of the most impactful ways to contribute.</p>
-</div>
-<p>Now we can compute the sparse Jacobian using the coloring:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacobian_from_coloring</span>
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>
-<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jacobian_from_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">coloring</span><span class="p">))</span>
-<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</code></pre></div>
-<p>The result is a JAX
-<a href="https://docs.jax.dev/en/latest/jax.experimental.sparse.html">BCOO</a> sparse matrix.
-We can verify that <code>asdex</code> produces the same result as <code>jax.jacobian</code>:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>
-<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">J_asdex</span> <span class="o">=</span> <span class="n">J</span><span class="o">.</span><span class="n">todense</span><span class="p">()</span>
-<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="n">J_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">)(</span><span class="n">x</span><span class="p">)</span>
-<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>
-<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">J_asdex</span><span class="p">,</span> <span class="n">J_jax</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
-</code></pre></div>
-<p><code>asdex</code> also provides <a class="autorefs autorefs-internal" title="asdex.check_jacobian_correctness(f, x, coloring, *, method=_DEFAULT_VERIFY_METHOD, num_probes=_DEFAULT_NUM_PROBES, seed=_DEFAULT_SEED, rtol=_DEFAULT_TOL, atol=_DEFAULT_TOL)" href="../../reference/jacobian/#asdex.check_jacobian_correctness"><code>check_jacobian_correctness</code></a>
-as a convenience for this comparison, see <a href="../../how-to/verification/">Verifying Correctness</a>.</p>
-<p>On larger problems, the speedup from coloring becomes significant.
-Let's benchmark on a 5000-dimensional input
-(note that timings may vary as part of the doc-building process).
-This time, we use <a href="../../reference/#asdex.jacobian"><code>asdex.jacobian</code></a>, which calls <a href="../../reference/#asdex.jacobian_coloring"><code>jacobian_coloring</code></a> and <a href="../../reference/#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asdex</span>
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">timeit</span>
-<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>
-<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="n">n</span> <span class="o">=</span> <span class="mi">5000</span>
-<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a><span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>
-<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="n">jac_fn_asdex</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
-<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="n">jac_fn_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">))</span>
-<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>
-<a href="#__codelineno-0-11" id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="c1"># Warm up JIT caches</span>
-<a href="#__codelineno-0-12" id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="n">_</span> <span class="o">=</span> <span class="n">jac_fn_asdex</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a href="#__codelineno-0-13" id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="n">_</span> <span class="o">=</span> <span class="n">jac_fn_jax</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<a href="#__codelineno-0-14" id="__codelineno-0-14" name="__codelineno-0-14"></a>
-<a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="n">t_asdex</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">timeit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">jac_fn_asdex</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span>
-<a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="n">t_jax</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">timeit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">jac_fn_jax</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>asdex.jacobian:      2.14 ms
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>jax.jacobian:       13.31 ms
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>speedup:              6.2x
-</code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Precompute for Repeated Evaluations</p>
-<p>The coloring depends only on the function structure,
-not the input values.
-When computing Jacobians at many different inputs,
-precompute the coloring once and reuse it:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">x_sample</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>  <span class="c1"># sample input for sparsity detection</span>
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x_sample</span><span class="p">))</span>
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>
-<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
-<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>    <span class="n">J</span> <span class="o">=</span> <span class="n">jac_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</code></pre></div>
-</div>
-<h2 id="sparse-hessians">Sparse Hessians<a class="headerlink" href="#sparse-hessians" title="Permanent link">¶</a></h2>
-<p>For scalar-valued functions <span class="arithmatex">\(f: \mathbb{R}^n \to \mathbb{R}\)</span>,
-<code>asdex</code> can detect Hessian sparsity and compute sparse Hessians:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<a href="#__codelineno-1-2" id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">hessian</span>
-<a href="#__codelineno-1-3" id="__codelineno-1-3" name="__codelineno-1-3"></a>
-<a href="#__codelineno-1-4" id="__codelineno-1-4" name="__codelineno-1-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-<a href="#__codelineno-1-5" id="__codelineno-1-5" name="__codelineno-1-5"></a>    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-<a href="#__codelineno-1-6" id="__codelineno-1-6" name="__codelineno-1-6"></a>
-<a href="#__codelineno-1-7" id="__codelineno-1-7" name="__codelineno-1-7"></a><span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
-<a href="#__codelineno-1-8" id="__codelineno-1-8" name="__codelineno-1-8"></a><span class="n">hess_fn</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">hessian</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
-<a href="#__codelineno-1-9" id="__codelineno-1-9" name="__codelineno-1-9"></a>
-<a href="#__codelineno-1-10" id="__codelineno-1-10" name="__codelineno-1-10"></a><span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
-<a href="#__codelineno-1-11" id="__codelineno-1-11" name="__codelineno-1-11"></a>    <span class="n">H</span> <span class="o">=</span> <span class="n">hess_fn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</code></pre></div>
-<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">¶</a></h2>
+<h1 id="contributors-guide-and-ai-policy">Contributor's Guide and AI Policy<a class="headerlink" href="#contributors-guide-and-ai-policy" title="Permanent link">¶</a></h1>
+<p>This document describes the practices we follow when contributing to asdex.
+Making them explicit helps new contributors understand what is expected of them.
+They aim to make what can otherwise feel like a mysterious process clear to anyone opening their first issue or pull request (PR).</p>
+<h2 id="community-standards">Community Standards<a class="headerlink" href="#community-standards" title="Permanent link">¶</a></h2>
+<p>Interactions with people in the community must always follow the <a href="https://policies.python.org/python.org/code-of-conduct/">Python Community Code of Conduct</a>,
+including in pull requests, issues, and discussions.</p>
+<h2 id="contributing-prs">Contributing PRs<a class="headerlink" href="#contributing-prs" title="Permanent link">¶</a></h2>
 <ul>
-<li><a href="../../how-to/jacobians/">Computing Sparse Jacobians</a> — Guide on Jacobian computation</li>
-<li><a href="../../how-to/hessians/">Computing Sparse Hessians</a> — Guide on Hessian computation</li>
-<li><a href="../../explanation/sparsity-detection/">Sparsity Detection</a> — Explanation how sparsity patterns are detected</li>
-<li><a href="../../explanation/coloring/">Graph Coloring</a> — Explanation how coloring reduces cost</li>
+<li><a href="https://github.com/adrhill/asdex/issues">Open an issue</a> before starting work, and declare in it that you intend to contribute a fix.
+    We are very happy to help discuss how to tackle it.
+    Agreeing on a plan before implementing is less effort for both PR authors and reviewers,
+    and maintainers can point you to the files a change belongs in.</li>
+<li>A PR should affect as little code as possible.
+    Reviewing a couple of small PRs is faster than reviewing one large PR.</li>
+<li>PRs should match the existing code style present in the file.<ul>
+<li>Lint, format, and type checks are enforced by the git hooks from the <a href="#development-setup">Development Setup</a> below.</li>
+<li>Underscore-prefix any name that is not part of the public API.</li>
 </ul>
+</li>
+<li>PRs affecting the public API, including adding new features, must update the public documentation.</li>
+<li>Comments and docstrings should make the code accessible.</li>
+<li>PRs that change code must have appropriate tests.</li>
+<li>Changes to the code must be made via PR, not pushing to <code>main</code>.</li>
+</ul>
+<h2 id="ai-policy">AI Policy<a class="headerlink" href="#ai-policy" title="Permanent link">¶</a></h2>
+<p>asdex is written with assistance of LLM coding agents (colloquially referred to as AI),
+building on existing, hand-written, pre-AI code by the same authors.<sup id="fnref:prior-work"><a class="footnote-ref" href="#fn:prior-work">1</a></sup>
+This section describes how we use AI and how we expect contributors to use it.</p>
+<ul>
+<li>All asdex code is read and reviewed multiple times before it is merged.
+    Code changes are iterated over several times, as the commit history of most PRs shows.
+    <strong>We do not permit vibe-coding</strong>, by which we mean unreviewed code that its human author did not verify.</li>
+<li><strong>We welcome AI-written and vibe-coded bug reports</strong>. Do not shy away from using AI to file them, even if you are uncertain, as they are easy for us to verify.</li>
+<li><strong>We welcome AI-assisted PRs, but only under a few conditions</strong>:<ol>
+<li>You must first <a href="https://github.com/adrhill/asdex/issues">open an issue</a> and get a maintainer's approval.
+    We will generally say yes and are glad to help.
+    Issues allow us to scope the work so nobody ends up having to review thousands of lines at once.</li>
+<li>You must understand your own code, be able to walk us through it, and talk it over during the PR review.</li>
+<li>You are not allowed to use AI to write your answers in PR reviews (with the exception of spell-checking and translation).</li>
+</ol>
+</li>
+</ul>
+<p>Our reasoning is that we want to support (junior) developers and keep growing the open source community.
+We gladly invest the extra review effort when a human learns from it, but an AI takes nothing away from our feedback.
+If a contributor only forwards prompts between us and an AI, we can develop asdex faster by prompting and reviewing our own code.
+In that case, please open a feature request or bug report instead.</p>
+<h2 id="commit-messages">Commit Messages<a class="headerlink" href="#commit-messages" title="Permanent link">¶</a></h2>
+<p>Commit messages should follow the <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a> specification:</p>
+<ul>
+<li>Prefix each message with a type such as <code>feat:</code>, <code>fix:</code>, <code>docs:</code>, <code>refactor:</code>, or <code>test:</code>.</li>
+<li>For breaking changes, append <code>!</code> after the type, for example <code>feat!:</code>.
+    We define what we consider a breaking change <a href="#changes-that-are-considered-breaking">here</a>.
+    If you are uncertain, err on the conservative side and prefix a commit as breaking, then ask a maintainer for advice.</li>
+</ul>
+<h2 id="reviewing-approving-and-merging-prs">Reviewing, Approving, and Merging PRs<a class="headerlink" href="#reviewing-approving-and-merging-prs" title="Permanent link">¶</a></h2>
+<ul>
+<li>PRs should pass CI tests before being merged.</li>
+<li>PRs must have approval from someone who has merge rights.</li>
+</ul>
+<h2 id="releases">Releases<a class="headerlink" href="#releases" title="Permanent link">¶</a></h2>
+<ul>
+<li>A release should be made as soon as possible after a bugfix PR is merged.</li>
+<li>Care and consideration should be given as to when to make a breaking release.</li>
+<li>Unreleased changes accumulate in <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a>, and a release adds a matching changelog entry and bumps the <code>version</code> field in <a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a>.</li>
+<li>A maintainer cuts the release by tagging the release commit <code>vX.Y.Z</code> and publishing a GitHub release.</li>
+</ul>
+<h2 id="becoming-a-maintainer-gaining-merge-rights">Becoming a maintainer (gaining merge rights)<a class="headerlink" href="#becoming-a-maintainer-gaining-merge-rights" title="Permanent link">¶</a></h2>
+<ul>
+<li>Before becoming a maintainer, it is usual to:<ul>
+<li>contribute several PRs,</li>
+<li>review constructively and kindly several PRs,</li>
+<li>contribute meaningfully to several discussions on issues.</li>
+</ul>
+</li>
+<li>Maintainers are listed in the <code>maintainers</code> field of <a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a>. When someone is added as a maintainer, they should open a PR adding their name and contact there.</li>
+<li>You may ask to be added as a maintainer. It is not rude to ask.</li>
+</ul>
+<hr/>
+<h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Permanent link">¶</a></h2>
+<h3 id="installing-dependencies">Installing dependencies<a class="headerlink" href="#installing-dependencies" title="Permanent link">¶</a></h3>
+<p>asdex uses <a href="https://docs.astral.sh/uv/">uv</a> to manage its environment and dependencies.</p>
+<p>First, install uv by following the <a href="https://docs.astral.sh/uv/getting-started/installation/">official instructions</a>,
+for example with the standalone installer:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+</code></pre></div>
+<p>Then install the development dependencies.
+<code>uv sync</code> creates a virtual environment and installs asdex together with the <code>dev</code> dependency group:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a>uv<span class="w"> </span>sync
+</code></pre></div>
+<h3 id="git-hooks">Git hooks<a class="headerlink" href="#git-hooks" title="Permanent link">¶</a></h3>
+<p>Pre-commit hooks are checks that run automatically on your staged files each time you create a commit,
+stopping the commit if any of them fail.
+asdex uses <a href="https://prek.j178.dev/">prek</a> to run its lint, format, and type-check hooks,
+configured in <a href="https://github.com/adrhill/asdex/blob/main/.pre-commit-config.yaml"><code>.pre-commit-config.yaml</code></a>.
+<code>prek</code> is a drop-in reimplementation of <code>pre-commit</code> and ships with the <code>dev</code> group.
+Install the hooks once so they run automatically on each commit:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>prek<span class="w"> </span>install
+</code></pre></div>
+<p>Once installed, the hooks run on every commit without any further action.
+To manually check the entire repository at once instead of only the staged files, run <code>uv run prek run --all-files</code>.</p>
+<h3 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">¶</a></h3>
+<p>Run the test suite with pytest:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-3-1" id="__codelineno-3-1" name="__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w">                          </span><span class="c1"># the whole suite</span>
+<a href="#__codelineno-3-2" id="__codelineno-3-2" name="__codelineno-3-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/test_coloring.py<span class="w">   </span><span class="c1"># a single file</span>
+</code></pre></div>
+<p>By default the suite skips the <code>slow</code>, <code>benchmark</code>, and <code>cutest</code> tests, which only run in CI.
+Pass <code>-m</code> with a marker to run a subset:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-4-1" id="__codelineno-4-1" name="__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span>jacobian<span class="w">      </span><span class="c1"># only sparse Jacobian tests</span>
+<a href="#__codelineno-4-2" id="__codelineno-4-2" name="__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">"not slow"</span><span class="w">    </span><span class="c1"># skip slow tests</span>
+</code></pre></div>
+<p>The default selection and the full list of markers are defined in the <code>[tool.pytest.ini_options]</code> table of
+<a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a>,
+and the markers are registered in
+<a href="https://github.com/adrhill/asdex/blob/main/tests/conftest.py"><code>tests/conftest.py</code></a>.</p>
+<hr/>
+<h2 id="further-guidance">Further Guidance<a class="headerlink" href="#further-guidance" title="Permanent link">¶</a></h2>
+<h3 id="guidance-on-contributing-prs">Guidance on contributing PRs<a class="headerlink" href="#guidance-on-contributing-prs" title="Permanent link">¶</a></h3>
+<ul>
+<li>You should usually open an issue about a bug or possible improvement before opening a PR with a solution.</li>
+<li>PRs should do a single thing, so that they are easier to review.<ul>
+<li>For example, fix one bug, or update compatibility, rather than fixing a bunch of bugs, and updating compatibility, and adding a new feature.</li>
+</ul>
+</li>
+<li>PRs should add tests which cover the new or fixed functionality.</li>
+<li>PRs that move code should not also change code, so that they are easier to review.<ul>
+<li>If only moving code, review for correctness is not required.</li>
+<li>If only changing code, then the diff makes it clear what lines have changed.</li>
+</ul>
+</li>
+<li>PRs with large improvements to style should not also change functionality.<ul>
+<li>This is to avoid making large diffs that are not the focus of the PR.</li>
+<li>While it is often helpful to fix a few typos in comments on the way past, it is different from using a regex or formatter on the whole project to fix spacing around operators.</li>
+</ul>
+</li>
+<li>PRs introducing breaking changes should make this clear when opening the PR.</li>
+<li>You should not push commits with commented-out tests.<ul>
+<li>If pushing a commit for which a test is expected to fail, mark it with <code>@pytest.mark.xfail</code>.</li>
+<li>Commenting out tests while developing locally is okay, but committing a commented-out test increases the risk of it silently not being run when it should be.</li>
+</ul>
+</li>
+<li>You should not squash down commits while review is still ongoing.<ul>
+<li>Squashing commits prevents the reviewer from seeing what commits have been added since the last review.</li>
+</ul>
+</li>
+<li>You should help <strong>review</strong> your PRs, even though you cannot <strong>approve</strong> your own PRs.<ul>
+<li>For instance, start the review process by commenting on why certain bits of the code changed, or highlighting places where you would particularly like reviewer feedback.</li>
+</ul>
+</li>
+</ul>
+<h3 id="guidance-on-reviewing-prs">Guidance on reviewing PRs<a class="headerlink" href="#guidance-on-reviewing-prs" title="Permanent link">¶</a></h3>
+<ul>
+<li>Review comments should be phrased as questions, as it shows you are open to new ideas.<ul>
+<li>For instance, “Why did you change this to X? Doesn’t that prevent Y?” rather than “You should not have changed this, it will prevent Y”.</li>
+</ul>
+</li>
+<li>Small review suggestions, such as typo fixes, should make use of the <code>suggested change</code> feature.<ul>
+<li>This makes it easier and more likely for all the smaller changes to be made.</li>
+</ul>
+</li>
+<li>Reviewers should continue acting as reviewers until the PR is merged.</li>
+</ul>
+<h3 id="guidance-on-package-releases">Guidance on Package Releases<a class="headerlink" href="#guidance-on-package-releases" title="Permanent link">¶</a></h3>
+<h4 id="incrementing-the-package-version">Incrementing the package version<a class="headerlink" href="#incrementing-the-package-version" title="Permanent link">¶</a></h4>
+<ul>
+<li>Follow <a href="https://semver.org">Semantic Versioning 2.0</a>.
+    The version lives in the <code>version</code> field of <a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a>.</li>
+<li>The highest bump implied by the commits since the last release wins.
+    Map the <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commit</a> type of each commit to a bump:<ul>
+<li>From 1.0.0 onwards: a breaking change (<code>!</code>) bumps MAJOR, <code>feat:</code> bumps MINOR, and <code>fix:</code> bumps PATCH.</li>
+<li>While the version has a leading <code>0</code>, the public API is not stable, so the bump levels shift down: a breaking change bumps MINOR, and everything else bumps PATCH.</li>
+</ul>
+</li>
+<li>Introducing deprecations is not breaking, but removing deprecations is breaking.</li>
+<li>Breaking releases have a cost, since downstream users must adapt their code, so there should be a clear benefit before making one.</li>
+</ul>
+<h4 id="preparing-a-release">Preparing a release<a class="headerlink" href="#preparing-a-release" title="Permanent link">¶</a></h4>
+<p>Unreleased changes accumulate in <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a>.
+Between releases, the <code>version</code> field in <a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a> may carry a <code>-DEV</code> suffix
+(for example <code>0.5.1-DEV</code>) to signal that the checkout is ahead of the last tagged release.
+This is encouraged but not strictly enforced, and cutting a release drops the suffix so that the <code>version</code> field names the release exactly.</p>
+<div class="admonition tip">
+<p class="admonition-title">Automated releases</p>
+<p>Maintainers with access to <a href="https://claude.com/claude-code">Claude Code</a> can run the <a href="https://github.com/adrhill/asdex/blob/main/.claude/skills/make-release/SKILL.md"><code>/make-release</code></a> skill,
+which walks through every step below (changelog entry, version bump, tag, and GitHub release).</p>
+</div>
+<p>A maintainer prepares a release as follows:</p>
+<ul>
+<li>Determine the new version from the commits since the last tag, following the bump rules above.</li>
+<li>Add a <code>## Version `vX.Y.Z`</code> section to <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a>, ordering entries by badge type (breaking, feature, enhancement, bugfix, maintenance, docs) and linking each entry to its PR.</li>
+<li>Bump the <code>version</code> field in <a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a> to the new version.</li>
+<li>Commit <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a> and <a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a> together, tag the commit <code>vX.Y.Z</code>, and push the tag.</li>
+<li>Publish a GitHub release for the tag, including the changelog entries and any issues closed since the previous release.</li>
+</ul>
+<h4 id="changing-dependency-compatibility">Changing dependency compatibility<a class="headerlink" href="#changing-dependency-compatibility" title="Permanent link">¶</a></h4>
+<ul>
+<li>Generally, changing dependency compatibility should be a non-breaking feature.<ul>
+<li>i.e. pre-1.0, change the patch version number; post-1.0, change the minor version number.</li>
+<li>For instance, adding or removing compatibility with a particular <strong>version</strong> of a current dependency, which may or may not require internal code changes.</li>
+<li>This also applies when adding or removing packages as dependencies.</li>
+<li>The new feature in question is the ability to use with a different set of packages.</li>
+</ul>
+</li>
+<li>Changing a dependency to resolve a bug is a bug-fix.<ul>
+<li>i.e. pre/post-1.0 change patch version number.</li>
+</ul>
+</li>
+<li>Changing compatibility with dependencies <strong>may</strong> be a breaking release, if it breaks the user-facing interface.
+    That is to say, if the dependency’s API leaks into your API.
+    There are three ways that this can happen:<ul>
+<li>Reexporting a function that has changed.</li>
+<li>Returning an object of a type whose behavior has changed.</li>
+<li>Subclassing an object that has changed.</li>
+</ul>
+</li>
+</ul>
+<hr/>
+<h2 id="definition-of-public-api">Definition of Public API<a class="headerlink" href="#definition-of-public-api" title="Permanent link">¶</a></h2>
+<p>The public API consists of the names re-exported from the top-level <code>asdex</code> module,
+that is, the names listed in <a href="https://github.com/adrhill/asdex/blob/main/src/asdex/__init__.py"><code>asdex.__all__</code></a> and reachable as <code>asdex.&lt;name&gt;</code>.
+These are the only names covered by the compatibility guarantees below,
+and they should always be imported from the main module, for example <code>from asdex import jacobian</code>.</p>
+<p>Everything else is internal and may change at any point without notice:</p>
+<ul>
+<li>Any module, function, class, or attribute whose name is prefixed with an underscore,
+    such as <code>asdex._pattern</code> or <code>asdex._arguments</code>.</li>
+<li>The internal file and module layout under <a href="https://github.com/adrhill/asdex/tree/main/src/asdex"><code>src/asdex/</code></a>.
+    Import paths such as <code>asdex.coloring</code>, <code>asdex.detection</code>, and <code>asdex.decompression</code> are implementation details,
+    even when they expose names that are themselves part of the public API.
+    Import those names from <code>asdex</code> directly instead.</li>
+</ul>
+<p>Do not rely on underscored names or internal file paths.
+If something you need is not reachable from the top-level <code>asdex</code> module, please open an issue.</p>
+<h3 id="changes-that-are-considered-breaking">Changes that are considered breaking<a class="headerlink" href="#changes-that-are-considered-breaking" title="Permanent link">¶</a></h3>
+<ul>
+<li>Breaking changes are changes which break functionality in the public API, as defined above.</li>
+<li>Removing or renaming a public name, or changing the signature or documented behavior of a public function, is breaking.</li>
+<li>Changes which break a documentation example or tutorial are breaking.</li>
+</ul>
+<h3 id="changes-that-are-not-considered-breaking">Changes that are not considered breaking<a class="headerlink" href="#changes-that-are-not-considered-breaking" title="Permanent link">¶</a></h3>
+<p>Everything on this list can, in theory, break users' code. See <a href="https://xkcd.com/1172/">XKCD#1172</a>.
+However, we consider changes to these things to be non-breaking from the perspective of package versioning.</p>
+<ul>
+<li><strong>Bugs:</strong> We may make backwards incompatible behavior changes if the current implementation is clearly broken, that is, if it contradicts the documentation or if a well-understood behavior is not properly implemented due to a bug.</li>
+<li><strong>Internal changes:</strong> Non-public API may be changed or removed.</li>
+<li><strong>Exception behavior:</strong><ul>
+<li>Exceptions may be replaced with non-error behavior. For instance, we may change a function to compute a result instead of raising an exception, even if that error is documented.</li>
+<li>Error message text may change.</li>
+<li>Exception types may change unless the exception type for a specific error condition is specified in the documentation.</li>
+</ul>
+</li>
+<li><strong>Floating-point numerical details:</strong> The specific floating-point values may change at any time.
+    Users should rely only on approximate accuracy, numerical stability, or statistical properties, not on the specific bits computed.</li>
+<li><strong>New public names</strong>: Adding a new name to the public API is never considered breaking.
+    However, one should consider carefully before adding a commonly used name that might clash with an existing one.</li>
+<li><strong>New base classes and broader types</strong>:<ul>
+<li>A new base class may be added to an existing public class, as long as its documented behavior is preserved.</li>
+<li>A concrete return type may be replaced by a more general type that still supports every documented use of the original.</li>
+</ul>
+</li>
+<li><strong>Changes to the string representation:</strong> The output of <code>str</code> or <code>repr</code> on an object may change at any time.
+    Users should not depend on the exact text, but rather on the meaning of the text.
+    Changing the string representation often breaks downstream tests, because it is hard to write test cases that depend only on meaning.</li>
+</ul>
+<p>(This guidance on non-breaking changes is inspired by <a href="https://www.tensorflow.org/guide/versions">https://www.tensorflow.org/guide/versions</a>.)</p>
+<hr/>
+<h2 id="acknowledgements">Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permanent link">¶</a></h2>
+<p>These contribution guidelines have been adapted from the <a href="https://github.com/SciML/ColPrac">SciML ColPrac</a> guidelines.</p>
+<div class="footnote">
+<hr/>
+<ol>
+<li id="fn:prior-work">
+<p><a href="https://github.com/adrhill/SparseConnectivityTracer.jl">SparseConnectivityTracer.jl</a>, <a href="https://github.com/gdalle/SparseMatrixColorings.jl">SparseMatrixColorings.jl</a>, and <a href="https://github.com/JuliaDiff/DifferentiationInterface.jl">DifferentiationInterface.jl</a>. <a class="footnote-backref" href="#fnref:prior-work" title="Jump back to footnote 1 in the text">↩</a></p>
+</li>
+</ol>
+</div>
 
 
 
@@ -1515,14 +2088,14 @@ precompute the coloring once and reuse it:</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+        <script src="../assets/_markdown_exec_pyodide.js"></script>
       
-        <script src="../../javascripts/mathjax.js"></script>
+        <script src="../javascripts/mathjax.js"></script>
       
         <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
