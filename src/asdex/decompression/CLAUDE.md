@@ -79,10 +79,8 @@ before the `PROMISE_IN_BOUNDS` gather that would otherwise read out of bounds ra
 - **Decompress consumers** — `decompress` and `decompress_data`:
   turn a caller-supplied `B` into a 2-D sparse matrix or the flat `(nnz,)` data vector in pattern order.
 
-The one-shot, `*_from_coloring`, and decompress functions share their argument docs
-through the `@_fill_doc` fragments in `src/asdex/_docstrings.py`.
-The `compressed_*` functions deliberately cross-reference their non-compressed sibling for shared arguments instead,
-so `B`'s layout is documented in exactly one place.
+Every public function shares its argument docs through the `@_fill_doc` fragments in `src/asdex/_docstrings.py`,
+so each docstring documents its own arguments and stands on its own.
 
 ## The per-closure call cache
 
@@ -116,4 +114,3 @@ or aux that may hold non-JAX types which cannot be jit outputs.
 
 Use **semantic line breaks**: one sentence or clause per line, in docstrings, comments, and this file.
 Focus comments on **why**, not what.
-</content>

@@ -54,6 +54,18 @@ Reference pages use mkdocstrings autodoc syntax:
 This pulls the docstring from the source code.
 Keep docstrings in Google style.
 
+### Shared Docstring Fragments
+
+Public docstrings use `{placeholder}` tokens
+(argument descriptions shared across the API, see `src/asdex/_docstrings.py`).
+The runtime `@_fill_doc` decorator interpolates them when `asdex` is imported,
+but mkdocstrings reads docstrings *statically* off the AST and never imports the code,
+so it would render the raw tokens.
+`_griffe_extensions.py` (registered under the mkdocstrings handler in `mkdocs.yml`)
+re-runs the same substitution at build time so the docs render fully.
+A `--strict` build fails loudly if the extension cannot load,
+and `tests/test_docstrings.py` asserts no token survives the static load.
+
 ### Admonitions
 
 Use admonitions for callouts:

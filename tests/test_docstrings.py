@@ -6,6 +6,9 @@ unregistered token fails loudly (naming the function) instead of silently
 corrupting the rendered docstring.
 """
 
+import importlib.util
+from pathlib import Path
+
 import pytest
 
 import asdex
@@ -69,3 +72,42 @@ def test_public_api_docstrings_have_no_unrendered_fragment_tokens():
         if present:
             offenders[name] = present
     assert not offenders, f"Unrendered fragment tokens: {offenders}"
+
+
+def test_griffe_extension_renders_fragments_for_static_docs():
+    """The docs griffe extension resolves every fragment in a static load.
+
+    ``_fill_doc`` runs at import time, but mkdocstrings reads docstrings
+    statically off the AST and never imports the code, so it needs
+    ``docs/_griffe_extensions.py`` to re-run the same substitution at build time.
+    This reproduces that static load with the real extension and asserts no
+    public docstring still carries a registered ``{placeholder}`` token, which is
+    the exact failure that rendered raw ``{f_jac}`` / ``{jit}`` on the docs site.
+    The runtime test above cannot catch it: it only sees the interpolated
+    ``__doc__``, not what griffe reads from source.
+    """
+    griffe = pytest.importorskip("griffe")
+
+    repo_root = Path(__file__).resolve().parents[1]
+    ext_path = repo_root / "docs" / "_griffe_extensions.py"
+    spec = importlib.util.spec_from_file_location("_asdex_griffe_ext", ext_path)
+    assert spec is not None
+    assert spec.loader is not None
+    ext_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ext_module)
+
+    loader = griffe.GriffeLoader(
+        search_paths=[str(repo_root / "src")],
+        extensions=griffe.load_extensions(ext_module.FillDocstrings()),
+    )
+    mod = loader.load("asdex")
+
+    tokens = [f"{{{key}}}" for key in _FRAGMENTS]
+    offenders = {}
+    for name in asdex.__all__:
+        obj = mod[name]
+        doc = (obj.docstring.value if obj.docstring is not None else "") or ""
+        present = [t for t in tokens if t in doc]
+        if present:
+            offenders[name] = present
+    assert not offenders, f"Unrendered fragment tokens in static docs: {offenders}"

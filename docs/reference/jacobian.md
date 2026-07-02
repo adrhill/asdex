@@ -3,15 +3,15 @@
 ## Jacobian Computation
 
 ::: asdex.jacobian
-::: asdex.value_and_jacobian
 ::: asdex.jacobian_from_coloring
+::: asdex.value_and_jacobian
 ::: asdex.value_and_jacobian_from_coloring
 
 ## Compressed Jacobian
 
 ::: asdex.compressed_jacobian
-::: asdex.value_and_compressed_jacobian
 ::: asdex.compressed_jacobian_from_coloring
+::: asdex.value_and_compressed_jacobian
 ::: asdex.value_and_compressed_jacobian_from_coloring
 
 ## Decompression

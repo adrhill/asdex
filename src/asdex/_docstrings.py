@@ -20,6 +20,13 @@ continuation lines sit at 0 spaces for the top-level ``{jit}`` note
 and 8 for the ``Args:`` descriptions.
 ``_fill_doc`` runs ``inspect.cleandoc`` first so placeholders land at those columns
 regardless of the per-version docstring dedenting (which changed in 3.13).
+
+The same substitution runs a second time at documentation build time.
+mkdocstrings reads docstrings statically off the AST and never executes ``_fill_doc``,
+so the griffe extension in ``docs/_griffe_extensions.py`` re-applies
+``_interpolate_fragments`` to the raw ``{placeholder}`` tokens.
+That extension reuses this module as its single source of truth,
+so any change to the interpolation mechanism here must keep it working.
 """
 
 from __future__ import annotations
@@ -300,6 +307,35 @@ _FRAGMENTS: dict[str, str] = {
 _PLACEHOLDER = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
 
 
+def _interpolate_fragments(doc: str, *, where: str) -> str:
+    """Substitute the registered ``{placeholder}`` fragments in ``doc``.
+
+    ``doc`` must already be cleaned (dedented) so each fragment lands at its
+    canonical column.
+    Only registered placeholders are substituted,
+    so ordinary braces in a docstring pass through untouched.
+    An unregistered one raises ``KeyError``, naming ``where`` so the typo is
+    caught immediately.
+    This is the single substitution used by both consumers of the fragments:
+    the runtime ``_fill_doc`` decorator below,
+    and the griffe extension in ``docs/_griffe_extensions.py`` that fixes the
+    statically-rendered docs
+    (mkdocstrings never runs ``_fill_doc``, so it needs the same pass at build time).
+    """
+
+    def replace(match: re.Match[str]) -> str:
+        key = match.group(1)
+        try:
+            return _FRAGMENTS[key]
+        except KeyError:
+            raise KeyError(
+                f"Unknown docstring placeholder '{{{key}}}' in {where}. "
+                f"Known fragments: {sorted(_FRAGMENTS)}."
+            ) from None
+
+    return _PLACEHOLDER.sub(replace, doc)
+
+
 def _fill_doc(fn: _F) -> _F:
     """Interpolate the shared docstring fragments into ``fn.__doc__``.
 
@@ -315,17 +351,7 @@ def _fill_doc(fn: _F) -> _F:
     """
     if fn.__doc__ is None:
         return fn
-
-    def replace(match: re.Match[str]) -> str:
-        key = match.group(1)
-        try:
-            return _FRAGMENTS[key]
-        except KeyError:
-            raise KeyError(
-                f"Unknown docstring placeholder '{{{key}}}' in "
-                f"{getattr(fn, '__qualname__', fn)}. "
-                f"Known fragments: {sorted(_FRAGMENTS)}."
-            ) from None
-
-    fn.__doc__ = _PLACEHOLDER.sub(replace, inspect.cleandoc(fn.__doc__))
+    fn.__doc__ = _interpolate_fragments(
+        inspect.cleandoc(fn.__doc__), where=getattr(fn, "__qualname__", str(fn))
+    )
     return fn

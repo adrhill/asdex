@@ -457,7 +457,7 @@ To access the raw compressed matrix \(B\) rather than the assembled sparse Hessi
 use [`compressed_hessian`](../reference/index.md#asdex.compressed_hessian) and
 [`compressed_hessian_from_coloring`](../reference/index.md#asdex.compressed_hessian_from_coloring).
 They run the same detect-and-color steps as [`hessian`](../reference/index.md#asdex.hessian),
-but stop at \(B\), the dense matrix of one HVP per color of shape \((\text{num\_colors}, n)\),
+but stop at \(B\), the dense matrix of one HVP per color of shape `(num_colors, n)`,
 where \(n\) is the input size.
 
 ```python exec="true" session="hess-compress" source="above"
