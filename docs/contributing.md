@@ -28,6 +28,22 @@ including in pull requests, issues, and discussions.
 * PRs that change code must have appropriate tests.
 * Changes to the code must be made via PR, not pushing to `main`.
 
+## AI Policy
+
+<!-- TODO: elaborate on bullet points. -->
+- asdex is largely written with AI assitence, but based on existing hand-written code by the same authors (see Readme)
+- all of asdex code has been reviewed. As will be visible in most PRs, commits and code changes are iterated over multiple times
+- asdex does not permit "vibe-coding" in the sense of unreviewed and non-understood code
+- we **always accept AI-written bug reports** and feature requests and are very thankful for them. Don't shy away from using AI for bug reports
+- the maintainers welcome external AI-written PRs, but only under several conditions:
+  - the PR author has first gotten the maintainers approval by [Opening an issue](https://github.com/adrhill/asdex/issues) -- we'll generally accept these, and just want to help you out, so don't be shy. This also helps us to structure your PRs so we don't end up with multiple thousands of lines of code changes to review!
+  - the author has read and understands their own code, and is able to answer our questions in the PR review
+  - we _DON'T_ allow the use of AI to write answers in the PR review
+- Our reasoning is that:
+  - we want to continue growing the open source community and help (junior) developers. It's how we learned and we want to give back.
+  - however, if a contributor is just a middle-man forwarding prompts between us maintainers and an AI, our development is faster when we skip said middle man. We might as well prompt ourselves.
+  - In this case, just open a feature request or bug report, we are very thankful for them!
+
 ## Commit Messages
 
 * Commit messages should follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.
