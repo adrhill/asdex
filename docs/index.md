@@ -1,9 +1,15 @@
 # asdex
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg)](https://doi.org/10.5281/zenodo.18788242)
+
 [![CI](https://github.com/adrhill/asdex/actions/workflows/ci.yml/badge.svg)](https://github.com/adrhill/asdex/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/adrhill/asdex/graph/badge.svg)](https://codecov.io/gh/adrhill/asdex)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![PyPI](https://img.shields.io/pypi/v/asdex)](https://pypi.org/project/asdex/)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg)](https://doi.org/10.5281/zenodo.18788242)
+
+[![Contributing](https://img.shields.io/badge/guide-contributing-blueviolet)](contributing.md)
+[![AI Policy](https://img.shields.io/badge/policy-AI%20usage-blueviolet)](contributing.md#ai-policy)
+
 [![Benchmarks](https://img.shields.io/badge/benchmarks-view-blue)](https://adrianhill.de/asdex/dev/bench/)
 [![Changelog](https://img.shields.io/badge/news-changelog-yellow)](https://github.com/adrhill/asdex/blob/main/CHANGELOG.md)
 
@@ -80,12 +86,14 @@ Instead of 999 VJPs or 1000 JVPs,
 - [How-To Guides](how-to/jacobians.md) — task-oriented recipes
 - [Explanation](explanation/asd.md) — how and why it works
 - [API Reference](reference/jacobian.md) — full API documentation
+- [Contributing](contributing.md) — guidelines for collaborating on asdex
+- [AI Policy](contributing.md#ai-policy) — guidelines for LLM contributions
 
 ## Acknowledgements
 
 Adrian Hill gratefully acknowledges funding from the German Federal Ministry of Education and Research under the grant BIFOLD26B.
 
-This package is built with Claude Code based on previous work by [Adrian Hill](https://github.com/adrhill), [Guillaume Dalle](https://github.com/gdalle), and [Alexis Montoison](https://github.com/amontoison) in the [Julia programming language](https://julialang.org):
+This package is [built with Claude Code](contributing.md#ai-policy), based on previous work by [Adrian Hill](https://github.com/adrhill), [Guillaume Dalle](https://github.com/gdalle), and [Alexis Montoison](https://github.com/amontoison) in the [Julia programming language](https://julialang.org):
 
 - [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025)
 - [_Sparser, Better, Faster, Stronger: Efficient Automatic Differentiation for Sparse Jacobians and Hessians_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)

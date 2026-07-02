@@ -65,6 +65,7 @@ exclude_docs: |
 
 markdown_extensions:
   - admonition
+  - footnotes
   - pymdownx.details
   - pymdownx.superfences:
       custom_fences:

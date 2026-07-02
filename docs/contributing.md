@@ -20,41 +20,43 @@ including in pull requests, issues, and discussions.
     Reviewing couple of small PRs is faster than reviewing one large PR.
 * PRs should match the existing code style present in the file.
     * Lint, format, and type checks are enforced by the git hooks from the [Development Setup](#development-setup) below.
-    * Favor `match` statements over long if-else chains.
-    * Use semantic line breaks in prose, with one sentence or clause per line.
     * Underscore-prefix any name that is not part of the public API.
 * PRs affecting the public API, including adding new features, must update the public documentation.
-* Comments and (possibly internal) docstrings should make the code accessible.
+* Comments and docstrings should make the code accessible.
 * PRs that change code must have appropriate tests.
 * Changes to the code must be made via PR, not pushing to `main`.
 
 ## AI Policy
 
-asdex is largely written with assistance of LLM coding agents (colloquially referred to as AI),
-building on existing, hand-written, pre-AI code by the same authors ([SparseConnectivityTracer.jl](https://github.com/adrhill/SparseConnectivityTracer.jl), [SparseMatrixColorings.jl](https://github.com/gdalle/SparseMatrixColorings.jl), and [DifferentiationInterface.jl](https://github.com/JuliaDiff/DifferentiationInterface.jl)).
+asdex is written with assistance of LLM coding agents (colloquially referred to as AI),
+building on existing, hand-written, pre-AI code by the same authors.[^prior-work]
 This section describes how we use AI and how we expect contributors use it.
 
-* All asdex code is reviewed and understood before it is merged.
-    Commits and code changes are iterated over several times, as the commit history of most PRs shows.
-    We do not permit "vibe-coding", by which we mean unreviewed code that its human author did not verify.
-* We **always accept AI-written bug reports and feature requests** and are very thankful for them, so do not shy away from using AI to file them.
-* We **welcome external AI-assisted PRs, but only under a few conditions**:
+[^prior-work]: [SparseConnectivityTracer.jl](https://github.com/adrhill/SparseConnectivityTracer.jl), [SparseMatrixColorings.jl](https://github.com/gdalle/SparseMatrixColorings.jl), and [DifferentiationInterface.jl](https://github.com/JuliaDiff/DifferentiationInterface.jl).
+
+* All asdex code is read and reviewed multiple times before it is merged.
+    Code changes are iterated over several times, as the commit history of most PRs shows.
+    **We do not permit vibe-coding**, by which we mean unreviewed code that its human author did not verify.
+* **We welcome AI-written and vibe-coded bug reports**. Do not shy away from using AI to file them, even if you are uncertain, as they are easy for us to verify.
+* **We welcome AI-assisted PRs, but only under a few conditions**:
     1. You must first [open an issue](https://github.com/adrhill/asdex/issues) and get a maintainer's approval.
-        We will generally say yes and are glad to help, and it lets us scope the work so nobody ends up reviewing thousands of lines at once.
+        We will generally say yes and are glad to help.
+        Issues allow us to scope the work so nobody ends up having to review thousands of lines at once.
     2. You must understand you own code, be able to walk us through it, and talk it over during the PR review.
     3. You are not allowed to use AI to write your answers in PR reviews (with the exception of spell-checking and translation).
 
-Our reasoning is that we want to keep growing the open source community and support (junior) developers, the way we were supported when we learned.
-We gladly invest the extra review effort when a human developer learns from it, but an AI takes nothing away from our feedback.
-If a contributor only forwards prompts between us and an AI, we can develop faster by prompting it ourselves.
-In that case, please open a feature request or bug report instead, which we are always thankful for.
+Our reasoning is that we want to support (junior) developers and keep growing the open source community.
+We gladly invest the extra review effort when a human learns from it, but an AI takes nothing away from our feedback.
+If a contributor only forwards prompts between us and an AI, we can develop asdex faster by prompting and reviewing our own code.
+In that case, please open a feature request or bug report instead.
 
 ## Commit Messages
 
-* Commit messages should follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.
+Commit messages should follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification:
+
 * Prefix each message with a type such as `feat:`, `fix:`, `docs:`, `refactor:`, or `test:`.
 * For breaking changes, append `!` after the type, for example `feat!:`.
-    We define what we consider a breaking change below.
+    We define what we consider a breaking change [here](#changes-that-are-considered-breaking).
     If you are uncertain, err on the conservative side and prefix a commit as breaking, then ask a maintainer for advice.
 
 ## Reviewing, Approving, and Merging PRs
