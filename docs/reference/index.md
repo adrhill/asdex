@@ -48,6 +48,7 @@
 
 ::: asdex.JacobianMode
 ::: asdex.HessianMode
+::: asdex.ColoringMode
 ::: asdex.VerificationError
 
 ## Compressed Differentiation

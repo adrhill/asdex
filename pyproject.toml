@@ -5,6 +5,7 @@ description = "Automatic Sparse Differentiation in JAX"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Adrian Hill", email = "gh@adrianhill.de" },
 ]
@@ -27,7 +28,6 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -35,6 +35,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Mathematics",
+    "Typing :: Typed",
 ]
 dependencies = [
     "jax>=0.9.0",
@@ -49,9 +50,11 @@ scipy = ["scipy>=1.11.0"]
 [project.urls]
 Homepage = "https://github.com/adrhill/asdex"
 Documentation = "https://adrianhill.de/asdex"
-Benchmarks = "https://adrianhill.de/asdex/benchmarks"
+Benchmarks = "https://adrianhill.de/asdex/dev/bench/"
 Repository = "https://github.com/adrhill/asdex"
+Changelog = "https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"
 Issues = "https://github.com/adrhill/asdex/issues"
+Contributing = "https://adrianhill.de/asdex/contributing"
 PyPI = "https://pypi.org/project/asdex/"
 Zenodo = "https://doi.org/10.5281/zenodo.18788242"
 
