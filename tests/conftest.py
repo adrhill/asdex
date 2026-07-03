@@ -15,18 +15,24 @@ def _to_dense(x):
     return x
 
 
+def _densify_tree(tree):
+    """Convert every BCOO leaf in a pytree to dense, leaving other leaves untouched."""
+    return jax.tree.map(_to_dense, tree, is_leaf=lambda x: isinstance(x, BCOO))
+
+
 def _assert_trees_allclose(actual, expected, *, rtol=1e-7, atol=0):
     """Assert two pytrees have matching structure and allclose leaves.
 
-    Automatically converts BCOO leaves to dense for comparison.
+    Automatically converts BCOO leaves to dense on both sides.
     Structure is compared after conversion to handle BCOO's custom pytree node.
     """
-    actual_dense = jax.tree.map(
-        _to_dense, actual, is_leaf=lambda x: isinstance(x, BCOO)
-    )
-    assert jax.tree.structure(actual_dense) == jax.tree.structure(expected)
+    actual_dense = _densify_tree(actual)
+    expected_dense = _densify_tree(expected)
+    assert jax.tree.structure(actual_dense) == jax.tree.structure(expected_dense)
     jax.tree.map(
-        lambda a, e: assert_allclose(a, e, rtol=rtol, atol=atol), actual_dense, expected
+        lambda a, e: assert_allclose(a, e, rtol=rtol, atol=atol),
+        actual_dense,
+        expected_dense,
     )
 
 
