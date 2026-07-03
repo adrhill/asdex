@@ -121,6 +121,7 @@ Prior and concurrent (partial) attempts at ASD in JAX:
 
 - [`sparsejac`](https://github.com/mfschubert/sparsejac): coloring and decompression
 - [`sparsediffax`](https://github.com/gdalle/sparsediffax): coloring and decompression (by asdex's [`@gdalle`](https://github.com/gdalle))
+- [`lineaxpr`](https://github.com/jpbrodrick89/lineaxpr): coloring-free ASD, propagating a sparse, uncompressed seed matrix through the linearized jaxpr.
 - [`jax-nansparse`](https://github.com/nardi/jax-nansparse): sparsity detection using NaN propagation
 - [`JAX-AMG`](https://github.com/jx-wang-s-group/JAX-AMG): specialized ASD module for algebraic multigrid methods
 - [`tatva`](https://github.com/smec-ethz/tatva): specialized ASD module for FEM
