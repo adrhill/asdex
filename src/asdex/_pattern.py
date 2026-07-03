@@ -14,7 +14,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import ShapeDtypeStruct
 from jax.experimental.sparse import BCOO
-from jax.tree_util import tree_flatten
+from jax.tree_util import register_pytree_node, tree_flatten
 from numpy.typing import NDArray
 
 from asdex._display import _render, _render_side_by_side, _render_stacked
@@ -943,3 +943,63 @@ def _compressed_pattern(colored: ColoredPattern) -> SparsityPattern:
         shape = (colored.num_colors, colored.sparsity.n)
 
     return cls.from_coo(comp_rows, comp_cols, shape)
+
+
+# ---------------------------------------------------------------------------
+# PyTree registration
+# ---------------------------------------------------------------------------
+
+# StarSet
+def _starset_flatten(s: StarSet):
+    return (s.star, s.hub, s.edge_lo, s.edge_hi, s.edge_pos), None
+
+def _starset_unflatten(aux, children):
+    return StarSet(
+        star=children[0],
+        hub=children[1],
+        edge_lo=children[2],
+        edge_hi=children[3],
+        edge_pos=children[4],
+    )
+
+register_pytree_node(StarSet, _starset_flatten, _starset_unflatten)
+
+
+# SparsityPattern
+def _sparsity_flatten(p: SparsityPattern):
+    return (p.rows, p.cols), (p.shape, p.input_avals, p.argnums)
+
+def _sparsity_unflatten(aux, children):
+    shape, input_avals, argnums = aux
+    return SparsityPattern(
+        rows=children[0],
+        cols=children[1],
+        shape=shape,
+        input_avals=input_avals,
+        argnums=argnums,
+    )
+
+register_pytree_node(SparsityPattern, _sparsity_flatten, _sparsity_unflatten)
+
+
+# ColoredPattern
+def _colored_flatten(cp: ColoredPattern):
+    return (cp.sparsity, cp.colors), (
+        cp.num_colors,
+        cp.symmetric,
+        cp.mode,
+        cp.star_set,
+    )
+
+def _colored_unflatten(aux, children):
+    num_colors, symmetric, mode, star_set = aux
+    return ColoredPattern(
+        sparsity=children[0],
+        colors=children[1],
+        num_colors=num_colors,
+        symmetric=symmetric,
+        mode=mode,
+        star_set=star_set,
+    )
+
+register_pytree_node(ColoredPattern, _colored_flatten, _colored_unflatten)
