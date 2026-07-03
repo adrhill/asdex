@@ -134,10 +134,9 @@ uv run pytest -m jacobian      # only sparse Jacobian tests
 uv run pytest -m "not slow"    # skip slow tests
 ```
 
-The default selection and the full list of markers are defined in the `[tool.pytest.ini_options]` table of
-[`pyproject.toml`](https://github.com/adrhill/asdex/blob/main/pyproject.toml),
-and the markers are registered in
-[`tests/conftest.py`](https://github.com/adrhill/asdex/blob/main/tests/conftest.py).
+The default selection and the full list of markers are defined together in the `[tool.pytest.ini_options]` table of
+[`pyproject.toml`](https://github.com/adrhill/asdex/blob/main/pyproject.toml).
+`--strict-markers` is enabled there, so a test tagged with a marker missing from that table fails fast.
 
 ---
 
