@@ -31,25 +31,13 @@ uv run pytest              # run tests (skips slow, benchmark, and cutest by def
 
 ## Markers
 
-Use markers to run subsets of tests:
+The custom markers and their descriptions live in a single source of truth:
+the `markers` table under `[tool.pytest.ini_options]` in
+[`pyproject.toml`](../pyproject.toml).
+`--strict-markers` (also set there) rejects any unregistered marker,
+so add a new one to that table before using it.
 
-| Marker | Description |
-|--------|-------------|
-| `elementwise` | Simple element-wise operations |
-| `array_ops` | Array manipulation (slice, concat, reshape) |
-| `control_flow` | Conditional operations (where, select) |
-| `reduction` | Reduction operations (sum, max, prod) |
-| `vmap` | Batched/vmapped operations |
-| `coloring` | Row coloring algorithm tests |
-| `jacobian` | Sparse Jacobian computation tests |
-| `hessian` | Hessian sparsity detection and computation |
-| `fallback` | Documents conservative fallback behavior (TODO) |
-| `bug` | Documents known bugs |
-| `slow` | Tests that take more than 1 second |
-| `benchmark` | Performance benchmarks (skipped by default) |
-| `dashboard` | Benchmarks tracked in GitHub Pages dashboard |
-| `plot` | Matplotlib visualization smoke tests |
-| `cutest` | CUTEst benchmark problem tests (requires sif2jax) |
+Use markers to run subsets of tests:
 
 ```bash
 uv run pytest -m fallback        # Run only fallback tests
