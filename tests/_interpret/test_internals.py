@@ -16,7 +16,11 @@ from asdex.detection._interpret import (
     _prop_dispatch,
     _prop_jaxpr,
 )
-from asdex.detection._interpret._common import _atom_shape, _singleton_index_set
+from asdex.detection._interpret._common import (
+    _atom_shape,
+    _index_sets,
+    _singleton_index_set,
+)
 from asdex.detection._interpret._reshape import _prop_reshape
 
 
@@ -331,3 +335,43 @@ def test_custom_vjp_user_defined():
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)  # Element-wise operation
     np.testing.assert_array_equal(result, expected)
+
+
+# Internal invariants
+
+
+def test_index_sets_unknown_var_raises():
+    """_index_sets raises for a Var that was never seeded or written.
+
+    Every Var is either seeded (invars, constvars) or written by a handler,
+    so a missing Var indicates a handler bug upstream.
+    Returning a guessed default silently drops dependencies
+    and gets the element count wrong.
+    """
+    var = jax.make_jaxpr(lambda x: x + 1)(jnp.zeros(2)).jaxpr.invars[0]
+
+    with pytest.raises(KeyError):
+        _index_sets({}, var)
+
+
+# Contracts with JAX internals
+
+
+def test_while_invars_layout():
+    """JAX binds while_p invars as [cond_consts, body_consts, carry].
+
+    The while handler slices eqn.invars by cond_nconsts and body_nconsts,
+    so this ordering is a load-bearing contract with JAX internals.
+    This test fails loudly if a JAX upgrade reorders the groups.
+    """
+
+    def f(c, b, init):
+        return jax.lax.while_loop(lambda s: s[0] < c, lambda s: s + b, init)
+
+    jaxpr = jax.make_jaxpr(f)(1.0, 2.0, jnp.zeros(2)).jaxpr
+    (eqn,) = [e for e in jaxpr.eqns if e.primitive.name == "while"]
+    c_var, b_var, init_var = jaxpr.invars
+
+    assert eqn.params["cond_nconsts"] == 1
+    assert eqn.params["body_nconsts"] == 1
+    assert list(eqn.invars) == [c_var, b_var, init_var]

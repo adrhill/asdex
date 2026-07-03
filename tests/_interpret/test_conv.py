@@ -590,11 +590,19 @@ def test_conv_batch_group_count_equals_n():
 
 
 @pytest.mark.array_ops
-def test_conv_input_dependent_kernel_raises():
-    """Conv with a kernel derived from the function input raises ValueError.
+@pytest.mark.fallback
+def test_conv_input_dependent_kernel_conservative():
+    """Conv with a kernel derived from the function input goes conservative.
 
-    The handler assumes the kernel is a constant (no input dependencies).
-    Input-dependent kernels (e.g., hypernetworks) are not yet supported.
+    Convolution is bilinear in (data, kernel),
+    so an input-dependent kernel (e.g., a hypernetwork) is valid user code
+    and must not be rejected.
+    Without precise bilinear tracking,
+    every output must depend on both the data and the kernel dependencies.
+
+    TODO(conv_general_dilated): the precise pattern is
+    the data window plus the full kernel per output element.
+    Any conservative superset that does not raise is acceptable.
     """
 
     def f(x):
@@ -608,5 +616,6 @@ def test_conv_input_dependent_kernel_raises():
             dimension_numbers=("NCHW", "OIHW", "NCHW"),
         ).flatten()
 
-    with pytest.raises(ValueError, match="non-empty index sets"):
-        jacobian_sparsity(f, np.zeros(13))
+    result = jacobian_sparsity(f, np.zeros(13)).todense().astype(int)
+    expected = np.ones((4, 13), dtype=int)
+    np.testing.assert_array_equal(result, expected)
