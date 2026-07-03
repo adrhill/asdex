@@ -18,7 +18,7 @@ from asdex._errors import (
 )
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex._plotting import spy
-from asdex._types import HessianMode, JacobianMode, OutputFormat
+from asdex._types import ColoringMode, HessianMode, JacobianMode, OutputFormat
 from asdex.coloring import (
     StarSet,
     color_cols,
@@ -53,6 +53,7 @@ from asdex.detection import hessian_sparsity, jacobian_sparsity
 
 __all__ = [
     "ColoredPattern",
+    "ColoringMode",
     "DenseColoringWarning",
     "HessianMode",
     "InvalidColoringError",

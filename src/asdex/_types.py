@@ -1,15 +1,15 @@
 """Type aliases for AD modes and output formats, plus AD-mode and output-format validators."""
 
-from typing import Literal, get_args
+from typing import Literal, TypeAlias, get_args
 
-JacobianMode = Literal["fwd", "rev"]
+JacobianMode: TypeAlias = Literal["fwd", "rev"]
 """AD mode for Jacobian computation.
 
 ``"fwd"`` uses JVPs (forward-mode AD),
 ``"rev"`` uses VJPs (reverse-mode AD).
 """
 
-HessianMode = Literal["fwd_over_rev", "rev_over_fwd", "rev_over_rev"]
+HessianMode: TypeAlias = Literal["fwd_over_rev", "rev_over_fwd", "rev_over_rev"]
 """AD composition strategy for Hessian-vector products.
 
 ``"fwd_over_rev"`` uses forward-over-reverse,
@@ -17,19 +17,19 @@ HessianMode = Literal["fwd_over_rev", "rev_over_fwd", "rev_over_rev"]
 ``"rev_over_rev"`` uses reverse-over-reverse.
 """
 
-ColoringMode = JacobianMode | HessianMode
+ColoringMode: TypeAlias = JacobianMode | HessianMode
 """AD mode that a coloring was computed for."""
 
-JaxOutputFormat = Literal["bcoo", "dense"]
+JaxOutputFormat: TypeAlias = Literal["bcoo", "dense"]
 """JAX-native output formats."""
 
-NumpyOutputFormat = Literal["numpy_dense"]
+NumpyOutputFormat: TypeAlias = Literal["numpy_dense"]
 """NumPy output formats."""
 
-ScipyOutputFormat = Literal["scipy_coo", "scipy_csr", "scipy_csc"]
+ScipyOutputFormat: TypeAlias = Literal["scipy_coo", "scipy_csr", "scipy_csc"]
 """SciPy sparse output formats (require scipy)."""
 
-OutputFormat = JaxOutputFormat | NumpyOutputFormat | ScipyOutputFormat
+OutputFormat: TypeAlias = JaxOutputFormat | NumpyOutputFormat | ScipyOutputFormat
 """Output format for materialized Jacobians and Hessians.
 
 ``"bcoo"`` returns ``jax.experimental.sparse.BCOO`` (default),
