@@ -18,6 +18,7 @@ from ._common import (
     StateBounds,
     StateConsts,
     StateIndices,
+    _atom_const_val,
     _atom_numel,
     _conservative_indices,
     _empty_index_sets,
@@ -45,6 +46,7 @@ from ._elementwise import (
     _prop_unary_elementwise,
     _prop_zero_derivative,
     _prop_zero_derivative_const,
+    _prop_zero_derivative_unary_const,
 )
 from ._equinox._select_if_vmap import _prop_select_if_vmap
 from ._gather import _prop_gather
@@ -152,6 +154,11 @@ def _prop_closed_jaxpr(
         state_indices[outvar] = indices
         if isinstance(inner_outvar, Var) and inner_outvar in state_bounds:
             state_bounds[outvar] = state_bounds[inner_outvar]
+        # Forward const values symmetrically to bounds,
+        # so indices computed inside the nested jaxpr stay resolvable outside.
+        val = _atom_const_val(inner_outvar, state_consts)
+        if val is not None:
+            state_consts[outvar] = val
 
 
 def _prop_dispatch(
@@ -165,18 +172,23 @@ def _prop_dispatch(
         case "argmax" | "argmin":
             _prop_argmax(eqn, state_indices, state_bounds)
         # Zero derivative (piecewise constant, ∂f/∂x = 0 a.e.)
+        # with const propagation for downstream index resolution
         case (
             "floor"  # ∂⌊x⌋/∂x = 0
             | "ceil"  # ∂⌈x⌉/∂x = 0
-            | "round"  # ∂round(x)/∂x = 0
             | "sign"  # ∂sign(x)/∂x = 0
+            | "not"
+        ):
+            _prop_zero_derivative_unary_const(eqn, state_indices, state_consts)
+        # Zero derivative (piecewise constant, ∂f/∂x = 0 a.e.)
+        case (
+            "round"  # ∂round(x)/∂x = 0
             | "is_finite"
             | "clz"
             | "population_count"
             | "reduce_and"
             | "reduce_or"
             | "reduce_xor"
-            | "not"
             | "shift_left"
             | "shift_right_arithmetic"
             | "shift_right_logical"
@@ -316,9 +328,9 @@ def _prop_dispatch(
         ):
             _prop_random(eqn, state_indices)
         case "while":
-            _prop_while(eqn, state_indices, state_consts, _prop_jaxpr)
+            _prop_while(eqn, state_indices, state_consts, state_bounds, _prop_jaxpr)
         case "cond":
-            _prop_cond(eqn, state_indices, state_consts, _prop_jaxpr)
+            _prop_cond(eqn, state_indices, state_consts, state_bounds, _prop_jaxpr)
         case "platform_index":
             _prop_platform_index(eqn, state_indices)
         case "dynamic_slice":
@@ -330,7 +342,7 @@ def _prop_dispatch(
         # TODO: add precise handlers for remaining control flow operators.
         # https://docs.jax.dev/en/latest/jax.lax.html#control-flow-operators
         case "scan":
-            _prop_scan(eqn, state_indices, state_consts, _prop_jaxpr)
+            _prop_scan(eqn, state_indices, state_consts, state_bounds, _prop_jaxpr)
         case "dot_general":
             _prop_dot_general(eqn, state_indices, state_consts)
         case "split":

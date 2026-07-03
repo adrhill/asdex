@@ -7,9 +7,11 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     PropJaxprFn,
+    StateBounds,
     StateConsts,
     StateIndices,
     _forward_const_vals,
+    _forward_value_bounds,
     _index_sets,
     _seed_const_vals,
 )
@@ -22,6 +24,7 @@ def _prop_while(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
+    state_bounds: StateBounds,
     _prop_jaxpr: PropJaxprFn,
 ) -> None:
     """while_loop iterates a body until a condition becomes false.
@@ -32,7 +35,7 @@ def _prop_while(
     The cond jaxpr only produces a boolean and doesn't contribute to carry state_indices.
 
     Layout:
-        invars: [body_consts..., cond_consts..., carry_init...]
+        invars: [cond_consts..., body_consts..., carry_init...]
         outvars: [carry_final...]
         params: body_jaxpr, body_nconsts, cond_jaxpr, cond_nconsts
 
@@ -47,15 +50,16 @@ def _prop_while(
     body_nconsts = eqn.params["body_nconsts"]
     cond_nconsts = eqn.params["cond_nconsts"]
 
-    # Split invars: [body_consts | cond_consts | carry_init]
+    # Split invars: [cond_consts | body_consts | carry_init]
     n_carry = len(eqn.outvars)
-    body_consts = eqn.invars[:body_nconsts]
-    carry_init = eqn.invars[body_nconsts + cond_nconsts :]
+    body_consts = eqn.invars[cond_nconsts : cond_nconsts + body_nconsts]
+    carry_init = eqn.invars[cond_nconsts + body_nconsts :]
     assert len(carry_init) == n_carry
 
     _seed_const_vals(state_consts, body_jaxpr.constvars, body_closed.consts)
     # Only forward state_consts for body consts, not carry (carry changes each iteration)
     _forward_const_vals(state_consts, body_consts, body_jaxpr.invars[:body_nconsts])
+    _forward_value_bounds(state_bounds, body_consts, body_jaxpr.invars[:body_nconsts])
 
     # Initialize carry state_indices from the initial values
     carry_indices: list[list[IndexSet]] = [
@@ -68,7 +72,7 @@ def _prop_while(
     ]
 
     def iterate(carry: list[list[IndexSet]]) -> list[list[IndexSet]]:
-        return _prop_jaxpr(body_jaxpr, const_inputs + carry, state_consts)
+        return _prop_jaxpr(body_jaxpr, const_inputs + carry, state_consts, state_bounds)
 
     _fixed_point_loop(iterate, carry_indices, n_carry)
 

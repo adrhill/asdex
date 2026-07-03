@@ -11,7 +11,6 @@ from ._common import (
     _atom_const_val,
     _atom_shape,
     _atom_value_bounds,
-    _check_no_index_sets,
     _clamp_starts,
     _conservative_indices,
     _copy_index_sets,
@@ -19,6 +18,7 @@ from ._common import (
     _index_sets,
     _numel,
     _transform_indices,
+    _union_all,
 )
 
 
@@ -69,7 +69,8 @@ def _prop_dynamic_slice(
     With static start indices, each output element maps to exactly one input element.
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
-    Otherwise falls back to conservative.
+    Otherwise falls back to conservative,
+    including the start indices' own dependencies.
 
     For static starts s and slice_sizes sz:
         out[i₀, i₁, ...] = in[s₀ + i₀, s₁ + i₁, ...]
@@ -89,9 +90,9 @@ def _prop_dynamic_slice(
     in_indices = _index_sets(state_indices, operand)
     slice_sizes = eqn.params["slice_sizes"]
 
-    # TODO: include start index sets in output dependencies.
+    start_index_sets: list[IndexSet] = []
     for start_atom in eqn.invars[1:]:
-        _check_no_index_sets(state_indices, start_atom, eqn.primitive.name)
+        start_index_sets.extend(_index_sets(state_indices, start_atom))
 
     starts = _resolve_starts(eqn, 1, state_consts)
     if starts is not None:
@@ -119,11 +120,16 @@ def _prop_dynamic_slice(
 
         result = _enumerate_bounded_patterns(ranges, _numel(slice_sizes), _make_slice)
         if result is not None:
+            if any(start_index_sets):
+                combined = _union_all(start_index_sets)
+                result = [iset | combined for iset in result]
             state_indices[eqn.outvars[0]] = result
             return
 
+    # Unresolvable starts - conservative fallback,
+    # including the starts' own dependencies (mirrors gather).
     state_indices[eqn.outvars[0]] = _conservative_indices(
-        in_indices, _numel(slice_sizes)
+        in_indices + start_index_sets, _numel(slice_sizes)
     )
 
 
@@ -139,7 +145,8 @@ def _prop_dynamic_update_slice(
     the rest keep operand state_indices.
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
-    Otherwise falls back to conservative.
+    Otherwise falls back to conservative,
+    including the start indices' own dependencies.
 
     For static starts s and update shape u_shape:
         out[i] = update[i - s]  if s ≤ i < s + u_shape
@@ -162,9 +169,9 @@ def _prop_dynamic_update_slice(
     operand_shape = _atom_shape(operand)
     upd_shape = _atom_shape(update)
 
-    # TODO: include start index sets in output dependencies.
+    start_index_sets: list[IndexSet] = []
     for start_atom in eqn.invars[2:]:
-        _check_no_index_sets(state_indices, start_atom, eqn.primitive.name)
+        start_index_sets.extend(_index_sets(state_indices, start_atom))
 
     starts = _resolve_starts(eqn, 2, state_consts)
     if starts is not None:
@@ -196,11 +203,16 @@ def _prop_dynamic_update_slice(
             ranges, _numel(operand_shape), _make_update
         )
         if result is not None:
+            if any(start_index_sets):
+                combined = _union_all(start_index_sets)
+                result = [iset | combined for iset in result]
             state_indices[eqn.outvars[0]] = result
             return
 
+    # Unresolvable starts - conservative fallback,
+    # including the starts' own dependencies (mirrors gather).
     state_indices[eqn.outvars[0]] = _conservative_indices(
-        operand_indices + upd_indices, _numel(operand_shape)
+        operand_indices + upd_indices + start_index_sets, _numel(operand_shape)
     )
 
 

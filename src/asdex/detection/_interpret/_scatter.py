@@ -2,6 +2,7 @@
 
 import numpy as np
 from jax._src.core import JaxprEqn
+from jax.lax import GatherScatterMode
 
 from ._common import (
     IndexSet,
@@ -12,11 +13,11 @@ from ._common import (
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
-    _check_no_index_sets,
     _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
     _numel,
+    _union_all,
 )
 
 
@@ -57,6 +58,13 @@ def _scatter_flat_map(
     window_operand_dims = [d for d in range(op_ndim) if d not in removed]
     window_shape = tuple(updates_shape[d] for d in dim_nums.update_window_dims)
 
+    # Window extent per operand dim: the window size at window dims, 1 elsewhere.
+    # Needed to clamp starts under mode='clip'.
+    window_extent = [1] * op_ndim
+    for i, d in enumerate(window_operand_dims):
+        window_extent[d] = window_shape[i]
+    is_clip = eqn.params.get("mode") == GatherScatterMode.CLIP
+
     updates_size = _numel(updates_shape)
     update_ndim = len(updates_shape)
     flat_map = np.full(updates_size, -1, dtype=np.intp)
@@ -78,6 +86,14 @@ def _scatter_flat_map(
                 start[d] = int(index_vector[i])
             for i, d in enumerate(operand_batching_dims):
                 start[d] = int(batch_idx[i])
+
+            # mode='clip' clamps the start so the whole window stays in range,
+            # so the update lands at the clamped position instead of being dropped.
+            if is_clip:
+                start = [
+                    max(0, min(start[d], operand_shape[d] - window_extent[d]))
+                    for d in range(op_ndim)
+                ]
 
             for window_idx in np.ndindex(*window_shape) if window_shape else [()]:
                 # Build full operand index: start + window offset at non-removed dims.
@@ -148,9 +164,12 @@ def _scatter_for_indices(
                     combined |= updates_indices[u_flat]
                 out_indices.append(combined)
             else:
-                # Replace semantics: last writer wins.
-                last_u = scatter_positions[i][-1]
-                out_indices.append(updates_indices[last_u].copy())
+                # Replace semantics: XLA leaves the applied update
+                # implementation-defined under duplicate indices,
+                # so union all candidate writers.
+                out_indices.append(
+                    _union_all([updates_indices[u] for u in scatter_positions[i]])
+                )
         else:
             out_indices.append(operand_indices[i].copy())
 
@@ -189,7 +208,8 @@ def _prop_scatter(
 
     Example with dynamic scatter_indices: arr.at[traced_idx].set(x)
         Cannot determine which position receives the update.
-        Conservative: all outputs depend on all inputs.
+        Conservative: all outputs depend on all inputs,
+        including the scatter_indices' own dependencies.
 
     Jaxpr:
         invars[0]: operand — base array
@@ -198,13 +218,14 @@ def _prop_scatter(
         dimension_numbers: ScatterDimensionNumbers specifying axis mapping
         update_jaxpr: combination function (e.g., add for scatter-add),
             absent for plain scatter (replace)
+        mode: GatherScatterMode; 'clip' clamps out-of-bounds updates in place,
+            the default drops them
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scatter.html
     """
     operand_indices = _index_sets(state_indices, eqn.invars[0])
     indices_atom = eqn.invars[1]
-    # TODO: include scatter_indices index sets in output dependencies.
-    _check_no_index_sets(state_indices, indices_atom, eqn.primitive.name)
+    si_index_sets = _index_sets(state_indices, indices_atom)
     updates_indices = _index_sets(state_indices, eqn.invars[2])
 
     concrete_indices = _atom_const_val(indices_atom, state_consts)
@@ -237,10 +258,15 @@ def _prop_scatter(
 
         result = _enumerate_bounded_patterns(ranges, out_size, _make)
         if result is not None:
+            if any(si_index_sets):
+                combined_si = _union_all(si_index_sets)
+                result = [iset | combined_si for iset in result]
             state_indices[eqn.outvars[0]] = result
             return
 
-    # Dynamic indices - conservative fallback.
+    # Dynamic indices - conservative fallback,
+    # including the indices' own dependencies (mirrors gather).
     state_indices[eqn.outvars[0]] = _conservative_indices(
-        operand_indices + updates_indices, _atom_numel(eqn.outvars[0])
+        operand_indices + updates_indices + si_index_sets,
+        _atom_numel(eqn.outvars[0]),
     )

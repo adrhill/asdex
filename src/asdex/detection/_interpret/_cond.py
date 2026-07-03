@@ -5,10 +5,12 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     PropJaxprFn,
+    StateBounds,
     StateConsts,
     StateIndices,
     _copy_index_sets,
     _forward_const_vals,
+    _forward_value_bounds,
     _index_sets,
     _seed_const_vals,
 )
@@ -18,6 +20,7 @@ def _prop_cond(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
+    state_bounds: StateBounds,
     _prop_jaxpr: PropJaxprFn,
 ) -> None:
     """cond/switch selects one of several branches based on an integer index.
@@ -50,7 +53,8 @@ def _prop_cond(
     for branch in branches:
         _seed_const_vals(state_consts, branch.jaxpr.constvars, branch.consts)
         _forward_const_vals(state_consts, operands, branch.jaxpr.invars)
-        out = _prop_jaxpr(branch.jaxpr, operand_indices, state_consts)
+        _forward_value_bounds(state_bounds, operands, branch.jaxpr.invars)
+        out = _prop_jaxpr(branch.jaxpr, operand_indices, state_consts, state_bounds)
         branch_outputs.append(out)
 
     # Union across branches for each output variable

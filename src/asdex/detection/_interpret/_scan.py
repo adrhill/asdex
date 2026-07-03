@@ -5,10 +5,12 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     PropJaxprFn,
+    StateBounds,
     StateConsts,
     StateIndices,
     _atom_shape,
     _forward_const_vals,
+    _forward_value_bounds,
     _index_sets,
     _seed_const_vals,
 )
@@ -18,6 +20,7 @@ def _prop_scan(
     eqn: JaxprEqn,
     state_indices: StateIndices,
     state_consts: StateConsts,
+    state_bounds: StateBounds,
     _prop_jaxpr: PropJaxprFn,
 ) -> None:
     """Scan applies a body jaxpr iteratively, threading carry across iterations.
@@ -58,6 +61,7 @@ def _prop_scan(
 
     _seed_const_vals(state_consts, body_jaxpr.constvars, body_closed.consts)
     _forward_const_vals(state_consts, consts, body_jaxpr.invars[:num_consts])
+    _forward_value_bounds(state_bounds, consts, body_jaxpr.invars[:num_consts])
 
     # Prepare const index sets for the body
     const_inputs: list[list[IndexSet]] = [_index_sets(state_indices, v) for v in consts]
@@ -98,7 +102,10 @@ def _prop_scan(
             xs_slice_inputs.append(xs_all_indices[i][t * sn : (t + 1) * sn])
 
         body_output = _prop_jaxpr(
-            body_jaxpr, const_inputs + carry_indices + xs_slice_inputs, state_consts
+            body_jaxpr,
+            const_inputs + carry_indices + xs_slice_inputs,
+            state_consts,
+            state_bounds,
         )
 
         # Thread carry forward

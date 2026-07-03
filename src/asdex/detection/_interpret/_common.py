@@ -55,7 +55,8 @@ Atom = Var | Literal
 """Atomic elements in jaxpressions: named intermediates (Var) or constants (Literal)."""
 
 PropJaxprFn = Callable[
-    [Jaxpr, list[list[IndexSet]], StateConsts | None], list[list[IndexSet]]
+    [Jaxpr, list[list[IndexSet]], StateConsts | None, StateBounds | None],
+    list[list[IndexSet]],
 ]
 """Signature of ``_prop_jaxpr``, passed as callback to break circular imports."""
 
@@ -143,10 +144,24 @@ def _atom_numel(atom: Atom) -> int:
 
 
 def _index_sets(state_indices: StateIndices, atom: Atom) -> list[IndexSet]:
-    """Get the index sets for a variable or literal."""
+    """Get the index sets for a variable or literal.
+
+    Every ``Var`` is either seeded (invars, constvars) or written by a handler,
+    so a missing ``Var`` indicates a handler bug upstream.
+    Guessing a default here would silently drop dependencies
+    and get the element count wrong,
+    so we raise instead.
+    """
     if isinstance(atom, Literal):
         return _empty_index_sets(_atom_numel(atom))
-    return state_indices.get(atom, [_empty_index_set()])
+    if atom not in state_indices:
+        msg = (
+            f"No index sets recorded for variable '{atom}'. "
+            "Please help out asdex's development by reporting this at "
+            "https://github.com/adrhill/asdex/issues"
+        )
+        raise KeyError(msg)
+    return state_indices[atom]
 
 
 def _copy_index_sets(src: list[IndexSet]) -> list[IndexSet]:

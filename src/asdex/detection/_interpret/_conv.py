@@ -8,7 +8,7 @@ from ._common import (
     IndexSet,
     StateIndices,
     _atom_shape,
-    _check_no_index_sets,
+    _conservative_indices,
     _empty_index_set,
     _flat_to_coords,
     _index_sets,
@@ -51,11 +51,21 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> No
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.conv_general_dilated.html
     """
     lhs_indices = _index_sets(state_indices, eqn.invars[0])  # Input image dependencies
-    # TODO: include kernel (rhs) index sets in output dependencies.
-    _check_no_index_sets(state_indices, eqn.invars[1], eqn.primitive.name)
+    rhs_indices = _index_sets(state_indices, eqn.invars[1])  # Kernel dependencies
 
     out_shape = _atom_shape(eqn.outvars[0])
     out_size = _numel(out_shape)
+
+    # Convolution is bilinear in (data, kernel),
+    # so an input-dependent kernel (e.g. a hypernetwork) is valid user code.
+    # Without precise bilinear tracking, fall back to conservative:
+    # every output depends on the data and kernel dependencies.
+    # TODO: track the precise pattern (data window plus full kernel per output).
+    if any(rhs_indices):
+        state_indices[eqn.outvars[0]] = _conservative_indices(
+            lhs_indices + rhs_indices, out_size
+        )
+        return
 
     batch_group_count = eqn.params.get("batch_group_count", 1)
 

@@ -1,5 +1,7 @@
 """Propagation rules for element-wise operations."""
 
+from collections.abc import Callable
+
 import numpy as np
 from jax._src.core import JaxprEqn
 
@@ -17,23 +19,42 @@ from ._common import (
     _index_sets,
     _numel,
     _propagate_const_binary,
+    _propagate_const_unary,
     _union_elementwise,
 )
 
-# Ufuncs for evaluating constant values during tracing.
+
+def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
+    """Divide with ``lax.div`` semantics.
+
+    ``lax.div`` truncates toward zero for integer inputs,
+    while ``np.divide`` is true division and returns floats.
+    Using numpy semantics on integer index arithmetic
+    would resolve gather/scatter indices to the wrong positions.
+    """
+    result_dtype = np.result_type(in1_val, in2_val)
+    if np.issubdtype(result_dtype, np.integer):
+        return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
+    return np.true_divide(in1_val, in2_val)
+
+
+# Functions for evaluating constant values during tracing.
 # Used to propagate static index values through arithmetic to gather/scatter.
-_BINARY_CONST_UFUNCS: dict[str, np.ufunc] = {
+# Entries must match lax semantics, which differ from numpy for integer div/rem.
+_BINARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] = {
     # arithmetic
     "add": np.add,
     "add_any": np.add,
     "sub": np.subtract,
     "mul": np.multiply,
-    "div": np.divide,
+    "div": _lax_div,
     "pow": np.power,
     "max": np.maximum,
     "min": np.minimum,
     "atan2": np.arctan2,
-    "rem": np.remainder,
+    # lax.rem takes the dividend's sign like C fmod,
+    # while np.remainder takes the divisor's sign.
+    "rem": np.fmod,
     "nextafter": np.nextafter,
     # comparison
     "eq": np.equal,
@@ -42,6 +63,18 @@ _BINARY_CONST_UFUNCS: dict[str, np.ufunc] = {
     "and": np.bitwise_and,
     "or": np.bitwise_or,
     "xor": np.bitwise_xor,
+}
+
+# Unary zero-derivative primitives whose const values feed integer index arithmetic
+# (e.g. ``jnp.floor_divide`` expands to div/sign/rem/select_n).
+# ``round`` is excluded: ``lax.round`` rounding methods differ from
+# numpy's round-half-to-even, and a mismatched const yields a wrong pattern.
+_UNARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
+    "sign": np.sign,
+    "floor": np.floor,
+    "ceil": np.ceil,
+    # matches lax: bitwise for integers, logical for booleans
+    "not": np.bitwise_not,
 }
 
 
@@ -213,6 +246,23 @@ def _prop_zero_derivative_const(
     _propagate_const(eqn, state_consts)
 
 
+def _prop_zero_derivative_unary_const(
+    eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
+) -> None:
+    """Unary zero-derivative primitives that also propagate const values.
+
+    Used for sign, floor, ceil, and not,
+    which appear in integer index arithmetic
+    (e.g. inside the ``jnp.floor_divide`` expansion).
+    Without const propagation here the chain breaks
+    and downstream gather/scatter falls back to conservative.
+    """
+    _zero_derivative(eqn, state_indices)
+    ufunc = _UNARY_CONST_UFUNCS.get(eqn.primitive.name)
+    if ufunc is not None:
+        _propagate_const_unary(eqn, state_consts, ufunc)
+
+
 def _prop_ternary_elementwise(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     """Ternary elementwise operation where each output depends on all three inputs.
 
@@ -359,10 +409,14 @@ def _propagate_bounds_integer_pow(
 ) -> None:
     """Propagate value bounds through ``integer_pow``.
 
+    - n < 0: no bounds propagated.
+      Negative powers are decreasing (not increasing) on positive inputs,
+      so the monotone mapping below would invert (lo, hi),
+      and they are undefined at zero.
     - n == 0: bounds are (1, 1).
     - n even: [0, max(|a|,|b|)^n] if interval spans zero,
       else [min(|a|,|b|)^n, max(|a|,|b|)^n].
-    - n odd (monotone): [a^n, b^n].
+    - n odd (increasing): [a^n, b^n].
     """
     in_bounds = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
     if in_bounds is None:
@@ -370,6 +424,8 @@ def _propagate_bounds_integer_pow(
 
     lo, hi = in_bounds
 
+    if y < 0:
+        return
     if y == 0:
         ones = np.ones_like(lo)
         state_bounds[eqn.outvars[0]] = (ones, ones)
