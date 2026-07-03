@@ -1,10 +1,9 @@
 # asdex
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg)](https://doi.org/10.5281/zenodo.18788242)
-
 [![CI](https://github.com/adrhill/asdex/actions/workflows/ci.yml/badge.svg)](https://github.com/adrhill/asdex/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/adrhill/asdex/graph/badge.svg)](https://codecov.io/gh/adrhill/asdex)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v0.json)](https://github.com/astral-sh/ty)
 [![PyPI](https://img.shields.io/pypi/v/asdex)](https://pypi.org/project/asdex/)
 
 [![Contributing](https://img.shields.io/badge/guide-contributing-blueviolet)](contributing.md)
@@ -13,9 +12,11 @@
 [![Benchmarks](https://img.shields.io/badge/benchmarks-view-blue)](https://adrianhill.de/asdex/dev/bench/)
 [![Changelog](https://img.shields.io/badge/news-changelog-yellow)](https://github.com/adrhill/asdex/blob/main/CHANGELOG.md)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg)](https://doi.org/10.5281/zenodo.18788242)
+
 **Automatic Sparse Differentiation in JAX.**
 
-`asdex` (pronounced _Aztecs_) exploits sparsity structure to efficiently compute sparse Jacobians and Hessians.
+`asdex` exploits sparsity structure to efficiently compute sparse Jacobians and Hessians.
 It implements a custom [Jaxpr](https://docs.jax.dev/en/latest/jaxpr.html) interpreter
 that uses [abstract interpretation](explanation/sparsity-detection.md)
 to detect [global sparsity patterns](explanation/global-sparsity.md) from the computation graph,
@@ -36,7 +37,7 @@ uv add asdex
 
 ## Quick Example
 
-```python
+```python exec="true" session="index" source="above"
 import asdex
 import jax
 import numpy as np
@@ -52,6 +53,21 @@ J = jac_fn(x)
 
 Instead of 999 VJPs or 1000 JVPs,
 `asdex` computes the full sparse Jacobian with just 2 JVPs.
+
+Since sparsity detection and coloring can be expensive on large problems,
+we recommend saving and reusing colored patterns:
+
+```python exec="true" session="index" source="above"
+from asdex import ColoredPattern, jacobian_coloring, jacobian_from_coloring
+
+# Compute coloring once...
+coloring = jacobian_coloring(f, x)
+coloring.save("colored.npz")
+
+# ...load and reuse later
+coloring = ColoredPattern.load("colored.npz")
+jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
+```
 
 ## Features
 
@@ -89,20 +105,34 @@ Instead of 999 VJPs or 1000 JVPs,
 - [Contributing](contributing.md) — guidelines for collaborating on asdex
 - [AI Policy](contributing.md#ai-policy) — guidelines for LLM contributions
 
-## Acknowledgements
+## Related work
 
-Adrian Hill gratefully acknowledges funding from the German Federal Ministry of Education and Research under the grant BIFOLD26B.
-
-This package is [built with Claude Code](contributing.md#ai-policy), based on previous work by [Adrian Hill](https://github.com/adrhill), [Guillaume Dalle](https://github.com/gdalle), and [Alexis Montoison](https://github.com/amontoison) in the [Julia programming language](https://julialang.org):
+Prior work on ASD by asdex's authors Adrian Hill ([`@adrhill`](https://github.com/adrhill)) and Guillaume Dalle ([`@gdalle`](https://github.com/gdalle)),
+as well as Alexis Montoison ([`@amontoison`](https://github.com/amontoison)):
 
 - [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025)
 - [_Sparser, Better, Faster, Stronger: Efficient Automatic Differentiation for Sparse Jacobians and Hessians_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)
 - [_Revisiting Sparse Matrix Coloring and Bicoloring_](https://arxiv.org/abs/2505.07308), Montoison, Dalle, Gebremedhin (2025)
-- [_SparseConnectivityTracer.jl_](https://github.com/adrhill/SparseConnectivityTracer.jl), Hill, Dalle
-- [_SparseMatrixColorings.jl_](https://github.com/gdalle/SparseMatrixColorings.jl), Dalle, Montoison
-- [_sparsediffax_](https://github.com/gdalle/sparsediffax), Dalle
+- [`SparseConnectivityTracer.jl`](https://github.com/adrhill/SparseConnectivityTracer.jl), Hill & Dalle
+- [`SparseMatrixColorings.jl`](https://github.com/gdalle/SparseMatrixColorings.jl), Dalle & Montoison
+- [`DifferentiationInterface.jl`](https://github.com/JuliaDiff/DifferentiationInterface.jl), Dalle & Hill
 
-which in turn stands on the shoulders of giants — notably Andreas Griewank, Andrea Walther, and Assefaw Gebremedhin.
+Prior and concurrent (partial) attempts at ASD in JAX:
+
+- [`sparsejac`](https://github.com/mfschubert/sparsejac): coloring and decompression
+- [`sparsediffax`](https://github.com/gdalle/sparsediffax): coloring and decompression (by asdex's [`@gdalle`](https://github.com/gdalle))
+- [`jax-nansparse`](https://github.com/nardi/jax-nansparse): sparsity detection using NaN propagation
+- [`JAX-AMG`](https://github.com/jx-wang-s-group/JAX-AMG): specialized ASD module for algebraic multigrid methods
+- [`tatva`](https://github.com/smec-ethz/tatva): specialized ASD module for FEM
+- See discussion in [JAX issue #1032](https://github.com/jax-ml/jax/issues/1032)
+
+## Acknowledgements
+
+Adrian Hill gratefully acknowledges funding from the German Federal Ministry of Education and Research under the grant BIFOLD26B.
+
+This package is [built with Claude Code](contributing.md#ai-policy),
+based on previous, hand-written work by the same authors in the [Julia programming language](https://julialang.org), as noted above.
+These works in turn stand on the shoulders of giants, notably Andreas Griewank, Andrea Walther, and Assefaw Gebremedhin.
 
 ## Citation
 
