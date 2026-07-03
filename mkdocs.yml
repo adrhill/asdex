@@ -62,6 +62,7 @@ not_in_nav: |
   /CLAUDE.md
 exclude_docs: |
   CLAUDE.md
+  colored.npz
 
 markdown_extensions:
   - admonition
