@@ -1868,10 +1868,9 @@ Pass <code>-m</code> with a marker to run a subset:</p>
 <div class="highlight"><pre><span></span><code><a href="#__codelineno-4-1" id="__codelineno-4-1" name="__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span>jacobian<span class="w">      </span><span class="c1"># only sparse Jacobian tests</span>
 <a href="#__codelineno-4-2" id="__codelineno-4-2" name="__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">"not slow"</span><span class="w">    </span><span class="c1"># skip slow tests</span>
 </code></pre></div>
-<p>The default selection and the full list of markers are defined in the <code>[tool.pytest.ini_options]</code> table of
-<a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a>,
-and the markers are registered in
-<a href="https://github.com/adrhill/asdex/blob/main/tests/conftest.py"><code>tests/conftest.py</code></a>.</p>
+<p>The default selection and the full list of markers are defined together in the <code>[tool.pytest.ini_options]</code> table of
+<a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a>.
+<code>--strict-markers</code> is enabled there, so a test tagged with a marker missing from that table fails fast.</p>
 <hr/>
 <h2 id="further-guidance">Further Guidance<a class="headerlink" href="#further-guidance" title="Permanent link">¶</a></h2>
 <h3 id="guidance-on-contributing-prs">Guidance on contributing PRs<a class="headerlink" href="#guidance-on-contributing-prs" title="Permanent link">¶</a></h3>
