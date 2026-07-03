@@ -313,6 +313,49 @@ def test_custom_jvp_relu():
 
 
 @pytest.mark.array_ops
+@pytest.mark.bug
+def test_custom_jvp_rule_adding_dependencies_missed():
+    """Detection misses dependencies that only the custom JVP rule introduces.
+
+    A straight-through estimator rounds in the primal
+    but passes tangents through unchanged,
+    so the true Jacobian is 2·I.
+    The custom_jvp_call handler traces the primal ``call_jaxpr``,
+    where ``round`` has zero derivative,
+    and never sees the custom rule.
+    The detected pattern is empty (missing nonzeros),
+    so downstream decompression silently returns an all-zero Jacobian.
+
+    This test pins the current broken behavior
+    and must be flipped to the diagonal pattern when the handler is fixed.
+
+    TODO(custom_jvp_call): propagate through the custom JVP rule
+    (or fall back conservatively)
+    so the detected pattern covers the true 2·I Jacobian.
+    """
+
+    @jax.custom_jvp
+    def ste_round(x):
+        return jnp.round(x)
+
+    @ste_round.defjvp
+    def ste_round_jvp(primals, tangents):
+        (x,), (t,) = primals, tangents
+        return jnp.round(x), t  # derivative rule: identity
+
+    def f(x):
+        return ste_round(x) * 2.0
+
+    x = np.array([0.1, 1.6, 2.4])
+    true_jacobian = np.asarray(jax.jacfwd(f)(x))
+    np.testing.assert_array_equal(true_jacobian, 2 * np.eye(3))
+
+    # Broken: the detected pattern misses all three true nonzeros.
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
+
+
+@pytest.mark.array_ops
 def test_custom_vjp_user_defined():
     """User-defined custom_vjp traces forward computation."""
 
