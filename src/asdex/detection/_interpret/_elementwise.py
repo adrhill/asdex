@@ -1,5 +1,7 @@
 """Propagation rules for element-wise operations."""
 
+from collections.abc import Set as AbstractSet
+
 import numpy as np
 from jax._src.core import JaxprEqn
 
@@ -133,18 +135,18 @@ def _binary_elementwise(
 
 
 def _union_with_zero_derivs(
-    s1: set[int],
-    s2: set[int],
+    s1: AbstractSet[int],
+    s2: AbstractSet[int],
     is_der1_zero: bool,
     is_der2_zero: bool,
-) -> set[int]:
+) -> AbstractSet[int]:
     """Union index sets, excluding inputs with zero derivatives."""
     if is_der1_zero and is_der2_zero:
         return set()
     if is_der1_zero:
-        return s2.copy()
+        return set(s2)
     if is_der2_zero:
-        return s1.copy()
+        return set(s1)
     return s1 | s2
 
 

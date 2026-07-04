@@ -117,7 +117,10 @@ def test_prop_jaxpr_default_const_vals():
     # Call without state_consts — should default to empty dict
     result = _prop_jaxpr(jaxpr, input_indices)
     assert len(result) == 1
-    assert result[0] == [_singleton_index_set(0), _singleton_index_set(1)]
+    assert [set(s) for s in result[0]] == [
+        _singleton_index_set(0),
+        _singleton_index_set(1),
+    ]
 
 
 @pytest.mark.elementwise

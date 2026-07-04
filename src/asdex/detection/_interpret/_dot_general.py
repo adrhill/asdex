@@ -5,6 +5,7 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
+    IndexSetSequenceBuilder,
     StateConsts,
     StateIndices,
     _atom_const_val,
@@ -96,8 +97,8 @@ def _prop_dot_general(
             rhs_zero = rhs_val_flat is not None and rhs_val_flat[i] == 0
             if lhs_zero or rhs_zero:
                 continue
-            result |= lhs_indices[i]
-            result |= rhs_indices[i]
+            result.update(lhs_indices[i])
+            result.update(rhs_indices[i])
         state_indices[eqn.outvars[0]] = [result]
         return
 
@@ -129,7 +130,7 @@ def _prop_dot_general(
         else np.empty((0, 1), dtype=int)
     )
 
-    out_indices: list[IndexSet] = _empty_index_sets(out_size)
+    out_indices: IndexSetSequenceBuilder = _empty_index_sets(out_size)
 
     for c_idx in range(n_contract):
         lhs_coord = tuple(

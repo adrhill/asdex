@@ -1,10 +1,13 @@
 """Propagation rule for scatter operations."""
 
+from collections.abc import Sequence
+from collections.abc import Set as AbstractSet
+
 import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
+    IndexSetView,
     StateBounds,
     StateConsts,
     StateIndices,
@@ -113,9 +116,9 @@ def _scatter_flat_map(
 def _scatter_for_indices(
     concrete_indices: np.ndarray,
     eqn: JaxprEqn,
-    operand_indices: list[IndexSet],
-    updates_indices: list[IndexSet],
-) -> list[IndexSet]:
+    operand_indices: Sequence[IndexSetView],
+    updates_indices: Sequence[IndexSetView],
+) -> list[AbstractSet[int]]:
     """Compute output index sets for a scatter with known concrete indices.
 
     Uses ``_scatter_flat_map`` to determine which operand position
@@ -139,13 +142,13 @@ def _scatter_for_indices(
                 scatter_positions[operand_flat] = []
             scatter_positions[operand_flat].append(update_flat)
 
-    out_indices: list[IndexSet] = []
+    out_indices: list[AbstractSet[int]] = []
     for i in range(out_size):
         if i in scatter_positions:
             if is_combine:
                 combined = operand_indices[i].copy()
                 for u_flat in scatter_positions[i]:
-                    combined |= updates_indices[u_flat]
+                    combined.update(updates_indices[u_flat])
                 out_indices.append(combined)
             else:
                 # Replace semantics: last writer wins.
@@ -229,7 +232,7 @@ def _prop_scatter(
             range(int(lo_flat[i]), int(hi_flat[i]) + 1) for i in range(len(lo_flat))
         ]
 
-        def _make(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make(vals: tuple[int, ...]) -> list[AbstractSet[int]]:
             candidate = np.array(vals, dtype=lo.dtype).reshape(si_shape)
             return _scatter_for_indices(
                 candidate, eqn, operand_indices, updates_indices

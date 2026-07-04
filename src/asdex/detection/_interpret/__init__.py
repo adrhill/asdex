@@ -8,13 +8,17 @@ The main entry point is `_prop_jaxpr`, which walks the computation graph
 and applies the appropriate handler for each equation.
 """
 
+from collections.abc import Sequence
+from collections.abc import Set as AbstractSet
+
 import numpy as np
 from jax._src.core import Jaxpr, JaxprEqn, Var
 
 from ._argmax import _prop_argmax
 from ._broadcast import _prop_broadcast_in_dim
 from ._common import (
-    IndexSet,
+    IndexSetSequence,
+    IndexSetView,
     StateBounds,
     StateConsts,
     StateIndices,
@@ -73,10 +77,10 @@ from ._while import _prop_while
 
 def _prop_jaxpr(
     jaxpr: Jaxpr,
-    input_indices: list[list[IndexSet]],
+    input_indices: Sequence[Sequence[AbstractSet[int]]],
     state_consts: StateConsts | None = None,
     state_bounds: StateBounds | None = None,
-) -> list[list[IndexSet]]:
+) -> list[IndexSetSequence]:
     """Propagate index sets through a jaxpr.
 
     Args:
@@ -90,7 +94,7 @@ def _prop_jaxpr(
     Returns:
         List of per-element index set lists, one per output variable
     """
-    state_indices: StateIndices = {}
+    state_indices = StateIndices()
     if state_consts is None:
         state_consts = {}
     if state_bounds is None:
@@ -400,7 +404,7 @@ def _prop_conservative_fallback(eqn: JaxprEqn, state_indices: StateIndices) -> N
 
     Used for primitives without precise handlers.
     """
-    all_inputs: list[IndexSet] = []
+    all_inputs: list[IndexSetView] = []
     for invar in eqn.invars:
         all_inputs.extend(_index_sets(state_indices, invar))
     for outvar in eqn.outvars:

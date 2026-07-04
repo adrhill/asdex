@@ -1,9 +1,13 @@
 """Propagation rule for scan."""
 
+from collections.abc import Sequence
+from collections.abc import Set as AbstractSet
+
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
+    IndexSetSequence,
+    IndexSetView,
     PropJaxprFn,
     StateConsts,
     StateIndices,
@@ -60,15 +64,15 @@ def _prop_scan(
     _forward_const_vals(state_consts, consts, body_jaxpr.invars[:num_consts])
 
     # Prepare const index sets for the body
-    const_inputs: list[list[IndexSet]] = [_index_sets(state_indices, v) for v in consts]
+    const_inputs: list[IndexSetSequence] = [_index_sets(state_indices, v) for v in consts]
 
     # Initialize carry from carry_init
-    carry_indices: list[list[IndexSet]] = [
+    carry_indices: Sequence[Sequence[AbstractSet[int]]] = [
         _index_sets(state_indices, v) for v in carry_init
     ]
 
     # Pre-compute xs index sets and per-slice sizes
-    xs_all_indices: list[list[IndexSet]] = [_index_sets(state_indices, v) for v in xs]
+    xs_all_indices: list[IndexSetSequence] = [_index_sets(state_indices, v) for v in xs]
     xs_slice_numels: list[int] = []
     for i, x_var in enumerate(xs):
         x_shape = _atom_shape(x_var)
@@ -87,18 +91,20 @@ def _prop_scan(
     # Forward simulation: one _prop_jaxpr call per timestep,
     # threading carry forward and collecting per-timestep ys.
     num_ys = len(ys)
-    ys_per_step: list[list[list[IndexSet]]] = [[] for _ in range(num_ys)]
+    ys_per_step: list[list[IndexSetSequence]] = [[] for _ in range(num_ys)]
 
     time_range = range(iter_length - 1, -1, -1) if reverse else range(iter_length)
     for t in time_range:
         # Extract xs slice for this timestep
-        xs_slice_inputs: list[list[IndexSet]] = []
+        xs_slice_inputs: list[Sequence[IndexSetView]] = []
         for i in range(len(xs)):
             sn = xs_slice_numels[i]
             xs_slice_inputs.append(xs_all_indices[i][t * sn : (t + 1) * sn])
 
         body_output = _prop_jaxpr(
-            body_jaxpr, const_inputs + carry_indices + xs_slice_inputs, state_consts
+            body_jaxpr,
+            [*const_inputs, *carry_indices, *xs_slice_inputs],
+            state_consts,
         )
 
         # Thread carry forward
@@ -120,7 +126,7 @@ def _prop_scan(
         slices = ys_per_step[i]
         if reverse:
             slices = slices[::-1]
-        full_indices: list[IndexSet] = []
+        full_indices: list[IndexSetView] = []
         for s in slices:
             full_indices.extend(s)
         state_indices[outvar] = full_indices

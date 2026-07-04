@@ -1,11 +1,13 @@
 """Propagation rule for while_loop."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from collections.abc import Set as AbstractSet
 
 from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
+    IndexSetSequence,
     PropJaxprFn,
     StateConsts,
     StateIndices,
@@ -57,18 +59,19 @@ def _prop_while(
     # Only forward state_consts for body consts, not carry (carry changes each iteration)
     _forward_const_vals(state_consts, body_consts, body_jaxpr.invars[:body_nconsts])
 
-    # Initialize carry state_indices from the initial values
+    # Initialize carry into fresh, mutable sets. Carry sets may alias shared
+    # objects from upstream handlers, so we never mutate the reads directly.
     carry_indices: list[list[IndexSet]] = [
-        _index_sets(state_indices, v) for v in carry_init
+        [set(s) for s in _index_sets(state_indices, v)] for v in carry_init
     ]
 
     # body_jaxpr invars: [body_consts..., carry...]
-    const_inputs: list[list[IndexSet]] = [
+    const_inputs: list[IndexSetSequence] = [
         _index_sets(state_indices, v) for v in body_consts
     ]
 
-    def iterate(carry: list[list[IndexSet]]) -> list[list[IndexSet]]:
-        return _prop_jaxpr(body_jaxpr, const_inputs + carry, state_consts)
+    def iterate(carry: list[list[IndexSet]]) -> Sequence[Sequence[AbstractSet[int]]]:
+        return _prop_jaxpr(body_jaxpr, [*const_inputs, *carry], state_consts)
 
     _fixed_point_loop(iterate, carry_indices, n_carry)
 
@@ -78,7 +81,7 @@ def _prop_while(
 
 
 def _fixed_point_loop(
-    iterate_fn: Callable[[list[list[IndexSet]]], list[list[IndexSet]]],
+    iterate_fn: Callable[[list[list[IndexSet]]], Sequence[Sequence[AbstractSet[int]]]],
     carry: list[list[IndexSet]],
     n_carry: int,
 ) -> None:
@@ -88,13 +91,8 @@ def _fixed_point_loop(
     (i.e., monotone on a finite lattice),
     this always converges.
 
-    Mutates ``carry`` in place.
+    Mutates ``carry`` in place; carry rows must already be mutable sets.
     """
-    # Carry sets may alias (shared objects from upstream handlers),
-    # so copy them before in-place mutation via |=.
-    for i in range(n_carry):
-        carry[i] = [s.copy() for s in carry[i]]
-
     for _iteration in range(_MAX_FIXED_POINT_ITERS):
         body_output = iterate_fn(carry)
 
@@ -102,7 +100,7 @@ def _fixed_point_loop(
         for i in range(n_carry):
             for j in range(len(carry[i])):
                 before = len(carry[i][j])
-                carry[i][j] |= body_output[i][j]
+                carry[i][j].update(body_output[i][j])
                 if len(carry[i][j]) > before:
                     changed = True
 
