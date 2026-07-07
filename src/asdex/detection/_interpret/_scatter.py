@@ -171,7 +171,7 @@ def _scatter_for_indices(
                     _union_all([updates_indices[u] for u in scatter_positions[i]])
                 )
         else:
-            out_indices.append(operand_indices[i].copy())
+            out_indices.append(operand_indices[i])
 
     return out_indices
 

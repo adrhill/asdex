@@ -91,8 +91,20 @@ and output sets may alias input sets.
 Handlers must therefore **never mutate** a set obtained from `state_indices` or `_index_sets()`.
 Always build new sets (via `_union_all`, `|`, or the factory helpers) instead of mutating in place.
 
-The one exception is `_fixed_point_loop` in `_while.py`,
-which explicitly copies carry sets before mutating them via `|=`.
+The same applies to whole **lists**:
+pass-through handlers (squeeze, reshape, unary element-wise, convert_element_type, integer_pow)
+alias the input list outright instead of copying it,
+and `_conservative_indices` points every output position at one shared set.
+Never mutate a list obtained from `state_indices` or `_index_sets()` either,
+not even by replacing entries.
+To change individual entries, build a new list first
+(a shallow `list(...)` copy is enough, as in `_dynamic_update_for_starts` and `_clear_where_zero`).
+
+Sharing is deliberate: copying costs O(nnz) per handler,
+so alias sets and lists whenever the output is identical to the input by construction.
+A handler that needs to accumulate via `|=` must own the target set,
+either freshly built or explicitly copied first,
+as `_fixed_point_loop` in `_while.py` does for the loop carries.
 
 ## Const Value Tracking
 

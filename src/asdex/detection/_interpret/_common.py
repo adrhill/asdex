@@ -267,6 +267,9 @@ def _clear_where_zero(
 
     Used by ``mul``, ``div``, and ``integer_pow`` for zero-skipping:
     ``d(0 * y)/dy = 0``, ``d(0 / y)/dy = 0``, ``d(0^n)/dx = 0`` for ``n > 1``.
+
+    Builds a new output list instead of mutating in place,
+    so it is safe on output lists that alias an input's list.
     """
     val = _atom_const_val(eqn.invars[invar_idx], state_consts)
     if val is None:
@@ -276,9 +279,10 @@ def _clear_where_zero(
     flat = _broadcast_to_output(val, in_shape, out_shape)
 
     out_indices = state_indices[eqn.outvars[0]]
-    for i in range(len(out_indices)):
-        if flat[i] == 0:
-            out_indices[i] = _empty_index_set()
+    empty = _empty_index_set()
+    state_indices[eqn.outvars[0]] = [
+        empty if flat[i] == 0 else s for i, s in enumerate(out_indices)
+    ]
 
 
 # Index set operations

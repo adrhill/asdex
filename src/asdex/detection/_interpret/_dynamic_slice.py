@@ -13,7 +13,6 @@ from ._common import (
     _atom_value_bounds,
     _clamp_starts,
     _conservative_indices,
-    _copy_index_sets,
     _enumerate_bounded_patterns,
     _index_sets,
     _numel,
@@ -224,7 +223,9 @@ def _dynamic_update_for_starts(
     upd_shape: tuple[int, ...],
 ) -> list[IndexSet]:
     """Compute output index sets for a dynamic_update_slice with known starts."""
-    out_indices: list[IndexSet] = _copy_index_sets(operand_indices)
+    # Shallow copy: entries in the window are replaced below,
+    # the sets themselves are shared and never mutated.
+    out_indices: list[IndexSet] = list(operand_indices)
 
     upd_coords = np.indices(upd_shape)
     op_coords = tuple(s + upd_coords[d] for d, s in enumerate(starts))

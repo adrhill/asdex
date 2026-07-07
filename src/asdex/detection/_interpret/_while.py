@@ -10,6 +10,7 @@ from ._common import (
     StateBounds,
     StateConsts,
     StateIndices,
+    _copy_index_sets,
     _forward_const_vals,
     _forward_value_bounds,
     _index_sets,
@@ -97,7 +98,7 @@ def _fixed_point_loop(
     # Carry sets may alias (shared objects from upstream handlers),
     # so copy them before in-place mutation via |=.
     for i in range(n_carry):
-        carry[i] = [s.copy() for s in carry[i]]
+        carry[i] = _copy_index_sets(carry[i])
 
     for _iteration in range(_MAX_FIXED_POINT_ITERS):
         body_output = iterate_fn(carry)
