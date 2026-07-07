@@ -19,6 +19,7 @@ from asdex.detection._interpret import (
 from asdex.detection._interpret._common import (
     _atom_shape,
     _index_sets,
+    _PropState,
     _singleton_index_set,
 )
 from asdex.detection._interpret._reshape import _prop_reshape
@@ -51,74 +52,62 @@ class FakeEqn:
 def test_nested_jaxpr_missing_param_raises():
     """Error is raised when nested jaxpr primitive has no 'jaxpr' parameter."""
     eqn = FakeEqn("pjit", params={})
-    env = {}
-    state_consts = {}
 
     with pytest.raises(ValueError, match="has no 'jaxpr' parameter"):
-        _prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # ty: ignore[invalid-argument-type]
+        _prop_closed_jaxpr(eqn, _PropState(), "jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_nested_jaxpr_missing_param_error_message():
     """Error message includes primitive name and issue tracker URL."""
     eqn = FakeEqn("xla_call", params={})
-    env = {}
-    state_consts = {}
 
     with pytest.raises(ValueError, match="xla_call"):
-        _prop_closed_jaxpr(eqn, env, state_consts, {}, "jaxpr")  # ty: ignore[invalid-argument-type]
+        _prop_closed_jaxpr(eqn, _PropState(), "jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_custom_call_missing_param_raises():
     """Error is raised when custom call primitive has no 'call_jaxpr' parameter."""
     eqn = FakeEqn("custom_jvp_call", params={})
-    env = {}
-    state_consts = {}
 
     with pytest.raises(ValueError, match="has no 'call_jaxpr' parameter"):
-        _prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # ty: ignore[invalid-argument-type]
+        _prop_closed_jaxpr(eqn, _PropState(), "call_jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_custom_call_missing_param_error_message():
     """Error message includes primitive name and issue tracker URL."""
     eqn = FakeEqn("custom_vjp_call", params={})
-    env = {}
-    state_consts = {}
 
     with pytest.raises(ValueError, match="custom_vjp_call"):
-        _prop_closed_jaxpr(eqn, env, state_consts, {}, "call_jaxpr")  # ty: ignore[invalid-argument-type]
+        _prop_closed_jaxpr(eqn, _PropState(), "call_jaxpr")  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_raises():
     """Unknown primitives raise NotImplementedError."""
     eqn = FakeEqn("nonexistent_op", params={})
-    state_indices = {}
-    state_consts = {}
 
     with pytest.raises(NotImplementedError, match="No handler for primitive"):
-        _prop_dispatch(eqn, state_indices, state_consts, {})  # ty: ignore[invalid-argument-type]
+        _prop_dispatch(eqn, _PropState())  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_error_message():
     """Error message includes primitive name and issue tracker URL."""
     eqn = FakeEqn("fake_primitive", params={})
-    state_indices = {}
-    state_consts = {}
 
     with pytest.raises(NotImplementedError) as exc_info:
-        _prop_dispatch(eqn, state_indices, state_consts, {})  # ty: ignore[invalid-argument-type]
+        _prop_dispatch(eqn, _PropState())  # ty: ignore[invalid-argument-type]
 
     assert "fake_primitive" in str(exc_info.value)
     assert "https://github.com/adrhill/asdex/issues" in str(exc_info.value)
 
 
 def test_prop_jaxpr_default_const_vals():
-    """_prop_jaxpr works when state_consts is not provided (defaults to {})."""
+    """_prop_jaxpr works when no parent state is provided (defaults to a fresh one)."""
     dummy = jnp.zeros(2)
     closed_jaxpr = jax.make_jaxpr(lambda x: x + 1)(dummy)
     jaxpr = closed_jaxpr.jaxpr
 
     input_indices = [[_singleton_index_set(0), _singleton_index_set(1)]]
-    # Call without state_consts — should default to empty dict
+    # Call without a parent state — a fresh empty state is created internally
     result = _prop_jaxpr(jaxpr, input_indices)
     assert len(result) == 1
     assert result[0] == [_singleton_index_set(0), _singleton_index_set(1)]
@@ -158,15 +147,17 @@ def test_reshape_size_mismatch_raises():
     eqn.invars = [in_var]
     eqn.outvars = [out_var]
 
-    state_indices = {
-        in_var: [
-            _singleton_index_set(0),
-            _singleton_index_set(1),
-            _singleton_index_set(2),
-        ]
-    }
+    state = _PropState(
+        indices={  # ty: ignore[invalid-argument-type]
+            in_var: [
+                _singleton_index_set(0),
+                _singleton_index_set(1),
+                _singleton_index_set(2),
+            ]
+        }
+    )
     with pytest.raises(ValueError, match="Reshape size mismatch"):
-        _prop_reshape(eqn, state_indices, {})  # ty: ignore[invalid-argument-type]
+        _prop_reshape(eqn, state)  # ty: ignore[invalid-argument-type]
 
 
 # Integration tests for precise handlers
@@ -394,7 +385,7 @@ def test_index_sets_unknown_var_raises():
     var = jax.make_jaxpr(lambda x: x + 1)(jnp.zeros(2)).jaxpr.invars[0]
 
     with pytest.raises(KeyError):
-        _index_sets({}, var)
+        _index_sets(_PropState(), var)
 
 
 # Contracts with JAX internals

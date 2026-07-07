@@ -16,6 +16,7 @@ import pytest
 from jax import lax
 
 from asdex import jacobian_sparsity
+from asdex.detection._interpret._common import _PropState
 from asdex.detection._interpret._div import _propagate_bounds_div
 
 
@@ -71,10 +72,12 @@ def test_div_bounds_integer_truncation():
     eqn = jaxpr.eqns[0]
     numerator, denominator = eqn.invars
 
-    state_consts = {denominator: np.array([2], dtype=np.int32)}
-    state_bounds = {numerator: (np.array([-5]), np.array([-5]))}
-    _propagate_bounds_div(eqn, state_consts, state_bounds)
+    state = _PropState(
+        consts={denominator: np.array([2], dtype=np.int32)},
+        bounds={numerator: (np.array([-5]), np.array([-5]))},
+    )
+    _propagate_bounds_div(eqn, state)
 
-    lo, hi = state_bounds[eqn.outvars[0]]
+    lo, hi = state.bounds[eqn.outvars[0]]
     np.testing.assert_array_equal(lo, [-2])
     np.testing.assert_array_equal(hi, [-2])

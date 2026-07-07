@@ -6,9 +6,6 @@ from jax.lax import GatherScatterMode
 
 from ._common import (
     IndexSet,
-    StateBounds,
-    StateConsts,
-    StateIndices,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
@@ -17,6 +14,7 @@ from ._common import (
     _enumerate_bounded_patterns,
     _index_sets,
     _numel,
+    _PropState,
     _union_all,
 )
 
@@ -178,9 +176,7 @@ def _scatter_for_indices(
 
 def _prop_scatter(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Scatter writes updates into operand at positions given by scatter_indices.
 
@@ -202,9 +198,9 @@ def _prop_scatter(
         Positions in idx: depend on BOTH operand AND updates.
 
     Example: arr = [a, b, c], arr.at[1].set(x) = [a, x, c]
-        operand state_indices:  [{0}, {1}, {2}]  (from arr)
-        updates state_indices:  [{3}]             (from x, assuming x is input index 3)
-        Output state_indices:   [{0}, {3}, {2}]   (index 1 replaced by x)
+        operand index sets:  [{0}, {1}, {2}]  (from arr)
+        updates index sets:  [{3}]             (from x, assuming x is input index 3)
+        Output index sets:   [{0}, {3}, {2}]   (index 1 replaced by x)
 
     Example with dynamic scatter_indices: arr.at[traced_idx].set(x)
         Cannot determine which position receives the update.
@@ -223,15 +219,15 @@ def _prop_scatter(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scatter.html
     """
-    operand_indices = _index_sets(state_indices, eqn.invars[0])
+    operand_indices = _index_sets(state, eqn.invars[0])
     indices_atom = eqn.invars[1]
-    si_index_sets = _index_sets(state_indices, indices_atom)
-    updates_indices = _index_sets(state_indices, eqn.invars[2])
+    si_index_sets = _index_sets(state, indices_atom)
+    updates_indices = _index_sets(state, eqn.invars[2])
 
-    concrete_indices = _atom_const_val(indices_atom, state_consts)
+    concrete_indices = _atom_const_val(indices_atom, state)
 
     if concrete_indices is not None:
-        state_indices[eqn.outvars[0]] = _scatter_for_indices(
+        state.indices[eqn.outvars[0]] = _scatter_for_indices(
             concrete_indices,
             eqn,
             operand_indices,
@@ -240,7 +236,7 @@ def _prop_scatter(
         return
 
     # Try bounded enumeration.
-    bounds = _atom_value_bounds(indices_atom, state_consts, state_bounds)
+    bounds = _atom_value_bounds(indices_atom, state)
     if bounds is not None:
         lo, hi = bounds
         lo_flat, hi_flat = lo.flatten(), hi.flatten()
@@ -261,12 +257,12 @@ def _prop_scatter(
             if any(si_index_sets):
                 combined_si = _union_all(si_index_sets)
                 result = [iset | combined_si for iset in result]
-            state_indices[eqn.outvars[0]] = result
+            state.indices[eqn.outvars[0]] = result
             return
 
     # Dynamic indices - conservative fallback,
     # including the indices' own dependencies (mirrors gather).
-    state_indices[eqn.outvars[0]] = _conservative_indices(
+    state.indices[eqn.outvars[0]] = _conservative_indices(
         operand_indices + updates_indices + si_index_sets,
         _atom_numel(eqn.outvars[0]),
     )

@@ -10,120 +10,109 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    StateBounds,
-    StateConsts,
-    StateIndices,
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
     _empty_index_sets,
     _propagate_const_binary,
+    _PropState,
 )
 
 
 def _get_bounds(
     eqn: JaxprEqn,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
     """Get (lo1, hi1, lo2, hi2) for both inputs, or None if unavailable."""
-    if eqn.outvars[0] in state_consts:
+    if eqn.outvars[0] in state.consts:
         return None
-    b1 = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
-    b2 = _atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
+    b1 = _atom_value_bounds(eqn.invars[0], state)
+    b2 = _atom_value_bounds(eqn.invars[1], state)
     if b1 is None or b2 is None:
         return None
     return (*b1, *b2)
 
 
-def _set_const(eqn: JaxprEqn, state_consts: StateConsts, value: bool) -> None:
+def _set_const(eqn: JaxprEqn, state: _PropState, value: bool) -> None:
     """Store a constant boolean result."""
-    state_consts[eqn.outvars[0]] = np.full(_atom_shape(eqn.outvars[0]), value)
+    state.consts[eqn.outvars[0]] = np.full(_atom_shape(eqn.outvars[0]), value)
 
 
 def _prop_lt(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Less-than comparison with bounds resolution.
 
     Always true when ``hi(a) < lo(b)``.
     Always false when ``lo(a) >= hi(b)``.
     """
-    state_indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
-    _propagate_const_binary(eqn, state_consts, np.less)
-    bounds = _get_bounds(eqn, state_consts, state_bounds)
+    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
+    _propagate_const_binary(eqn, state, np.less)
+    bounds = _get_bounds(eqn, state)
     if bounds is not None:
         lo1, hi1, lo2, hi2 = bounds
         if np.all(hi1 < lo2):
-            _set_const(eqn, state_consts, True)
+            _set_const(eqn, state, True)
         elif np.all(lo1 >= hi2):
-            _set_const(eqn, state_consts, False)
+            _set_const(eqn, state, False)
 
 
 def _prop_le(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Less-or-equal comparison with bounds resolution.
 
     Always true when ``hi(a) <= lo(b)``.
     Always false when ``lo(a) > hi(b)``.
     """
-    state_indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
-    _propagate_const_binary(eqn, state_consts, np.less_equal)
-    bounds = _get_bounds(eqn, state_consts, state_bounds)
+    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
+    _propagate_const_binary(eqn, state, np.less_equal)
+    bounds = _get_bounds(eqn, state)
     if bounds is not None:
         lo1, hi1, lo2, hi2 = bounds
         if np.all(hi1 <= lo2):
-            _set_const(eqn, state_consts, True)
+            _set_const(eqn, state, True)
         elif np.all(lo1 > hi2):
-            _set_const(eqn, state_consts, False)
+            _set_const(eqn, state, False)
 
 
 def _prop_gt(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Greater-than comparison with bounds resolution.
 
     Always true when ``lo(a) > hi(b)``.
     Always false when ``hi(a) <= lo(b)``.
     """
-    state_indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
-    _propagate_const_binary(eqn, state_consts, np.greater)
-    bounds = _get_bounds(eqn, state_consts, state_bounds)
+    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
+    _propagate_const_binary(eqn, state, np.greater)
+    bounds = _get_bounds(eqn, state)
     if bounds is not None:
         lo1, hi1, lo2, hi2 = bounds
         if np.all(lo1 > hi2):
-            _set_const(eqn, state_consts, True)
+            _set_const(eqn, state, True)
         elif np.all(hi1 <= lo2):
-            _set_const(eqn, state_consts, False)
+            _set_const(eqn, state, False)
 
 
 def _prop_ge(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Greater-or-equal comparison with bounds resolution.
 
     Always true when ``lo(a) >= hi(b)``.
     Always false when ``hi(a) < lo(b)``.
     """
-    state_indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
-    _propagate_const_binary(eqn, state_consts, np.greater_equal)
-    bounds = _get_bounds(eqn, state_consts, state_bounds)
+    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
+    _propagate_const_binary(eqn, state, np.greater_equal)
+    bounds = _get_bounds(eqn, state)
     if bounds is not None:
         lo1, hi1, lo2, hi2 = bounds
         if np.all(lo1 >= hi2):
-            _set_const(eqn, state_consts, True)
+            _set_const(eqn, state, True)
         elif np.all(hi1 < lo2):
-            _set_const(eqn, state_consts, False)
+            _set_const(eqn, state, False)

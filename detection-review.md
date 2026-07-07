@@ -6,6 +6,8 @@ read in full against the design principles in `CLAUDE.md` and the conventions in
 This is a pruned revision of the original review.
 The confirmed correctness bugs (C1–C6) and functional gaps (G1–G3) were fixed,
 with regression tests pinning each one.
+D1 was resolved by bundling the three state dicts into a `_PropState` dataclass
+that every handler and state-touching helper takes uniformly.
 D2 (list-aliasing rules and redundant deep copies) was resolved,
 and the `dot_general` performance cliff was fixed by factoring propagation into row and column unions.
 D5 (documenting the almost-everywhere derivative convention) was withdrawn as incorrect:
@@ -17,33 +19,10 @@ Original finding IDs are kept, which is why the numbering has gaps.
 ## Executive summary
 
 No known correctness issues remain.
-What is left is a design refactor that prevents a recurring bug class (D1),
-a set of minor convention violations (D3, D4),
+What is left is a set of minor convention violations (D3, D4)
 and deduplication, simplification, and performance opportunities.
 
 ## Design observations
-
-### D1. Three parallel state dicts invite signature drift
-
-`state_indices`, `state_consts`, and `state_bounds` are threaded separately through every handler.
-The cost is visible in the code today:
-
-- handlers have four different signatures,
-  some with `| None = None` defaults such as
-  `_prop_integer_pow` at `_elementwise.py:362` and `_prop_convert_element_type` at `_elementwise.py:476`,
-  even though `_prop_dispatch` always passes everything,
-- forwarding into nested jaxprs needs two near-identical helpers
-  (`_forward_value_bounds` at `_common.py:452` and `_forward_const_vals` at `_common.py:464`),
-  and each call site must remember to call both.
-
-The G2/G3 bugs (consts not forwarded out of closed jaxprs, bounds not forwarded into loop bodies)
-were instances of exactly this drift.
-They are fixed, but the structure that produced them remains.
-Bundling the three dicts into one `_PropState` dataclass passed uniformly would collapse the signatures,
-make "forward everything into the inner jaxpr" a single function that cannot be half-applied,
-and remove the optional-parameter noise.
-This is squarely the "minimize complexity" and "information hiding" goals of `CLAUDE.md`,
-and it prevents the entire bug class rather than patching instances.
 
 ### D3. Factory-helper convention violations
 
@@ -57,14 +36,14 @@ The `_api.py` case matters most since it is outside `_interpret` and easy to for
 
 ### D4. Structural inconsistencies (all minor)
 
-- `_prop_iota` lives in `__init__.py` (`__init__.py:378`) while every other primitive has its own module,
+- `_prop_iota` lives in `__init__.py` (`__init__.py:364`) while every other primitive has its own module,
   contradicting the documented structure. Move to `_iota.py`.
 - `_linalg.py:6` imports `_common` by absolute path, every other module uses the relative `._common`.
 - `_prop_qr` unpacks `q_var, r_var = eqn.outvars` (`_linalg.py:31`),
   which crashes with a bare unpacking error if `pivoting=True` adds a third outvar.
   A loud but uninformative failure, an explicit check with the report-issue message would fit the house style.
   It also uses `int(np.prod(...))` where `_numel` exists.
-- `_run_prop` (`_api.py:190`) hand-builds the const dict with `strict=False`
+- `_run_prop` (`_api.py:191`) hand-builds the const dict with `strict=False`
   where `_seed_const_vals` (used everywhere else) exists and uses `strict=True`.
   Use the helper, the strictness inconsistency is a latent masking of length mismatches.
 - The whole interpreter depends on `jax._src.core` and `jax._src.interpreters.partial_eval.dce_jaxpr`
@@ -78,7 +57,7 @@ The `_api.py` case matters most since it is outside `_interpret` and easy to for
 ## Deduplication opportunities
 
 - **`_comparison.py` is 4 copies of one function.**
-  `_prop_lt/_prop_le/_prop_gt/_prop_ge` (`_comparison.py:44,66,88,110`)
+  `_prop_lt/_prop_le/_prop_gt/_prop_ge` (`_comparison.py:41,61,81,101`)
   differ only in the ufunc and the two bound comparisons.
   One `_prop_comparison(eqn, ..., ufunc, is_always_true, is_always_false)`
   plus four `functools.partial`s (or four thin wrappers) reduces ~90 lines to ~30
@@ -87,42 +66,42 @@ The `_api.py` case matters most since it is outside `_interpret` and easy to for
 - **`_stack.py` and `_concatenate.py` share their core.**
   Both pool input index sets, build offset position arrays per input,
   mirror the op with `np.stack`/`np.concatenate`, and permute
-  (`_stack.py:59-71`, `_concatenate.py:44-53`).
+  (`_stack.py:56-68`, `_concatenate.py:41-50`).
   A shared helper parameterized by the numpy op (also covering the const propagation)
   removes one of the two implementations.
 
 - **`_gather_flat_map` and `_scatter_flat_map` duplicate the index-vector iteration machinery.**
-  `_gather.py:26-95` and `_scatter.py:24-126` are near-identical:
+  `_gather.py:24-93` and `_scatter.py:22-124` are near-identical:
   batching-dims extraction, `si_batch_axes`, the nested `np.ndindex` loops,
   the `si_idx` construction, and the `start` assembly.
   A shared generator yielding `(batch_idx, si_batch_idx, start)` would leave only the
   genuinely different window/offset handling in each file.
-  Also, `_gather.py:82-83` re-implements `_clamp_starts` (`_common.py:344`) inline.
+  Also, `_gather.py:81` re-implements `_clamp_starts` (`_common.py:358`) inline.
 
 - **Bounded-enumeration call sites repeat the same boilerplate.**
   Four handlers build `ranges` from `(lo, hi)` and wire up a `_make` closure the same way
-  (`_gather.py:176-186`, `_scatter.py:249-259`, `_dynamic_slice.py:111-120,189-202`).
+  (`_gather.py:172`, `_scatter.py:245`, `_dynamic_slice.py:106,182`).
   A `_bounded_ranges(bounds)` helper for the
   `[range(int(lo), int(hi) + 1) ...]` construction is the cheap 80% win.
 
 - **Broadcast position-mapping exists three times.**
-  `_broadcast_to_output` (`_common.py:246`, value level),
-  `_broadcast_flat` inside `_binary_elementwise` (`_elementwise.py:147`, index level),
-  and the `in_coords` construction in `_prop_broadcast_in_dim` (`_broadcast.py:89-93`).
+  `_broadcast_to_output` (`_common.py:263`, value level),
+  `_broadcast_flat` inside `_binary_elementwise` (`_elementwise.py:145`, index level),
+  and the `in_coords` construction in `_prop_broadcast_in_dim` (`_broadcast.py:84-88`).
   One `_broadcast_flat_map(in_shape, out_shape) -> np.ndarray` covers all three
   (values become `val.ravel()[flat_map]`).
   Within `_broadcast.py` itself, the `intermediate_shape` computation is duplicated
-  between the const path (lines 60-64) and the bounds path (lines 114-120).
+  between the const path (lines 56-60) and the bounds path (lines 107-113).
 
-- **`_atom_numel` re-implements `_numel(_atom_shape(atom))`** (`_common.py:134`).
+- **`_atom_numel` re-implements `_numel(_atom_shape(atom))`** (`_common.py:152`).
   Two near-identical branches collapse to one line.
 
 - **The report-an-issue message is inlined six times**
-  (`__init__.py:133,429`, `_common.py:160,330`, `_reshape.py:51`, `_while.py:120`).
+  (`__init__.py:129,413`, `_common.py:178,344`, `_reshape.py:48`, `_while.py:110`).
   A `_report_issue(msg)` helper in `_common` keeps the URL and phrasing in one place.
 
-- **`_union_elementwise` TODO** (`_common.py:309`) already identifies that
-  `select_n`'s dynamic path (`_select.py:60-65`) and parts of `_binary_elementwise` re-implement it.
+- **`_union_elementwise` TODO** (`_common.py:325`) already identifies that
+  `select_n`'s dynamic path (`_select.py:55-61`) and parts of `_binary_elementwise` re-implement it.
   Worth doing, the select_n loop is exactly `_union_elementwise(case_indices, out_size)`.
 
 ## Simplification opportunities
@@ -147,7 +126,7 @@ The `_api.py` case matters most since it is outside `_interpret` and easy to for
   and sharing the intermediate sets is legal under the no-mutation invariant.
 
 - **`_prop_scan`** computes `iter_length` from the xs shape with an `if xs else length` fallback
-  (`_scan.py:84`) even though `params["length"]` is always present. Use `length` directly,
+  (`_scan.py:76`) even though `params["length"]` is always present. Use `length` directly,
   and the two `AssertionError` shape checks become redundant.
 
 - **`_api.jacobian_sparsity`** traces `f` twice:
@@ -155,7 +134,7 @@ The `_api.py` case matters most since it is outside `_interpret` and easy to for
   The output sizes are already on `closed_jaxpr.jaxpr.outvars[i].aval`.
   For expensive-to-trace functions this halves detection trace time.
 
-- **`_fixed_point_loop`** (`_while.py:104-125`) uses `for ... else` with a `return` inside,
+- **`_fixed_point_loop`** (`_while.py:94-113`) uses `for ... else` with a `return` inside,
   so the `else` is equivalent to straight-line code after the loop.
   Moving the raise below the loop reads more directly
   (the `else` idiom signals a missing `break`, which never occurs here).
@@ -168,12 +147,12 @@ Detection is a one-time cost, so none of these are urgent, but the cliffs are wo
   run nested Python loops per output element (and per kernel/scatter position).
   For realistic CNN shapes this is minutes, not seconds. Vectorizing the flat-map construction with numpy
   (as gather already does for the slice extraction) is the fix when it becomes a problem.
-- `_prop_scan` propagates the body once per timestep (`_scan.py:96`).
+- `_prop_scan` propagates the body once per timestep (`_scan.py:88`).
   A `lax.scan` with `length=100_000` runs 100k full jaxpr propagations.
   A fixed-point treatment (as in `while`) is the escape hatch when ys precision can be sacrificed,
   or a documented cap with a clear error.
-- `_seed_const_vals` calls `np.asarray` on every closure constant (`_common.py:449`),
-  copying e.g. all NN weights device-to-host and keeping them alive in `state_consts` for the whole analysis.
+- `_seed_const_vals` calls `np.asarray` on every closure constant (`_common.py:463`),
+  copying e.g. all NN weights device-to-host and keeping them alive in `state.consts` for the whole analysis.
   Consts are only ever consumed as indices, masks, or zero-skipping values,
   so lazily materializing (or size-capping) would bound memory.
 - `_conv.py:171` guards `if in_flat < len(lhs_indices)` and silently skips otherwise.
@@ -184,7 +163,7 @@ Detection is a one-time cost, so none of these are urgent, but the cliffs are wo
 
 Worth keeping and worth imitating in new handlers:
 
-- The dispatch table with derivative comments per primitive group (`__init__.py:171-374`)
+- The dispatch table with derivative comments per primitive group (`__init__.py:161-360`)
   is an unusually readable inventory of semantic decisions.
 - The unknown-primitive path raises instead of guessing (`_prop_throw_error`),
   and the conservative fallback list is explicit and short.
@@ -193,12 +172,11 @@ Worth keeping and worth imitating in new handlers:
 - Zero-size early returns are present in the handlers that need them
   (gather, broadcast, stack, unstack, sort, cumsum, qr).
 - `_fixed_point_loop`'s monotone-lattice convergence argument is documented where the loop lives.
-- Determinism is handled once, centrally (`_coo_from_index_sets` sorts columns, `_api.py:199`).
+- Determinism is handled once, centrally (`_coo_from_index_sets` sorts columns, `_api.py:201`).
 - DCE with `instantiate=True` to preserve input alignment (`_api.py:133-138`) is subtle and correctly explained.
 
 ## Suggested order of attack
 
-1. **D1** (`_PropState` bundle): structural fix that prevents the signature-drift bug class from recurring.
-2. Dedup batch: comparisons, stack/concatenate, gather/scatter iteration, bounded-enumeration ranges, broadcast maps.
-3. D3 and D4 convention cleanups.
-4. The simplification and performance items as they become relevant.
+1. Dedup batch: comparisons, stack/concatenate, gather/scatter iteration, bounded-enumeration ranges, broadcast maps.
+2. D3 and D4 convention cleanups.
+3. The simplification and performance items as they become relevant.

@@ -7,9 +7,6 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    StateBounds,
-    StateConsts,
-    StateIndices,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
@@ -19,6 +16,7 @@ from ._common import (
     _index_sets,
     _permute_indices,
     _position_map,
+    _PropState,
     _union_all,
 )
 
@@ -113,9 +111,7 @@ def _gather_flat_map(
 
 def _prop_gather(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Gather extracts slices from operand at positions given by start_indices.
 
@@ -152,23 +148,23 @@ def _prop_gather(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.gather.html
     """
-    operand_indices = _index_sets(state_indices, eqn.invars[0])
-    si_index_sets = _index_sets(state_indices, eqn.invars[1])
+    operand_indices = _index_sets(state, eqn.invars[0])
+    si_index_sets = _index_sets(state, eqn.invars[1])
     operand_shape = _atom_shape(eqn.invars[0])
     out_size = _atom_numel(eqn.outvars[0])
 
     if out_size == 0:
-        state_indices[eqn.outvars[0]] = []
+        state.indices[eqn.outvars[0]] = []
         return
 
-    concrete_indices = _atom_const_val(eqn.invars[1], state_consts)
+    concrete_indices = _atom_const_val(eqn.invars[1], state)
     if concrete_indices is not None:
         flat_map = _gather_flat_map(concrete_indices, eqn, operand_shape)
-        state_indices[eqn.outvars[0]] = _permute_indices(operand_indices, flat_map)
+        state.indices[eqn.outvars[0]] = _permute_indices(operand_indices, flat_map)
         return
 
     # Try bounded enumeration.
-    bounds = _atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
+    bounds = _atom_value_bounds(eqn.invars[1], state)
     if bounds is not None:
         lo, hi = bounds
         lo_flat, hi_flat = lo.flatten(), hi.flatten()
@@ -188,11 +184,11 @@ def _prop_gather(
             if any(si_index_sets):
                 combined_si = _union_all(si_index_sets)
                 result = [iset | combined_si for iset in result]
-            state_indices[eqn.outvars[0]] = result
+            state.indices[eqn.outvars[0]] = result
             return
 
     # Conservative fallback: every output depends on all inputs.
     # Include both operand and start_indices dependencies.
-    state_indices[eqn.outvars[0]] = _conservative_indices(
+    state.indices[eqn.outvars[0]] = _conservative_indices(
         operand_indices + si_index_sets, out_size
     )

@@ -5,13 +5,12 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
-    StateConsts,
-    StateIndices,
     _atom_const_val,
     _atom_shape,
     _empty_index_sets,
     _index_sets,
     _numel,
+    _PropState,
     _row_strides,
     _union_all,
 )
@@ -110,9 +109,7 @@ def _one_const_indices(
     return out_indices
 
 
-def _prop_dot_general(
-    eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
-) -> None:
+def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     """Dot_general contracts and batches two arrays.
 
     Each output element is a sum of products over the contracting dimensions,
@@ -120,7 +117,7 @@ def _prop_dot_general(
     Batch dimensions are preserved one-to-one.
 
     For out[b..., i..., j...] = sum_k lhs[b..., i..., k...] * rhs[b..., k..., j...]:
-        state_indices(out[b,i,j]) = state_indices(lhs[b, i, :]) | state_indices(rhs[b, :, j])
+        indices(out[b,i,j]) = indices(lhs[b, i, :]) | indices(rhs[b, :, j])
     where b are batch dims, i are lhs-free dims, j are rhs-free dims,
     and k are contracting dims.
 
@@ -134,9 +131,9 @@ def _prop_dot_general(
     Example: matrix multiply A(2,3) @ B(3,4) -> C(2,4)
         contracting: lhs_dim=1, rhs_dim=0
         out[i,j] depends on lhs[i,:] and rhs[:,j]
-        Input lhs state_indices:  [{0},{1},{2},{3},{4},{5}]  (shape 2x3)
-        Input rhs state_indices:  [{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17}]
-        Output state_indices[0,0] = {0,1,2} | {6,10,14} = {0,1,2,6,10,14}
+        Input lhs index sets:  [{0},{1},{2},{3},{4},{5}]  (shape 2x3)
+        Input rhs index sets:  [{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17}]
+        Output state.indices[0,0] = {0,1,2} | {6,10,14} = {0,1,2,6,10,14}
 
     Zero-skipping: when an operand is a statically known constant with zeros,
     the contracting positions where that factor is zero contribute nothing
@@ -151,8 +148,8 @@ def _prop_dot_general(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.dot_general.html
     """
-    lhs_indices = _index_sets(state_indices, eqn.invars[0])
-    rhs_indices = _index_sets(state_indices, eqn.invars[1])
+    lhs_indices = _index_sets(state, eqn.invars[0])
+    rhs_indices = _index_sets(state, eqn.invars[1])
 
     lhs_shape = _atom_shape(eqn.invars[0])
     rhs_shape = _atom_shape(eqn.invars[1])
@@ -182,14 +179,14 @@ def _prop_dot_general(
 
     if out_size == 0:
         # Zero-sized output has no elements to depend on anything.
-        state_indices[eqn.outvars[0]] = []
+        state.indices[eqn.outvars[0]] = []
         return
 
     # Get constant values for zero-skipping.
     # When an operand is a known constant with zeros,
     # those contracting positions contribute nothing to the derivative.
-    lhs_val = _atom_const_val(eqn.invars[0], state_consts)
-    rhs_val = _atom_const_val(eqn.invars[1], state_consts)
+    lhs_val = _atom_const_val(eqn.invars[0], state)
+    rhs_val = _atom_const_val(eqn.invars[1], state)
     lhs_val_flat = np.atleast_1d(lhs_val).ravel() if lhs_val is not None else None
     rhs_val_flat = np.atleast_1d(rhs_val).ravel() if rhs_val is not None else None
 
@@ -285,4 +282,4 @@ def _prop_dot_general(
             # so no output element depends on the traced inputs.
             out_indices = _empty_index_sets(out_size)
 
-    state_indices[eqn.outvars[0]] = out_indices
+    state.indices[eqn.outvars[0]] = out_indices

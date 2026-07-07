@@ -7,6 +7,7 @@ import pytest
 from jax import lax
 
 from asdex import jacobian_sparsity
+from asdex.detection._interpret._common import _PropState
 from asdex.detection._interpret._elementwise import _propagate_bounds_integer_pow
 from tests._utils import (
     assert_jacobian_sparsity_conservative,
@@ -810,10 +811,10 @@ def test_integer_pow_bounds_negative_odd_exponent():
     jaxpr = jax.make_jaxpr(lambda a: lax.integer_pow(a, -3))(jnp.zeros(1)).jaxpr
     eqn = jaxpr.eqns[0]
 
-    state_bounds = {eqn.invars[0]: (np.array([2.0]), np.array([3.0]))}
-    _propagate_bounds_integer_pow(eqn, -3, {}, state_bounds)
+    state = _PropState(bounds={eqn.invars[0]: (np.array([2.0]), np.array([3.0]))})
+    _propagate_bounds_integer_pow(eqn, -3, state)
 
-    bounds = state_bounds.get(eqn.outvars[0])
+    bounds = state.bounds.get(eqn.outvars[0])
     if bounds is not None:
         lo, hi = bounds
         assert np.all(lo <= hi)

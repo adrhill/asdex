@@ -5,18 +5,15 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
-    StateConsts,
-    StateIndices,
     _atom_const_val,
     _atom_shape,
     _index_sets,
     _numel,
+    _PropState,
 )
 
 
-def _prop_stack(
-    eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
-) -> None:
+def _prop_stack(eqn: JaxprEqn, state: _PropState) -> None:
     """Stack joins arrays along a new axis.
 
     Each output element comes from exactly one input element.
@@ -41,7 +38,7 @@ def _prop_stack(
     out_var = eqn.outvars[0]
 
     if not eqn.invars:
-        state_indices[out_var] = []
+        state.indices[out_var] = []
         return
 
     in_shape = _atom_shape(eqn.invars[0])
@@ -50,7 +47,7 @@ def _prop_stack(
     out_numel = in_numel * n_inputs
 
     if out_numel == 0:
-        state_indices[out_var] = []
+        state.indices[out_var] = []
         return
 
     # Pool all input index sets into one list.
@@ -58,7 +55,7 @@ def _prop_stack(
     all_indices: list[IndexSet] = []
     index_arrays = []
     for invar in eqn.invars:
-        in_indices = _index_sets(state_indices, invar)
+        in_indices = _index_sets(state, invar)
         offset = len(all_indices)
         all_indices.extend(in_indices)
         index_arrays.append(
@@ -68,9 +65,9 @@ def _prop_stack(
     # np.stack mirrors the primitive's semantics:
     # stacking along axis inserts a new dimension at that position.
     permutation_map = np.stack(index_arrays, axis=axis).ravel()
-    state_indices[out_var] = [all_indices[i] for i in permutation_map]
+    state.indices[out_var] = [all_indices[i] for i in permutation_map]
 
     # Propagate const values for downstream gather/scatter.
-    vals = [_atom_const_val(v, state_consts) for v in eqn.invars]
+    vals = [_atom_const_val(v, state) for v in eqn.invars]
     if all(v is not None for v in vals):
-        state_consts[out_var] = np.stack([v for v in vals if v is not None], axis=axis)
+        state.consts[out_var] = np.stack([v for v in vals if v is not None], axis=axis)

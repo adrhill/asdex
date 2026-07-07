@@ -5,9 +5,6 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
-    StateBounds,
-    StateConsts,
-    StateIndices,
     _atom_const_val,
     _atom_shape,
     _atom_value_bounds,
@@ -16,13 +13,14 @@ from ._common import (
     _enumerate_bounded_patterns,
     _index_sets,
     _numel,
+    _PropState,
     _transform_indices,
     _union_all,
 )
 
 
 def _resolve_starts(
-    eqn: JaxprEqn, start_offset: int, state_consts: StateConsts
+    eqn: JaxprEqn, start_offset: int, state: _PropState
 ) -> list[int] | None:
     """Try to resolve start indices as static ints.
 
@@ -30,7 +28,7 @@ def _resolve_starts(
     """
     starts: list[int] = []
     for atom in eqn.invars[start_offset:]:
-        val = _atom_const_val(atom, state_consts)
+        val = _atom_const_val(atom, state)
         if val is None:
             return None
         starts.append(int(val.flat[0]))
@@ -40,8 +38,7 @@ def _resolve_starts(
 def _resolve_start_bounds(
     eqn: JaxprEqn,
     start_offset: int,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> list[tuple[int, int]] | None:
     """Try to resolve per-dimension (lo, hi) bounds for start indices.
 
@@ -49,7 +46,7 @@ def _resolve_start_bounds(
     """
     bounds: list[tuple[int, int]] = []
     for atom in eqn.invars[start_offset:]:
-        b = _atom_value_bounds(atom, state_consts, state_bounds)
+        b = _atom_value_bounds(atom, state)
         if b is None:
             return None
         lo, hi = b
@@ -59,9 +56,7 @@ def _resolve_start_bounds(
 
 def _prop_dynamic_slice(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """dynamic_slice extracts a sub-array at a potentially dynamic offset.
 
@@ -76,8 +71,8 @@ def _prop_dynamic_slice(
     The Jacobian is a selection matrix with exactly one 1 per row.
 
     Example: x = [a, b, c, d, e], dynamic_slice(x, [1], [3]) = [b, c, d]
-        Input state_indices:  [{0}, {1}, {2}, {3}, {4}]
-        Output state_indices: [{1}, {2}, {3}]
+        Input index sets:  [{0}, {1}, {2}, {3}, {4}]
+        Output index sets: [{1}, {2}, {3}]
 
     Jaxpr:
         invars: [operand, *start_indices]
@@ -86,26 +81,26 @@ def _prop_dynamic_slice(
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.dynamic_slice.html
     """
     operand = eqn.invars[0]
-    in_indices = _index_sets(state_indices, operand)
+    in_indices = _index_sets(state, operand)
     slice_sizes = eqn.params["slice_sizes"]
 
     start_index_sets: list[IndexSet] = []
     for start_atom in eqn.invars[1:]:
-        start_index_sets.extend(_index_sets(state_indices, start_atom))
+        start_index_sets.extend(_index_sets(state, start_atom))
 
-    starts = _resolve_starts(eqn, 1, state_consts)
+    starts = _resolve_starts(eqn, 1, state)
     if starts is not None:
         in_shape = _atom_shape(operand)
         slices = tuple(
             slice(s, s + sz) for s, sz in zip(starts, slice_sizes, strict=True)
         )
-        state_indices[eqn.outvars[0]] = _transform_indices(
+        state.indices[eqn.outvars[0]] = _transform_indices(
             in_indices, in_shape, lambda p: p[slices]
         )
         return
 
     # Try bounded enumeration.
-    start_bounds = _resolve_start_bounds(eqn, 1, state_consts, state_bounds)
+    start_bounds = _resolve_start_bounds(eqn, 1, state)
     if start_bounds is not None:
         in_shape = _atom_shape(operand)
         ranges = [range(lo, hi + 1) for lo, hi in start_bounds]
@@ -122,26 +117,24 @@ def _prop_dynamic_slice(
             if any(start_index_sets):
                 combined = _union_all(start_index_sets)
                 result = [iset | combined for iset in result]
-            state_indices[eqn.outvars[0]] = result
+            state.indices[eqn.outvars[0]] = result
             return
 
     # Unresolvable starts - conservative fallback,
     # including the starts' own dependencies (mirrors gather).
-    state_indices[eqn.outvars[0]] = _conservative_indices(
+    state.indices[eqn.outvars[0]] = _conservative_indices(
         in_indices + start_index_sets, _numel(slice_sizes)
     )
 
 
 def _prop_dynamic_update_slice(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """dynamic_update_slice overwrites a sub-array at a potentially dynamic offset.
 
-    With static start indices, updated positions get update state_indices,
-    the rest keep operand state_indices.
+    With static start indices, updated positions get update index sets,
+    the rest keep operand index sets.
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Otherwise falls back to conservative,
@@ -153,7 +146,7 @@ def _prop_dynamic_update_slice(
 
     Example: operand = [a, b, c, d], update = [X, Y], start = [1]
         out = [a, X, Y, d]
-        Output state_indices: [{0}, {upd_0}, {upd_1}, {3}]
+        Output index sets: [{0}, {upd_0}, {upd_1}, {3}]
 
     Jaxpr:
         invars: [operand, update, *start_indices]
@@ -163,18 +156,18 @@ def _prop_dynamic_update_slice(
     """
     operand = eqn.invars[0]
     update = eqn.invars[1]
-    operand_indices = _index_sets(state_indices, operand)
-    upd_indices = _index_sets(state_indices, update)
+    operand_indices = _index_sets(state, operand)
+    upd_indices = _index_sets(state, update)
     operand_shape = _atom_shape(operand)
     upd_shape = _atom_shape(update)
 
     start_index_sets: list[IndexSet] = []
     for start_atom in eqn.invars[2:]:
-        start_index_sets.extend(_index_sets(state_indices, start_atom))
+        start_index_sets.extend(_index_sets(state, start_atom))
 
-    starts = _resolve_starts(eqn, 2, state_consts)
+    starts = _resolve_starts(eqn, 2, state)
     if starts is not None:
-        state_indices[eqn.outvars[0]] = _dynamic_update_for_starts(
+        state.indices[eqn.outvars[0]] = _dynamic_update_for_starts(
             starts,
             operand_indices,
             upd_indices,
@@ -184,7 +177,7 @@ def _prop_dynamic_update_slice(
         return
 
     # Try bounded enumeration.
-    start_bounds = _resolve_start_bounds(eqn, 2, state_consts, state_bounds)
+    start_bounds = _resolve_start_bounds(eqn, 2, state)
     if start_bounds is not None:
         ranges = [range(lo, hi + 1) for lo, hi in start_bounds]
 
@@ -205,12 +198,12 @@ def _prop_dynamic_update_slice(
             if any(start_index_sets):
                 combined = _union_all(start_index_sets)
                 result = [iset | combined for iset in result]
-            state_indices[eqn.outvars[0]] = result
+            state.indices[eqn.outvars[0]] = result
             return
 
     # Unresolvable starts - conservative fallback,
     # including the starts' own dependencies (mirrors gather).
-    state_indices[eqn.outvars[0]] = _conservative_indices(
+    state.indices[eqn.outvars[0]] = _conservative_indices(
         operand_indices + upd_indices + start_index_sets, _numel(operand_shape)
     )
 

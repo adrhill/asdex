@@ -4,21 +4,17 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    StateBounds,
-    StateConsts,
-    StateIndices,
     _atom_value_bounds,
     _clear_where_zero,
     _propagate_const_binary,
+    _PropState,
 )
 from ._elementwise import _binary_elementwise
 
 
 def _prop_mul(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Multiplication is element-wise with a special case for known zeros.
 
@@ -36,25 +32,24 @@ def _prop_mul(
         invars[0]: first input array
         invars[1]: second input array
     """
-    _binary_elementwise(eqn, state_indices)
-    _propagate_const_binary(eqn, state_consts, np.multiply)
-    _clear_where_zero(eqn, state_indices, state_consts, 0)
-    _clear_where_zero(eqn, state_indices, state_consts, 1)
-    _propagate_bounds_mul(eqn, state_consts, state_bounds)
+    _binary_elementwise(eqn, state)
+    _propagate_const_binary(eqn, state, np.multiply)
+    _clear_where_zero(eqn, state, 0)
+    _clear_where_zero(eqn, state, 1)
+    _propagate_bounds_mul(eqn, state)
 
 
 def _propagate_bounds_mul(
     eqn: JaxprEqn,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Propagate value bounds through ``mul`` via interval arithmetic.
 
     ``[a,b] * [c,d]`` → ``[min(ac,ad,bc,bd), max(ac,ad,bc,bd)]``.
     This handles all sign combinations correctly.
     """
-    in1_bounds = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
-    in2_bounds = _atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
+    in1_bounds = _atom_value_bounds(eqn.invars[0], state)
+    in2_bounds = _atom_value_bounds(eqn.invars[1], state)
     if in1_bounds is None or in2_bounds is None:
         return
 
@@ -68,4 +63,4 @@ def _propagate_bounds_mul(
 
     lo = np.minimum(np.minimum(c1, c2), np.minimum(c3, c4))
     hi = np.maximum(np.maximum(c1, c2), np.maximum(c3, c4))
-    state_bounds[eqn.outvars[0]] = (lo, hi)
+    state.bounds[eqn.outvars[0]] = (lo, hi)

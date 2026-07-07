@@ -6,18 +6,15 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    StateConsts,
-    StateIndices,
     _atom_shape,
     _index_sets,
     _propagate_const_unary,
+    _PropState,
     _transform_indices,
 )
 
 
-def _prop_transpose(
-    eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
-) -> None:
+def _prop_transpose(eqn: JaxprEqn, state: _PropState) -> None:
     """Transpose permutes the dimensions of an array.
 
     Each output element maps to exactly one input element
@@ -28,8 +25,8 @@ def _prop_transpose(
     where inv_perm[perm[d]] = d.
 
     Example: x = [[a, b, c], [d, e, f]], transpose(x, (1, 0))
-        Input state_indices:  [{0}, {1}, {2}, {3}, {4}, {5}]
-        Output state_indices: [{0}, {3}, {1}, {4}, {2}, {5}]
+        Input index sets:  [{0}, {1}, {2}, {3}, {4}, {5}]
+        Output index sets: [{0}, {3}, {1}, {4}, {2}, {5}]
 
     Jaxpr:
         invars[0]: input array
@@ -37,12 +34,12 @@ def _prop_transpose(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.transpose.html
     """
-    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_indices = _index_sets(state, eqn.invars[0])
     in_shape = _atom_shape(eqn.invars[0])
     permutation = eqn.params["permutation"]
 
-    state_indices[eqn.outvars[0]] = _transform_indices(
+    state.indices[eqn.outvars[0]] = _transform_indices(
         in_indices, in_shape, lambda p: p.transpose(permutation)
     )
 
-    _propagate_const_unary(eqn, state_consts, partial(np.transpose, axes=permutation))
+    _propagate_const_unary(eqn, state, partial(np.transpose, axes=permutation))

@@ -10,17 +10,17 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
-    StateIndices,
     _atom_shape,
     _empty_index_set,
     _index_sets,
     _numel,
     _position_map,
+    _PropState,
     _union_all,
 )
 
 
-def _prop_cumsum(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_cumsum(eqn: JaxprEqn, state: _PropState) -> None:
     """Cumulative sum accumulates elements along a scan axis.
 
     Forward (`reverse=False`): `out[..., i, ...] = sum(in[..., 0:i+1, ...])`,
@@ -32,12 +32,12 @@ def _prop_cumsum(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     along the scan axis, with independent lanes across other dimensions.
 
     Example: x = [a, b, c], cumsum(x, axis=0)
-        Input state_indices:  [{0}, {1}, {2}]
-        Output state_indices: [{0}, {0, 1}, {0, 1, 2}]
+        Input index sets:  [{0}, {1}, {2}]
+        Output index sets: [{0}, {0, 1}, {0, 1, 2}]
 
     Example: x = [a, b, c], cumsum(x, axis=0, reverse=True)
-        Input state_indices:  [{0}, {1}, {2}]
-        Output state_indices: [{0, 1, 2}, {1, 2}, {2}]
+        Input index sets:  [{0}, {1}, {2}]
+        Output index sets: [{0, 1, 2}, {1, 2}, {2}]
 
     Jaxpr:
         invars[0]: input array
@@ -46,7 +46,7 @@ def _prop_cumsum(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.cumsum.html
     """
-    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_indices = _index_sets(state, eqn.invars[0])
     in_shape = _atom_shape(eqn.invars[0])
     axis: int = eqn.params["axis"]
     reverse: bool = eqn.params["reverse"]
@@ -55,7 +55,7 @@ def _prop_cumsum(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     out_indices: list[IndexSet] = [_empty_index_set() for _ in range(_numel(in_shape))]
 
     if scan_len == 0:
-        state_indices[eqn.outvars[0]] = out_indices
+        state.indices[eqn.outvars[0]] = out_indices
         return
 
     # pos[k, f] = flat position of scan index k, lane f
@@ -67,4 +67,4 @@ def _prop_cumsum(eqn: JaxprEqn, state_indices: StateIndices) -> None:
         for f in range(n_lanes):
             out_indices[pos[k, f]] = _union_all([in_indices[p] for p in contrib[:, f]])
 
-    state_indices[eqn.outvars[0]] = out_indices
+    state.indices[eqn.outvars[0]] = out_indices
