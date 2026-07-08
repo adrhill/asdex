@@ -5,7 +5,6 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     PropJaxprFn,
-    _atom_shape,
     _forward_into_jaxpr,
     _index_sets,
     _PropState,
@@ -63,29 +62,18 @@ def _prop_scan(
     # Initialize carry from carry_init
     carry_indices: list[list[IndexSet]] = [_index_sets(state, v) for v in carry_init]
 
-    # Pre-compute xs index sets and per-slice sizes
+    # Pre-compute xs index sets and per-slice sizes.
+    # xs arrays carry a leading dim of size ``length``,
+    # so each per-timestep slice has ``numel // length`` elements.
     xs_all_indices: list[list[IndexSet]] = [_index_sets(state, v) for v in xs]
-    xs_slice_numels: list[int] = []
-    for i, x_var in enumerate(xs):
-        x_shape = _atom_shape(x_var)
-        if len(x_shape) == 0:
-            raise AssertionError("scan xs must have a leading length dim")
-        xs_slice_numels.append(len(xs_all_indices[i]) // x_shape[0])
-
-    # Determine iteration length from xs or params
-    iter_length: int = _atom_shape(xs[0])[0] if xs else length
-
-    # Validate ys shapes
-    for y_var in ys:
-        if len(_atom_shape(y_var)) == 0:
-            raise AssertionError("scan ys must have a leading length dim")
+    xs_slice_numels: list[int] = [len(ind) // length for ind in xs_all_indices]
 
     # Forward simulation: one _prop_jaxpr call per timestep,
     # threading carry forward and collecting per-timestep ys.
     num_ys = len(ys)
     ys_per_step: list[list[list[IndexSet]]] = [[] for _ in range(num_ys)]
 
-    time_range = range(iter_length - 1, -1, -1) if reverse else range(iter_length)
+    time_range = range(length - 1, -1, -1) if reverse else range(length)
     for t in time_range:
         # Extract xs slice for this timestep
         xs_slice_inputs: list[list[IndexSet]] = []

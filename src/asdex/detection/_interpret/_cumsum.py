@@ -11,12 +11,11 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     _atom_shape,
-    _empty_index_set,
+    _empty_index_sets,
     _index_sets,
     _numel,
     _position_map,
     _PropState,
-    _union_all,
 )
 
 
@@ -52,7 +51,7 @@ def _prop_cumsum(eqn: JaxprEqn, state: _PropState) -> None:
     reverse: bool = eqn.params["reverse"]
 
     scan_len = in_shape[axis]
-    out_indices: list[IndexSet] = [_empty_index_set() for _ in range(_numel(in_shape))]
+    out_indices: list[IndexSet] = _empty_index_sets(_numel(in_shape))
 
     if scan_len == 0:
         state.indices[eqn.outvars[0]] = out_indices
@@ -60,11 +59,19 @@ def _prop_cumsum(eqn: JaxprEqn, state: _PropState) -> None:
 
     # pos[k, f] = flat position of scan index k, lane f
     pos = np.moveaxis(_position_map(in_shape), axis, 0).reshape(scan_len, -1)
-    n_lanes = pos.shape[1]
 
-    for k in range(scan_len):
-        contrib = pos[k:] if reverse else pos[: k + 1]
-        for f in range(n_lanes):
-            out_indices[pos[k, f]] = _union_all([in_indices[p] for p in contrib[:, f]])
+    # Running union along the scan axis: O(n) unions instead of
+    # re-unioning the full prefix for every position.
+    # Sharing the accumulated sets across output elements is legal
+    # because index sets are never mutated.
+    rows = pos[::-1] if reverse else pos
+    acc: list[IndexSet] | None = None
+    for row in rows:
+        if acc is None:
+            acc = [in_indices[p] for p in row]
+        else:
+            acc = [acc[f] | in_indices[p] for f, p in enumerate(row)]
+        for f, p in enumerate(row):
+            out_indices[p] = acc[f]
 
     state.indices[eqn.outvars[0]] = out_indices
