@@ -4,14 +4,13 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
-    _empty_index_set,
     _index_sets,
     _PropState,
+    _union_elementwise,
 )
 
 
@@ -53,12 +52,7 @@ def _prop_select_n(
         out_indices = [case_indices[flat_which[i]][i] for i in range(out_size)]
     else:
         # Dynamic selector: union across all value cases.
-        out_indices = []
-        for i in range(out_size):
-            merged: IndexSet = _empty_index_set()
-            for c_idx in case_indices:
-                merged |= c_idx[i]
-            out_indices.append(merged)
+        out_indices = _union_elementwise(case_indices, out_size)
 
     state.indices[out_var] = out_indices
 

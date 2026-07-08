@@ -56,6 +56,15 @@ Atom = Var | Literal
 """Atomic elements in jaxpressions: named intermediates (Var) or constants (Literal)."""
 
 
+def _report_issue(msg: str) -> str:
+    """Append the standard report-an-issue request to an error message."""
+    return (
+        f"{msg} "
+        "Please help out asdex's development by reporting this at "
+        "https://github.com/adrhill/asdex/issues"
+    )
+
+
 @dataclass(slots=True)
 class _PropState:
     """Propagation state threaded through every handler.
@@ -98,6 +107,19 @@ while covering the common cases
 (e.g. one ``argmax`` index with up to 64 possible values,
 or two indices each with up to 8 possible values).
 """
+
+
+def _bounded_ranges(bounds: tuple[np.ndarray, np.ndarray]) -> list[range]:
+    """Build per-element inclusive candidate ranges from (lo, hi) bounds.
+
+    Feeds ``_enumerate_bounded_patterns``:
+    element ``i`` of the flattened bounds may take any value in ``range(lo[i], hi[i] + 1)``.
+    """
+    lo, hi = bounds
+    return [
+        range(int(lo_i), int(hi_i) + 1)
+        for lo_i, hi_i in zip(np.ravel(lo), np.ravel(hi), strict=True)
+    ]
 
 
 def _enumerate_bounded_patterns(
@@ -151,11 +173,7 @@ def _atom_shape(atom: Atom) -> tuple[int, ...]:
 
 def _atom_numel(atom: Atom) -> int:
     """Get the total number of elements in a variable or literal."""
-    if isinstance(atom, Literal):
-        shape = getattr(atom.val, "shape", ())
-        return _numel(tuple(shape)) if shape else 1
-    shape = getattr(atom.aval, "shape", ())
-    return _numel(tuple(shape)) if shape else 1
+    return _numel(_atom_shape(atom))
 
 
 # Atom value access
@@ -173,11 +191,7 @@ def _index_sets(state: _PropState, atom: Atom) -> list[IndexSet]:
     if isinstance(atom, Literal):
         return _empty_index_sets(_atom_numel(atom))
     if atom not in state.indices:
-        msg = (
-            f"No index sets recorded for variable '{atom}'. "
-            "Please help out asdex's development by reporting this at "
-            "https://github.com/adrhill/asdex/issues"
-        )
+        msg = _report_issue(f"No index sets recorded for variable '{atom}'.")
         raise KeyError(msg)
     return state.indices[atom]
 
@@ -260,20 +274,6 @@ def _propagate_const_binary(
 # Zero-skipping
 
 
-def _broadcast_to_output(
-    val: np.ndarray, in_shape: tuple[int, ...], out_shape: tuple[int, ...]
-) -> np.ndarray:
-    """Broadcast a const value from input shape to output shape, returning a flat array.
-
-    Handles numpy-style broadcasting: left-pads with 1s then expands.
-    """
-    ndim = len(out_shape)
-    arr = np.asarray(val).reshape(in_shape) if in_shape else np.asarray(val)
-    pad = ndim - len(in_shape)
-    padded_shape = (1,) * pad + in_shape
-    return np.broadcast_to(arr.reshape(padded_shape), out_shape).ravel()
-
-
 def _clear_where_zero(
     eqn: JaxprEqn,
     state: _PropState,
@@ -292,7 +292,7 @@ def _clear_where_zero(
         return
     out_shape = _atom_shape(eqn.outvars[0])
     in_shape = _atom_shape(eqn.invars[invar_idx])
-    flat = _broadcast_to_output(val, in_shape, out_shape)
+    flat = np.ravel(val)[_broadcast_flat_map(in_shape, out_shape)]
 
     out_indices = state.indices[eqn.outvars[0]]
     empty = _empty_index_set()
@@ -321,8 +321,6 @@ def _union_elementwise(
 
     Each input list represents per-element index sets for one operand.
     Scalars (length 1) broadcast to match the output size via modular indexing.
-
-    TODO: use in more places (e.g. _binary_elementwise, select_n).
     """
     return [_union_all([inp[i % len(inp)] for inp in inputs]) for i in range(out_size)]
 
@@ -337,11 +335,10 @@ def _check_no_index_sets(state: _PropState, atom: Atom, primitive_name: str) -> 
     and raises an informative error when it is violated.
     """
     if any(_index_sets(state, atom)):
-        msg = (
+        msg = _report_issue(
             f"'{primitive_name}' handler assumes an auxiliary input "
             "has no dependency on the function's inputs, "
-            "but found non-empty index sets. "
-            "Please help out asdex's development by reporting this at https://github.com/adrhill/asdex/issues"
+            "but found non-empty index sets."
         )
         raise ValueError(msg)
 
@@ -356,7 +353,7 @@ def _conservative_indices(all_indices: list[IndexSet], out_size: int) -> list[In
 
 
 def _clamp_starts(
-    starts: tuple[int, ...], in_shape: Sequence[int], slice_sizes: Sequence[int]
+    starts: Sequence[int], in_shape: Sequence[int], slice_sizes: Sequence[int]
 ) -> tuple[int, ...]:
     """Clamp start indices to valid bounds.
 
@@ -381,6 +378,21 @@ def _position_map(shape: Sequence[int]) -> np.ndarray:
     reveals which input position each output position reads from.
     """
     return np.arange(_numel(shape)).reshape(shape)
+
+
+def _broadcast_flat_map(
+    in_shape: tuple[int, ...], out_shape: tuple[int, ...]
+) -> np.ndarray:
+    """Map each output position to the input position it reads under broadcasting.
+
+    Follows numpy broadcasting rules:
+    the input shape is left-padded with 1s to the output ndim,
+    and size-1 dims always read index 0.
+    Returns a flat integer array of length ``numel(out_shape)``.
+    For const values, ``np.ravel(val)[flat_map]`` broadcasts the value itself.
+    """
+    padded = (1,) * (len(out_shape) - len(in_shape)) + tuple(in_shape)
+    return np.broadcast_to(_position_map(padded), out_shape).ravel()
 
 
 def _permute_indices(

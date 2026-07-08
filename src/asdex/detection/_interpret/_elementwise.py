@@ -10,6 +10,7 @@ from ._common import (
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
+    _broadcast_flat_map,
     _clear_where_zero,
     _empty_index_set,
     _empty_index_sets,
@@ -133,24 +134,14 @@ def _binary_elementwise(
         ]
         return
 
-    # General broadcast: map output coordinates to input coordinates
+    # General broadcast: map output positions to input positions
     # respecting numpy-style broadcasting (size-1 dims read index 0).
     # Example: mul of (16,16) * (16,1) → (16,16).
     # out[p,d] depends on in1[p,d] and in2[p,0], not in2[d].
     out_shape = _atom_shape(eqn.outvars[0])
     out_size = _numel(out_shape)
-    out_coords = np.indices(out_shape)
-    ndim = len(out_shape)
-
-    def _broadcast_flat(in_shape: tuple[int, ...]) -> np.ndarray:
-        # Left-pad with 1s to match output ndim (numpy broadcasting rule).
-        pad = ndim - len(in_shape)
-        padded = (1,) * pad + in_shape
-        coords = tuple(out_coords[d] if padded[d] > 1 else 0 for d in range(ndim))
-        return np.ravel_multi_index(coords, padded).ravel()
-
-    in1_flat = _broadcast_flat(in1_shape)
-    in2_flat = _broadcast_flat(in2_shape)
+    in1_flat = _broadcast_flat_map(in1_shape, out_shape)
+    in2_flat = _broadcast_flat_map(in2_shape, out_shape)
 
     state.indices[eqn.outvars[0]] = [
         _union_with_zero_derivs(

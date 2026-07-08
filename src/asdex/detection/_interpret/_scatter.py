@@ -1,4 +1,7 @@
-"""Propagation rule for scatter operations."""
+"""Propagation rule for scatter operations.
+
+Naming: ``si_`` is short for ``scatter_indices``, the second input to ``lax.scatter``.
+"""
 
 import numpy as np
 from jax._src.core import JaxprEqn
@@ -10,6 +13,8 @@ from ._common import (
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
+    _bounded_ranges,
+    _clamp_starts,
     _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
@@ -17,6 +22,7 @@ from ._common import (
     _PropState,
     _union_all,
 )
+from ._gather import _iter_si_starts
 
 
 def _scatter_flat_map(
@@ -35,21 +41,9 @@ def _scatter_flat_map(
     op_ndim = len(operand_shape)
     update_window_dims = set(dim_nums.update_window_dims)
     inserted_window_dims = dim_nums.inserted_window_dims
-    scatter_dims_to_operand_dims = dim_nums.scatter_dims_to_operand_dims
 
     operand_batching_dims = getattr(dim_nums, "operand_batching_dims", ()) or ()
     si_batching_dims = getattr(dim_nums, "scatter_indices_batching_dims", ()) or ()
-
-    si_shape = concrete_indices.shape
-    index_vector_dim = len(si_shape) - 1
-
-    si_batch_axes = [
-        d
-        for d in range(len(si_shape))
-        if d != index_vector_dim and d not in si_batching_dims
-    ]
-    si_batch_shape = tuple(si_shape[d] for d in si_batch_axes)
-    batching_shape = tuple(operand_shape[d] for d in operand_batching_dims)
 
     # Operand dims removed from the window (inserted + batching).
     removed = set(inserted_window_dims) | set(operand_batching_dims)
@@ -67,59 +61,47 @@ def _scatter_flat_map(
     update_ndim = len(updates_shape)
     flat_map = np.full(updates_size, -1, dtype=np.intp)
 
-    for batch_idx in np.ndindex(*batching_shape) if batching_shape else [()]:
-        for si_batch_idx in np.ndindex(*si_batch_shape) if si_batch_shape else [()]:
-            # Look up index vector from scatter_indices.
-            si_idx: list[int | slice] = [0 for _ in range(len(si_shape))]
-            for i, d in enumerate(si_batching_dims):
-                si_idx[d] = batch_idx[i]
-            for i, d in enumerate(si_batch_axes):
-                si_idx[d] = si_batch_idx[i]
-            si_idx[index_vector_dim] = slice(None)
-            index_vector = concrete_indices[tuple(si_idx)]
+    _, _, starts = _iter_si_starts(
+        concrete_indices,
+        operand_shape,
+        operand_batching_dims,
+        si_batching_dims,
+        dim_nums.scatter_dims_to_operand_dims,
+    )
 
-            # Build start position in operand.
-            start = [0] * op_ndim
-            for i, d in enumerate(scatter_dims_to_operand_dims):
-                start[d] = int(index_vector[i])
-            for i, d in enumerate(operand_batching_dims):
-                start[d] = int(batch_idx[i])
+    for batch_idx, si_batch_idx, start in starts:
+        # mode='clip' clamps the start so the whole window stays in range,
+        # so the update lands at the clamped position instead of being dropped.
+        if is_clip:
+            start = list(_clamp_starts(start, operand_shape, window_extent))
 
-            # mode='clip' clamps the start so the whole window stays in range,
-            # so the update lands at the clamped position instead of being dropped.
-            if is_clip:
-                start = [
-                    max(0, min(start[d], operand_shape[d] - window_extent[d]))
-                    for d in range(op_ndim)
-                ]
+        for window_idx in np.ndindex(*window_shape) if window_shape else [()]:
+            # Build full operand index: start + window offset at non-removed dims.
+            operand_idx = list(start)
+            w_iter = iter(window_idx)
+            for d in window_operand_dims:
+                operand_idx[d] += next(w_iter)
 
-            for window_idx in np.ndindex(*window_shape) if window_shape else [()]:
-                # Build full operand index: start + window offset at non-removed dims.
-                operand_idx = list(start)
-                w_iter = iter(window_idx)
-                for d in window_operand_dims:
-                    operand_idx[d] += next(w_iter)
+            # Scatter drops OOB updates (unlike gather which clamps).
+            if any(
+                operand_idx[d] < 0 or operand_idx[d] >= operand_shape[d]
+                for d in range(op_ndim)
+            ):
+                continue
 
-                # Scatter drops OOB updates (unlike gather which clamps).
-                if any(
-                    operand_idx[d] < 0 or operand_idx[d] >= operand_shape[d]
-                    for d in range(op_ndim)
-                ):
-                    continue
+            # Build update multi-index from batch and window components.
+            update_multi = [0] * update_ndim
+            b_iter = iter(batch_idx + si_batch_idx)
+            w_iter2 = iter(window_idx)
+            for d in range(update_ndim):
+                if d in update_window_dims:
+                    update_multi[d] = next(w_iter2)
+                else:
+                    update_multi[d] = next(b_iter)
 
-                # Build update multi-index from batch and window components.
-                update_multi = [0] * update_ndim
-                b_iter = iter(batch_idx + si_batch_idx)
-                w_iter2 = iter(window_idx)
-                for d in range(update_ndim):
-                    if d in update_window_dims:
-                        update_multi[d] = next(w_iter2)
-                    else:
-                        update_multi[d] = next(b_iter)
-
-                operand_flat = int(np.ravel_multi_index(operand_idx, operand_shape))
-                update_flat = int(np.ravel_multi_index(update_multi, updates_shape))
-                flat_map[update_flat] = operand_flat
+            operand_flat = int(np.ravel_multi_index(operand_idx, operand_shape))
+            update_flat = int(np.ravel_multi_index(update_multi, updates_shape))
+            flat_map[update_flat] = operand_flat
 
     return flat_map
 
@@ -238,13 +220,10 @@ def _prop_scatter(
     # Try bounded enumeration.
     bounds = _atom_value_bounds(indices_atom, state)
     if bounds is not None:
-        lo, hi = bounds
-        lo_flat, hi_flat = lo.flatten(), hi.flatten()
+        lo = bounds[0]
         si_shape = _atom_shape(indices_atom)
         out_size = _atom_numel(eqn.outvars[0])
-        ranges = [
-            range(int(lo_flat[i]), int(hi_flat[i]) + 1) for i in range(len(lo_flat))
-        ]
+        ranges = _bounded_ranges(bounds)
 
         def _make(vals: tuple[int, ...]) -> list[set[int]]:
             candidate = np.array(vals, dtype=lo.dtype).reshape(si_shape)

@@ -38,81 +38,67 @@ def _set_const(eqn: JaxprEqn, state: _PropState, value: bool) -> None:
     state.consts[eqn.outvars[0]] = np.full(_atom_shape(eqn.outvars[0]), value)
 
 
-def _prop_lt(
-    eqn: JaxprEqn,
-    state: _PropState,
-) -> None:
+def _prop_comparison(eqn: JaxprEqn, state: _PropState, ufunc: np.ufunc) -> None:
+    """Shared implementation for lt, le, gt, and ge.
+
+    The output has empty index sets (zero derivative).
+    When the input bounds separate, the result is stored as a const boolean:
+    the comparison is always true when it holds between the least favorable extremes,
+    and always false when it fails between the most favorable extremes.
+    For ``<`` and ``<=`` the least favorable pair is ``(hi(a), lo(b))``,
+    for ``>`` and ``>=`` it is ``(lo(a), hi(b))``.
+    """
+    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
+    _propagate_const_binary(eqn, state, ufunc)
+    bounds = _get_bounds(eqn, state)
+    if bounds is None:
+        return
+    lo1, hi1, lo2, hi2 = bounds
+    match ufunc:
+        case np.less | np.less_equal:
+            worst, best = (hi1, lo2), (lo1, hi2)
+        case np.greater | np.greater_equal:
+            worst, best = (lo1, hi2), (hi1, lo2)
+        case _:
+            msg = f"Unsupported comparison ufunc: {ufunc}"
+            raise ValueError(msg)
+    if np.all(ufunc(*worst)):
+        _set_const(eqn, state, True)
+    elif not np.any(ufunc(*best)):
+        _set_const(eqn, state, False)
+
+
+def _prop_lt(eqn: JaxprEqn, state: _PropState) -> None:
     """Less-than comparison with bounds resolution.
 
     Always true when ``hi(a) < lo(b)``.
     Always false when ``lo(a) >= hi(b)``.
     """
-    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
-    _propagate_const_binary(eqn, state, np.less)
-    bounds = _get_bounds(eqn, state)
-    if bounds is not None:
-        lo1, hi1, lo2, hi2 = bounds
-        if np.all(hi1 < lo2):
-            _set_const(eqn, state, True)
-        elif np.all(lo1 >= hi2):
-            _set_const(eqn, state, False)
+    _prop_comparison(eqn, state, np.less)
 
 
-def _prop_le(
-    eqn: JaxprEqn,
-    state: _PropState,
-) -> None:
+def _prop_le(eqn: JaxprEqn, state: _PropState) -> None:
     """Less-or-equal comparison with bounds resolution.
 
     Always true when ``hi(a) <= lo(b)``.
     Always false when ``lo(a) > hi(b)``.
     """
-    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
-    _propagate_const_binary(eqn, state, np.less_equal)
-    bounds = _get_bounds(eqn, state)
-    if bounds is not None:
-        lo1, hi1, lo2, hi2 = bounds
-        if np.all(hi1 <= lo2):
-            _set_const(eqn, state, True)
-        elif np.all(lo1 > hi2):
-            _set_const(eqn, state, False)
+    _prop_comparison(eqn, state, np.less_equal)
 
 
-def _prop_gt(
-    eqn: JaxprEqn,
-    state: _PropState,
-) -> None:
+def _prop_gt(eqn: JaxprEqn, state: _PropState) -> None:
     """Greater-than comparison with bounds resolution.
 
     Always true when ``lo(a) > hi(b)``.
     Always false when ``hi(a) <= lo(b)``.
     """
-    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
-    _propagate_const_binary(eqn, state, np.greater)
-    bounds = _get_bounds(eqn, state)
-    if bounds is not None:
-        lo1, hi1, lo2, hi2 = bounds
-        if np.all(lo1 > hi2):
-            _set_const(eqn, state, True)
-        elif np.all(hi1 <= lo2):
-            _set_const(eqn, state, False)
+    _prop_comparison(eqn, state, np.greater)
 
 
-def _prop_ge(
-    eqn: JaxprEqn,
-    state: _PropState,
-) -> None:
+def _prop_ge(eqn: JaxprEqn, state: _PropState) -> None:
     """Greater-or-equal comparison with bounds resolution.
 
     Always true when ``lo(a) >= hi(b)``.
     Always false when ``hi(a) < lo(b)``.
     """
-    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
-    _propagate_const_binary(eqn, state, np.greater_equal)
-    bounds = _get_bounds(eqn, state)
-    if bounds is not None:
-        lo1, hi1, lo2, hi2 = bounds
-        if np.all(lo1 >= hi2):
-            _set_const(eqn, state, True)
-        elif np.all(hi1 < lo2):
-            _set_const(eqn, state, False)
+    _prop_comparison(eqn, state, np.greater_equal)

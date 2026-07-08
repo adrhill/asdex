@@ -1,7 +1,10 @@
 """Propagation rule for gather operations.
 
 Naming: ``si_`` is short for ``start_indices``, the second input to ``lax.gather``.
+Also hosts the index-vector iteration machinery shared with ``_scatter.py``.
 """
+
+from collections.abc import Iterator, Sequence
 
 import numpy as np
 from jax._src.core import JaxprEqn
@@ -11,6 +14,8 @@ from ._common import (
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
+    _bounded_ranges,
+    _clamp_starts,
     _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
@@ -19,6 +24,64 @@ from ._common import (
     _PropState,
     _union_all,
 )
+
+
+def _iter_si_starts(
+    concrete_indices: np.ndarray,
+    operand_shape: tuple[int, ...],
+    operand_batching_dims: tuple[int, ...],
+    si_batching_dims: tuple[int, ...],
+    index_map: Sequence[int],
+) -> tuple[
+    tuple[int, ...],
+    tuple[int, ...],
+    Iterator[tuple[tuple[int, ...], tuple[int, ...], list[int]]],
+]:
+    """Shared index-vector iteration for gather and scatter.
+
+    Walks every combination of operand batch position and start-indices batch position,
+    extracts the corresponding index vector from ``concrete_indices``,
+    and assembles the operand start position it addresses.
+    ``index_map`` maps index-vector components to operand dims
+    (``start_index_map`` for gather, ``scatter_dims_to_operand_dims`` for scatter).
+
+    Returns ``(batching_shape, si_batch_shape, starts)``,
+    where ``starts`` yields ``(batch_idx, si_batch_idx, start)`` triples
+    in row-major order over both batch spaces.
+    Starts are not clamped;
+    gather (always) and scatter (mode='clip') apply their own OOB policy.
+    """
+    op_ndim = len(operand_shape)
+    si_shape = concrete_indices.shape
+    index_vector_dim = len(si_shape) - 1
+
+    si_batch_axes = [
+        d
+        for d in range(len(si_shape))
+        if d != index_vector_dim and d not in si_batching_dims
+    ]
+    si_batch_shape = tuple(si_shape[d] for d in si_batch_axes)
+    batching_shape = tuple(operand_shape[d] for d in operand_batching_dims)
+
+    def _starts() -> Iterator[tuple[tuple[int, ...], tuple[int, ...], list[int]]]:
+        for batch_idx in np.ndindex(*batching_shape) if batching_shape else [()]:
+            for si_batch_idx in np.ndindex(*si_batch_shape) if si_batch_shape else [()]:
+                si_idx: list[int | slice] = [0 for _ in range(len(si_shape))]
+                for i, d in enumerate(si_batching_dims):
+                    si_idx[d] = batch_idx[i]
+                for i, d in enumerate(si_batch_axes):
+                    si_idx[d] = si_batch_idx[i]
+                si_idx[index_vector_dim] = slice(None)
+                index_vector = concrete_indices[tuple(si_idx)]
+
+                start = [0] * op_ndim
+                for i, d in enumerate(index_map):
+                    start[d] = int(index_vector[i])
+                for i, d in enumerate(operand_batching_dims):
+                    start[d] = int(batch_idx[i])
+                yield batch_idx, si_batch_idx, start
+
+    return batching_shape, si_batch_shape, _starts()
 
 
 def _gather_flat_map(
@@ -37,21 +100,9 @@ def _gather_flat_map(
     op_ndim = len(operand_shape)
     offset_dims = dim_nums.offset_dims
     collapsed = dim_nums.collapsed_slice_dims
-    start_index_map = dim_nums.start_index_map
 
     operand_batching_dims = getattr(dim_nums, "operand_batching_dims", ()) or ()
     si_batching_dims = getattr(dim_nums, "start_indices_batching_dims", ()) or ()
-
-    si_shape = concrete_indices.shape
-    index_vector_dim = len(si_shape) - 1
-
-    si_batch_axes = [
-        d
-        for d in range(len(si_shape))
-        if d != index_vector_dim and d not in si_batching_dims
-    ]
-    si_batch_shape = tuple(si_shape[d] for d in si_batch_axes)
-    batching_shape = tuple(operand_shape[d] for d in operand_batching_dims)
 
     removed = set(collapsed) | set(operand_batching_dims)
     offset_operand_dims = [d for d in range(op_ndim) if d not in removed]
@@ -59,36 +110,26 @@ def _gather_flat_map(
 
     op_pos = _position_map(operand_shape)
 
+    batching_shape, si_batch_shape, starts = _iter_si_starts(
+        concrete_indices,
+        operand_shape,
+        operand_batching_dims,
+        si_batching_dims,
+        dim_nums.start_index_map,
+    )
+
     slices = []
-    for batch_idx in np.ndindex(*batching_shape) if batching_shape else [()]:
-        for si_batch_idx in np.ndindex(*si_batch_shape) if si_batch_shape else [()]:
-            si_idx: list[int | slice] = [0 for _ in range(len(si_shape))]
-            for i, d in enumerate(si_batching_dims):
-                si_idx[d] = batch_idx[i]
-            for i, d in enumerate(si_batch_axes):
-                si_idx[d] = si_batch_idx[i]
-            si_idx[index_vector_dim] = slice(None)
-            index_vector = concrete_indices[tuple(si_idx)]
+    for _, _, raw_start in starts:
+        # JAX clamps OOB indices to valid bounds.
+        start = _clamp_starts(raw_start, operand_shape, slice_sizes)
 
-            start = [0] * op_ndim
-            for i, d in enumerate(start_index_map):
-                start[d] = int(index_vector[i])
-            for i, d in enumerate(operand_batching_dims):
-                start[d] = int(batch_idx[i])
+        sl = tuple(slice(start[d], start[d] + slice_sizes[d]) for d in range(op_ndim))
+        result = op_pos[sl]
 
-            # JAX clamps OOB indices to valid bounds.
-            for d in range(op_ndim):
-                start[d] = max(0, min(start[d], operand_shape[d] - slice_sizes[d]))
+        for d in sorted(removed, reverse=True):
+            result = np.squeeze(result, axis=d)
 
-            sl = tuple(
-                slice(start[d], start[d] + slice_sizes[d]) for d in range(op_ndim)
-            )
-            result = op_pos[sl]
-
-            for d in sorted(removed, reverse=True):
-                result = np.squeeze(result, axis=d)
-
-            slices.append(result.flatten())
+        slices.append(result.flatten())
 
     all_results = np.stack(slices)
     intermediate_shape = batching_shape + si_batch_shape + offset_shape
@@ -166,12 +207,9 @@ def _prop_gather(
     # Try bounded enumeration.
     bounds = _atom_value_bounds(eqn.invars[1], state)
     if bounds is not None:
-        lo, hi = bounds
-        lo_flat, hi_flat = lo.flatten(), hi.flatten()
+        lo = bounds[0]
         si_shape = _atom_shape(eqn.invars[1])
-        ranges = [
-            range(int(lo_flat[i]), int(hi_flat[i]) + 1) for i in range(len(lo_flat))
-        ]
+        ranges = _bounded_ranges(bounds)
 
         def _make(vals: tuple[int, ...]) -> list[set[int]]:
             candidate = np.array(vals, dtype=lo.dtype).reshape(si_shape)

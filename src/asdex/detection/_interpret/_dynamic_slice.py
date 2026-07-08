@@ -8,6 +8,7 @@ from ._common import (
     _atom_const_val,
     _atom_shape,
     _atom_value_bounds,
+    _bounded_ranges,
     _clamp_starts,
     _conservative_indices,
     _enumerate_bounded_patterns,
@@ -39,19 +40,21 @@ def _resolve_start_bounds(
     eqn: JaxprEqn,
     start_offset: int,
     state: _PropState,
-) -> list[tuple[int, int]] | None:
+) -> tuple[np.ndarray, np.ndarray] | None:
     """Try to resolve per-dimension (lo, hi) bounds for start indices.
 
     Returns None if any start has no bounds information.
     """
-    bounds: list[tuple[int, int]] = []
+    los: list[int] = []
+    his: list[int] = []
     for atom in eqn.invars[start_offset:]:
         b = _atom_value_bounds(atom, state)
         if b is None:
             return None
         lo, hi = b
-        bounds.append((int(lo.flat[0]), int(hi.flat[0])))
-    return bounds
+        los.append(int(lo.flat[0]))
+        his.append(int(hi.flat[0]))
+    return np.array(los), np.array(his)
 
 
 def _prop_dynamic_slice(
@@ -103,7 +106,7 @@ def _prop_dynamic_slice(
     start_bounds = _resolve_start_bounds(eqn, 1, state)
     if start_bounds is not None:
         in_shape = _atom_shape(operand)
-        ranges = [range(lo, hi + 1) for lo, hi in start_bounds]
+        ranges = _bounded_ranges(start_bounds)
 
         def _make_slice(vals: tuple[int, ...]) -> list[set[int]]:
             clamped = _clamp_starts(vals, in_shape, slice_sizes)
@@ -179,7 +182,7 @@ def _prop_dynamic_update_slice(
     # Try bounded enumeration.
     start_bounds = _resolve_start_bounds(eqn, 2, state)
     if start_bounds is not None:
-        ranges = [range(lo, hi + 1) for lo, hi in start_bounds]
+        ranges = _bounded_ranges(start_bounds)
 
         def _make_update(vals: tuple[int, ...]) -> list[set[int]]:
             clamped = _clamp_starts(vals, operand_shape, upd_shape)
