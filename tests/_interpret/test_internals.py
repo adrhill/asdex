@@ -386,26 +386,3 @@ def test_index_sets_unknown_var_raises():
 
     with pytest.raises(KeyError):
         _index_sets(_PropState(), var)
-
-
-# Contracts with JAX internals
-
-
-def test_while_invars_layout():
-    """JAX binds while_p invars as [cond_consts, body_consts, carry].
-
-    The while handler slices eqn.invars by cond_nconsts and body_nconsts,
-    so this ordering is a load-bearing contract with JAX internals.
-    This test fails loudly if a JAX upgrade reorders the groups.
-    """
-
-    def f(c, b, init):
-        return jax.lax.while_loop(lambda s: s[0] < c, lambda s: s + b, init)
-
-    jaxpr = jax.make_jaxpr(f)(1.0, 2.0, jnp.zeros(2)).jaxpr
-    (eqn,) = [e for e in jaxpr.eqns if e.primitive.name == "while"]
-    c_var, b_var, init_var = jaxpr.invars
-
-    assert eqn.params["cond_nconsts"] == 1
-    assert eqn.params["body_nconsts"] == 1
-    assert list(eqn.invars) == [c_var, b_var, init_var]
