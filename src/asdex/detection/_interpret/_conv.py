@@ -1,20 +1,65 @@
 """Propagation rules for convolution operations."""
 
-from itertools import product
-
+import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
     _atom_shape,
     _conservative_indices,
-    _empty_index_set,
-    _flat_to_coords,
     _index_sets,
     _numel,
     _PropState,
     _row_strides,
+    _union_all,
 )
+
+
+def _window_target_lists(
+    out_spatial_sizes: list[int],
+    kernel_spatial_sizes: list[int],
+    lhs_spatial_sizes: list[int],
+    window_strides: tuple[int, ...],
+    lhs_dilation: tuple[int, ...],
+    rhs_dilation: tuple[int, ...],
+    padding: tuple[tuple[int, int], ...],
+) -> list[list[int]]:
+    """Map each output spatial position to the input spatial positions in its window.
+
+    Vectorized over (output position, kernel tap):
+    for output position ``o``, kernel tap ``k``, and spatial dimension ``i``,
+    the position in the lhs-dilated input is
+    ``o[i] * stride[i] + k[i] * rhs_dilation[i] - padding_lo[i]``.
+    A tap is valid when that position is in bounds
+    and lands on an actual input element rather than in a dilation gap.
+
+    Returns one list of flat input spatial positions per flat output spatial position,
+    both row-major over the respective spatial sizes.
+    """
+    n_spatial = len(out_spatial_sizes)
+    out_spatial_size = _numel(out_spatial_sizes)
+    kernel_size = _numel(kernel_spatial_sizes)
+
+    def per_dim(values) -> np.ndarray:
+        return np.asarray(list(values), dtype=np.intp).reshape(n_spatial, 1, 1)
+
+    out_coords = np.indices(out_spatial_sizes).reshape(n_spatial, out_spatial_size)
+    tap_coords = np.indices(kernel_spatial_sizes).reshape(n_spatial, kernel_size)
+
+    pos = (
+        out_coords[:, :, None] * per_dim(window_strides)
+        + tap_coords[:, None, :] * per_dim(rhs_dilation)
+        - per_dim(lo for lo, _ in padding)
+    )
+    in_coords = pos // per_dim(lhs_dilation)
+    valid = (
+        (pos >= 0)
+        & (in_coords < per_dim(lhs_spatial_sizes))
+        & (pos % per_dim(lhs_dilation) == 0)
+    ).all(axis=0)
+
+    targets = (in_coords * per_dim(_row_strides(lhs_spatial_sizes))).sum(axis=0)
+    return [targets[o, valid[o]].tolist() for o in range(out_spatial_size)]
 
 
 def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
@@ -41,6 +86,14 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
         out[1] = b·w0 + c·w1  →  index set {1, 2}
         out[2] = c·w0 + d·w1  →  index set {2, 3}
 
+    Because set union is associative and commutative,
+    the per-output union factors instead of being recomputed per element:
+    the group's channels are pre-unioned once per input spatial position,
+    those sets are unioned once per output spatial position,
+    and every output channel of the same group aliases the resulting set.
+    This costs O(input size + output windows) set unions
+    instead of O(output size * window size * channels).
+
     Jaxpr:
         invars[0]: lhs — rank n+2 input array
         invars[1]: rhs — rank n+2 kernel weights
@@ -65,6 +118,15 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
         state.indices[eqn.outvars[0]] = _conservative_indices(
             lhs_indices + rhs_indices, out_size
         )
+        return
+
+    # Neither operand carries dependencies, so every output set is empty.
+    if not any(lhs_indices):
+        state.indices[eqn.outvars[0]] = _conservative_indices([], out_size)
+        return
+
+    if out_size == 0:
+        state.indices[eqn.outvars[0]] = []
         return
 
     batch_group_count = eqn.params.get("batch_group_count", 1)
@@ -98,13 +160,14 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
     # JAX requires at most one of these to be > 1 at a time.
 
     lhs_strides = _row_strides(lhs_shape)
-    out_strides = _row_strides(out_shape)
 
     # Get spatial sizes
     lhs_spatial_sizes = [lhs_shape[d] for d in lhs_spatial_dims]
     kernel_spatial_sizes = [rhs_shape[d] for d in rhs_spatial_dims]
+    out_spatial_sizes = [out_shape[d] for d in out_spatial_dims]
     n_in_features = lhs_shape[lhs_feature_dim]
     n_out_features = out_shape[out_feature_dim]
+    n_lhs_batches = lhs_shape[lhs_batch_dim]
 
     # Compute per-group channel ranges.
     # When feature_group_count == 1, this covers all input channels.
@@ -114,65 +177,78 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
     # With batch_group_count > 1, output features are split into G groups
     # and each group reads from a shifted input batch:
     # in_batch = out_batch + group * n_out_batches.
-    n_out_batches = lhs_shape[lhs_batch_dim] // batch_group_count
+    n_out_batches = n_lhs_batches // batch_group_count
     channels_per_batch_group = n_out_features // batch_group_count
 
-    out_indices: list[IndexSet] = []
+    window_targets = _window_target_lists(
+        out_spatial_sizes,
+        kernel_spatial_sizes,
+        lhs_spatial_sizes,
+        window_strides,
+        lhs_dilation,
+        rhs_dilation,
+        padding,
+    )
 
-    for out_flat in range(out_size):
-        out_coord = _flat_to_coords(out_flat, out_strides)
+    # Flat lhs offsets of the input spatial positions, in spatial row-major order.
+    in_spatial_size = _numel(lhs_spatial_sizes)
+    in_coords = np.indices(lhs_spatial_sizes).reshape(n_spatial, in_spatial_size)
+    spatial_strides = np.asarray(
+        [lhs_strides[d] for d in lhs_spatial_dims], dtype=np.intp
+    ).reshape(n_spatial, 1)
+    spatial_offsets = (in_coords * spatial_strides).sum(axis=0)
 
-        out_batch_idx = out_coord[out_batch_dim]
-        out_feature_idx = out_coord[out_feature_dim]
-        out_spatial_coord = [out_coord[d] for d in out_spatial_dims]
+    def window_union_table(in_batch: int, group: int) -> list[IndexSet]:
+        """Per-output-spatial-position sets for one (input batch, feature group)."""
+        base = in_batch * lhs_strides[lhs_batch_dim]
+        channels = range(group * group_size_in, (group + 1) * group_size_in)
+        chan_offsets = base + np.asarray(channels) * lhs_strides[lhs_feature_dim]
+        flat = chan_offsets[:, None] + spatial_offsets[None, :]
+        # Positions are in bounds by construction;
+        # a violation here means a coordinate-math bug.
+        assert flat.size == 0 or flat.max() < len(lhs_indices)
 
-        # Only iterate over input channels in the same feature group.
-        feature_group_idx = out_feature_idx // group_size_out
-        in_feature_start = feature_group_idx * group_size_in
-        in_feature_end = in_feature_start + group_size_in
+        # Pre-union the group's channels once per input spatial position.
+        # A single-channel group aliases the input sets instead of copying them.
+        cols = flat.T.tolist()
+        if group_size_in == 1:
+            channel_sets = [lhs_indices[col[0]] for col in cols]
+        else:
+            channel_sets = [_union_all([lhs_indices[f] for f in col]) for col in cols]
 
-        batch_group = out_feature_idx // channels_per_batch_group
-        in_batch_idx = out_batch_idx + batch_group * n_out_batches
+        # Union each window's taps.
+        # A single-tap window aliases the channel set instead of copying it.
+        out_sets: list[IndexSet] = []
+        for targets in window_targets:
+            if len(targets) == 1:
+                out_sets.append(channel_sets[targets[0]])
+            else:
+                out_sets.append(_union_all([channel_sets[t] for t in targets]))
+        return out_sets
 
-        # Collect dependencies from input
-        elem_deps: IndexSet = _empty_index_set()
+    tables = [
+        window_union_table(in_batch, group)
+        for in_batch in range(n_lhs_batches)
+        for group in range(feature_group_count)
+    ]
 
-        # For each position in the kernel window
-        for kernel_offsets in product(*[range(k) for k in kernel_spatial_sizes]):
-            # Compute input spatial coordinates
-            in_spatial_coord = []
-            valid = True
-            for i in range(n_spatial):
-                in_c = (
-                    out_spatial_coord[i] * window_strides[i]
-                    + kernel_offsets[i] * rhs_dilation[i]
-                    - padding[i][0]
-                )
-                if in_c < 0 or in_c >= lhs_spatial_sizes[i] * lhs_dilation[i]:
-                    valid = False
-                    break
-                if lhs_dilation[i] > 1 and in_c % lhs_dilation[i] != 0:
-                    valid = False
-                    break
-                in_spatial_coord.append(in_c // lhs_dilation[i])
+    # Assemble the output by table lookup.
+    # All output channels of the same (input batch, feature group)
+    # alias the same set objects.
+    out_coords = np.indices(out_shape).reshape(len(out_shape), out_size)
+    out_batch_idx = out_coords[out_batch_dim]
+    out_feature_idx = out_coords[out_feature_dim]
+    out_spatial_strides = np.asarray(
+        _row_strides(out_spatial_sizes), dtype=np.intp
+    ).reshape(n_spatial, 1)
+    spatial_idx = (out_coords[list(out_spatial_dims)] * out_spatial_strides).sum(axis=0)
 
-            if not valid:
-                continue
+    feature_group_idx = out_feature_idx // group_size_out
+    batch_group_idx = out_feature_idx // channels_per_batch_group
+    in_batch_idx = out_batch_idx + batch_group_idx * n_out_batches
 
-            # For each input feature channel in this group
-            for in_feature_idx in range(in_feature_start, in_feature_end):
-                in_coord = [0] * len(lhs_shape)
-                in_coord[lhs_batch_dim] = in_batch_idx
-                in_coord[lhs_feature_dim] = in_feature_idx
-                for i, d in enumerate(lhs_spatial_dims):
-                    in_coord[d] = in_spatial_coord[i]
-
-                in_flat = sum(c * s for c, s in zip(in_coord, lhs_strides, strict=True))
-                # The bounds checks above guarantee a valid input position;
-                # silently skipping here would hide coordinate-math bugs.
-                assert in_flat < len(lhs_indices)
-                elem_deps |= lhs_indices[in_flat]
-
-        out_indices.append(elem_deps)
-
-    state.indices[eqn.outvars[0]] = out_indices
+    table_idx = in_batch_idx * feature_group_count + feature_group_idx
+    state.indices[eqn.outvars[0]] = [
+        tables[t][s]
+        for t, s in zip(table_idx.tolist(), spatial_idx.tolist(), strict=True)
+    ]

@@ -435,8 +435,8 @@ def _transform_indices(
 def _row_strides(shape: Sequence[int]) -> tuple[int, ...]:
     """Compute row-major strides for multi-dimensional index tracking.
 
-    Used to convert between flat indices and coordinates when propagating
-    dependencies through slice and broadcast_in_dim.
+    Used to build flat indices from coordinates
+    when a handler tracks dependencies per dimension (pad, conv, dot_general).
     Each stride tells how many flat elements to skip
     when incrementing one coordinate position.
 
@@ -449,16 +449,6 @@ def _row_strides(shape: Sequence[int]) -> tuple[int, ...]:
         result.append(stride)
         stride *= dim
     return tuple(reversed(result))
-
-
-def _flat_to_coords(flat: int, strides: tuple[int, ...]) -> list[int]:
-    """Convert a flat index to multi-dimensional coordinates using row-major strides."""
-    coord = []
-    remaining = flat
-    for s in strides:
-        coord.append(remaining // s)
-        remaining %= s
-    return coord
 
 
 # Const value propagation

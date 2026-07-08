@@ -619,3 +619,77 @@ def test_conv_input_dependent_kernel_conservative():
     result = jacobian_sparsity(f, np.zeros(13)).todense().astype(int)
     expected = np.ones((4, 13), dtype=int)
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_conv_3d():
+    """3D convolution matches the actual Jacobian.
+
+    Exercises the rank-generic window construction
+    beyond the 1D/2D cases covered elsewhere.
+    """
+    D, H, W = 3, 4, 3
+    C_in, C_out = 2, 2
+    input_size = D * H * W * C_in
+
+    kernel = jax.random.normal(jax.random.key(0), (C_out, C_in, 2, 2, 2))
+
+    def f(x_flat):
+        x = x_flat.reshape(1, C_in, D, H, W)
+        y = lax.conv_general_dilated(
+            x,
+            kernel,
+            window_strides=(1, 1, 1),
+            padding="VALID",
+            dimension_numbers=("NCDHW", "OIDHW", "NCDHW"),
+        )
+        return y.flatten()
+
+    sparsity = jacobian_sparsity(f, np.zeros(input_size))
+
+    x_test = jax.random.normal(jax.random.key(42), (input_size,))
+    actual_nonzero = (np.abs(jax.jacobian(f)(x_test)) > 1e-10).astype(int)
+    detected = sparsity.todense().astype(int)
+
+    np.testing.assert_array_equal(
+        detected, actual_nonzero, "3D conv sparsity should match actual Jacobian"
+    )
+
+
+@pytest.mark.array_ops
+def test_conv_window_entirely_in_padding():
+    """Output positions whose window reads only padding have empty rows.
+
+    With input length 2, kernel size 1, and padding (2, 2),
+    output positions 0, 1, 4, 5 read padding values only.
+    """
+    kernel = jnp.ones((1, 1, 1))  # (C_out, C_in, kW)
+
+    def f(x_flat):
+        x = x_flat.reshape(1, 1, 2)
+        y = lax.conv_general_dilated(
+            x,
+            kernel,
+            window_strides=(1,),
+            padding=((2, 2),),
+            dimension_numbers=("NCH", "OIH", "NCH"),
+        )
+        return y.flatten()
+
+    result = jacobian_sparsity(f, np.zeros(2)).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 0],  # out[0] reads padding only
+            [0, 0],  # out[1] reads padding only
+            [1, 0],  # out[2] = x[0]
+            [0, 1],  # out[3] = x[1]
+            [0, 0],  # out[4] reads padding only
+            [0, 0],  # out[5] reads padding only
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+    x_test = jax.random.normal(jax.random.key(42), (2,))
+    actual_nonzero = (np.abs(jax.jacobian(f)(x_test)) > 1e-10).astype(int)
+    np.testing.assert_array_equal(result, actual_nonzero)
