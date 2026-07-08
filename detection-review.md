@@ -21,13 +21,17 @@ The simplification batch is done:
 and the conv OOB guard is an assertion.
 D4 is mitigated as far as it can be:
 `tests/_interpret/test_jax_contracts.py` pins the implicit layout contracts.
+The performance batch is done:
+conv propagation is vectorized and factored through the union's associativity,
+scan stops early once the carry saturates,
+and closure constants are materialized lazily.
 Original finding IDs are kept, which is why the numbering has gaps.
 
 ## Executive summary
 
 No known correctness issues remain.
 What is left is one structural dependency (D4) that is mitigated but cannot be removed,
-and known performance cliffs that are acceptable until someone hits them.
+and one residual performance limit that is inherent to exact per-timestep scan patterns.
 
 ## Design observations
 
@@ -52,24 +56,26 @@ What remains irreducible is the import dependency itself.
 
 ## Performance notes
 
-Detection is a one-time cost, so none of these are urgent, but the cliffs are worth knowing:
+The three cliffs from the original review are fixed:
 
-- `_prop_conv_general_dilated` (`_conv.py:122-178`) runs nested Python loops
-  per output element and kernel position.
-  For realistic CNN shapes this is minutes, not seconds.
-  Vectorizing the flat-map construction with numpy
-  (as gather and pad already do) is the fix when it becomes a problem.
-  That cleanup would also remove the last users of
-  `_row_strides` at coordinate level and `_flat_to_coords` (`_common.py:435-461`).
-- `_prop_scan` propagates the body once per timestep (`_scan.py:77`).
-  A `lax.scan` with `length=100_000` runs 100k full jaxpr propagations.
-  A fixed-point treatment (as in `while`) is the escape hatch when ys precision can be sacrificed,
-  or a documented cap with a clear error.
-- `_seed_const_vals` calls `np.asarray` on every closure constant (`_common.py:475`),
-  copying e.g. all NN weights device-to-host and keeping them alive in `state.consts`
-  for the whole analysis.
-  Consts are only ever consumed as indices, masks, or zero-skipping values,
-  so lazily materializing (or size-capping) would bound memory.
+- `_prop_conv_general_dilated` no longer loops per output element.
+  The window map is built with numpy,
+  and because set union is associative and commutative,
+  channels are pre-unioned once per input spatial position,
+  windows once per output spatial position,
+  and all output channels of a feature/batch group alias the resulting sets.
+  This removed `_flat_to_coords`, the last coordinate-level helper.
+- `_prop_scan` detects carry saturation:
+  when no xs slice carries input dependencies,
+  the simulation stops once the carry index sets repeat between consecutive steps
+  and replicates the last ys slice, staying exact.
+  What remains irreducible: a scan whose xs carry distinct per-timestep dependencies
+  (e.g. cumsum over the input) still runs one body propagation per timestep,
+  which is the price of an exact per-timestep ys pattern.
+- `_seed_const_vals` stores closure constants unconverted;
+  `_atom_const_val` materializes to numpy on first read and caches.
+  Never-read constants (e.g. conv kernels) are no longer copied device-to-host,
+  and `_forward_into_jaxpr` forwards consts without materializing them.
 
 ## What is working well
 
@@ -89,4 +95,6 @@ Worth keeping and worth imitating in new handlers:
 
 ## Suggested order of attack
 
-1. The performance items as they become relevant.
+Nothing open.
+Revisit the per-timestep scan cost only if a workload
+with input-dependent xs and very large `length` shows up.
