@@ -77,11 +77,22 @@ not every handler.
 - **`_propagate_const_unary(eqn, state, transform)`** —
   propagates a const value through a unary op by applying `transform`.
   Mirrors `_propagate_const_binary` for the single-input case.
+- **`_broadcast_flat_map(in_shape, out_shape)`** —
+  maps each output position to the input position it reads
+  under numpy broadcasting rules (size-1 dims read index 0).
+  The single broadcasting implementation,
+  shared by `_binary_elementwise`, `_clear_where_zero`, and `broadcast_in_dim`.
+- **`_bounded_ranges(bounds)`** —
+  builds the per-element candidate ranges for ``_enumerate_bounded_patterns``
+  from flattened ``(lo, hi)`` bounds.
 - **`_enumerate_bounded_patterns(ranges, out_size, make_pattern)`** —
   enumerates all candidate index combinations from ``ranges``
   (capped at ``_MAX_ENUM_COMBINATIONS``),
   calls ``make_pattern`` for each,
   and unions the results element-wise.
+- **`_report_issue(msg)`** —
+  appends the standard report-an-issue request (with the GitHub URL)
+  to an error message, keeping the phrasing in one place.
 - **`_conservative_indices(all_indices, out_size)`** —
   conservative fallback where every output element depends on the union of all inputs.
 - **`_atom_value_bounds(atom, state)`** —

@@ -9,6 +9,7 @@ from ._common import (
     _numel,
     _propagate_const_unary,
     _PropState,
+    _report_issue,
     _transform_indices,
 )
 
@@ -42,11 +43,9 @@ def _prop_reshape(eqn: JaxprEqn, state: _PropState) -> None:
     in_indices = _index_sets(state, eqn.invars[0])
     out_size = _numel(_atom_shape(eqn.outvars[0]))
     if len(in_indices) != out_size:
-        msg = (
+        msg = _report_issue(
             f"Reshape size mismatch: input has {len(in_indices)} elements "
-            f"but output expects {out_size}. "
-            "Please help out asdex's development by reporting this at "
-            "https://github.com/adrhill/asdex/issues"
+            f"but output expects {out_size}."
         )
         raise ValueError(msg)
 
