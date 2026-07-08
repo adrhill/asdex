@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian, jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 @pytest.mark.control_flow
@@ -616,3 +617,89 @@ def test_scan_jacobian_values_pytree_xs():
     sparse_jac = jacobian(f, x)(x).todense()
     dense_jac = np.array(jax.jacobian(f)(x))
     np.testing.assert_allclose(sparse_jac, dense_jac)
+
+
+def saturating_cumsum_scan(length: int, *, reverse: bool = False):
+    """Scan whose carry index sets saturate after two steps.
+
+    The body maps the carry through ``cumsum`` and emits the pre-update carry:
+    ys at the first simulated step have identity index sets,
+    every later step has lower-triangular index sets.
+    There are no xs, so the saturation early exit applies.
+    """
+
+    def f(x):
+        def body(carry, _):
+            return jnp.cumsum(carry), carry
+
+        _, ys = jax.lax.scan(body, x, None, length=length, reverse=reverse)
+        return ys.flatten()
+
+    return f
+
+
+@pytest.mark.control_flow
+def test_scan_saturation_long_scan():
+    """A long scan without xs dependencies stops once the carry saturates.
+
+    The carry index sets stabilize after two steps,
+    so detection must not simulate all 50_000 timesteps.
+    The resulting pattern stays exact.
+    """
+    n, length = 3, 50_000
+    result = jacobian_sparsity(saturating_cumsum_scan(length), np.zeros(n))
+    dense = result.todense().astype(int)
+
+    assert dense.shape == (length * n, n)
+    expected_first = np.eye(n, dtype=int)  # ys[0] = carry_init = x
+    np.testing.assert_array_equal(dense[:n], expected_first)
+    tril = np.tril(np.ones((n, n), dtype=int))  # ys[t>=1] = cumsum deps
+    np.testing.assert_array_equal(dense[n:], np.tile(tril, (length - 1, 1)))
+
+
+@pytest.mark.control_flow
+def test_scan_saturation_exact():
+    """The saturation early exit reproduces the exact per-timestep pattern."""
+    x = jax.random.normal(jax.random.key(0), (3,))
+    assert_jacobian_sparsity_exact(saturating_cumsum_scan(6), x)
+
+
+@pytest.mark.control_flow
+def test_scan_saturation_reverse():
+    """Reversed scans place the replicated ys slices at the right timesteps.
+
+    With ``reverse=True`` the simulation runs from the last timestep down,
+    so the identity slice belongs to timestep length-1
+    and the replicated triangular slices fill timesteps 0 onward.
+    """
+    n, length = 3, 100
+    result = jacobian_sparsity(
+        saturating_cumsum_scan(length, reverse=True), np.zeros(n)
+    )
+    dense = result.todense().astype(int)
+
+    tril = np.tril(np.ones((n, n), dtype=int))  # ys[t<length-1] = cumsum deps
+    np.testing.assert_array_equal(dense[: -n * 1], np.tile(tril, (length - 1, 1)))
+    expected_last = np.eye(n, dtype=int)  # ys[length-1] = carry_init = x
+    np.testing.assert_array_equal(dense[-n:], expected_last)
+
+
+@pytest.mark.control_flow
+def test_scan_saturation_no_carry():
+    """A carry-free scan over closure state saturates after one step.
+
+    The scan consts (the closed-over ``x``) carry input dependencies,
+    which the early exit must preserve in every replicated ys slice.
+    """
+    n, length = 3, 500
+
+    def f(x):
+        def body(carry, _):
+            return carry, jnp.sum(x)
+
+        _, ys = jax.lax.scan(body, None, None, length=length)
+        return ys
+
+    result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
+    expected = np.ones((length, n), dtype=int)  # ys[t] = x[0] + x[1] + x[2]
+    np.testing.assert_array_equal(result, expected)
