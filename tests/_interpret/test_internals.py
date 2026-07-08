@@ -17,9 +17,12 @@ from asdex.detection._interpret import (
     _prop_jaxpr,
 )
 from asdex.detection._interpret._common import (
+    _atom_const_val,
     _atom_shape,
+    _forward_into_jaxpr,
     _index_sets,
     _PropState,
+    _seed_const_vals,
     _singleton_index_set,
 )
 from asdex.detection._interpret._reshape import _prop_reshape
@@ -113,8 +116,40 @@ def test_prop_jaxpr_default_const_vals():
     assert result[0] == [_singleton_index_set(0), _singleton_index_set(1)]
 
 
-@pytest.mark.elementwise
-def test_stop_gradient():
+def test_seed_const_vals_is_lazy():
+    """Seeded closure constants are stored as-is and materialized on first read.
+
+    Eager ``np.asarray`` would copy every closure constant
+    (e.g. all NN weights) device-to-host,
+    even when its value is never consulted during propagation.
+    """
+    w = jnp.arange(3.0)
+    closed = jax.make_jaxpr(lambda x: x * w)(jnp.zeros(3))
+    assert len(closed.jaxpr.constvars) == 1
+    var = closed.jaxpr.constvars[0]
+
+    state = _PropState()
+    _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
+    assert state.consts[var] is closed.consts[0]  # stored unconverted
+
+    val = _atom_const_val(var, state)
+    assert isinstance(val, np.ndarray)
+    assert state.consts[var] is val  # materialization is cached
+    np.testing.assert_array_equal(val, np.arange(3.0))
+
+
+def test_forward_into_jaxpr_preserves_laziness():
+    """Forwarding consts across a jaxpr boundary must not materialize them."""
+    w = jnp.arange(4.0)
+    closed = jax.make_jaxpr(lambda x: x * w)(jnp.zeros(4))
+    assert len(closed.jaxpr.constvars) == 1
+    outer = closed.jaxpr.constvars[0]
+    inner = jax.make_jaxpr(lambda x: x + 1.0)(jnp.zeros(4)).jaxpr.invars[0]
+
+    state = _PropState()
+    _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
+    _forward_into_jaxpr(state, [outer], [inner])
+    assert state.consts[inner] is closed.consts[0]  # still unconverted
     """stop_gradient passes dependencies through unchanged."""
 
     def f(x):

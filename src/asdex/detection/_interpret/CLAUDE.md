@@ -17,7 +17,10 @@ through primitives to determine Jacobian sparsity patterns.
 - `IndexSet` = `set[int]` — a single per-element dependency set
 - `list[IndexSet]` — per-element dependency sets for one array
 - `StateIndices` = `dict[Var, list[IndexSet]]` — maps jaxpr variables to their index sets
-- `StateConsts` = `dict[Var, np.ndarray]` — statically-known values for precise gather/scatter
+- `StateConsts` = `dict[Var, ArrayLike]` — statically-known values for precise gather/scatter.
+  Seeded closure constants stay in their original array type
+  and are materialized to numpy by `_atom_const_val` on first read,
+  so never-read constants (e.g. conv kernels) are never copied to host.
 - `StateBounds` = `dict[Var, tuple[np.ndarray, np.ndarray]]` — per-element inclusive (lo, hi) integer bounds
 - `_PropState` — bundles the three dicts above as `state.indices`, `state.consts`, and `state.bounds`.
   Every handler takes `(eqn, state)`,
