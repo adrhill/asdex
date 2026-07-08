@@ -4,6 +4,7 @@ Linear algebra decompositions (lu, cholesky, qr, svd, eigh) use conservative
 fallback since their outputs generally depend on all inputs.
 """
 
+import jax.lax.linalg
 import jax.numpy as jnp
 import jax.scipy.linalg as scipy_linalg
 import numpy as np
@@ -89,6 +90,22 @@ def test_qr_conservative():
 
     expected = np.vstack([expected_q, expected_r])
     np.testing.assert_array_equal(result, expected)
+
+
+def test_qr_pivoting_unsupported():
+    """QR with pivoting adds a permutation output, which the handler rejects loudly.
+
+    TODO(qr): support pivoting by modeling the pivots output
+    (integer permutation, empty index sets) alongside Q and R.
+    """
+
+    def f(x):
+        q, _, _ = jax.lax.linalg.qr(x, pivoting=True)
+        return q
+
+    A = jnp.array([[1.0, 2.0], [3.0, 4.0]])
+    with pytest.raises(NotImplementedError, match="expects two outputs"):
+        jacobian_sparsity(f, A)
 
 
 @pytest.mark.fallback

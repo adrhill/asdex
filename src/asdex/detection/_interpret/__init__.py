@@ -8,7 +8,6 @@ The main entry point is `_prop_jaxpr`, which walks the computation graph
 and applies the appropriate handler for each equation.
 """
 
-import numpy as np
 from jax._src.core import Jaxpr, JaxprEqn, Var
 
 from ._argmax import _prop_argmax
@@ -22,6 +21,7 @@ from ._common import (
     _forward_into_jaxpr,
     _index_sets,
     _PropState,
+    _report_issue,
     _seed_const_vals,
 )
 from ._comparison import _prop_ge, _prop_gt, _prop_le, _prop_lt
@@ -47,6 +47,7 @@ from ._elementwise import (
 )
 from ._equinox._select_if_vmap import _prop_select_if_vmap
 from ._gather import _prop_gather
+from ._iota import _prop_iota
 from ._linalg import _prop_qr
 from ._mul import _prop_mul
 from ._pad import _prop_pad
@@ -124,10 +125,8 @@ def _prop_closed_jaxpr(
     """
     closed = eqn.params.get(param_key)
     if closed is None:
-        msg = (
-            f"Primitive '{eqn.primitive.name}' has no '{param_key}' parameter. "
-            "Please help out asdex's development by reporting this at "
-            "https://github.com/adrhill/asdex/issues"
+        msg = _report_issue(
+            f"Primitive '{eqn.primitive.name}' has no '{param_key}' parameter."
         )
         raise ValueError(msg)
 
@@ -361,33 +360,6 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_throw_error(eqn, state)
 
 
-def _prop_iota(eqn: JaxprEqn, state: _PropState) -> None:
-    """Iota generates a constant index array with no input dependencies.
-
-    The output is fully determined by the parameters (shape, dtype, dimension),
-    so all dependency sets are empty.
-    We also track the concrete values for downstream gather/scatter precision.
-
-    Jaxpr:
-        invars: [] (no inputs)
-        shape: output shape
-        dtype: output dtype
-        dimension: axis along which indices increase
-    """
-    shape = eqn.params["shape"]
-    numel = int(np.prod(shape))
-    state.indices[eqn.outvars[0]] = _empty_index_sets(numel)
-
-    dtype = eqn.params["dtype"]
-    dim = eqn.params["dimension"]
-    state.consts[eqn.outvars[0]] = np.broadcast_to(
-        np.arange(shape[dim], dtype=dtype).reshape(
-            [shape[dim] if i == dim else 1 for i in range(len(shape))]
-        ),
-        shape,
-    )
-
-
 def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
     """Conservative fallback for primitives without precise handlers.
 
@@ -408,9 +380,5 @@ def _prop_throw_error(eqn: JaxprEqn, state: _PropState) -> None:
 
     This ensures we don't silently produce incorrect sparsity patterns.
     """
-    msg = (
-        f"No handler for primitive '{eqn.primitive.name}'. "
-        "Please help out asdex's development by reporting this at "
-        "https://github.com/adrhill/asdex/issues"
-    )
+    msg = _report_issue(f"No handler for primitive '{eqn.primitive.name}'.")
     raise NotImplementedError(msg)

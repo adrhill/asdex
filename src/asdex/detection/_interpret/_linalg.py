@@ -1,14 +1,15 @@
 """Handlers for linear algebra primitives."""
 
-import numpy as np
 from jax._src.core import JaxprEqn
 
-from asdex.detection._interpret._common import (
+from ._common import (
     IndexSet,
     _atom_shape,
     _empty_index_set,
     _index_sets,
+    _numel,
     _PropState,
+    _report_issue,
     _union_all,
 )
 
@@ -28,6 +29,12 @@ def _prop_qr(eqn: JaxprEqn, state: _PropState) -> None:
     https://jax.readthedocs.io/en/latest/_autosummary/jax.numpy.linalg.qr.html
     """
     (invar,) = eqn.invars
+    # pivoting=True adds a permutation output this handler does not model.
+    if len(eqn.outvars) != 2:
+        msg = _report_issue(
+            f"'qr' handler expects two outputs (Q, R), got {len(eqn.outvars)}."
+        )
+        raise NotImplementedError(msg)
     q_var, r_var = eqn.outvars
 
     # Collect all input index sets
@@ -35,23 +42,19 @@ def _prop_qr(eqn: JaxprEqn, state: _PropState) -> None:
     combined = _union_all(in_indices)
 
     # Q: all elements depend on all inputs
-    q_shape = _atom_shape(q_var)
-    q_numel = int(np.prod(q_shape))
-    state.indices[q_var] = [combined] * q_numel
+    state.indices[q_var] = [combined] * _numel(_atom_shape(q_var))
 
     # R: upper triangular
     # Upper triangle (including diagonal) depends on all inputs
     # Lower triangle is always 0 (no dependencies)
     r_shape = _atom_shape(r_var)
-    r_numel = int(np.prod(r_shape))
 
-    if r_numel == 0:
+    if _numel(r_shape) == 0:
         state.indices[r_var] = []
         return
 
     nrows, ncols = r_shape[-2], r_shape[-1]
-    batch_shape = r_shape[:-2]
-    batch_size = int(np.prod(batch_shape)) if batch_shape else 1
+    batch_size = _numel(r_shape[:-2])
 
     r_indices: list[IndexSet] = []
     for _ in range(batch_size):
