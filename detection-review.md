@@ -19,28 +19,36 @@ The simplification batch is done:
 `_prop_scan` reads `params["length"]` directly,
 `jacobian_sparsity` no longer traces twice,
 and the conv OOB guard is an assertion.
-Of D4, only the private-API exposure below remains.
+D4 is mitigated as far as it can be:
+`tests/_interpret/test_jax_contracts.py` pins the implicit layout contracts.
 Original finding IDs are kept, which is why the numbering has gaps.
 
 ## Executive summary
 
 No known correctness issues remain.
-What is left is one structural dependency (D4) that can only be mitigated, not removed,
+What is left is one structural dependency (D4) that is mitigated but cannot be removed,
 and known performance cliffs that are acceptable until someone hits them.
 
 ## Design observations
 
-### D4. Private JAX API dependency (mitigate, cannot remove)
+### D4. Private JAX API dependency (mitigated, cannot remove)
 
 The whole interpreter depends on `jax._src.core` and
 `jax._src.interpreters.partial_eval.dce_jaxpr` (`_api.py:10-11`),
 private APIs with no stability guarantee.
 Unavoidable for a jaxpr interpreter.
-A contract test pins the `while_p` invars layout against the installed JAX
-(added alongside the C1 fix).
-Extending that idea to the other implicit layout contracts
-(params names, invars ordering elsewhere)
-would convert future JAX changes from silent wrong patterns into loud test failures.
+The mitigation is in place:
+`tests/_interpret/test_jax_contracts.py` pins every implicit layout contract
+the handlers read against the installed JAX,
+covering the while/scan/cond invars and inner-jaxpr layouts,
+select_n case ordering, dynamic slice/update start ordering,
+gather/scatter/conv/dot_general dimension numbers,
+the pad `padding_config` convention, top_k output ordering,
+iota `dimension` semantics, nested-jaxpr param alignment,
+and `dce_jaxpr` input preservation under `instantiate=True`.
+A future JAX change to any of these now fails loudly in that file
+instead of surfacing as a silently wrong pattern.
+What remains irreducible is the import dependency itself.
 
 ## Performance notes
 
@@ -81,5 +89,4 @@ Worth keeping and worth imitating in new handlers:
 
 ## Suggested order of attack
 
-1. Contract tests for the remaining implicit JAX layout assumptions (D4).
-2. The performance items as they become relevant.
+1. The performance items as they become relevant.
