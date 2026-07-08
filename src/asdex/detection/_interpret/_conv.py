@@ -168,8 +168,10 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
                     in_coord[d] = in_spatial_coord[i]
 
                 in_flat = sum(c * s for c, s in zip(in_coord, lhs_strides, strict=True))
-                if in_flat < len(lhs_indices):
-                    elem_deps |= lhs_indices[in_flat]
+                # The bounds checks above guarantee a valid input position;
+                # silently skipping here would hide coordinate-math bugs.
+                assert in_flat < len(lhs_indices)
+                elem_deps |= lhs_indices[in_flat]
 
         out_indices.append(elem_deps)
 
