@@ -6,6 +6,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
+    IndexSetView,
     StateBounds,
     StateConsts,
     StateIndices,
@@ -135,8 +136,8 @@ def _binary_elementwise(
 
 
 def _union_with_zero_derivs(
-    s1: AbstractSet[int],
-    s2: AbstractSet[int],
+    s1: IndexSetView,
+    s2: IndexSetView,
     is_der1_zero: bool,
     is_der2_zero: bool,
 ) -> AbstractSet[int]:
@@ -144,9 +145,9 @@ def _union_with_zero_derivs(
     if is_der1_zero and is_der2_zero:
         return set()
     if is_der1_zero:
-        return set(s2)
+        return s2
     if is_der2_zero:
-        return set(s1)
+        return s1
     return s1 | s2
 
 

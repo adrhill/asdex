@@ -159,7 +159,7 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> No
 
                 in_flat = sum(c * s for c, s in zip(in_coord, lhs_strides, strict=True))
                 if in_flat < len(lhs_indices):
-                    elem_deps.update(lhs_indices[in_flat])
+                    elem_deps |= lhs_indices[in_flat]
 
         out_indices.append(elem_deps)
 

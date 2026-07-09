@@ -100,7 +100,7 @@ def _fixed_point_loop(
         for i in range(n_carry):
             for j in range(len(carry[i])):
                 before = len(carry[i][j])
-                carry[i][j].update(body_output[i][j])
+                carry[i][j] |= body_output[i][j]
                 if len(carry[i][j]) > before:
                     changed = True
 

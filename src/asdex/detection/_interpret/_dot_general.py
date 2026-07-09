@@ -97,8 +97,8 @@ def _prop_dot_general(
             rhs_zero = rhs_val_flat is not None and rhs_val_flat[i] == 0
             if lhs_zero or rhs_zero:
                 continue
-            result.update(lhs_indices[i])
-            result.update(rhs_indices[i])
+            result |= lhs_indices[i]
+            result |= rhs_indices[i]
         state_indices[eqn.outvars[0]] = [result]
         return
 

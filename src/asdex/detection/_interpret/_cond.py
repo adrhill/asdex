@@ -3,7 +3,6 @@
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
     IndexSetSequence,
     PropJaxprFn,
     StateConsts,
@@ -58,8 +57,8 @@ def _prop_cond(
     for i in range(n_out):
         outvar = eqn.outvars[i]
         # Start from first branch, union with the rest
-        merged: list[IndexSet] = _copy_index_sets(branch_outputs[0][i])
+        merged = _copy_index_sets(branch_outputs[0][i])
         for branch_out in branch_outputs[1:]:
             for j in range(len(merged)):
-                merged[j].update(branch_out[i][j])
+                merged[j] |= branch_out[i][j]
         state_indices[outvar] = merged

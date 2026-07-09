@@ -21,7 +21,7 @@ from asdex.detection._interpret._common import (
 )
 
 
-def _rows(m: IndexSetSequence) -> list[set[int]]:
+def _iss_to_list_of_sets(m: IndexSetSequence) -> list[set[int]]:
     """Materialize an IndexSetSequence as a plain list of sets for comparison."""
     return [set(m[i]) for i in range(len(m))]
 
@@ -33,21 +33,21 @@ def test_from_list_basic():
     """from_list groups dependencies per element and sorts within each row."""
     m = IndexSetSequence.from_list([{3, 1}, {2}, set()])
     assert len(m) == 3
-    assert _rows(m) == [{1, 3}, {2}, set()]
+    assert _iss_to_list_of_sets(m) == [{1, 3}, {2}, set()]
 
 
 def test_from_list_empty_sequence():
     """An empty sequence builds a length-0 IndexSetSequence."""
     m = IndexSetSequence.from_list([])
     assert len(m) == 0
-    assert _rows(m) == []
+    assert _iss_to_list_of_sets(m) == []
 
 
 def test_from_list_all_empty_sets():
     """All-empty rows do not crash (regression: empty labeled-index array)."""
     m = IndexSetSequence.from_list([set(), set(), set()])
     assert len(m) == 3
-    assert _rows(m) == [set(), set(), set()]
+    assert _iss_to_list_of_sets(m) == [set(), set(), set()]
 
 
 def test_index_set_array_packs_columns():
@@ -66,7 +66,7 @@ def test_from_index_set_arrays_deduplicates():
     """
     packed = index_set_array([0, 0, 1, 0], [5, 6, 7, 5])  # set 0: {5,6,5}, set 1: {7}
     m = IndexSetSequence.from_index_set_arrays([packed], 2)
-    assert _rows(m) == [{5, 6}, {7}]
+    assert _iss_to_list_of_sets(m) == [{5, 6}, {7}]
     # No duplicate 5 remains in the backing array.
     assert m[0] == {5, 6}
     assert len(list(m[0])) == 2
@@ -76,7 +76,7 @@ def test_from_index_set_arrays_out_of_order():
     """Pairs in arbitrary order are grouped correctly by set index."""
     packed = index_set_array([2, 0, 1, 0], [9, 3, 4, 1])
     m = IndexSetSequence.from_index_set_arrays([packed], 3)
-    assert _rows(m) == [{1, 3}, {4}, {9}]
+    assert _iss_to_list_of_sets(m) == [{1, 3}, {4}, {9}]
 
 
 def test_from_index_set_arrays_merges_chunks_and_dedups_across_them():
@@ -84,16 +84,21 @@ def test_from_index_set_arrays_merges_chunks_and_dedups_across_them():
     first = index_set_array([0, 0], [5, 1])
     second = index_set_array([2, 0, 2], [9, 5, 9])  # (0,5) dups first, (2,9) dups
     m = IndexSetSequence.from_index_set_arrays([first, second], 3)
-    assert _rows(m) == [{1, 5}, set(), {9}]
+    assert _iss_to_list_of_sets(m) == [{1, 5}, set(), {9}]
 
 
 def test_from_index_set_arrays_empty():
     """No chunks (or all-empty chunks) build all-empty sets without Numba."""
-    assert _rows(IndexSetSequence.from_index_set_arrays([], 2)) == [set(), set()]
+    assert _iss_to_list_of_sets(IndexSetSequence.from_index_set_arrays([], 2)) == [
+        set(),
+        set(),
+    ]
     empty_chunk = index_set_array(
         np.empty(0, dtype=np.int32), np.empty(0, dtype=np.int32)
     )
-    assert _rows(IndexSetSequence.from_index_set_arrays([empty_chunk], 2)) == [
+    assert _iss_to_list_of_sets(
+        IndexSetSequence.from_index_set_arrays([empty_chunk], 2)
+    ) == [
         set(),
         set(),
     ]
@@ -104,8 +109,8 @@ def test_getitem_slice_returns_sub_index_set_sequence():
     m = IndexSetSequence.from_list([{0}, {1, 5}, {2}, {3}])
     sliced = m[1:3]
     assert isinstance(sliced, IndexSetSequence)
-    assert _rows(sliced) == [{1, 5}, {2}]
-    assert _rows(m[::2]) == [{0}, {2}]
+    assert _iss_to_list_of_sets(sliced) == [{1, 5}, {2}]
+    assert _iss_to_list_of_sets(m[::2]) == [{0}, {2}]
 
 
 def test_getitem_fancy_index_selects_rows():
@@ -113,9 +118,9 @@ def test_getitem_fancy_index_selects_rows():
     m = IndexSetSequence.from_list([{0, 1}, set(), {2, 3, 4}, {5}])
     picked = m[np.array([2, 0, 2])]
     assert isinstance(picked, IndexSetSequence)
-    assert _rows(picked) == [{2, 3, 4}, {0, 1}, {2, 3, 4}]
+    assert _iss_to_list_of_sets(picked) == [{2, 3, 4}, {0, 1}, {2, 3, 4}]
     # Empty selection yields a length-0 IndexSetSequence.
-    assert _rows(m[np.array([], dtype=np.int_)]) == []
+    assert _iss_to_list_of_sets(m[np.array([], dtype=np.int_)]) == []
 
 
 def test_getitem_returns_view():
@@ -176,13 +181,15 @@ def test_view_update_into_plain_set():
 def test_builder_empty_build():
     """An untouched builder builds all-empty rows."""
     m = _empty_index_sets(3).build()
-    assert _rows(m) == [set(), set(), set()]
+    assert _iss_to_list_of_sets(m) == [set(), set(), set()]
 
 
 def test_identity_builder():
     """identity() maps element i to the single index i (+ offset)."""
-    assert _rows(_identity_index_sets(3).build()) == [{0}, {1}, {2}]
-    assert _rows(IndexSetSequenceBuilder.identity(length=2, offset=5).build()) == [
+    assert _iss_to_list_of_sets(_identity_index_sets(3).build()) == [{0}, {1}, {2}]
+    assert _iss_to_list_of_sets(
+        IndexSetSequenceBuilder.identity(length=2, offset=5).build()
+    ) == [
         {5},
         {6},
     ]
@@ -197,7 +204,7 @@ def test_builder_ior_accumulates_and_dedups():
     b[0] |= {1, 2}
     b[0] |= {2, 3}  # overlaps with the previous union
     b[1] |= [4]
-    assert _rows(b.build()) == [{1, 2, 3}, {4}]
+    assert _iss_to_list_of_sets(b.build()) == [{1, 2, 3}, {4}]
 
 
 def test_builder_setitem_plain_equals_raises():
@@ -211,14 +218,14 @@ def test_builder_ior_accepts_view():
     """A builder accepts a set-like view as the union operand."""
     b = IndexSetSequenceBuilder(length=1)
     b[0] |= IndexSetView(np.array([3, 4]))
-    assert _rows(b.build()) == [{3, 4}]
+    assert _iss_to_list_of_sets(b.build()) == [{3, 4}]
 
 
 def test_builder_array_union():
     """``builder[array] |= sequence`` unions sequence[k] into element array[k]."""
     b = IndexSetSequenceBuilder(length=4)
     b[np.array([2, 0])] |= IndexSetSequence.from_list([{5}, {6, 7}])
-    assert _rows(b.build()) == [{6, 7}, set(), {5}, set()]
+    assert _iss_to_list_of_sets(b.build()) == [{6, 7}, set(), {5}, set()]
 
 
 def test_builder_array_union_matches_scalar_loop():
@@ -233,14 +240,14 @@ def test_builder_array_union_matches_scalar_loop():
     for k, t in enumerate(targets):
         loop[int(t)] |= sequence[k]
 
-    assert _rows(batch.build()) == _rows(loop.build())
+    assert _iss_to_list_of_sets(batch.build()) == _iss_to_list_of_sets(loop.build())
 
 
 def test_builder_array_union_duplicate_targets_union():
     """Repeated targets in the index array union their assigned sets."""
     b = IndexSetSequenceBuilder(length=2)
     b[np.array([0, 0, 1])] |= IndexSetSequence.from_list([{1}, {2, 3}, {4}])
-    assert _rows(b.build()) == [{1, 2, 3}, {4}]
+    assert _iss_to_list_of_sets(b.build()) == [{1, 2, 3}, {4}]
 
 
 def test_builder_array_union_interops_with_scalar():
@@ -248,14 +255,14 @@ def test_builder_array_union_interops_with_scalar():
     b = IndexSetSequenceBuilder(length=3)
     b[np.array([0, 2])] |= IndexSetSequence.from_list([{1}, {5}])
     b[0] |= {9}
-    assert _rows(b.build()) == [{1, 9}, set(), {5}]
+    assert _iss_to_list_of_sets(b.build()) == [{1, 9}, set(), {5}]
 
 
 def test_builder_array_union_empty():
     """An empty index array is a no-op."""
     b = IndexSetSequenceBuilder(length=2)
     b[np.array([], dtype=np.int_)] |= IndexSetSequence.from_list([])
-    assert _rows(b.build()) == [set(), set()]
+    assert _iss_to_list_of_sets(b.build()) == [set(), set()]
 
 
 def test_builder_array_union_length_mismatch_raises():
@@ -300,7 +307,7 @@ def test_state_indices_builds_builder():
     v = _var()
     state[v] = _identity_index_sets(2)
     assert isinstance(state[v], IndexSetSequence)
-    assert _rows(state[v]) == [{0}, {1}]
+    assert _iss_to_list_of_sets(state[v]) == [{0}, {1}]
 
 
 def test_state_indices_converts_list():
@@ -309,7 +316,7 @@ def test_state_indices_converts_list():
     v = _var()
     state[v] = [{0, 1}, set(), {2}]
     assert isinstance(state[v], IndexSetSequence)
-    assert _rows(state[v]) == [{0, 1}, set(), {2}]
+    assert _iss_to_list_of_sets(state[v]) == [{0, 1}, set(), {2}]
 
 
 # Concatenation
@@ -321,15 +328,15 @@ def test_add_merges_into_new_index_set_sequence():
     b = IndexSetSequence.from_list([{3}, set(), {4}])
     merged = a + b
     assert isinstance(merged, IndexSetSequence)
-    assert _rows(merged) == [{0}, {1, 2}, {3}, set(), {4}]
+    assert _iss_to_list_of_sets(merged) == [{0}, {1, 2}, {3}, set(), {4}]
 
 
 def test_add_empty_operands():
     """Merging with an empty-row pattern preserves the other's rows."""
     a = IndexSetSequence.from_list([{5}])
     empty = IndexSetSequence.from_list([])
-    assert _rows(a + empty) == [{5}]
-    assert _rows(empty + a) == [{5}]
+    assert _iss_to_list_of_sets(a + empty) == [{5}]
+    assert _iss_to_list_of_sets(empty + a) == [{5}]
 
 
 def test_builder_slice_union():
@@ -340,8 +347,8 @@ def test_builder_slice_union():
     array = IndexSetSequenceBuilder(length=4)
     array[np.array([1, 2])] |= IndexSetSequence.from_list([{5}, {6, 7}])
 
-    assert _rows(sliced.build()) == _rows(array.build())
-    assert _rows(sliced.build()) == [set(), {5}, {6, 7}, set()]
+    assert _iss_to_list_of_sets(sliced.build()) == _iss_to_list_of_sets(array.build())
+    assert _iss_to_list_of_sets(sliced.build()) == [set(), {5}, {6, 7}, set()]
 
 
 def test_builder_slice_plain_equals_raises():

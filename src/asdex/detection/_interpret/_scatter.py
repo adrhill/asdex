@@ -148,7 +148,7 @@ def _scatter_for_indices(
             if is_combine:
                 combined = operand_indices[i].copy()
                 for u_flat in scatter_positions[i]:
-                    combined.update(updates_indices[u_flat])
+                    combined |= updates_indices[u_flat]
                 out_indices.append(combined)
             else:
                 # Replace semantics: last writer wins.

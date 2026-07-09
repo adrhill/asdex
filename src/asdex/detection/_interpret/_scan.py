@@ -64,7 +64,9 @@ def _prop_scan(
     _forward_const_vals(state_consts, consts, body_jaxpr.invars[:num_consts])
 
     # Prepare const index sets for the body
-    const_inputs: list[IndexSetSequence] = [_index_sets(state_indices, v) for v in consts]
+    const_inputs: list[IndexSetSequence] = [
+        _index_sets(state_indices, v) for v in consts
+    ]
 
     # Initialize carry from carry_init
     carry_indices: Sequence[Sequence[AbstractSet[int]]] = [

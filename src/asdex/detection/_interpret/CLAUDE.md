@@ -34,7 +34,6 @@ ever need them.
 - `IndexSet` = `set[int]` — a single per-element dependency set
 - `IndexSetSequence` — per-element dependency sets for one array, wrapping an
   `IndexSetOffsetArrays` (`.set_offsets`, `.int_indices`, `.offset_arrays`).
-  A plain `__slots__` class (not a dataclass) so it stays cheap to allocate.
   Reading one element (`sequence[i]`) returns a read-only `IndexSetView`
   (set-like, no copy); slicing/iterating yields those views. Immutable — never
   mutate an element in place.
@@ -124,16 +123,15 @@ Handlers must therefore **never mutate** a set obtained from `state_indices` or 
 
 To combine index sets, build new ones:
 - `s1 | s2` and `_union_all(...)` return fresh `set[int]`s.
-- To accumulate into a plain set, use `acc.update(s)` — **not** `acc |= s`,
-  since a view is not a `set` and `|=` requires a `set` operand.
-- Call `view.copy()` to get a fresh, mutable `set` when you need to mutate.
+- Call `view.copy()` or `set(view)` to get a fresh, mutable `set` when you need
+  to mutate.
 - To build per-element output in bulk, use an `IndexSetSequenceBuilder`
   (`out[i] |= deps`) and store it; `StateIndices` builds it on assignment.
 - `seq_a + seq_b` concatenates the sets of two `IndexSetSequence`s into a new one
   (merging their backing arrays), e.g. to pool two operands before a
   conservative union.
 
-`_prop_while` copies carry rows into fresh mutable sets before the
+`_prop_while` copies carry sets into fresh mutable sets before the
 fixed-point loop mutates them across iterations.
 
 Read-only reads are typed `IndexSetView`; freshly built/mutable sets are

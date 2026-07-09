@@ -709,9 +709,18 @@ def _index_sets(state_indices: StateIndices, atom: Atom) -> IndexSetSequence:
     return state_indices.get(atom, IndexSetSequenceBuilder(length=1).build())
 
 
-def _copy_index_sets(src: Sequence[AbstractSet[int]]) -> list[IndexSet]:
-    """Copy per-element index sets into a fresh, mutable ``list[set]``."""
-    return [set(s) for s in src]
+def _copy_index_sets(src: IndexSetSequence) -> IndexSetSequenceBuilder:
+    """Copy an ``IndexSetSequence`` into a fresh, appendable builder.
+
+    Because an ``IndexSetSequence`` is immutable, "copying" is just seeding an
+    empty builder with it (a single batch write over its own sets) — no
+    per-element ``set`` is materialized. Callers can then union more sets in
+    before building, or store the builder directly (``StateIndices`` builds it).
+    """
+    builder = IndexSetSequenceBuilder(length=len(src))
+    if len(src):
+        builder[np.arange(len(src))] |= src
+    return builder
 
 
 def _atom_const_val(atom: Atom, state_consts: StateConsts) -> np.ndarray | None:
@@ -835,8 +844,7 @@ def _union_all(sets: Sequence[AbstractSet[int]]) -> IndexSet:
     """Union all sets together, returning a new set."""
     result: IndexSet = _empty_index_set()
     for s in sets:
-        # ``update`` (not ``|=``) so set-like views are accepted as operands.
-        result.update(s)
+        result |= s
     return result
 
 

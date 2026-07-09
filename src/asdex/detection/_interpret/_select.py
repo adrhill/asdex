@@ -61,7 +61,7 @@ def _prop_select_n(
         for i in range(out_size):
             merged: IndexSet = _empty_index_set()
             for c_idx in case_indices:
-                merged.update(c_idx[i])
+                merged |= c_idx[i]
             out_indices.append(merged)
 
     state_indices[out_var] = out_indices
