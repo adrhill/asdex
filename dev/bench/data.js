@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784109202416,
+  "lastUpdate": 1784119148031,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -18858,6 +18858,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000026801152715092523",
             "extra": "mean: 16.17132989074187 usec\nrounds: 14911"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "adrhill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "adrhill",
+            "username": "adrhill"
+          },
+          "distinct": true,
+          "id": "2bbb817eb44fd1c468cd3e7263a9c95f2957e97c",
+          "message": "asdex `v0.5.1`\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-07-15T14:38:27+02:00",
+          "tree_id": "14d456287e02e5810e9c048d372a502844f1012c",
+          "url": "https://github.com/adrhill/asdex/commit/2bbb817eb44fd1c468cd3e7263a9c95f2957e97c"
+        },
+        "date": 1784119147149,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1086.8373535666299,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00016426552744422493",
+            "extra": "mean: 920.1008750006067 usec\nrounds: 24"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 35681.268731185526,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000021118607669161473",
+            "extra": "mean: 28.025909267234024 usec\nrounds: 9280"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 108934.52700281182,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013597824521486623",
+            "extra": "mean: 9.179825969907483 usec\nrounds: 36034"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 76933.39539918874,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000028803200904169956",
+            "extra": "mean: 12.998256411422405 usec\nrounds: 21641"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 108679.19707918561,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015836152802413535",
+            "extra": "mean: 9.201392970095114 usec\nrounds: 39204"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 29.791044824267267,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00041553219761908476",
+            "extra": "mean: 33.56713421428635 msec\nrounds: 14"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3727.9740278687177,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007070749346941824",
+            "extra": "mean: 268.2422121303511 usec\nrounds: 3281"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2446.4107791876067,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006142928410781404",
+            "extra": "mean: 408.76209690838414 usec\nrounds: 1682"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2182.685085085512,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003384115645931008",
+            "extra": "mean: 458.15129577468224 usec\nrounds: 1136"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5729.075236977173,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000046322617979343264",
+            "extra": "mean: 174.54824009740693 usec\nrounds: 4519"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 172.00440169381554,
+            "unit": "iter/sec",
+            "range": "stddev: 0.009664892995930364",
+            "extra": "mean: 5.81380470588245 msec\nrounds: 85"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 35647.35737320654,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002392930266721703",
+            "extra": "mean: 28.052570335876435 usec\nrounds: 27717"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 77623.55167613296,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000024516503795332757",
+            "extra": "mean: 12.88268802968818 usec\nrounds: 14277"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 66792.46561360548,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003431863095346538",
+            "extra": "mean: 14.97174854698435 usec\nrounds: 18238"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 79458.82624798463,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015626822302072656",
+            "extra": "mean: 12.585134304389046 usec\nrounds: 22449"
           }
         ]
       }
