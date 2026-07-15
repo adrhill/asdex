@@ -1191,12 +1191,14 @@ def test_sparsity_pattern_flatten_unflatten_roundtrip():
     )
 
     leaves, treedef = jax.tree_util.tree_flatten(original)
-    assert len(leaves) == 3  # rows, cols, _bcoo_indices
+    assert len(leaves) == 1  # _bcoo_indices
 
     roundtripped = jax.tree_util.tree_unflatten(treedef, leaves)
     assert isinstance(roundtripped, SparsityPattern)
-    np.testing.assert_array_equal(roundtripped.rows, original.rows)
-    np.testing.assert_array_equal(roundtripped.cols, original.cols)
+    # rows and cols travel in the static aux data,
+    # so unflattening reattaches the very same concrete numpy arrays.
+    assert roundtripped.rows is original.rows
+    assert roundtripped.cols is original.cols
     np.testing.assert_array_equal(
         np.asarray(roundtripped._bcoo_indices), np.asarray(original._bcoo_indices)
     )
@@ -1345,6 +1347,24 @@ def test_colored_pattern_treedef_equality():
     assert jax.tree_util.tree_structure(first) != jax.tree_util.tree_structure(reverse)
 
 
+def test_sparsity_pattern_treedef_reflects_entries():
+    """Patterns with different entry positions get different treedefs.
+
+    The entry arrays are static aux data,
+    and block-extraction indices derived from them
+    are baked into compiled functions as constants,
+    so patterns with different entries must not share a jit cache entry.
+    """
+    first = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
+    same = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
+    different = SparsityPattern.from_coo([0, 1], [1, 0], (2, 2))
+
+    assert jax.tree_util.tree_structure(first) == jax.tree_util.tree_structure(same)
+    assert jax.tree_util.tree_structure(first) != jax.tree_util.tree_structure(
+        different
+    )
+
+
 def test_colored_pattern_tree_map_identity():
     """An identity tree_map produces a fully working ColoredPattern."""
     x = jnp.arange(1.0, 6.0)
@@ -1399,11 +1419,11 @@ def test_colored_pattern_key_paths():
 
     path_leaf_pairs, _ = jax.tree_util.tree_flatten_with_path(coloring)
     paths = [path for path, _ in path_leaf_pairs]
-    rows_path = (
+    bcoo_indices_path = (
         jax.tree_util.GetAttrKey("sparsity"),
-        jax.tree_util.GetAttrKey("rows"),
+        jax.tree_util.GetAttrKey("_bcoo_indices"),
     )
-    assert any(path == rows_path for path in paths)
+    assert any(path == bcoo_indices_path for path in paths)
     assert any(path == (jax.tree_util.GetAttrKey("colors"),) for path in paths)
 
 
@@ -1460,12 +1480,13 @@ def test_hessian_coloring_into_jitted_hessian(output_format, to_dense):
     np.testing.assert_allclose(to_dense(hess_jitted), np.asarray(hess_reference))
 
 
-def test_pytree_input_coloring_into_jitted_jacobian(assert_trees_allclose):
+def test_pytree_input_coloring_into_jitted_jacobian(
+    output_format, assert_trees_allclose
+):
     """A coloring for a pytree-input function crosses the jit boundary.
 
-    The input structure travels in the static aux data,
-    so leaf shapes and treedefs stay available while tracing
-    with the index arrays as traced leaves.
+    The input structure and the entry arrays travel in the static aux data,
+    so leaf shapes and per-leaf block indices stay available while tracing.
     """
 
     def f(params):
@@ -1476,8 +1497,60 @@ def test_pytree_input_coloring_into_jitted_jacobian(assert_trees_allclose):
 
     @jax.jit
     def jitted_jacobian(coloring, params):
-        return asdex.jacobian_from_coloring(f, coloring, output_format="dense")(params)
+        return asdex.jacobian_from_coloring(f, coloring, output_format=output_format)(
+            params
+        )
 
     jac_jitted = jitted_jacobian(coloring, params)
     jac_reference = jax.jacobian(f)(params)
     assert_trees_allclose(jac_jitted, jac_reference)
+
+
+def test_pytree_output_coloring_into_jitted_jacobian(
+    output_format, assert_trees_allclose
+):
+    """A coloring for a multi-output function crosses the jit boundary.
+
+    BCOO output assembles per-leaf blocks with ``_block_indices``,
+    which needs the concrete entry arrays inside the trace.
+    """
+
+    def f(x):
+        return x[:-1] * x[1:], x * x
+
+    x = jnp.arange(1.0, 6.0)
+    coloring = asdex.jacobian_coloring(f, x)
+
+    @jax.jit
+    def jitted_jacobian(coloring, x):
+        return asdex.jacobian_from_coloring(f, coloring, output_format=output_format)(x)
+
+    jac_jitted = jitted_jacobian(coloring, x)
+    jac_reference = jax.jacobian(f)(x)
+    assert_trees_allclose(jac_jitted, jac_reference)
+
+
+def test_pytree_input_coloring_into_jitted_hessian(
+    output_format, assert_trees_allclose
+):
+    """A Hessian coloring for a pytree input crosses the jit boundary.
+
+    BCOO output assembles per-leaf Hessian blocks with ``_block_indices``,
+    which needs the concrete entry arrays inside the trace.
+    """
+
+    def f(params):
+        return params["w"] @ params["w"] * params["b"][0]
+
+    params = {"b": jnp.array([2.0]), "w": jnp.arange(1.0, 4.0)}
+    coloring = asdex.hessian_coloring(f, params)
+
+    @jax.jit
+    def jitted_hessian(coloring, params):
+        return asdex.hessian_from_coloring(f, coloring, output_format=output_format)(
+            params
+        )
+
+    hess_jitted = jitted_hessian(coloring, params)
+    hess_reference = jax.hessian(f)(params)
+    assert_trees_allclose(hess_jitted, hess_reference)

@@ -76,6 +76,51 @@ def _deserialize_avals(json_str: str) -> tuple[Any, ...]:
     return tuple(convert(a) for a in data)
 
 
+class _HashableEntries:
+    """Hashable wrapper carrying the concrete entry arrays as static aux data.
+
+    Pytree aux data must be hashable and comparable,
+    but numpy arrays are neither.
+    Wrapping ``rows`` and ``cols`` with content-based equality
+    lets them travel in the static half of the pytree registration,
+    so they stay concrete numpy arrays across jit boundaries.
+    Content-based treedef identity is also what keeps jit caching sound:
+    block-extraction indices derived from the entries are baked into
+    compiled functions as constants,
+    so patterns with different entries must not share a jit cache entry.
+    """
+
+    __slots__ = ("_hash", "cols", "rows")
+
+    def __init__(self, rows: NDArray[np.int32], cols: NDArray[np.int32]) -> None:
+        self.rows = rows
+        self.cols = cols
+        self._hash: int | None = None
+
+    def __hash__(self) -> int:
+        # Content hashing is O(nnz), so compute lazily and cache:
+        # jit hashes the treedef (and with it this aux object) on every call.
+        if self._hash is None:
+            self._hash = hash(
+                (self.rows.tobytes(), self.cols.tobytes(), str(self.rows.dtype))
+            )
+        return self._hash
+
+    def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
+        if not isinstance(other, _HashableEntries):
+            return NotImplemented
+        # Dtypes are compared alongside contents
+        # to keep equality consistent with the byte-based hash.
+        return (
+            self.rows.dtype == other.rows.dtype
+            and self.cols.dtype == other.cols.dtype
+            and np.array_equal(self.rows, other.rows)
+            and np.array_equal(self.cols, other.cols)
+        )
+
+
 @dataclass(frozen=True)
 class SparsityPattern:
     """Sparse matrix pattern storing only structural information (no values).
@@ -127,6 +172,10 @@ class SparsityPattern:
     # to_bcoo uses it to set the BCOO structure flags,
     # which let downstream sparse ops skip sorting and deduplication.
     _entries_sorted_unique: bool = field(init=False, repr=False, compare=False)
+    # rows and cols wrapped as hashable static aux data for the pytree
+    # registration, created once per instance
+    # so the O(nnz) content hash is computed at most once.
+    _entries_key: _HashableEntries = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Validate inputs, fill in the default aval, and precompute derived data."""
@@ -147,6 +196,7 @@ class SparsityPattern:
         object.__setattr__(
             self, "_entries_sorted_unique", bool(np.all(np.diff(entry_keys) > 0))
         )
+        object.__setattr__(self, "_entries_key", _HashableEntries(self.rows, self.cols))
 
         # Built under ensure_compile_time_eval so the stored value
         # is a concrete array even when constructed inside a jit trace
@@ -864,8 +914,20 @@ class ColoredPattern:
 # All three pattern classes are registered as JAX pytrees
 # so they can be passed through transformations (jit, vmap, ...)
 # and stored inside pytree containers.
-# The array attributes are the leaves,
-# scalar metadata travels in the static aux data.
+#
+# The entry arrays rows and cols are structural metadata,
+# not numeric data:
+# coloring and per-leaf block extraction (_block_indices)
+# need their concrete values,
+# so they travel in the static aux data (wrapped in _HashableEntries)
+# and stay concrete numpy arrays on both sides of a jit boundary.
+# Treedef identity thereby reflects the entries,
+# which jit caching requires:
+# block-extraction indices are baked into compiled functions as constants,
+# so patterns with different entries must not share a cache entry.
+# The derived device arrays consumed inside traced code
+# (_bcoo_indices, _gather_indices, _seed_matrix)
+# and the color and star-set arrays are the leaves.
 #
 # The custom unflatten functions bypass __init__ and __post_init__ entirely,
 # assigning every attribute verbatim from the flattened representation.
@@ -885,11 +947,7 @@ def _sparsity_pattern_flatten_with_keys(
     It is therefore stored flattened as ``(leaves, treedef)``:
     ``ShapeDtypeStruct`` leaves and ``PyTreeDef`` objects are both hashable.
     """
-    children = (
-        (GetAttrKey("rows"), pattern.rows),
-        (GetAttrKey("cols"), pattern.cols),
-        (GetAttrKey("_bcoo_indices"), pattern._bcoo_indices),
-    )
+    children = ((GetAttrKey("_bcoo_indices"), pattern._bcoo_indices),)
     aval_leaves, aval_treedef = tree_flatten(pattern.input_avals)
     aux_data = (
         pattern.shape,
@@ -898,6 +956,7 @@ def _sparsity_pattern_flatten_with_keys(
         aval_treedef,
         pattern._dyn_flat,
         pattern._entries_sorted_unique,
+        pattern._entries_key,
     )
     return children, aux_data
 
@@ -909,14 +968,22 @@ def _sparsity_pattern_unflatten(
 
     Rebuilding ``input_avals`` with ``tree_unflatten`` is pure container work
     on static metadata and never touches the (possibly traced) array leaves.
+    ``rows`` and ``cols`` come out of the static ``_entries_key`` wrapper,
+    so they are concrete numpy arrays even inside a trace.
     """
-    rows, cols, bcoo_indices = children
-    shape, argnums, aval_leaves, aval_treedef, dyn_flat, entries_sorted_unique = (
-        aux_data
-    )
+    (bcoo_indices,) = children
+    (
+        shape,
+        argnums,
+        aval_leaves,
+        aval_treedef,
+        dyn_flat,
+        entries_sorted_unique,
+        entries_key,
+    ) = aux_data
     pattern = object.__new__(SparsityPattern)
-    object.__setattr__(pattern, "rows", rows)
-    object.__setattr__(pattern, "cols", cols)
+    object.__setattr__(pattern, "rows", entries_key.rows)
+    object.__setattr__(pattern, "cols", entries_key.cols)
     object.__setattr__(pattern, "shape", shape)
     object.__setattr__(
         pattern, "input_avals", tree_unflatten(aval_treedef, aval_leaves)
@@ -925,6 +992,7 @@ def _sparsity_pattern_unflatten(
     object.__setattr__(pattern, "_dyn_flat", dyn_flat)
     object.__setattr__(pattern, "_bcoo_indices", bcoo_indices)
     object.__setattr__(pattern, "_entries_sorted_unique", entries_sorted_unique)
+    object.__setattr__(pattern, "_entries_key", entries_key)
     return pattern
 
 
