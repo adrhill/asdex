@@ -1263,8 +1263,6 @@ def test_colored_pattern_flatten_unflatten_roundtrip_nonsymmetric():
 
     assert roundtripped._gather_indices is original._gather_indices
     assert roundtripped._seed_matrix is original._seed_matrix
-    assert roundtripped._extraction_indices[0] is original._extraction_indices[0]
-    assert roundtripped._extraction_indices[1] is original._extraction_indices[1]
 
     # The per-dtype device seed memo is lazy and starts out empty.
     assert "_device_seed_cache" not in vars(roundtripped)

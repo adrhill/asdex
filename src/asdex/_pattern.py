@@ -553,11 +553,6 @@ class ColoredPattern:
     # and unflattening never has to recompute them
     # (the array leaves may be tracers inside a jit trace).
 
-    # Extraction indices (color_idx, elem_idx) in sparsity-pattern order,
-    # see _compute_extraction_indices.
-    _extraction_indices: tuple[NDArray[np.intp], NDArray[np.intp]] = field(
-        init=False, repr=False, compare=False
-    )
     # Stacked extraction indices of shape (nnz, 2) for lax.gather.
     # Column 0 is the color index, column 1 is the element index.
     # Precomputed so the gather index array is a single closed-over constant.
@@ -572,7 +567,6 @@ class ColoredPattern:
     def __post_init__(self) -> None:
         """Precompute the extraction and seed data used by decompression."""
         color_idx, elem_idx = self._compute_extraction_indices()
-        object.__setattr__(self, "_extraction_indices", (color_idx, elem_idx))
 
         # Built under ensure_compile_time_eval so the stored value
         # is a concrete array even when constructed inside a jit trace
@@ -948,7 +942,6 @@ def _colored_pattern_flatten_with_keys(
         (GetAttrKey("sparsity"), colored.sparsity),
         (GetAttrKey("colors"), colored.colors),
         (GetAttrKey("star_set"), colored.star_set),
-        (GetAttrKey("_extraction_indices"), colored._extraction_indices),
         (GetAttrKey("_gather_indices"), colored._gather_indices),
         (GetAttrKey("_seed_matrix"), colored._seed_matrix),
     )
@@ -960,9 +953,7 @@ def _colored_pattern_unflatten(
     aux_data: tuple[Any, ...], children: Iterable[Any]
 ) -> ColoredPattern:
     """Rebuild a ``ColoredPattern`` without re-running ``__post_init__``."""
-    sparsity, colors, star_set, extraction_indices, gather_indices, seed_matrix = (
-        children
-    )
+    sparsity, colors, star_set, gather_indices, seed_matrix = children
     num_colors, symmetric, mode = aux_data
     colored = object.__new__(ColoredPattern)
     object.__setattr__(colored, "sparsity", sparsity)
@@ -971,7 +962,6 @@ def _colored_pattern_unflatten(
     object.__setattr__(colored, "symmetric", symmetric)
     object.__setattr__(colored, "mode", mode)
     object.__setattr__(colored, "star_set", star_set)
-    object.__setattr__(colored, "_extraction_indices", extraction_indices)
     object.__setattr__(colored, "_gather_indices", gather_indices)
     object.__setattr__(colored, "_seed_matrix", seed_matrix)
     return colored
