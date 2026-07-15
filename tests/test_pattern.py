@@ -1431,3 +1431,53 @@ def test_coloring_into_jitted_jacobian(output_format, to_dense):
 
     np.testing.assert_allclose(to_dense(jac_jitted), to_dense(jac_eager))
     np.testing.assert_allclose(to_dense(jac_jitted), np.asarray(jac_reference))
+
+
+def test_hessian_coloring_into_jitted_hessian(output_format, to_dense):
+    """A symmetric Hessian coloring feeds a jitted sparse Hessian computation.
+
+    The coloring crosses the jit boundary as a pytree argument,
+    so the star-set arrays are traced leaves inside the trace,
+    and the Hessian computed inside jit matches the JAX reference.
+    """
+
+    def scalar_function(x):
+        return x[0] * x[1] + x[2] ** 2 + x[2] * x[3]
+
+    x = jnp.arange(1.0, 5.0)
+    coloring = asdex.hessian_coloring(scalar_function, x)
+    assert coloring.symmetric
+    assert coloring.star_set is not None
+
+    @jax.jit
+    def jitted_hessian(coloring, x):
+        return asdex.hessian_from_coloring(
+            scalar_function, coloring, output_format=output_format
+        )(x)
+
+    hess_jitted = jitted_hessian(coloring, x)
+    hess_reference = jax.hessian(scalar_function)(x)
+    np.testing.assert_allclose(to_dense(hess_jitted), np.asarray(hess_reference))
+
+
+def test_pytree_input_coloring_into_jitted_jacobian(assert_trees_allclose):
+    """A coloring for a pytree-input function crosses the jit boundary.
+
+    The input structure travels in the static aux data,
+    so leaf shapes and treedefs stay available while tracing
+    with the index arrays as traced leaves.
+    """
+
+    def f(params):
+        return params["w"] * params["b"][0]
+
+    params = {"b": jnp.array([2.0]), "w": jnp.arange(1.0, 4.0)}
+    coloring = asdex.jacobian_coloring(f, params)
+
+    @jax.jit
+    def jitted_jacobian(coloring, params):
+        return asdex.jacobian_from_coloring(f, coloring, output_format="dense")(params)
+
+    jac_jitted = jitted_jacobian(coloring, params)
+    jac_reference = jax.jacobian(f)(params)
+    assert_trees_allclose(jac_jitted, jac_reference)
