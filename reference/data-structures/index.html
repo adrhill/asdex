@@ -1126,6 +1126,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#asdex.ColoredPattern.__post_init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __post_init__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#asdex.ColoredPattern.save" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1529,6 +1540,17 @@
   
     <nav class="md-nav" aria-label="ColoredPattern">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#asdex.ColoredPattern.__post_init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __post_init__
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#asdex.ColoredPattern.save" class="md-nav__link">
@@ -1959,6 +1981,14 @@ Present only for symmetric colorings produced by
 </table>
 <div class="doc doc-children">
 <div class="doc doc-object doc-function">
+<h3 class="doc doc-heading" id="asdex.ColoredPattern.__post_init__">
+<code class="highlight language-python"><span class="n">__post_init__</span><span class="p">()</span></code>
+<a class="headerlink" href="#asdex.ColoredPattern.__post_init__" title="Permanent link">¶</a></h3>
+<div class="doc doc-contents">
+<p>Precompute the extraction and seed data used by decompression.</p>
+</div>
+</div>
+<div class="doc doc-object doc-function">
 <h3 class="doc doc-heading" id="asdex.ColoredPattern.save">
 <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.ColoredPattern.save" title="Permanent link">¶</a></h3>
@@ -2134,8 +2164,8 @@ the Jacobian / rows to the Hessian.</p>
 <div class="doc-md-description">
 <p>Positions of <code>input_avals</code> that were differentiated,
 mirroring <code>jax.grad</code> / <code>jax.jacfwd</code>.
-An <code>int</code> stays <code>int</code> and a sequence becomes <code>tuple[int, ...]</code>
-— that distinction drives whether
+An <code>int</code> stays <code>int</code> and a sequence becomes <code>tuple[int, ...]</code>.
+That distinction drives whether
 <a class="autorefs autorefs-internal" title="example_input
 
   
@@ -2281,7 +2311,7 @@ Matches <code>jax/_src/api.py:746</code> (<code>jacfwd</code>) and line 840 (<co
 <code class="highlight language-python"><span class="n">__post_init__</span><span class="p">()</span></code>
 <a class="headerlink" href="#asdex.SparsityPattern.__post_init__" title="Permanent link">¶</a></h3>
 <div class="doc doc-contents">
-<p>Validate inputs and fill in the default single-leaf aval.</p>
+<p>Validate inputs, fill in the default aval, and precompute derived data.</p>
 </div>
 </div>
 <div class="doc doc-object doc-function">
