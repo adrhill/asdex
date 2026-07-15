@@ -79,15 +79,13 @@ def _deserialize_avals(json_str: str) -> tuple[Any, ...]:
 class _HashableEntries:
     """Hashable wrapper carrying the concrete entry arrays as static aux data.
 
-    Pytree aux data must be hashable and comparable,
-    but numpy arrays are neither.
-    Wrapping ``rows`` and ``cols`` with content-based equality
-    lets them travel in the static half of the pytree registration,
-    so they stay concrete numpy arrays across jit boundaries.
-    Content-based treedef identity is also what keeps jit caching sound:
+    Pytree aux data must be hashable and comparable, but numpy arrays are neither.
+    Content-based equality lets ``rows`` and ``cols`` travel in the static half
+    of the pytree registration, staying concrete numpy arrays across jit boundaries.
+    It also keeps jit caching sound:
     block-extraction indices derived from the entries are baked into
     compiled functions as constants,
-    so patterns with different entries must not share a jit cache entry.
+    so patterns with different entries must not share a cache entry.
     """
 
     __slots__ = ("_hash", "cols", "rows")
@@ -111,8 +109,7 @@ class _HashableEntries:
             return True
         if not isinstance(other, _HashableEntries):
             return NotImplemented
-        # Dtypes are compared alongside contents
-        # to keep equality consistent with the byte-based hash.
+        # Dtypes compared alongside contents to stay consistent with the hash.
         return (
             self.rows.dtype == other.rows.dtype
             and self.cols.dtype == other.cols.dtype
@@ -140,8 +137,8 @@ class SparsityPattern:
             the Jacobian / rows to the Hessian.
         argnums: Positions of ``input_avals`` that were differentiated,
             mirroring ``jax.grad`` / ``jax.jacfwd``.
-            An ``int`` stays ``int`` and a sequence becomes ``tuple[int, ...]``
-            — that distinction drives whether
+            An ``int`` stays ``int`` and a sequence becomes ``tuple[int, ...]``.
+            That distinction drives whether
             [`example_input`][asdex.SparsityPattern.example_input]
             is a single aval or a tuple of avals.
     """
@@ -152,29 +149,25 @@ class SparsityPattern:
     input_avals: tuple[Any, ...] = field(default=())
     argnums: int | tuple[int, ...] = 0
 
-    # Derived data, computed once in __post_init__ rather than lazily.
-    # Eager computation keeps instances fully initialized,
-    # so pytree flattening can carry these values along verbatim
-    # and unflattening never has to recompute them
+    # Derived data, computed eagerly in __post_init__ so instances stay fully
+    # initialized: pytree flattening carries these values along verbatim and
+    # unflattening never recomputes them
     # (the array leaves may be tracers inside a jit trace).
 
     # tree_flatten of dyn_avals as (leaves, treedef).
-    # The leaves are stored as a tuple so the whole value is hashable
-    # and can travel in the static half of the pytree registration.
+    # Leaves are a tuple so the value is hashable and can travel as static aux data.
     _dyn_flat: tuple[tuple[Any, ...], Any] = field(
         init=False, repr=False, compare=False
     )
     # BCOO index array of shape (nnz, 2), see to_bcoo.
     _bcoo_indices: jnp.ndarray = field(init=False, repr=False, compare=False)
     # Whether entries are row-major sorted with no duplicate (row, col) pairs.
-    # Detection emits entries in this canonical order,
-    # user-constructed patterns (from_coo) may not.
-    # to_bcoo uses it to set the BCOO structure flags,
-    # which let downstream sparse ops skip sorting and deduplication.
+    # Detection emits this canonical order, from_coo may not.
+    # to_bcoo uses it to set BCOO structure flags that let downstream sparse ops
+    # skip sorting and deduplication.
     _entries_sorted_unique: bool = field(init=False, repr=False, compare=False)
-    # rows and cols wrapped as hashable static aux data for the pytree
-    # registration, created once per instance
-    # so the O(nnz) content hash is computed at most once.
+    # rows and cols as hashable static aux data, created once so the O(nnz)
+    # content hash is computed at most once.
     _entries_key: _HashableEntries = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -198,9 +191,8 @@ class SparsityPattern:
         )
         object.__setattr__(self, "_entries_key", _HashableEntries(self.rows, self.cols))
 
-        # Built under ensure_compile_time_eval so the stored value
-        # is a concrete array even when constructed inside a jit trace
-        # (a stored tracer would leak into later eager calls).
+        # ensure_compile_time_eval keeps the stored value concrete inside a jit
+        # trace (a stored tracer would leak into later eager calls).
         with jax.ensure_compile_time_eval():
             if self.nnz == 0:
                 bcoo_indices = jnp.zeros((0, 2), dtype=jnp.int32)
@@ -376,9 +368,7 @@ class SparsityPattern:
 
         Returns the positions of the pattern entries that fall inside the window
         and the matching window-local BCOO index array of shape ``(k, 2)``.
-        Used by decompression to build per-leaf BCOO blocks.
-        Results are cached on the pattern,
-        so repeated evaluations reuse the same indices.
+        Used by decompression to build per-leaf BCOO blocks, cached per window.
         """
         key = (row_offset, row_size, col_offset, col_size)
         cached = self._block_index_cache.get(key)
@@ -597,30 +587,26 @@ class ColoredPattern:
     mode: ColoringMode
     star_set: StarSet | None = None
 
-    # Derived data, computed once in __post_init__ rather than lazily.
-    # Eager computation keeps instances fully initialized,
-    # so pytree flattening can carry these values along verbatim
-    # and unflattening never has to recompute them
+    # Derived data, computed eagerly in __post_init__ so instances stay fully
+    # initialized: pytree flattening carries these values along verbatim and
+    # unflattening never recomputes them
     # (the array leaves may be tracers inside a jit trace).
 
     # Stacked extraction indices of shape (nnz, 2) for lax.gather.
-    # Column 0 is the color index, column 1 is the element index.
+    # Column 0 is the color index, column 1 the element index.
     # Precomputed so the gather index array is a single closed-over constant.
     _gather_indices: jnp.ndarray = field(init=False, repr=False, compare=False)
-    # Boolean seed matrix of shape (num_colors, dim).
-    # Row c is the mask colors == c,
-    # used as the seed/tangent vector for the c-th AD evaluation.
-    # dim is the length of colors:
-    # the output size m for rev mode, the input size n otherwise.
+    # Boolean seed matrix of shape (num_colors, dim), the tangent/cotangent for
+    # each AD evaluation: row c is the mask colors == c.
+    # dim is the length of colors: output size m for rev mode, input size n otherwise.
     _seed_matrix: NDArray[np.bool_] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Precompute the extraction and seed data used by decompression."""
         color_idx, elem_idx = self._compute_extraction_indices()
 
-        # Built under ensure_compile_time_eval so the stored value
-        # is a concrete array even when constructed inside a jit trace
-        # (a stored tracer would leak into later eager calls).
+        # ensure_compile_time_eval keeps the stored value concrete inside a jit
+        # trace (a stored tracer would leak into later eager calls).
         with jax.ensure_compile_time_eval():
             if len(color_idx) == 0:
                 gather_indices = jnp.zeros((0, 2), dtype=jnp.int32)
@@ -651,20 +637,14 @@ class ColoredPattern:
     def _compressed_dim(self) -> int:
         """Second-axis length of the compressed matrix ``B``.
 
-        ``B`` has shape ``(num_colors, dim)``,
-        where ``dim`` is the space that compression preserves,
-        the opposite of the seeded space.
-        For ``"fwd"`` the seed lives in the input space,
-        so ``B``'s columns are the output space of size ``m``.
-        For ``"rev"`` and the Hessian modes the seed lives in the output
-        or cotangent space,
-        so ``B``'s columns are the selected input space of size ``n``.
+        ``B`` has shape ``(num_colors, dim)``, where ``dim`` is the space
+        compression preserves, the opposite of the seeded space:
+        the output size ``m`` for ``"fwd"`` (seed in the input space),
+        the selected input size ``n`` for ``"rev"`` and the Hessian modes
+        (seed in the output/cotangent space).
 
-        Both compress (building ``B``) and decompress (consuming ``B``)
-        consult this to agree on ``B``'s layout without importing each other:
-        compress sizes the empty-pattern short-circuit,
-        decompress validates a caller-supplied ``B`` before its gather.
-        This equals the space the gather's ``elem_idx`` indexes.
+        Compress and decompress both consult this to agree on ``B``'s layout
+        without importing each other, and it equals the space ``elem_idx`` indexes.
         """
         match self.mode:
             case "fwd":
@@ -691,10 +671,9 @@ class ColoredPattern:
         rows = self.sparsity.rows
         cols = self.sparsity.cols
 
-        # Empty patterns short-circuit before the symmetric branch.
-        # The empty branches of the coloring API construct patterns
-        # with symmetric=True but star_set=None,
-        # which the hub-based lookup below would reject.
+        # Empty patterns short-circuit before the symmetric branch:
+        # the coloring API's empty branches build patterns with symmetric=True
+        # but star_set=None, which the hub-based lookup below would reject.
         if self.sparsity.nnz == 0:
             empty = np.empty(0, dtype=np.intp)
             return empty, empty
@@ -716,12 +695,11 @@ class ColoredPattern:
                 case _ as unreachable:
                     assert_never(unreachable)
 
-        # The gather built from these indices promises in-bounds indices,
-        # so a neutral (-1) color would silently read garbage.
-        # Star-coloring postprocessing keeps diagonal-entry and hub colors used,
-        # which guarantees no neutral color reaches extraction.
-        # Checked explicitly rather than with `assert`
-        # so `python -O` cannot strip the guard.
+        # The gather promises in-bounds indices, so a neutral (-1) color would
+        # silently read garbage.
+        # Star-coloring postprocessing keeps diagonal and hub colors used,
+        # guaranteeing none reach here.
+        # Checked explicitly (not `assert`) so `python -O` cannot strip the guard.
         if not (color_idx >= 0).all():
             raise AssertionError("neutral (-1) color in extraction indices")
 
@@ -766,8 +744,7 @@ class ColoredPattern:
         pos = np.searchsorted(edge_keys, keys)
         # These guards gate a PROMISE_IN_BOUNDS gather:
         # a near-miss lookup would silently pick the wrong hub.
-        # Checked explicitly rather than with `assert`
-        # so `python -O` cannot strip them.
+        # Checked explicitly (not `assert`) so `python -O` cannot strip them.
         missing = "off-diagonal pattern entry missing from star-set edge index"
         if not (pos < len(edge_keys)).all():
             raise AssertionError(missing)
@@ -912,28 +889,21 @@ class ColoredPattern:
 # PyTree registration
 #
 # All three pattern classes are registered as JAX pytrees
-# so they can be passed through transformations (jit, vmap, ...)
-# and stored inside pytree containers.
+# so they pass through transformations (jit, vmap, ...) and live in pytree containers.
 #
-# The entry arrays rows and cols are structural metadata,
-# not numeric data:
-# coloring and per-leaf block extraction (_block_indices)
-# need their concrete values,
-# so they travel in the static aux data (wrapped in _HashableEntries)
+# rows and cols are structural metadata, not numeric data:
+# coloring and per-leaf block extraction (_block_indices) need their concrete
+# values, so they travel in the static aux data (wrapped in _HashableEntries)
 # and stay concrete numpy arrays on both sides of a jit boundary.
-# Treedef identity thereby reflects the entries,
-# which jit caching requires:
-# block-extraction indices are baked into compiled functions as constants,
-# so patterns with different entries must not share a cache entry.
-# The derived device arrays consumed inside traced code
-# (_bcoo_indices, _gather_indices, _seed_matrix)
-# and the color and star-set arrays are the leaves.
+# Treedef identity thereby reflects the entries, which jit caching requires
+# (block-extraction indices are baked into compiled functions as constants,
+# so patterns with different entries must not share a cache entry).
+# The leaves are the derived device arrays consumed inside traced code
+# (_bcoo_indices, _gather_indices, _seed_matrix) plus the color and star-set arrays.
 #
-# The custom unflatten functions bypass __init__ and __post_init__ entirely,
-# assigning every attribute verbatim from the flattened representation.
-# This is required for correctness:
-# inside a transformation the leaves are tracers,
-# and re-running validation or the eager numpy computations on tracers
+# The custom unflatten functions bypass __init__ and __post_init__,
+# assigning every attribute verbatim: inside a transformation the leaves are
+# tracers, and re-running validation or the eager numpy computations on them
 # would fail or silently poison the stored derived data.
 
 
