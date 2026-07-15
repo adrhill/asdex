@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783090374008,
+  "lastUpdate": 1784109202416,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -18729,6 +18729,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006523897797507027",
             "extra": "mean: 22.988587631501975 usec\nrounds: 16073"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@nardilam.nl",
+            "name": "Nardi Lam",
+            "username": "nardi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1393fafa6f97a9a0915b535e09a75a5a2ede78e1",
+          "message": "feat: register `ColoredPattern` and related classes as pytrees (#176)\n\n* feat: register ColoredPattern and related classes as pytrees\n\nRegisters ColoredPattern, SparsityPattern and StarSet as JAX pytrees, so that they can be safely passed into JITted functions without unnecessary re-compilation. Cached properties that were needed in Jacobian decompression have been changed into attributes that are eagerly calculated on object initialization.\n\nCloses #171\n\n* refactor: drop stored _extraction_indices from ColoredPattern\n\nThe extraction indices are only an intermediate for building\n_gather_indices in __post_init__ and have no runtime consumers,\nbut were registered as pytree children,\nadding two redundant (nnz,) leaves to every flatten and jit transfer.\nCompute them as locals instead and drop the field.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* test: cover symmetric and pytree-input colorings crossing jit boundaries\n\nPass a symmetric Hessian coloring (with star-set leaves)\nand a pytree-input Jacobian coloring through jit as arguments,\nchecking the results computed inside jit against the JAX references.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* fix: keep pattern entry arrays concrete across jit boundaries\n\nrows and cols were registered as pytree leaves,\nso they turned into tracers when a coloring crossed a jit boundary\nas an argument.\n_block_indices runs concrete numpy masking on them\nto assemble per-leaf BCOO blocks,\nwhich raised TracerArrayConversionError for output_format=\"bcoo\"\nwith pytree-structured inputs or outputs.\n\nMove the entry arrays into the static aux data\nthrough a content-hashable wrapper (_HashableEntries),\nso they stay concrete numpy arrays on both sides of a jit boundary.\nThis also makes treedef identity reflect the entries,\nwhich jit caching requires:\nblock-extraction indices are baked into compiled functions as constants,\nso patterns with different entries must not share a cache entry.\n\nParametrize the jit-boundary pytree tests over dense and BCOO outputs\nand cover multi-output Jacobians and pytree-input Hessians under jit.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* docs: trim verbose comments in _pattern.py\n\nCondense the pytree-registration and derived-data rationale, per-field\nnotes, and the extraction-index guard comments while keeping the design\ndecisions they document.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: adrhill <adrian.hill@mailbox.org>\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-07-15T11:52:42+02:00",
+          "tree_id": "b4d456a86a5181ff10a908610c075aff8e6f4a18",
+          "url": "https://github.com/adrhill/asdex/commit/1393fafa6f97a9a0915b535e09a75a5a2ede78e1"
+        },
+        "date": 1784109200928,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 753.372950409951,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00038269519549383163",
+            "extra": "mean: 1.3273638235296952 msec\nrounds: 17"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27754.051506355987,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025961931870653865",
+            "extra": "mean: 36.03077553455534 usec\nrounds: 7529"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 86747.51967917768,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001249016812220434",
+            "extra": "mean: 11.527707117141166 usec\nrounds: 24771"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 64484.418065161444,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000016481782589658669",
+            "extra": "mean: 15.507622306360908 usec\nrounds: 16103"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 85305.53551518859,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000014317068747419498",
+            "extra": "mean: 11.72256869335227 usec\nrounds: 26167"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 18.57126949041629,
+            "unit": "iter/sec",
+            "range": "stddev: 0.038069207512970354",
+            "extra": "mean: 53.846615090909665 msec\nrounds: 11"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2855.690498026814,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027188689094027633",
+            "extra": "mean: 350.1780044759634 usec\nrounds: 2681"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1834.5452169532577,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006868745773853684",
+            "extra": "mean: 545.0942232215795 usec\nrounds: 1223"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1904.9772733794969,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017511097469863813",
+            "extra": "mean: 524.9406457358753 usec\nrounds: 1067"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4602.888145743095,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011864869064039447",
+            "extra": "mean: 217.25489917125913 usec\nrounds: 3620"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 117.1972618604723,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01531127759573783",
+            "extra": "mean: 8.532622555555413 msec\nrounds: 63"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27776.839234027913,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000031243537437210738",
+            "extra": "mean: 36.00121639379882 usec\nrounds: 21008"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 60728.832544828474,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026933490116732312",
+            "extra": "mean: 16.466642912356757 usec\nrounds: 16825"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 47637.32198868256,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005700352904113239",
+            "extra": "mean: 20.99194409453947 usec\nrounds: 12700"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 61837.83317490188,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026801152715092523",
+            "extra": "mean: 16.17132989074187 usec\nrounds: 14911"
           }
         ]
       }
