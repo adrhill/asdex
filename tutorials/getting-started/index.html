@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/bw.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1421,9 +1421,9 @@ This time, we use <a href="../../reference/#asdex.jacobian"><code>asdex.jacobian
 <a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="n">t_asdex</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">timeit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">jac_fn_asdex</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span>
 <a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="n">t_jax</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">timeit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">jac_fn_jax</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>asdex.jacobian:      1.86 ms
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>jax.jacobian:       12.31 ms
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>speedup:              6.6x
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>asdex.jacobian:      1.37 ms
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>jax.jacobian:       14.21 ms
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>speedup:             10.4x
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Precompute for Repeated Evaluations</p>
@@ -1518,7 +1518,7 @@ precompute the coloring once and reuse it:</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../../assets/_markdown_exec_pyodide.js"></script>
       
