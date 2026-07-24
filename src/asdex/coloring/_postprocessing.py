@@ -15,6 +15,9 @@ from numpy.typing import NDArray
 
 from asdex._pattern import StarSet
 
+# Postprocessing is not necessary for most applications of Hessian coloring (only useful when diagonal coefficients are zero).
+# It is also likely to evolve further in SMC and get out of sync in asdex. I'd remove it for now.
+
 
 def _postprocess_star_coloring(
     colors: NDArray[np.int32],

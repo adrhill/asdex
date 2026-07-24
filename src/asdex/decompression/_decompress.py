@@ -11,6 +11,7 @@ or dispatches the flat ``(m, n)`` matrix for the public ``decompress``
 It never imports the compress side or the AD engine:
 compress produces ``B``, decompress consumes ``B``, and neither needs the other.
 """
+# So every decompression has to go through a COO format first, before conversion to the target format?
 
 from __future__ import annotations
 

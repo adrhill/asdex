@@ -141,6 +141,7 @@ def jacobian_coloring_from_sparsity(
         _assert_jacobian_mode(mode)
 
     if symmetric:
+        # why would this ever be needed?
         return _color_jacobian_symmetric(
             sparsity,
             mode if mode is not None else _DEFAULT_SYMMETRIC_JACOBIAN_MODE,

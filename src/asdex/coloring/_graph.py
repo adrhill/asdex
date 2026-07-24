@@ -22,6 +22,7 @@ from asdex._pattern import _empty_int32
 def _build_csr(
     a_idx: NDArray[np.int32],
     b_idx: NDArray[np.int32],
+    # why are row and column indices restricted to int32? can we allow int64?
     na: int,
 ) -> tuple[NDArray[np.int32], NDArray[np.int32]]:
     """Build a CSR adjacency indexed by ``a``, storing ``b``-values.
@@ -110,6 +111,7 @@ def _build_symmetric_csr(
     neighbors = sb.astype(np.int32, copy=False)
 
     has_self_loop = np.zeros(n, dtype=bool)
+    # I'd remove this, since it is only used in postprocessing for now
     diag_rows = rows[~off_mask]
     if diag_rows.size > 0:
         has_self_loop[diag_rows] = True

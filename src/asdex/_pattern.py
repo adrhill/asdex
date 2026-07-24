@@ -145,6 +145,7 @@ class SparsityPattern:
 
     rows: NDArray[np.int32]
     cols: NDArray[np.int32]
+    # So the sparsity pattern is always stored as COO? What if the decompression target is a CSR?
     shape: tuple[int, int]
     input_avals: tuple[Any, ...] = field(default=())
     argnums: int | tuple[int, ...] = 0
@@ -324,6 +325,7 @@ class SparsityPattern:
     @classmethod
     def from_bcoo(cls, bcoo: BCOO) -> SparsityPattern:
         """Create pattern from JAX BCOO sparse matrix."""
+        # Is batching (the B in BCOO) taken into account anywhere in the package?
         indices = np.asarray(bcoo.indices)
         shape = (bcoo.shape[0], bcoo.shape[1])
         if indices.size == 0:
@@ -586,6 +588,7 @@ class ColoredPattern:
     symmetric: bool
     mode: ColoringMode
     star_set: StarSet | None = None
+    # ColoredPattern is the equivalent of SMC.Result types, it shouldn't need to contain a StarSet because we can extract all relevant indices from the StarSet for vectorized decompression
 
     # Derived data, computed eagerly in __post_init__ so instances stay fully
     # initialized: pytree flattening carries these values along verbatim and
