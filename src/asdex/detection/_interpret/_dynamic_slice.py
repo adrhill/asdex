@@ -1,10 +1,12 @@
 """Propagation rules for dynamic_slice and dynamic_update_slice."""
 
+from collections.abc import Sequence
+
 import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
+    IndexSetView,
     StateBounds,
     StateConsts,
     StateIndices,
@@ -14,7 +16,6 @@ from ._common import (
     _check_no_index_sets,
     _clamp_starts,
     _conservative_indices,
-    _copy_index_sets,
     _enumerate_bounded_patterns,
     _index_sets,
     _numel,
@@ -110,7 +111,7 @@ def _prop_dynamic_slice(
         in_shape = _atom_shape(operand)
         ranges = [range(lo, hi + 1) for lo, hi in start_bounds]
 
-        def _make_slice(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make_slice(vals: tuple[int, ...]) -> list[IndexSetView]:
             clamped = _clamp_starts(vals, in_shape, slice_sizes)
             sl = tuple(
                 slice(s, s + sz) for s, sz in zip(clamped, slice_sizes, strict=True)
@@ -182,7 +183,7 @@ def _prop_dynamic_update_slice(
     if start_bounds is not None:
         ranges = [range(lo, hi + 1) for lo, hi in start_bounds]
 
-        def _make_update(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make_update(vals: tuple[int, ...]) -> list[IndexSetView]:
             clamped = _clamp_starts(vals, operand_shape, upd_shape)
             return _dynamic_update_for_starts(
                 list(clamped),
@@ -206,13 +207,15 @@ def _prop_dynamic_update_slice(
 
 def _dynamic_update_for_starts(
     starts: list[int] | tuple[int, ...],
-    operand_indices: list[IndexSet],
-    upd_indices: list[IndexSet],
+    operand_indices: Sequence[IndexSetView],
+    upd_indices: Sequence[IndexSetView],
     operand_shape: tuple[int, ...],
     upd_shape: tuple[int, ...],
-) -> list[IndexSet]:
+) -> list[IndexSetView]:
     """Compute output index sets for a dynamic_update_slice with known starts."""
-    out_indices: list[IndexSet] = _copy_index_sets(operand_indices)
+    # Each output element is exactly one operand or update element (a pure
+    # selection), so we only replace views — never mutate a set in place.
+    out_indices: list[IndexSetView] = list(operand_indices)
 
     upd_coords = np.indices(upd_shape)
     op_coords = tuple(s + upd_coords[d] for d, s in enumerate(starts))

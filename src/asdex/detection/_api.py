@@ -21,7 +21,11 @@ from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
 from asdex._docstrings import _fill_doc
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import _prop_jaxpr
-from asdex.detection._interpret._common import _empty_index_sets
+from asdex.detection._interpret._common import (
+    IndexSetSequence,
+    IndexSetSequenceBuilder,
+    _empty_index_sets,
+)
 
 
 @_fill_doc
@@ -141,7 +145,7 @@ def _dce_closed_jaxpr(closed_jaxpr: ClosedJaxpr) -> ClosedJaxpr:
 
 def _build_input_indices(
     avals: tuple[Any, ...], selected: tuple[int, ...]
-) -> tuple[list[list], int]:
+) -> tuple[list[IndexSetSequence], int]:
     """Seed per-leaf index sets in ``jax.make_jaxpr`` leaf order.
 
     Selected positions get identity index sets over a contiguous column
@@ -163,22 +167,27 @@ def _build_input_indices(
     n_selected = offset
 
     # Second pass: build input_indices in jaxpr input order
-    input_indices: list[list] = []
+    input_indices: list[IndexSetSequence] = []
     for pos_idx, pos_aval in enumerate(avals):
         leaves = jax.tree_util.tree_leaves(pos_aval)
         if pos_idx in col_offsets:
             col_offset = col_offsets[pos_idx]
             for leaf in leaves:
                 size = int(leaf.size)
-                input_indices.append([{col_offset + j} for j in range(size)])
+                # input_indices.append([{col_offset + j} for j in range(size)])
+                input_indices.append(
+                    IndexSetSequenceBuilder.identity(
+                        length=size, offset=col_offset
+                    ).build()
+                )
                 col_offset += size
         else:
             for leaf in leaves:
-                input_indices.append(_empty_index_sets(int(leaf.size)))  # noqa: PERF401
+                input_indices.append(_empty_index_sets(int(leaf.size)).build())  # noqa: PERF401
     return input_indices, n_selected
 
 
-def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
+def _run_prop(closed_jaxpr, input_indices: list[IndexSetSequence]) -> list:
     """Run ``_prop_jaxpr`` and concatenate index sets across all output leaves.
 
     JAX flattens pytree-structured outputs into one ``outvar`` per leaf, so
