@@ -6,6 +6,9 @@ authors:
   - family-names: Hill
     given-names: Adrian
     orcid: 'https://orcid.org/0009-0009-5977-301X'
+  - family-names: Dalle
+    given-names: Guillaume
+    orcid: 'https://orcid.org/0000-0003-4866-1687'
 identifiers:
   - type: doi
     value: 10.5281/zenodo.18788242
@@ -34,6 +37,8 @@ preferred-citation:
   authors:
     - family-names: Hill
       given-names: Adrian
+    - family-names: Dalle
+      given-names: Guillaume
   title: 'asdex: Automatic Sparse Differentiation in JAX'
   year: 2026
   url: 'https://github.com/adrhill/asdex'

@@ -8,9 +8,11 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [
     { name = "Adrian Hill", email = "gh@adrianhill.de" },
+    { name = "Guillaume Dalle" },
 ]
 maintainers = [
     { name = "Adrian Hill", email = "gh@adrianhill.de" },
+    { name = "Guillaume Dalle" },
 ]
 keywords = [
     "jax",
