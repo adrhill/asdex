@@ -1,5 +1,9 @@
 # asdex
 
+## Version `v0.5.2`
+* ![Maintenance][badge-maintenance] Update `scan` sparsity propagation for JAX 0.11's new jaxpr representation, which replaces the `num_consts`/`num_carry` parameters with `ft_in`/`ft_out`.
+  Following upstream, asdex now requires `jax>=0.11.0` and Python `>=3.12` ([#180])
+
 ## Version `v0.5.1`
 * ![Feature][badge-feature] Register `ColoredPattern`, `SparsityPattern`, and `StarSet` as JAX pytrees, so they can be passed into `jax.jit`-compiled functions without triggering recompilation ([#176])
 * ![Feature][badge-feature] Export `ColoringMode` and annotate the public type aliases with `TypeAlias`, so `ColoredPattern.mode` can be named in downstream code ([#168])
@@ -132,6 +136,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#180]: https://github.com/adrhill/asdex/pull/180
 [#176]: https://github.com/adrhill/asdex/pull/176
 [#169]: https://github.com/adrhill/asdex/pull/169
 [#168]: https://github.com/adrhill/asdex/pull/168
