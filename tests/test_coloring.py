@@ -347,6 +347,7 @@ def test_row_bidiagonal():
 
 
 # Column coloring tests
+# Should be row coloring tests transposed? This might reduce code duplication.
 
 
 @pytest.mark.coloring
