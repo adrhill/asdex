@@ -62,7 +62,7 @@ def _scatter_flat_map(
     update_ndim = len(updates_shape)
     flat_map = np.full(updates_size, -1, dtype=np.intp)
 
-    _, _, starts = _iter_si_starts(
+    starts = _iter_si_starts(
         concrete_indices,
         operand_shape,
         operand_batching_dims,
