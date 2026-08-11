@@ -108,7 +108,7 @@ def _prop_dynamic_slice(
         in_shape = _atom_shape(operand)
         ranges = _bounded_ranges(start_bounds)
 
-        def _make_slice(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make_slice(vals: tuple[int, ...]) -> list[IndexSet]:
             clamped = _clamp_starts(vals, in_shape, slice_sizes)
             sl = tuple(
                 slice(s, s + sz) for s, sz in zip(clamped, slice_sizes, strict=True)
@@ -186,7 +186,7 @@ def _prop_dynamic_update_slice(
     if start_bounds is not None:
         ranges = _bounded_ranges(start_bounds)
 
-        def _make_update(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make_update(vals: tuple[int, ...]) -> list[IndexSet]:
             clamped = _clamp_starts(vals, operand_shape, upd_shape)
             return _dynamic_update_for_starts(
                 list(clamped),

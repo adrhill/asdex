@@ -16,6 +16,7 @@ from ._common import (
     _bounded_ranges,
     _clamp_starts,
     _conservative_indices,
+    _copy_index_set,
     _enumerate_bounded_patterns,
     _index_sets,
     _merge_index_dependencies,
@@ -142,7 +143,11 @@ def _scatter_for_indices(
     for i in range(out_size):
         if i in scatter_positions:
             if is_combine:
-                combined = operand_indices[i].copy()
+                # Combine semantics (scatter-add and friends)
+                # read the operand alongside every update that targets it.
+                # Accumulating in place beats building a list of writers to union,
+                # which would allocate a temporary per scattered position.
+                combined = _copy_index_set(operand_indices[i])
                 for u_flat in scatter_positions[i]:
                     combined |= updates_indices[u_flat]
                 out_indices.append(combined)
@@ -230,7 +235,7 @@ def _prop_scatter(
         out_size = _atom_numel(eqn.outvars[0])
         ranges = _bounded_ranges(bounds)
 
-        def _make(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make(vals: tuple[int, ...]) -> list[IndexSet]:
             candidate = np.array(vals, dtype=lo.dtype).reshape(si_shape)
             return _scatter_for_indices(
                 candidate, eqn, operand_indices, updates_indices

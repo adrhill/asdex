@@ -10,6 +10,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
+    IndexSet,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
@@ -243,7 +244,7 @@ def _prop_gather(
         si_shape = _atom_shape(eqn.invars[1])
         ranges = _bounded_ranges(bounds)
 
-        def _make(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make(vals: tuple[int, ...]) -> list[IndexSet]:
             candidate = np.array(vals, dtype=lo.dtype).reshape(si_shape)
             return _permute_indices(
                 operand_indices, _gather_flat_map(candidate, eqn, operand_shape)

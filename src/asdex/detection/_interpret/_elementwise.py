@@ -9,6 +9,7 @@ from jax import lax
 from jax._src.core import JaxprEqn
 
 from ._common import (
+    IndexSet,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
@@ -202,11 +203,11 @@ def _binary_elementwise(
 
 
 def _union_with_zero_derivs(
-    s1: set[int],
-    s2: set[int],
+    s1: IndexSet,
+    s2: IndexSet,
     is_der1_zero: bool,
     is_der2_zero: bool,
-) -> set[int]:
+) -> IndexSet:
     """Union index sets, excluding inputs with zero derivatives.
 
     The result may alias an input set,
@@ -254,6 +255,27 @@ def _propagate_bounds_sub(
         return
     (lo1, hi1), (lo2, hi2) = bounds
     state.bounds[eqn.outvars[0]] = (lo1 - hi2, hi1 - lo2)
+
+
+def _propagate_bounds_extremum(
+    eqn: JaxprEqn,
+    state: _PropState,
+    combine: np.ufunc,
+) -> None:
+    """Propagate value bounds through ``max`` or ``min`` via interval arithmetic.
+
+    Both are monotone increasing in each operand,
+    so evaluating at the interval endpoints is exact:
+    ``max([a,b], [c,d]) = [max(a,c), max(b,d)]``.
+
+    This is what keeps ``jnp.clip`` on an index from erasing its bounds,
+    since ``clip`` lowers to ``max`` followed by ``min``, not to ``clamp``.
+    """
+    bounds = _binary_value_bounds(eqn, state)
+    if bounds is None:
+        return
+    (lo1, hi1), (lo2, hi2) = bounds
+    state.bounds[eqn.outvars[0]] = (combine(lo1, lo2), combine(hi1, hi2))
 
 
 # Composite handlers (public)

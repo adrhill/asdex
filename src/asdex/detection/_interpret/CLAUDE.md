@@ -46,6 +46,8 @@ through primitives to determine Jacobian sparsity patterns.
 
 This ensures a future backend swap only requires changing the helpers,
 not every handler.
+See [Backend Surface](#backend-surface) for the full set of operations
+a handler may rely on.
 
 **Variable names** — use these consistently across handlers:
 - `in_indices`: input index sets (from `_index_sets(state, atom)`)
@@ -59,6 +61,39 @@ not every handler.
 - `flat_map`: a flat integer array mapping output positions to input positions
 
 **Docstrings** — avoid the term "deps"; prefer "index sets" or "input index sets".
+
+## Backend Surface
+
+`IndexSet` is currently `set[int]`.
+`pyroaring.BitMap` and int bitmasks were benchmarked and lost
+for the typical workload of small sparse sets over a large universe
+(see the `IndexSet` docstring in `_common.py`).
+The seam is kept intact anyway so the choice can be revisited cheaply.
+
+Handlers may rely on exactly these operations, and nothing else:
+
+- **Construction** through the four factory helpers above.
+  Never `set()` or `{i}`.
+- **Union** through `a | b`, `a |= b`, `_union_all`, or `_union_elementwise`.
+  Both operators are safe to use directly,
+  since every candidate backend supports them.
+- **Emptiness** through truthiness: `if not iset`, `any(sets)`.
+  Every candidate backend reports emptiness through `__len__` or `__bool__`.
+- **Copying** through `_copy_index_set` (one set) or `_copy_index_sets` (a whole list).
+  Never call `.copy()` on an index set directly.
+  A handler that accumulates with `|=` must copy first,
+  since sets in `state.indices` are shared (see [Index Set Aliasing](#index-set-aliasing)).
+  Prefer copy-then-accumulate over collecting operands into a list for `_union_all`:
+  the list costs a temporary allocation per output element,
+  which measurably dominates when index sets are small.
+- **Annotations** always spell `IndexSet` or `list[IndexSet]`, never `set[int]`.
+
+Iterating an index set to recover concrete integers
+happens in exactly one place,
+`_coo_from_index_sets` in `detection/_api.py`,
+which sorts each set when building the COO pattern.
+Keeping that the only iteration site
+is what lets a backend without cheap ordered iteration stay viable.
 
 ## Common Utilities in `_common.py`
 

@@ -227,8 +227,22 @@ def _index_sets(state: _PropState, atom: Atom) -> list[IndexSet]:
     return state.indices[atom]
 
 
+def _copy_index_set(src: IndexSet) -> IndexSet:
+    """Copy a single index set.
+
+    Used by handlers that accumulate into a set with ``|=``
+    and therefore need to own it.
+    """
+    return src.copy()
+
+
 def _copy_index_sets(src: list[IndexSet]) -> list[IndexSet]:
-    """Deep-copy a list of index sets."""
+    """Deep-copy a list of index sets.
+
+    Inlines the copy rather than calling ``_copy_index_set`` per element,
+    since this runs once per carry element in the ``cond`` and ``while`` loops.
+    Both are backend-specific, which is why both live here.
+    """
     return [s.copy() for s in src]
 
 
