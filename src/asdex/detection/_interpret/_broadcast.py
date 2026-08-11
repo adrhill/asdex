@@ -70,9 +70,11 @@ def _prop_broadcast_in_dim(
     # instead of falling back to conservative all-to-all dependencies.
     in_val = _atom_const_val(in_atom, state)
     if in_val is not None:
-        intermediate = _intermediate_shape(in_val.shape, out_shape, broadcast_dims)
+        intermediate_shape = _intermediate_shape(
+            in_val.shape, out_shape, broadcast_dims
+        )
         state.consts[out_var] = np.broadcast_to(
-            np.reshape(in_val, intermediate), out_shape
+            np.reshape(in_val, intermediate_shape), out_shape
         )
 
     # Propagate value bounds by broadcasting to the output shape.
@@ -94,8 +96,8 @@ def _prop_broadcast_in_dim(
     # The intermediate shape reduces broadcast_in_dim to numpy broadcasting,
     # which _broadcast_flat_map mirrors on flat positions.
     in_shape = _atom_shape(in_atom)
-    intermediate = _intermediate_shape(in_shape, out_shape, broadcast_dims)
-    flat_map = _broadcast_flat_map(intermediate, out_shape)
+    intermediate_shape = _intermediate_shape(in_shape, out_shape, broadcast_dims)
+    flat_map = _broadcast_flat_map(intermediate_shape, out_shape)
 
     state.indices[out_var] = _permute_indices(in_indices, flat_map)
 
@@ -112,9 +114,9 @@ def _propagate_bounds_broadcast(eqn: JaxprEqn, state: _PropState) -> None:
     lo, hi = bounds
     out_shape = eqn.params["shape"]
     broadcast_dims = eqn.params["broadcast_dimensions"]
-    intermediate = _intermediate_shape(lo.shape, out_shape, broadcast_dims)
+    intermediate_shape = _intermediate_shape(lo.shape, out_shape, broadcast_dims)
 
     state.bounds[eqn.outvars[0]] = (
-        np.broadcast_to(np.reshape(lo, intermediate), out_shape),
-        np.broadcast_to(np.reshape(hi, intermediate), out_shape),
+        np.broadcast_to(np.reshape(lo, intermediate_shape), out_shape),
+        np.broadcast_to(np.reshape(hi, intermediate_shape), out_shape),
     )
