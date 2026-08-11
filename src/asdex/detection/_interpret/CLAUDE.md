@@ -101,6 +101,11 @@ not every handler.
 - **`_atom_value_bounds(atom, state)`** —
   returns `(lo, hi)` bounds for an atom:
   exact `(val, val)` for constants, tracked bounds for bounded variables, or `None`.
+- **`_binary_value_bounds(eqn, state)`** —
+  returns both operands' bounds for a binary op, or `None` if either is unknown.
+  Checks the first operand before reading the second,
+  so an input-dependent first operand does not force materializing
+  a large second-operand const whose bounds would be discarded.
 - **`_forward_across_jaxpr_boundary(state, src_atoms, dst_vars)`** —
   transfers known const values and value bounds together
   across a nested-jaxpr boundary,

@@ -4,7 +4,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    _atom_value_bounds,
+    _binary_value_bounds,
     _clear_where_zero,
     _propagate_const_binary,
     _PropState,
@@ -48,13 +48,11 @@ def _propagate_bounds_mul(
     ``[a,b] * [c,d]`` → ``[min(ac,ad,bc,bd), max(ac,ad,bc,bd)]``.
     This handles all sign combinations correctly.
     """
-    in1_bounds = _atom_value_bounds(eqn.invars[0], state)
-    in2_bounds = _atom_value_bounds(eqn.invars[1], state)
-    if in1_bounds is None or in2_bounds is None:
+    bounds = _binary_value_bounds(eqn, state)
+    if bounds is None:
         return
 
-    lo1, hi1 = in1_bounds
-    lo2, hi2 = in2_bounds
+    (lo1, hi1), (lo2, hi2) = bounds
 
     c1 = lo1 * lo2
     c2 = lo1 * hi2
