@@ -103,9 +103,9 @@ def test_scan_layout():
     and feeds the body jaxpr [consts..., carry..., x_slice...],
     so every one of these orderings is load-bearing.
 
-    JAX 0.11 replaced the ``num_consts`` / ``num_carry`` params
-    with ``ft_in``, an ``FTTuple`` splitting the invars into
-    ``(consts, carry, xs)`` groups whose lengths give those counts.
+    JAX 0.11 replaced the ``num_consts`` / ``num_carry`` params with ``ft_in``,
+    an ``FTTuple`` splitting the invars into ``(consts, carry, xs)`` groups
+    whose lengths give those counts.
     """
 
     def f(c, init, xs):
