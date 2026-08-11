@@ -26,6 +26,9 @@ def _fixed_base_positions(
     so the result enumerates the fixed coordinates in the same C order
     as the output axes they map to.
     Adding a contracting offset to a base yields a full flat operand position.
+
+    Passing the contracting dimensions instead yields those contracting offsets:
+    the flat positions of each contracting coordinate at the zero fixed coordinate.
     """
     sizes = tuple(shape[d] for d in dims)
     coords = (
@@ -213,21 +216,10 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     rhs_strides = _row_strides(rhs_shape)
 
     # Flat offsets of the contracting positions, shared by every fixed position.
-    # contract_coords[i] runs over the i-th contracting axis, shared by lhs and
-    # rhs since lhs_contract[i] pairs with rhs_contract[i] and has equal size.
-    contract_sizes = tuple(lhs_shape[d] for d in lhs_contract)
-    n_contract = _numel(contract_sizes)
-    contract_coords = (
-        np.indices(contract_sizes, dtype=np.int64).reshape(len(contract_sizes), -1)
-        if contract_sizes
-        else np.zeros((0, 1), dtype=np.int64)
-    )
-    lhs_offsets = np.zeros(n_contract, dtype=np.int64)
-    for i, d in enumerate(lhs_contract):
-        lhs_offsets += contract_coords[i] * lhs_strides[d]
-    rhs_offsets = np.zeros(n_contract, dtype=np.int64)
-    for i, d in enumerate(rhs_contract):
-        rhs_offsets += contract_coords[i] * rhs_strides[d]
+    # Both sides enumerate the contracting coordinates in the same C order,
+    # since lhs_contract[i] pairs with rhs_contract[i] and has equal size.
+    lhs_offsets = _fixed_base_positions(lhs_shape, lhs_contract, lhs_strides)
+    rhs_offsets = _fixed_base_positions(rhs_shape, rhs_contract, rhs_strides)
 
     lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch + lhs_free, lhs_strides)
     rhs_bases = _fixed_base_positions(rhs_shape, rhs_batch + rhs_free, rhs_strides)
