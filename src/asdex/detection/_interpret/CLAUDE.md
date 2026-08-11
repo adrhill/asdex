@@ -101,10 +101,13 @@ not every handler.
 - **`_atom_value_bounds(atom, state)`** —
   returns `(lo, hi)` bounds for an atom:
   exact `(val, val)` for constants, tracked bounds for bounded variables, or `None`.
-- **`_forward_into_jaxpr(state, outer_atoms, inner_vars)`** —
+- **`_forward_across_jaxpr_boundary(state, src_atoms, dst_vars)`** —
   transfers known const values and value bounds together
-  from outer-scope atoms to inner jaxpr variables,
+  across a nested-jaxpr boundary,
   so a call site cannot forward one and forget the other.
+  Direction-neutral: callers pass outer invars to inner invars going in,
+  and inner outvars to outer outvars coming back out.
+  Consts are forwarded as stored, never materialized.
 
 ## Index Set Aliasing
 

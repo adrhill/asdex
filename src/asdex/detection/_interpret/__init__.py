@@ -8,17 +8,16 @@ The main entry point is `_prop_jaxpr`, which walks the computation graph
 and applies the appropriate handler for each equation.
 """
 
-from jax._src.core import Jaxpr, JaxprEqn, Var
+from jax._src.core import Jaxpr, JaxprEqn
 
 from ._argmax import _prop_argmax
 from ._broadcast import _prop_broadcast_in_dim
 from ._common import (
     IndexSet,
-    _atom_const_val,
     _atom_numel,
     _conservative_indices,
     _empty_index_sets,
-    _forward_into_jaxpr,
+    _forward_across_jaxpr_boundary,
     _index_sets,
     _PropState,
     _report_issue,
@@ -135,24 +134,15 @@ def _prop_closed_jaxpr(
         _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
         closed = closed.jaxpr
 
-    _forward_into_jaxpr(state, eqn.invars, closed.invars)
+    _forward_across_jaxpr_boundary(state, eqn.invars, closed.invars)
     input_indices = [_index_sets(state, invar) for invar in eqn.invars]
     output_indices = _prop_jaxpr(closed, input_indices, state)
 
-    for outvar, indices, inner_outvar in zip(
-        eqn.outvars,
-        output_indices,
-        closed.outvars,
-        strict=False,
-    ):
+    # Forward consts and bounds back out,
+    # so indices computed inside the nested jaxpr stay resolvable outside.
+    _forward_across_jaxpr_boundary(state, closed.outvars, eqn.outvars)
+    for outvar, indices in zip(eqn.outvars, output_indices, strict=False):
         state.indices[outvar] = indices
-        if isinstance(inner_outvar, Var) and inner_outvar in state.bounds:
-            state.bounds[outvar] = state.bounds[inner_outvar]
-        # Forward const values symmetrically to bounds,
-        # so indices computed inside the nested jaxpr stay resolvable outside.
-        val = _atom_const_val(inner_outvar, state)
-        if val is not None:
-            state.consts[outvar] = val
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
