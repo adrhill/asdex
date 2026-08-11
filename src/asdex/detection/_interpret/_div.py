@@ -4,7 +4,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    _atom_value_bounds,
+    _binary_value_bounds,
     _clear_where_zero,
     _propagate_const_binary,
     _PropState,
@@ -50,13 +50,11 @@ def _propagate_bounds_div(
     Flooring instead would exclude the value the program actually computes
     for negative intervals, and bounded enumeration would never try it.
     """
-    in1_bounds = _atom_value_bounds(eqn.invars[0], state)
-    in2_bounds = _atom_value_bounds(eqn.invars[1], state)
-    if in1_bounds is None or in2_bounds is None:
+    bounds = _binary_value_bounds(eqn, state)
+    if bounds is None:
         return
 
-    lo1, hi1 = in1_bounds
-    lo2, hi2 = in2_bounds
+    (lo1, hi1), (lo2, hi2) = bounds
 
     # Skip if divisor bounds span zero.
     if not (np.all(lo2 > 0) or np.all(hi2 < 0)):

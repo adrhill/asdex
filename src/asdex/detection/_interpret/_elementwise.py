@@ -10,6 +10,7 @@ from ._common import (
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
+    _binary_value_bounds,
     _broadcast_flat_map,
     _clear_where_zero,
     _empty_index_set,
@@ -182,12 +183,10 @@ def _propagate_bounds_add(
     state: _PropState,
 ) -> None:
     """Propagate value bounds through ``add`` or ``add_any`` via interval arithmetic."""
-    b1 = _atom_value_bounds(eqn.invars[0], state)
-    b2 = _atom_value_bounds(eqn.invars[1], state)
-    if b1 is None or b2 is None:
+    bounds = _binary_value_bounds(eqn, state)
+    if bounds is None:
         return
-    lo1, hi1 = b1
-    lo2, hi2 = b2
+    (lo1, hi1), (lo2, hi2) = bounds
     state.bounds[eqn.outvars[0]] = (lo1 + lo2, hi1 + hi2)
 
 
@@ -196,12 +195,10 @@ def _propagate_bounds_sub(
     state: _PropState,
 ) -> None:
     """Propagate value bounds through ``sub`` via interval arithmetic."""
-    b1 = _atom_value_bounds(eqn.invars[0], state)
-    b2 = _atom_value_bounds(eqn.invars[1], state)
-    if b1 is None or b2 is None:
+    bounds = _binary_value_bounds(eqn, state)
+    if bounds is None:
         return
-    lo1, hi1 = b1
-    lo2, hi2 = b2
+    (lo1, hi1), (lo2, hi2) = bounds
     state.bounds[eqn.outvars[0]] = (lo1 - hi2, hi1 - lo2)
 
 

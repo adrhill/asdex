@@ -12,7 +12,7 @@ from jax._src.core import JaxprEqn
 from ._common import (
     _atom_numel,
     _atom_shape,
-    _atom_value_bounds,
+    _binary_value_bounds,
     _empty_index_sets,
     _propagate_const_binary,
     _PropState,
@@ -26,10 +26,10 @@ def _get_bounds(
     """Get (lo1, hi1, lo2, hi2) for both inputs, or None if unavailable."""
     if eqn.outvars[0] in state.consts:
         return None
-    b1 = _atom_value_bounds(eqn.invars[0], state)
-    b2 = _atom_value_bounds(eqn.invars[1], state)
-    if b1 is None or b2 is None:
+    bounds = _binary_value_bounds(eqn, state)
+    if bounds is None:
         return None
+    b1, b2 = bounds
     return (*b1, *b2)
 
 

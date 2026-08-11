@@ -251,6 +251,27 @@ def _atom_value_bounds(
     return None
 
 
+def _binary_value_bounds(
+    eqn: JaxprEqn,
+    state: _PropState,
+) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]] | None:
+    """Get value bounds for both operands of a binary op, or ``None`` if either is unknown.
+
+    The first operand is checked before the second is read,
+    so an input-dependent first operand (e.g. ``x + bias``)
+    does not force materializing a large second-operand const
+    whose bounds would be discarded anyway.
+    Mirrors the same early return in ``_propagate_const_binary``.
+    """
+    b1 = _atom_value_bounds(eqn.invars[0], state)
+    if b1 is None:
+        return None
+    b2 = _atom_value_bounds(eqn.invars[1], state)
+    if b2 is None:
+        return None
+    return b1, b2
+
+
 def _propagate_const_unary(
     eqn: JaxprEqn,
     state: _PropState,
