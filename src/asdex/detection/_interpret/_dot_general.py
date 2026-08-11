@@ -33,6 +33,10 @@ def _fixed_base_positions(
     ``batch_dims`` and ``free_dims`` are listed in the order of the output axes they map to,
     so the bases come out in the same order as the output elements.
 
+    Passing no batch dimensions and the contracting dimensions as ``free_dims``
+    instead yields those contracting offsets as a single row:
+    the flat positions of each contracting coordinate at the zero fixed coordinate.
+
     Example: matrix multiply A(2,3) @ B(3,4) -> C(2,4)
         Flat positions of A:  [[0, 1, 2],
                                [3, 4, 5]]
@@ -241,21 +245,10 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     rhs_strides = _row_strides(rhs_shape)
 
     # Flat offsets of the contracting positions, shared by every fixed position.
-    # contract_coords[i] runs over the i-th contracting axis, shared by lhs and
-    # rhs since lhs_contract[i] pairs with rhs_contract[i] and has equal size.
-    contract_sizes = tuple(lhs_shape[d] for d in lhs_contract)
-    n_contract = _numel(contract_sizes)
-    contract_coords = (
-        np.indices(contract_sizes, dtype=np.int64).reshape(len(contract_sizes), -1)
-        if contract_sizes
-        else np.zeros((0, 1), dtype=np.int64)
-    )
-    lhs_offsets = np.zeros(n_contract, dtype=np.int64)
-    for i, d in enumerate(lhs_contract):
-        lhs_offsets += contract_coords[i] * lhs_strides[d]
-    rhs_offsets = np.zeros(n_contract, dtype=np.int64)
-    for i, d in enumerate(rhs_contract):
-        rhs_offsets += contract_coords[i] * rhs_strides[d]
+    # Both sides enumerate the contracting coordinates in the same C order,
+    # since lhs_contract[i] pairs with rhs_contract[i] and has equal size.
+    lhs_offsets = _fixed_base_positions(lhs_shape, (), lhs_contract, lhs_strides)[0]
+    rhs_offsets = _fixed_base_positions(rhs_shape, (), rhs_contract, rhs_strides)[0]
 
     # Shape (batch_size, free_size) each, with matching batch rows.
     lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch, lhs_free, lhs_strides)
