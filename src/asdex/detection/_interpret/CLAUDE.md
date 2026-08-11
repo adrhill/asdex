@@ -79,9 +79,13 @@ Handlers may rely on exactly these operations, and nothing else:
   since every candidate backend supports them.
 - **Emptiness** through truthiness: `if not iset`, `any(sets)`.
   Every candidate backend reports emptiness through `__len__` or `__bool__`.
-- **Copying** through `_copy_index_sets`.
-  No handler copies an individual set:
-  a handler that needs to own its result builds a fresh one with `_union_all`.
+- **Copying** through `_copy_index_set` (one set) or `_copy_index_sets` (a whole list).
+  Never call `.copy()` on an index set directly.
+  A handler that accumulates with `|=` must copy first,
+  since sets in `state.indices` are shared (see [Index Set Aliasing](#index-set-aliasing)).
+  Prefer copy-then-accumulate over collecting operands into a list for `_union_all`:
+  the list costs a temporary allocation per output element,
+  which measurably dominates when index sets are small.
 - **Annotations** always spell `IndexSet` or `list[IndexSet]`, never `set[int]`.
 
 Iterating an index set to recover concrete integers

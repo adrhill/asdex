@@ -16,6 +16,7 @@ from ._common import (
     _bounded_ranges,
     _clamp_starts,
     _conservative_indices,
+    _copy_index_set,
     _enumerate_bounded_patterns,
     _index_sets,
     _merge_index_dependencies,
@@ -139,16 +140,22 @@ def _scatter_for_indices(
     out_indices: list[IndexSet] = []
     for i in range(out_size):
         if i in scatter_positions:
-            writers = [updates_indices[u] for u in scatter_positions[i]]
             if is_combine:
                 # Combine semantics (scatter-add and friends)
                 # read the operand alongside every update that targets it.
-                out_indices.append(_union_all([operand_indices[i], *writers]))
+                # Accumulating in place beats building a list of writers to union,
+                # which would allocate a temporary per scattered position.
+                combined = _copy_index_set(operand_indices[i])
+                for u_flat in scatter_positions[i]:
+                    combined |= updates_indices[u_flat]
+                out_indices.append(combined)
             else:
                 # Replace semantics: XLA leaves the applied update
                 # implementation-defined under duplicate indices,
                 # so union all candidate writers.
-                out_indices.append(_union_all(writers))
+                out_indices.append(
+                    _union_all([updates_indices[u] for u in scatter_positions[i]])
+                )
         else:
             out_indices.append(operand_indices[i])
 
