@@ -51,7 +51,10 @@ until ``_atom_const_val`` materializes them to numpy on first read,
 so constants that are never read as values are never copied to host.
 """
 
-StateBounds = dict[Var, tuple[np.ndarray, np.ndarray]]
+ValueBounds = tuple[np.ndarray, np.ndarray]
+"""Per-element inclusive ``(lo, hi)`` bounds for the elements of one array."""
+
+StateBounds = dict[Var, ValueBounds]
 """Maps variables to per-element inclusive (lo, hi) integer bounds.
 
 Used to track bounded-but-not-constant values
@@ -117,7 +120,7 @@ or two indices each with up to 8 possible values).
 """
 
 
-def _bounded_ranges(bounds: tuple[np.ndarray, np.ndarray]) -> list[range]:
+def _bounded_ranges(bounds: ValueBounds) -> list[range]:
     """Build per-element inclusive candidate ranges from (lo, hi) bounds.
 
     Feeds ``_enumerate_bounded_patterns``:
@@ -282,7 +285,7 @@ def _atom_const_val(atom: Atom, state: _PropState) -> np.ndarray | None:
 def _atom_value_bounds(
     atom: Atom,
     state: _PropState,
-) -> tuple[np.ndarray, np.ndarray] | None:
+) -> ValueBounds | None:
     """Get per-element inclusive (lo, hi) bounds for an atom.
 
     Returns exact ``(val, val)`` for constants,
@@ -300,7 +303,7 @@ def _atom_value_bounds(
 def _binary_value_bounds(
     eqn: JaxprEqn,
     state: _PropState,
-) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]] | None:
+) -> tuple[ValueBounds, ValueBounds] | None:
     """Get value bounds for both operands of a binary op, or ``None`` if either is unknown.
 
     The first operand is checked before the second is read,
@@ -316,6 +319,29 @@ def _binary_value_bounds(
     if b2 is None:
         return None
     return b1, b2
+
+
+def _ternary_value_bounds(
+    eqn: JaxprEqn,
+    state: _PropState,
+) -> tuple[ValueBounds, ValueBounds, ValueBounds] | None:
+    """Get value bounds for all three operands of a ternary op.
+
+    Returns ``None`` as soon as an operand's bounds are unknown,
+    for the same reason as in ``_binary_value_bounds``:
+    a later operand's const is never materialized
+    once the result is known to be discarded.
+    """
+    b1 = _atom_value_bounds(eqn.invars[0], state)
+    if b1 is None:
+        return None
+    b2 = _atom_value_bounds(eqn.invars[1], state)
+    if b2 is None:
+        return None
+    b3 = _atom_value_bounds(eqn.invars[2], state)
+    if b3 is None:
+        return None
+    return b1, b2, b3
 
 
 def _propagate_const_unary(
