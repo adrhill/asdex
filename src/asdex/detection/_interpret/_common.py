@@ -3,9 +3,11 @@
 import itertools
 import math
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
 
 import numpy as np
 from jax._src.core import Jaxpr, JaxprEqn, Literal, Var
+from numpy.typing import ArrayLike
 
 IndexSet = set[int]
 """A single per-element dependency set.
@@ -39,8 +41,15 @@ def _identity_index_sets(n: int) -> list[IndexSet]:
 StateIndices = dict[Var, list[IndexSet]]
 """Maps each variable to its per-element dependency index sets."""
 
-StateConsts = dict[Var, np.ndarray]
-"""Maps variables to their concrete numpy array values (for static index tracking)."""
+StateConsts = dict[Var, ArrayLike]
+"""Maps variables to their concrete array values (for static index tracking).
+
+Handlers write computed ``np.ndarray`` values.
+Seeded closure constants stay in their original array type
+(e.g. JAX device arrays)
+until ``_atom_const_val`` materializes them to numpy on first read,
+so constants that are never read as values are never copied to host.
+"""
 
 StateBounds = dict[Var, tuple[np.ndarray, np.ndarray]]
 """Maps variables to per-element inclusive (lo, hi) integer bounds.
@@ -54,8 +63,35 @@ instead of falling back to conservative.
 Atom = Var | Literal
 """Atomic elements in jaxpressions: named intermediates (Var) or constants (Literal)."""
 
+
+def _report_issue(msg: str) -> str:
+    """Append the standard report-an-issue request to an error message."""
+    return (
+        f"{msg} "
+        "Please help out asdex's development by reporting this at "
+        "https://github.com/adrhill/asdex/issues"
+    )
+
+
+@dataclass(slots=True)
+class _PropState:
+    """Propagation state threaded through every handler.
+
+    ``indices`` is scoped to a single jaxpr:
+    each nested jaxpr (cond branch, while body, jit call) gets a fresh dict,
+    so intermediate index sets can be freed when the scope ends.
+    ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
+    which is safe because jaxpr variables are globally unique objects.
+    """
+
+    indices: StateIndices = field(default_factory=dict)
+    consts: StateConsts = field(default_factory=dict)
+    bounds: StateBounds = field(default_factory=dict)
+
+
 PropJaxprFn = Callable[
-    [Jaxpr, list[list[IndexSet]], StateConsts | None], list[list[IndexSet]]
+    [Jaxpr, list[list[IndexSet]], _PropState],
+    list[list[IndexSet]],
 ]
 """Signature of ``_prop_jaxpr``, passed as callback to break circular imports."""
 
@@ -79,6 +115,19 @@ while covering the common cases
 (e.g. one ``argmax`` index with up to 64 possible values,
 or two indices each with up to 8 possible values).
 """
+
+
+def _bounded_ranges(bounds: tuple[np.ndarray, np.ndarray]) -> list[range]:
+    """Build per-element inclusive candidate ranges from (lo, hi) bounds.
+
+    Feeds ``_enumerate_bounded_patterns``:
+    element ``i`` of the flattened bounds may take any value in ``range(lo[i], hi[i] + 1)``.
+    """
+    lo, hi = bounds
+    return [
+        range(int(lo_i), int(hi_i) + 1)
+        for lo_i, hi_i in zip(np.ravel(lo), np.ravel(hi), strict=True)
+    ]
 
 
 def _enumerate_bounded_patterns(
@@ -115,6 +164,26 @@ def _enumerate_bounded_patterns(
     return accumulated
 
 
+def _merge_index_dependencies(
+    result: list[IndexSet], index_sets: list[IndexSet]
+) -> list[IndexSet]:
+    """Union the index operand's own index sets into every enumerated pattern.
+
+    ``_enumerate_bounded_patterns`` resolves which operand positions
+    a bounded dynamic index may read or write,
+    but the index operand itself may depend on the function's inputs.
+    Those dependencies reach every position the enumeration produced,
+    so they are unioned in afterwards.
+
+    Builds a new list rather than mutating ``result`` in place,
+    which is required since enumerated patterns may alias input index sets.
+    """
+    if not any(index_sets):
+        return result
+    combined = _union_all(index_sets)
+    return [iset | combined for iset in result]
+
+
 # Shape and size
 
 
@@ -132,21 +201,27 @@ def _atom_shape(atom: Atom) -> tuple[int, ...]:
 
 def _atom_numel(atom: Atom) -> int:
     """Get the total number of elements in a variable or literal."""
-    if isinstance(atom, Literal):
-        shape = getattr(atom.val, "shape", ())
-        return _numel(tuple(shape)) if shape else 1
-    shape = getattr(atom.aval, "shape", ())
-    return _numel(tuple(shape)) if shape else 1
+    return _numel(_atom_shape(atom))
 
 
 # Atom value access
 
 
-def _index_sets(state_indices: StateIndices, atom: Atom) -> list[IndexSet]:
-    """Get the index sets for a variable or literal."""
+def _index_sets(state: _PropState, atom: Atom) -> list[IndexSet]:
+    """Get the index sets for a variable or literal.
+
+    Every ``Var`` is either seeded (invars, constvars) or written by a handler,
+    so a missing ``Var`` indicates a handler bug upstream.
+    Guessing a default here would silently drop dependencies
+    and get the element count wrong,
+    so we raise instead.
+    """
     if isinstance(atom, Literal):
         return _empty_index_sets(_atom_numel(atom))
-    return state_indices.get(atom, [_empty_index_set()])
+    if atom not in state.indices:
+        msg = _report_issue(f"No index sets recorded for variable '{atom}'.")
+        raise KeyError(msg)
+    return state.indices[atom]
 
 
 def _copy_index_sets(src: list[IndexSet]) -> list[IndexSet]:
@@ -154,27 +229,33 @@ def _copy_index_sets(src: list[IndexSet]) -> list[IndexSet]:
     return [s.copy() for s in src]
 
 
-def _atom_const_val(atom: Atom, state_consts: StateConsts) -> np.ndarray | None:
+def _atom_const_val(atom: Atom, state: _PropState) -> np.ndarray | None:
     """Get the concrete value of an atom, if statically known.
 
     The value is known in two cases:
     - **Literals**: constants embedded directly in the jaxpr.
-    - **Tracked vars**: variables in ``state_consts``, whose values were
+    - **Tracked vars**: variables in ``state.consts``, whose values were
       computed from constants through earlier operations.
+
+    Lazily seeded consts (see ``_seed_const_vals``)
+    are materialized to numpy on first read and cached.
 
     Returns ``None`` when the value depends on runtime inputs.
     """
     if isinstance(atom, Literal):
         return np.asarray(atom.val)
-    if isinstance(atom, Var) and atom in state_consts:
-        return state_consts[atom]
+    if isinstance(atom, Var) and atom in state.consts:
+        val = state.consts[atom]
+        if not isinstance(val, np.ndarray):
+            val = np.asarray(val)
+            state.consts[atom] = val
+        return val
     return None
 
 
 def _atom_value_bounds(
     atom: Atom,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> tuple[np.ndarray, np.ndarray] | None:
     """Get per-element inclusive (lo, hi) bounds for an atom.
 
@@ -182,17 +263,38 @@ def _atom_value_bounds(
     tracked bounds for bounded variables,
     or ``None`` when no information is available.
     """
-    val = _atom_const_val(atom, state_consts)
+    val = _atom_const_val(atom, state)
     if val is not None:
         return (val, val)
-    if isinstance(atom, Var) and atom in state_bounds:
-        return state_bounds[atom]
+    if isinstance(atom, Var) and atom in state.bounds:
+        return state.bounds[atom]
     return None
+
+
+def _binary_value_bounds(
+    eqn: JaxprEqn,
+    state: _PropState,
+) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]] | None:
+    """Get value bounds for both operands of a binary op, or ``None`` if either is unknown.
+
+    The first operand is checked before the second is read,
+    so an input-dependent first operand (e.g. ``x + bias``)
+    does not force materializing a large second-operand const
+    whose bounds would be discarded anyway.
+    Mirrors the same early return in ``_propagate_const_binary``.
+    """
+    b1 = _atom_value_bounds(eqn.invars[0], state)
+    if b1 is None:
+        return None
+    b2 = _atom_value_bounds(eqn.invars[1], state)
+    if b2 is None:
+        return None
+    return b1, b2
 
 
 def _propagate_const_unary(
     eqn: JaxprEqn,
-    state_consts: StateConsts,
+    state: _PropState,
     transform: Callable[[np.ndarray], np.ndarray],
 ) -> None:
     """Propagate a const value through a unary op.
@@ -202,14 +304,14 @@ def _propagate_const_unary(
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
     static index arrays and fall back to conservative.
     """
-    in_val = _atom_const_val(eqn.invars[0], state_consts)
+    in_val = _atom_const_val(eqn.invars[0], state)
     if in_val is not None:
-        state_consts[eqn.outvars[0]] = transform(in_val)
+        state.consts[eqn.outvars[0]] = transform(in_val)
 
 
 def _propagate_const_binary(
     eqn: JaxprEqn,
-    state_consts: StateConsts,
+    state: _PropState,
     transform: Callable[[np.ndarray, np.ndarray], np.ndarray],
 ) -> None:
     """Propagate a const value through a binary op.
@@ -219,51 +321,45 @@ def _propagate_const_binary(
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
     static index arrays and fall back to conservative.
     """
-    in1 = _atom_const_val(eqn.invars[0], state_consts)
-    in2 = _atom_const_val(eqn.invars[1], state_consts)
-    if in1 is not None and in2 is not None:
-        state_consts[eqn.outvars[0]] = transform(in1, in2)
+    in1 = _atom_const_val(eqn.invars[0], state)
+    if in1 is None:
+        # Skip reading the second operand,
+        # so an input-dependent operand (e.g. x + bias)
+        # does not force materializing a large const.
+        return
+    in2 = _atom_const_val(eqn.invars[1], state)
+    if in2 is not None:
+        state.consts[eqn.outvars[0]] = transform(in1, in2)
 
 
 # Zero-skipping
 
 
-def _broadcast_to_output(
-    val: np.ndarray, in_shape: tuple[int, ...], out_shape: tuple[int, ...]
-) -> np.ndarray:
-    """Broadcast a const value from input shape to output shape, returning a flat array.
-
-    Handles numpy-style broadcasting: left-pads with 1s then expands.
-    """
-    ndim = len(out_shape)
-    arr = np.asarray(val).reshape(in_shape) if in_shape else np.asarray(val)
-    pad = ndim - len(in_shape)
-    padded_shape = (1,) * pad + in_shape
-    return np.broadcast_to(arr.reshape(padded_shape), out_shape).ravel()
-
-
 def _clear_where_zero(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
+    state: _PropState,
     invar_idx: int,
 ) -> None:
     """Clear output index sets at positions where an input is a known constant zero.
 
     Used by ``mul``, ``div``, and ``integer_pow`` for zero-skipping:
     ``d(0 * y)/dy = 0``, ``d(0 / y)/dy = 0``, ``d(0^n)/dx = 0`` for ``n > 1``.
+
+    Builds a new output list instead of mutating in place,
+    so it is safe on output lists that alias an input's list.
     """
-    val = _atom_const_val(eqn.invars[invar_idx], state_consts)
+    val = _atom_const_val(eqn.invars[invar_idx], state)
     if val is None:
         return
     out_shape = _atom_shape(eqn.outvars[0])
     in_shape = _atom_shape(eqn.invars[invar_idx])
-    flat = _broadcast_to_output(val, in_shape, out_shape)
+    flat = np.ravel(val)[_broadcast_flat_map(in_shape, out_shape)]
 
-    out_indices = state_indices[eqn.outvars[0]]
-    for i in range(len(out_indices)):
-        if flat[i] == 0:
-            out_indices[i] = _empty_index_set()
+    out_indices = state.indices[eqn.outvars[0]]
+    empty = _empty_index_set()
+    state.indices[eqn.outvars[0]] = [
+        empty if flat[i] == 0 else s for i, s in enumerate(out_indices)
+    ]
 
 
 # Index set operations
@@ -286,15 +382,11 @@ def _union_elementwise(
 
     Each input list represents per-element index sets for one operand.
     Scalars (length 1) broadcast to match the output size via modular indexing.
-
-    TODO: use in more places (e.g. _binary_elementwise, select_n).
     """
     return [_union_all([inp[i % len(inp)] for inp in inputs]) for i in range(out_size)]
 
 
-def _check_no_index_sets(
-    state_indices: StateIndices, atom: Atom, primitive_name: str
-) -> None:
+def _check_no_index_sets(state: _PropState, atom: Atom, primitive_name: str) -> None:
     """Verify that an atom carries no input dependencies.
 
     Some handlers assume that auxiliary inputs
@@ -303,12 +395,11 @@ def _check_no_index_sets(
     This function validates that assumption
     and raises an informative error when it is violated.
     """
-    if any(_index_sets(state_indices, atom)):
-        msg = (
+    if any(_index_sets(state, atom)):
+        msg = _report_issue(
             f"'{primitive_name}' handler assumes an auxiliary input "
             "has no dependency on the function's inputs, "
-            "but found non-empty index sets. "
-            "Please help out asdex's development by reporting this at https://github.com/adrhill/asdex/issues"
+            "but found non-empty index sets."
         )
         raise ValueError(msg)
 
@@ -323,7 +414,7 @@ def _conservative_indices(all_indices: list[IndexSet], out_size: int) -> list[In
 
 
 def _clamp_starts(
-    starts: tuple[int, ...], in_shape: Sequence[int], slice_sizes: Sequence[int]
+    starts: Sequence[int], in_shape: Sequence[int], slice_sizes: Sequence[int]
 ) -> tuple[int, ...]:
     """Clamp start indices to valid bounds.
 
@@ -348,6 +439,21 @@ def _position_map(shape: Sequence[int]) -> np.ndarray:
     reveals which input position each output position reads from.
     """
     return np.arange(_numel(shape)).reshape(shape)
+
+
+def _broadcast_flat_map(
+    in_shape: tuple[int, ...], out_shape: tuple[int, ...]
+) -> np.ndarray:
+    """Map each output position to the input position it reads under broadcasting.
+
+    Follows numpy broadcasting rules:
+    the input shape is left-padded with 1s to the output ndim,
+    and size-1 dims always read index 0.
+    Returns a flat integer array of length ``numel(out_shape)``.
+    For const values, ``np.ravel(val)[flat_map]`` broadcasts the value itself.
+    """
+    padded = (1,) * (len(out_shape) - len(in_shape)) + tuple(in_shape)
+    return np.broadcast_to(_position_map(padded), out_shape).ravel()
 
 
 def _permute_indices(
@@ -390,8 +496,8 @@ def _transform_indices(
 def _row_strides(shape: Sequence[int]) -> tuple[int, ...]:
     """Compute row-major strides for multi-dimensional index tracking.
 
-    Used to convert between flat indices and coordinates when propagating
-    dependencies through slice and broadcast_in_dim.
+    Used to build flat indices from coordinates
+    when a handler tracks dependencies per dimension (pad, conv, dot_general).
     Each stride tells how many flat elements to skip
     when incrementing one coordinate position.
 
@@ -406,55 +512,56 @@ def _row_strides(shape: Sequence[int]) -> tuple[int, ...]:
     return tuple(reversed(result))
 
 
-def _flat_to_coords(flat: int, strides: tuple[int, ...]) -> list[int]:
-    """Convert a flat index to multi-dimensional coordinates using row-major strides."""
-    coord = []
-    remaining = flat
-    for s in strides:
-        coord.append(remaining // s)
-        remaining %= s
-    return coord
-
-
 # Const value propagation
 
 
-def _seed_const_vals(state_consts: StateConsts, constvars, consts) -> None:
-    """Populate state_consts for the captured constants of a ClosedJaxpr.
+def _seed_const_vals(state: _PropState, constvars, consts) -> None:
+    """Populate ``state.consts`` for the captured constants of a ClosedJaxpr.
 
     Without this, gather/scatter inside nested jaxprs (cond branches,
     while bodies, jit-wrapped calls) cannot resolve closure-captured
     index arrays and fall back to conservative.
+
+    Values are stored as-is rather than converted with ``np.asarray``:
+    conversion copies device arrays to host and keeps the copies alive
+    for the whole analysis,
+    which is wasted work for constants that are never read as values
+    (e.g. convolution kernels, whose values do not affect the pattern).
+    ``_atom_const_val`` materializes on first read and caches.
     """
     for var, val in zip(constvars, consts, strict=True):
-        state_consts[var] = np.asarray(val)
+        state.consts[var] = val
 
 
-def _forward_value_bounds(
-    state_bounds: StateBounds, outer_atoms: Sequence[Atom], inner_vars
+def _forward_across_jaxpr_boundary(
+    state: _PropState, src_atoms: Sequence[Atom], dst_vars
 ) -> None:
-    """Transfer known value bounds from outer-scope atoms to inner jaxpr variables.
+    """Transfer const values and value bounds across a nested-jaxpr boundary.
 
-    Same idea as ``_forward_const_vals`` but for value bounds.
-    """
-    for outer, inner in zip(outer_atoms, inner_vars, strict=False):
-        if isinstance(outer, Var) and outer in state_bounds:
-            state_bounds[inner] = state_bounds[outer]
-
-
-def _forward_const_vals(
-    state_consts: StateConsts, outer_atoms: Sequence[Atom], inner_vars
-) -> None:
-    """Transfer known state_consts from outer-scope atoms to inner jaxpr variables.
-
-    When entering a nested jaxpr (cond branch, while body, jit call),
-    the outer equation's invars and the inner jaxpr's invars are different
+    At a nested jaxpr (cond branch, while body, jit call),
+    the outer equation's atoms and the inner jaxpr's variables are different
     ``Var`` objects representing the same values.
-    This copies any concrete values from the outer atoms
-    to the corresponding inner vars so that downstream handlers
+    This copies any concrete values and value bounds from the source atoms
+    to the corresponding destination vars so that downstream handlers
     (gather, scatter, dynamic_slice) can resolve indices precisely.
+    Consts and bounds are forwarded together
+    so a call site cannot forward one and forget the other.
+
+    The direction is set by the caller:
+    inward maps outer invars to inner invars,
+    outward maps inner outvars to outer outvars.
+    Both are the same operation, atoms mapped to fresh vars.
+
+    Tracked const values are forwarded as stored, without materializing:
+    reading them here would force the host copies
+    that ``_seed_const_vals`` deliberately defers
+    at every nested-jaxpr boundary.
     """
-    for outer, inner in zip(outer_atoms, inner_vars, strict=False):
-        val = _atom_const_val(outer, state_consts)
-        if val is not None:
-            state_consts[inner] = val
+    for src, dst in zip(src_atoms, dst_vars, strict=False):
+        if isinstance(src, Literal):
+            state.consts[dst] = np.asarray(src.val)
+        elif isinstance(src, Var):
+            if src in state.consts:
+                state.consts[dst] = state.consts[src]
+            if src in state.bounds:
+                state.bounds[dst] = state.bounds[src]

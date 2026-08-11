@@ -889,8 +889,8 @@ def test_gather_argmax_bounded_enumeration():
 
     result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     # Bounded enumeration:
-    #   idx=0: indices=[0,1] → out = [x[0], x[1]] → deps [{0}, {1}]
-    #   idx=1: indices=[1,2] → out = [x[1], x[2]] → deps [{1}, {2}]
+    #   idx=0: indices=[0,1] → out = [x[0], x[1]] → index sets [{0}, {1}]
+    #   idx=1: indices=[1,2] → out = [x[1], x[2]] → index sets [{1}, {2}]
     # Union: out[0] depends on {0,1}, out[1] depends on {1,2}.
     expected = np.array(
         [
@@ -915,3 +915,30 @@ def test_gather_zero_size_indices():
     result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0
+
+
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_gather_fill_mode_oob():
+    """Gather with mode='fill' treats out-of-bounds reads as clamped.
+
+    TODO(gather): under ``mode='fill'`` an out-of-bounds output
+    is the constant fill value with no input dependency,
+    so the precise second row is empty.
+    The handler hardcodes clamp semantics
+    and reports a dependency on the clamped position x[2] instead.
+    The result stays a safe superset.
+    """
+
+    def f(x):
+        return x.at[jnp.array([0, 5])].get(mode="fill", fill_value=0.0)
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 0, 0],  # out[0] <- x[0]
+            [0, 0, 1],  # out[1] <- fill constant, clamped to x[2] by the handler
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)

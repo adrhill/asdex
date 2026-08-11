@@ -7,7 +7,6 @@ from typing import Any
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 from jax._src.core import ClosedJaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 
@@ -21,7 +20,12 @@ from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
 from asdex._docstrings import _fill_doc
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import _prop_jaxpr
-from asdex.detection._interpret._common import _empty_index_sets
+from asdex.detection._interpret._common import (
+    _empty_index_sets,
+    _PropState,
+    _seed_const_vals,
+    _singleton_index_set,
+)
 
 
 @_fill_doc
@@ -62,11 +66,12 @@ def jacobian_sparsity(
 
     closed_jaxpr = jax.make_jaxpr(f_out)(*args)
     closed_jaxpr = _dce_closed_jaxpr(closed_jaxpr)
-    out_aval = jax.eval_shape(f_out, *args)
-    m = sum(int(leaf.size) for leaf in jax.tree_util.tree_leaves(out_aval))
 
     input_indices, n_selected = _build_input_indices(avals, selected)
     out_indices = _run_prop(closed_jaxpr, input_indices)
+    # One index set per flat output element, so the row count is its length.
+    # This avoids a second trace of ``f`` just to compute output sizes.
+    m = len(out_indices)
     rows, cols = _coo_from_index_sets(out_indices)
     return SparsityPattern.from_coo(
         rows,
@@ -170,7 +175,9 @@ def _build_input_indices(
             col_offset = col_offsets[pos_idx]
             for leaf in leaves:
                 size = int(leaf.size)
-                input_indices.append([{col_offset + j} for j in range(size)])
+                input_indices.append(
+                    [_singleton_index_set(col_offset + j) for j in range(size)]
+                )
                 col_offset += size
         else:
             for leaf in leaves:
@@ -185,11 +192,9 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
     """
     jaxpr = closed_jaxpr.jaxpr
-    state_consts = {
-        var: np.asarray(val)
-        for var, val in zip(jaxpr.constvars, closed_jaxpr.consts, strict=False)
-    }
-    output_indices_list = _prop_jaxpr(jaxpr, input_indices, state_consts)
+    state = _PropState()
+    _seed_const_vals(state, jaxpr.constvars, closed_jaxpr.consts)
+    output_indices_list = _prop_jaxpr(jaxpr, input_indices, state)
     flat: list = []
     for out_deps in output_indices_list:
         flat.extend(out_deps)
@@ -208,8 +213,8 @@ def _coo_from_index_sets(
     """
     rows: list[int] = []
     cols: list[int] = []
-    for i, deps in enumerate(out_indices):
-        for j in sorted(deps):
+    for i, indices in enumerate(out_indices):
+        for j in sorted(indices):
             rows.append(i)
             cols.append(j)
     return rows, cols

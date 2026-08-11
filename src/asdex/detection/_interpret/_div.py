@@ -4,21 +4,17 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    StateBounds,
-    StateConsts,
-    StateIndices,
-    _atom_value_bounds,
+    _binary_value_bounds,
     _clear_where_zero,
     _propagate_const_binary,
+    _PropState,
 )
-from ._elementwise import _binary_elementwise
+from ._elementwise import _binary_elementwise, _lax_div
 
 
 def _prop_div(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Division is element-wise with a special case for known zero numerators.
 
@@ -36,37 +32,36 @@ def _prop_div(
         invars[0]: numerator
         invars[1]: denominator
     """
-    _binary_elementwise(eqn, state_indices)
-    _propagate_const_binary(eqn, state_consts, np.divide)
-    _clear_where_zero(eqn, state_indices, state_consts, 0)
-    _propagate_bounds_div(eqn, state_consts, state_bounds)
+    _binary_elementwise(eqn, state)
+    _propagate_const_binary(eqn, state, _lax_div)
+    _clear_where_zero(eqn, state, 0)
+    _propagate_bounds_div(eqn, state)
 
 
 def _propagate_bounds_div(
     eqn: JaxprEqn,
-    state_consts: StateConsts,
-    state_bounds: StateBounds,
+    state: _PropState,
 ) -> None:
     """Propagate value bounds through ``div`` via interval arithmetic.
 
     Only propagates when divisor bounds have constant sign (no zero crossing),
     since division by an interval spanning zero is undefined.
-    Uses ``floor_divide`` for integer dtypes and ``true_divide`` for floats.
+    Integer division matches ``lax.div``, which truncates toward zero.
+    Flooring instead would exclude the value the program actually computes
+    for negative intervals, and bounded enumeration would never try it.
     """
-    in1_bounds = _atom_value_bounds(eqn.invars[0], state_consts, state_bounds)
-    in2_bounds = _atom_value_bounds(eqn.invars[1], state_consts, state_bounds)
-    if in1_bounds is None or in2_bounds is None:
+    bounds = _binary_value_bounds(eqn, state)
+    if bounds is None:
         return
 
-    lo1, hi1 = in1_bounds
-    lo2, hi2 = in2_bounds
+    (lo1, hi1), (lo2, hi2) = bounds
 
     # Skip if divisor bounds span zero.
     if not (np.all(lo2 > 0) or np.all(hi2 < 0)):
         return
 
     out_dtype = getattr(eqn.outvars[0].aval, "dtype", np.float64)
-    divide = np.floor_divide if np.issubdtype(out_dtype, np.integer) else np.true_divide
+    divide = _lax_div if np.issubdtype(out_dtype, np.integer) else np.true_divide
 
     # All four endpoint combinations.
     c1 = divide(lo1, lo2)
@@ -76,4 +71,4 @@ def _propagate_bounds_div(
 
     lo = np.minimum(np.minimum(c1, c2), np.minimum(c3, c4))
     hi = np.maximum(np.maximum(c1, c2), np.maximum(c3, c4))
-    state_bounds[eqn.outvars[0]] = (lo, hi)
+    state.bounds[eqn.outvars[0]] = (lo, hi)

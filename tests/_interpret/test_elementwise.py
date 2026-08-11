@@ -7,6 +7,8 @@ import pytest
 from jax import lax
 
 from asdex import jacobian_sparsity
+from asdex.detection._interpret._common import _PropState
+from asdex.detection._interpret._elementwise import _propagate_bounds_integer_pow
 from tests._utils import (
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
@@ -345,7 +347,7 @@ def test_mul_bounds_propagate_to_dynamic_slice():
 
     argmax(x[:2]) ∈ {0,1}, so idx*2 has interval bounds [0,2].
     dynamic_slice enumerates all integer start positions in [0,2].
-    argmax has zero derivative, so it contributes no index set deps.
+    argmax has zero derivative, so it contributes no index sets.
     """
 
     def f(x):
@@ -401,7 +403,7 @@ def test_integer_pow_even_bounds_propagate_to_dynamic_slice():
 
     argmax(x[:2]) ∈ {0,1}, so idx**2 ∈ [0,1] (even power).
     dynamic_slice enumerates start positions {0,1}.
-    argmax has zero derivative, so it contributes no index set deps.
+    argmax has zero derivative, so it contributes no index sets.
     """
 
     def f(x):
@@ -428,7 +430,7 @@ def test_integer_pow_odd_bounds_propagate_to_dynamic_slice():
     """Odd power preserves monotone bounds through to dynamic_slice.
 
     argmax(x[:2]) ∈ {0,1}, so idx**3 ∈ [0,1] (odd power, monotone).
-    argmax has zero derivative, so it contributes no index set deps.
+    argmax has zero derivative, so it contributes no index sets.
     """
 
     def f(x):
@@ -457,7 +459,7 @@ def test_div_bounds_skip_zero_crossing_divisor():
     so bounds should not be propagated and the consumer falls back to conservative.
     argmax(x[:3]) ∈ {0,1,2}, so idx-1 ∈ {-1,0,1} which spans zero.
     lax.div(6, idx-1) is undefined at zero, so bounds are dropped.
-    Without bounds, dynamic_slice falls back to conservative (all deps).
+    Without bounds, dynamic_slice falls back to conservative (all index sets).
     """
 
     def f(x):
@@ -474,7 +476,7 @@ def test_div_bounds_skip_zero_crossing_divisor():
 
 @pytest.mark.elementwise
 def test_mul_zero_second_operand():
-    """Mul clears deps when the second operand is a known zero.
+    """Mul clears index sets when the second operand is a known zero.
 
     Exercises the in2_val == 0 branch (vs test_binary_broadcast_size1_dim
     which uses constant ones).
@@ -485,7 +487,7 @@ def test_mul_zero_second_operand():
         return x * mask
 
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
-    # out[1] has no deps because mask[1] == 0.
+    # out[1] has no index sets because mask[1] == 0.
     expected = np.array(
         [
             [1, 0, 0],
@@ -764,6 +766,61 @@ def test_binary_remainder():
 
     inputs = jnp.concatenate([dividend, divisor])
     assert_jacobian_sparsity_conservative(f, inputs)
+
+
+@pytest.mark.elementwise
+def test_rem_integer_const_negative_dividend():
+    """Integer rem const propagation follows lax.rem, which takes the dividend's sign.
+
+    lax.rem(-4, 3) = -1, so the gather index is -1 + 2 = 1.
+    np.remainder(-4, 3) = 2 would shift the index to 4,
+    dropping the true dependency on x[1].
+    The const chain sits in a cond branch
+    because top-level arithmetic on concrete arrays
+    is folded away during tracing.
+    """
+
+    def f(x):
+        idx = jnp.array([-4], dtype=jnp.int32)
+
+        def true_branch(ops):
+            i, values = ops
+            j = lax.rem(i, jnp.int32(3)) + jnp.int32(2)  # [-1] + 2 = [1]
+            return values[j] * 1.0
+
+        def false_branch(ops):
+            _, values = ops
+            return values[:1] * 0.0
+
+        return lax.cond(x[0] > 0, true_branch, false_branch, (idx, x))
+
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
+    expected = np.array([[0, 1, 0, 0, 0]], dtype=int)  # out[0] <- x[1]
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_integer_pow_bounds_negative_odd_exponent():
+    """Bounds through a negative odd exponent must not be inverted.
+
+    x^(-3) is decreasing on positive inputs,
+    so mapping (lo, hi) to (lo^y, hi^y) flips the interval.
+    Propagated bounds must either be skipped
+    or stay ordered and contain the true output values.
+    """
+    jaxpr = jax.make_jaxpr(lambda a: lax.integer_pow(a, -3))(jnp.zeros(1)).jaxpr
+    eqn = jaxpr.eqns[0]
+
+    state = _PropState(bounds={eqn.invars[0]: (np.array([2.0]), np.array([3.0]))})
+    _propagate_bounds_integer_pow(eqn, -3, state)
+
+    bounds = state.bounds.get(eqn.outvars[0])
+    if bounds is not None:
+        lo, hi = bounds
+        assert np.all(lo <= hi)
+        # True output values 3^-3 and 2^-3 must lie inside the bounds.
+        assert np.all(lo <= 3.0**-3)
+        assert np.all(hi >= 2.0**-3)
 
 
 @pytest.mark.elementwise

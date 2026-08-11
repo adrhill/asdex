@@ -3,12 +3,14 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._common import StateConsts, StateIndices, _index_sets, _propagate_const_unary
+from ._common import (
+    _index_sets,
+    _propagate_const_unary,
+    _PropState,
+)
 
 
-def _prop_squeeze(
-    eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
-) -> None:
+def _prop_squeeze(eqn: JaxprEqn, state: _PropState) -> None:
     """Squeeze removes dimensions of size 1 without changing the data.
 
     Since it's a reshape with the same number of elements,
@@ -19,8 +21,8 @@ def _prop_squeeze(
     The Jacobian is the identity matrix (permuted).
 
     Example: x.shape = (2, 1), y = squeeze(x) with shape (2,)
-        Input state_indices:  [{0}, {1}]
-        Output state_indices: [{0}, {1}]
+        Input index sets:  [{0}, {1}]
+        Output index sets: [{0}, {1}]
 
     Jaxpr:
         invars[0]: input array
@@ -28,6 +30,6 @@ def _prop_squeeze(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.squeeze.html
     """
-    state_indices[eqn.outvars[0]] = _index_sets(state_indices, eqn.invars[0])
+    state.indices[eqn.outvars[0]] = _index_sets(state, eqn.invars[0])
     dims = eqn.params["dimensions"]
-    _propagate_const_unary(eqn, state_consts, lambda v: np.squeeze(v, axis=dims))
+    _propagate_const_unary(eqn, state, lambda v: np.squeeze(v, axis=dims))

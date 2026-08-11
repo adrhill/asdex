@@ -506,22 +506,23 @@ def test_scatter_after_reshape():
 
 @pytest.mark.array_ops
 def test_scatter_duplicate_indices_set():
-    """Duplicate indices with set: last write wins.
+    """Duplicate indices with set: union of all updates targeting the position.
 
-    When two updates target the same position,
-    only the last update's dependencies survive (replace semantics).
+    XLA leaves the applied update implementation-defined
+    when scatter (replace) receives duplicate indices,
+    so the pattern must cover every candidate writer.
     """
 
     def f(x):
         arr = jnp.zeros(3)
-        # Both x[0] and x[1] target position 1; x[1] wins.
+        # Both x[0] and x[1] target position 1. The winner is backend-defined.
         return arr.at[jnp.array([1, 1])].set(x[:2])
 
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 0],  # out[0] <- constant 0
-            [0, 1, 0],  # out[1] <- x[1] (last write wins)
+            [1, 1, 0],  # out[1] <- x[0] or x[1], backend-defined
             [0, 0, 0],  # out[2] <- constant 0
         ],
         dtype=int,
@@ -569,6 +570,32 @@ def test_scatter_oob_indices():
 
 
 @pytest.mark.array_ops
+def test_scatter_clip_mode():
+    """Scatter with mode='clip' lands out-of-bounds updates at the clamped position.
+
+    Unlike the default drop semantics,
+    ``mode='clip'`` writes the update at the clamped index 2,
+    so out[2] depends on the update value instead of the operand.
+    """
+
+    def f(x):
+        arr = x[:3]
+        # Index 5 clamps to 2 under mode='clip'.
+        return arr.at[jnp.array([5])].set(x[3], mode="clip")
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 0, 0, 0],  # out[0] <- x[0]
+            [0, 1, 0, 0],  # out[1] <- x[1]
+            [0, 0, 0, 1],  # out[2] <- x[3] (clipped write)
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
 def test_scatter_replace_all():
     """Scatter that replaces every position: output depends only on updates."""
 
@@ -591,9 +618,10 @@ def test_scatter_replace_all():
 
 @pytest.mark.array_ops
 def test_scatter_multi_index_duplicate_set():
-    """Multi-index scatter with duplicate coordinates: last write wins.
+    """Multi-index scatter with duplicate coordinates unions all writers.
 
-    Two updates target ``(0, 1)``; the second update's dep survives.
+    Two updates target ``(0, 1)`` and the applied one is backend-defined,
+    so the pattern must cover both.
     """
 
     def f(x):
@@ -604,11 +632,12 @@ def test_scatter_multi_index_duplicate_set():
         return mat.at[rows, cols].set(vals).reshape(-1)
 
     result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
-    # Position (0,1) = flat 1 gets x[1] (last write wins).
+    # Position (0,1) = flat 1 receives x[0] or x[1], backend-defined.
     # All other positions keep their original identity state_indices.
     expected = np.eye(6, dtype=int)
     expected[1, :] = 0
-    expected[1, 1] = 1  # out[1] <- x[1]
+    expected[1, 0] = 1  # out[1] <- x[0] or x[1], backend-defined
+    expected[1, 1] = 1
     np.testing.assert_array_equal(result, expected)
 
 
@@ -660,7 +689,7 @@ def test_scatter_multi_index_oob():
 
 @pytest.mark.array_ops
 def test_scatter_2d():
-    """2D partial-row scatter ``mat.at[0, :2].set(updates)`` tracks precise deps.
+    """2D partial-row scatter ``mat.at[0, :2].set(updates)`` tracks precise index sets.
 
     Only the two targeted positions depend on the corresponding update elements.
     All other positions are constant zeros.
@@ -786,6 +815,31 @@ def test_scatter_dynamic_too_many_combinations():
     n_out, n_in = result.shape
     # Conservative: every output depends on every input.
     assert result.sum() == n_out * n_in
+
+
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_scatter_input_dependent_indices_conservative():
+    """Scatter with input-dependent indices falls back to conservative.
+
+    The write targets cannot be resolved statically,
+    so every output must depend on the operand, the updates,
+    and the indices' own dependencies,
+    mirroring the gather fallback in the same situation.
+    Raising is wrong here, this is valid user code.
+
+    TODO(scatter): at any point without ties,
+    the true pattern is a permutation (out[argsort(x)[i]] = 2 x[i]),
+    so one dependency per row.
+    Any conservative superset that does not raise is acceptable.
+    """
+
+    def f(x):
+        return x.at[jnp.argsort(x)].set(x * 2.0)
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.ones((3, 3), dtype=int)
+    np.testing.assert_array_equal(result, expected)
 
 
 # Size-0 dimension
