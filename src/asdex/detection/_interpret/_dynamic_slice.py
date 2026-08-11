@@ -13,10 +13,10 @@ from ._common import (
     _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
+    _merge_index_dependencies,
     _numel,
     _PropState,
     _transform_indices,
-    _union_all,
 )
 
 
@@ -117,10 +117,9 @@ def _prop_dynamic_slice(
 
         result = _enumerate_bounded_patterns(ranges, _numel(slice_sizes), _make_slice)
         if result is not None:
-            if any(start_index_sets):
-                combined = _union_all(start_index_sets)
-                result = [iset | combined for iset in result]
-            state.indices[eqn.outvars[0]] = result
+            state.indices[eqn.outvars[0]] = _merge_index_dependencies(
+                result, start_index_sets
+            )
             return
 
     # Unresolvable starts: some start is neither a known const nor value-bounded
@@ -201,10 +200,9 @@ def _prop_dynamic_update_slice(
             ranges, _numel(operand_shape), _make_update
         )
         if result is not None:
-            if any(start_index_sets):
-                combined = _union_all(start_index_sets)
-                result = [iset | combined for iset in result]
-            state.indices[eqn.outvars[0]] = result
+            state.indices[eqn.outvars[0]] = _merge_index_dependencies(
+                result, start_index_sets
+            )
             return
 
     # Unresolvable starts: some start is neither a known const nor value-bounded
