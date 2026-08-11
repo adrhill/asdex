@@ -205,7 +205,7 @@ def test_multiply_by_zero_hessian():
     """Multiplying by a known-zero constant kills Hessian dependency: 0*x^2.
 
     Since d(0 * x^2)/dx = 0,
-    the mul handler clears deps and the Hessian is empty.
+    the mul handler clears the index sets and the Hessian is empty.
     """
 
     def f1(x):

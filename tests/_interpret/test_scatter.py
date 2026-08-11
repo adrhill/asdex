@@ -689,7 +689,7 @@ def test_scatter_multi_index_oob():
 
 @pytest.mark.array_ops
 def test_scatter_2d():
-    """2D partial-row scatter ``mat.at[0, :2].set(updates)`` tracks precise deps.
+    """2D partial-row scatter ``mat.at[0, :2].set(updates)`` tracks precise index sets.
 
     Only the two targeted positions depend on the corresponding update elements.
     All other positions are constant zeros.

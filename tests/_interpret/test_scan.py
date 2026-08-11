@@ -653,7 +653,7 @@ def test_scan_saturation_long_scan():
     assert dense.shape == (length * n, n)
     expected_first = np.eye(n, dtype=int)  # ys[0] = carry_init = x
     np.testing.assert_array_equal(dense[:n], expected_first)
-    tril = np.tril(np.ones((n, n), dtype=int))  # ys[t>=1] = cumsum deps
+    tril = np.tril(np.ones((n, n), dtype=int))  # ys[t>=1] = cumsum index sets
     np.testing.assert_array_equal(dense[n:], np.tile(tril, (length - 1, 1)))
 
 
@@ -678,7 +678,7 @@ def test_scan_saturation_reverse():
     )
     dense = result.todense().astype(int)
 
-    tril = np.tril(np.ones((n, n), dtype=int))  # ys[t<length-1] = cumsum deps
+    tril = np.tril(np.ones((n, n), dtype=int))  # ys[t<length-1] = cumsum index sets
     np.testing.assert_array_equal(dense[: -n * 1], np.tile(tril, (length - 1, 1)))
     expected_last = np.eye(n, dtype=int)  # ys[length-1] = carry_init = x
     np.testing.assert_array_equal(dense[-n:], expected_last)

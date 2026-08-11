@@ -347,7 +347,7 @@ def test_mul_bounds_propagate_to_dynamic_slice():
 
     argmax(x[:2]) ∈ {0,1}, so idx*2 has interval bounds [0,2].
     dynamic_slice enumerates all integer start positions in [0,2].
-    argmax has zero derivative, so it contributes no index set deps.
+    argmax has zero derivative, so it contributes no index sets.
     """
 
     def f(x):
@@ -403,7 +403,7 @@ def test_integer_pow_even_bounds_propagate_to_dynamic_slice():
 
     argmax(x[:2]) ∈ {0,1}, so idx**2 ∈ [0,1] (even power).
     dynamic_slice enumerates start positions {0,1}.
-    argmax has zero derivative, so it contributes no index set deps.
+    argmax has zero derivative, so it contributes no index sets.
     """
 
     def f(x):
@@ -430,7 +430,7 @@ def test_integer_pow_odd_bounds_propagate_to_dynamic_slice():
     """Odd power preserves monotone bounds through to dynamic_slice.
 
     argmax(x[:2]) ∈ {0,1}, so idx**3 ∈ [0,1] (odd power, monotone).
-    argmax has zero derivative, so it contributes no index set deps.
+    argmax has zero derivative, so it contributes no index sets.
     """
 
     def f(x):
@@ -459,7 +459,7 @@ def test_div_bounds_skip_zero_crossing_divisor():
     so bounds should not be propagated and the consumer falls back to conservative.
     argmax(x[:3]) ∈ {0,1,2}, so idx-1 ∈ {-1,0,1} which spans zero.
     lax.div(6, idx-1) is undefined at zero, so bounds are dropped.
-    Without bounds, dynamic_slice falls back to conservative (all deps).
+    Without bounds, dynamic_slice falls back to conservative (all index sets).
     """
 
     def f(x):
@@ -476,7 +476,7 @@ def test_div_bounds_skip_zero_crossing_divisor():
 
 @pytest.mark.elementwise
 def test_mul_zero_second_operand():
-    """Mul clears deps when the second operand is a known zero.
+    """Mul clears index sets when the second operand is a known zero.
 
     Exercises the in2_val == 0 branch (vs test_binary_broadcast_size1_dim
     which uses constant ones).
@@ -487,7 +487,7 @@ def test_mul_zero_second_operand():
         return x * mask
 
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
-    # out[1] has no deps because mask[1] == 0.
+    # out[1] has no index sets because mask[1] == 0.
     expected = np.array(
         [
             [1, 0, 0],

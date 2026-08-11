@@ -308,7 +308,7 @@ def test_multiply_by_zero():
     """Multiplying by a known-zero constant produces empty dependencies.
 
     Since d(0 * x)/dx = 0,
-    the handler clears deps at positions where a constant zero is detected.
+    the handler clears index sets at positions where a constant zero is detected.
     """
 
     def f1(x):

@@ -213,8 +213,8 @@ def _coo_from_index_sets(
     """
     rows: list[int] = []
     cols: list[int] = []
-    for i, deps in enumerate(out_indices):
-        for j in sorted(deps):
+    for i, indices in enumerate(out_indices):
+        for j in sorted(indices):
             rows.append(i)
             cols.append(j)
     return rows, cols

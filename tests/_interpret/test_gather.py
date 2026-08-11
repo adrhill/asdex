@@ -889,8 +889,8 @@ def test_gather_argmax_bounded_enumeration():
 
     result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     # Bounded enumeration:
-    #   idx=0: indices=[0,1] → out = [x[0], x[1]] → deps [{0}, {1}]
-    #   idx=1: indices=[1,2] → out = [x[1], x[2]] → deps [{1}, {2}]
+    #   idx=0: indices=[0,1] → out = [x[0], x[1]] → index sets [{0}, {1}]
+    #   idx=1: indices=[1,2] → out = [x[1], x[2]] → index sets [{1}, {2}]
     # Union: out[0] depends on {0,1}, out[1] depends on {1,2}.
     expected = np.array(
         [

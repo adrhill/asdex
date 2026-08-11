@@ -22,7 +22,7 @@ def _prop_scan(
     Unlike ``while_loop`` (unknown iteration count, same inputs each iteration),
     scan has a known ``length`` and different ``xs[t]`` per timestep.
     Dependencies are propagated via forward simulation:
-    one ``_prop_jaxpr`` call per timestep, threading carry deps forward.
+    one ``_prop_jaxpr`` call per timestep, threading carry index sets forward.
 
     When no xs slice carries input dependencies,
     every timestep sees identical inputs apart from the carry,
