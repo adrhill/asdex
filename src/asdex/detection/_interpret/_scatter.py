@@ -139,18 +139,16 @@ def _scatter_for_indices(
     out_indices: list[IndexSet] = []
     for i in range(out_size):
         if i in scatter_positions:
+            writers = [updates_indices[u] for u in scatter_positions[i]]
             if is_combine:
-                combined = operand_indices[i].copy()
-                for u_flat in scatter_positions[i]:
-                    combined |= updates_indices[u_flat]
-                out_indices.append(combined)
+                # Combine semantics (scatter-add and friends)
+                # read the operand alongside every update that targets it.
+                out_indices.append(_union_all([operand_indices[i], *writers]))
             else:
                 # Replace semantics: XLA leaves the applied update
                 # implementation-defined under duplicate indices,
                 # so union all candidate writers.
-                out_indices.append(
-                    _union_all([updates_indices[u] for u in scatter_positions[i]])
-                )
+                out_indices.append(_union_all(writers))
         else:
             out_indices.append(operand_indices[i])
 
@@ -226,7 +224,7 @@ def _prop_scatter(
         out_size = _atom_numel(eqn.outvars[0])
         ranges = _bounded_ranges(bounds)
 
-        def _make(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make(vals: tuple[int, ...]) -> list[IndexSet]:
             candidate = np.array(vals, dtype=lo.dtype).reshape(si_shape)
             return _scatter_for_indices(
                 candidate, eqn, operand_indices, updates_indices

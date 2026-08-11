@@ -46,6 +46,8 @@ through primitives to determine Jacobian sparsity patterns.
 
 This ensures a future backend swap only requires changing the helpers,
 not every handler.
+See [Backend Surface](#backend-surface) for the full set of operations
+a handler may rely on.
 
 **Variable names** — use these consistently across handlers:
 - `in_indices`: input index sets (from `_index_sets(state, atom)`)
@@ -59,6 +61,35 @@ not every handler.
 - `flat_map`: a flat integer array mapping output positions to input positions
 
 **Docstrings** — avoid the term "deps"; prefer "index sets" or "input index sets".
+
+## Backend Surface
+
+`IndexSet` is currently `set[int]`.
+`pyroaring.BitMap` and int bitmasks were benchmarked and lost
+for the typical workload of small sparse sets over a large universe
+(see the `IndexSet` docstring in `_common.py`).
+The seam is kept intact anyway so the choice can be revisited cheaply.
+
+Handlers may rely on exactly these operations, and nothing else:
+
+- **Construction** through the four factory helpers above.
+  Never `set()` or `{i}`.
+- **Union** through `a | b`, `a |= b`, `_union_all`, or `_union_elementwise`.
+  Both operators are safe to use directly,
+  since every candidate backend supports them.
+- **Emptiness** through truthiness: `if not iset`, `any(sets)`.
+  Every candidate backend reports emptiness through `__len__` or `__bool__`.
+- **Copying** through `_copy_index_sets`.
+  No handler copies an individual set:
+  a handler that needs to own its result builds a fresh one with `_union_all`.
+- **Annotations** always spell `IndexSet` or `list[IndexSet]`, never `set[int]`.
+
+Iterating an index set to recover concrete integers
+happens in exactly one place,
+`_coo_from_index_sets` in `detection/_api.py`,
+which sorts each set when building the COO pattern.
+Keeping that the only iteration site
+is what lets a backend without cheap ordered iteration stay viable.
 
 ## Common Utilities in `_common.py`
 

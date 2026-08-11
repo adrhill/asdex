@@ -6,6 +6,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
+    IndexSet,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
@@ -165,11 +166,11 @@ def _binary_elementwise(
 
 
 def _union_with_zero_derivs(
-    s1: set[int],
-    s2: set[int],
+    s1: IndexSet,
+    s2: IndexSet,
     is_der1_zero: bool,
     is_der2_zero: bool,
-) -> set[int]:
+) -> IndexSet:
     """Union index sets, excluding inputs with zero derivatives.
 
     The result may alias an input set,
