@@ -492,30 +492,35 @@ def _seed_const_vals(state: _PropState, constvars, consts) -> None:
         state.consts[var] = val
 
 
-def _forward_into_jaxpr(
-    state: _PropState, outer_atoms: Sequence[Atom], inner_vars
+def _forward_across_jaxpr_boundary(
+    state: _PropState, src_atoms: Sequence[Atom], dst_vars
 ) -> None:
-    """Transfer const values and value bounds from outer atoms to inner jaxpr variables.
+    """Transfer const values and value bounds across a nested-jaxpr boundary.
 
-    When entering a nested jaxpr (cond branch, while body, jit call),
-    the outer equation's invars and the inner jaxpr's invars are different
+    At a nested jaxpr (cond branch, while body, jit call),
+    the outer equation's atoms and the inner jaxpr's variables are different
     ``Var`` objects representing the same values.
-    This copies any concrete values and value bounds from the outer atoms
-    to the corresponding inner vars so that downstream handlers
+    This copies any concrete values and value bounds from the source atoms
+    to the corresponding destination vars so that downstream handlers
     (gather, scatter, dynamic_slice) can resolve indices precisely.
     Consts and bounds are forwarded together
     so a call site cannot forward one and forget the other.
+
+    The direction is set by the caller:
+    inward maps outer invars to inner invars,
+    outward maps inner outvars to outer outvars.
+    Both are the same operation, atoms mapped to fresh vars.
 
     Tracked const values are forwarded as stored, without materializing:
     reading them here would force the host copies
     that ``_seed_const_vals`` deliberately defers
     at every nested-jaxpr boundary.
     """
-    for outer, inner in zip(outer_atoms, inner_vars, strict=False):
-        if isinstance(outer, Literal):
-            state.consts[inner] = np.asarray(outer.val)
-        elif isinstance(outer, Var):
-            if outer in state.consts:
-                state.consts[inner] = state.consts[outer]
-            if outer in state.bounds:
-                state.bounds[inner] = state.bounds[outer]
+    for src, dst in zip(src_atoms, dst_vars, strict=False):
+        if isinstance(src, Literal):
+            state.consts[dst] = np.asarray(src.val)
+        elif isinstance(src, Var):
+            if src in state.consts:
+                state.consts[dst] = state.consts[src]
+            if src in state.bounds:
+                state.bounds[dst] = state.bounds[src]

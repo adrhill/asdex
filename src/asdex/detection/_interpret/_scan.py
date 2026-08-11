@@ -5,7 +5,7 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     PropJaxprFn,
-    _forward_into_jaxpr,
+    _forward_across_jaxpr_boundary,
     _index_sets,
     _PropState,
     _seed_const_vals,
@@ -62,7 +62,7 @@ def _prop_scan(
     ys = eqn.outvars[num_carry:]
 
     _seed_const_vals(state, body_jaxpr.constvars, body_closed.consts)
-    _forward_into_jaxpr(state, consts, body_jaxpr.invars[:num_consts])
+    _forward_across_jaxpr_boundary(state, consts, body_jaxpr.invars[:num_consts])
 
     # Prepare const index sets for the body
     const_inputs: list[list[IndexSet]] = [_index_sets(state, v) for v in consts]
