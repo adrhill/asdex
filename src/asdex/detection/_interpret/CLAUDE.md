@@ -93,6 +93,11 @@ not every handler.
   (capped at ``_MAX_ENUM_COMBINATIONS``),
   calls ``make_pattern`` for each,
   and unions the results element-wise.
+- **`_merge_index_dependencies(result, index_sets)`** —
+  unions the index operand's own index sets into every enumerated pattern.
+  Every handler with bounded enumeration
+  (gather, scatter, dynamic_slice, dynamic_update_slice)
+  applies this to the ``_enumerate_bounded_patterns`` result.
 - **`_report_issue(msg)`** —
   appends the standard report-an-issue request (with the GitHub URL)
   to an error message, keeping the phrasing in one place.

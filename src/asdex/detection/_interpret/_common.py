@@ -164,6 +164,26 @@ def _enumerate_bounded_patterns(
     return accumulated
 
 
+def _merge_index_dependencies(
+    result: list[IndexSet], index_sets: list[IndexSet]
+) -> list[IndexSet]:
+    """Union the index operand's own index sets into every enumerated pattern.
+
+    ``_enumerate_bounded_patterns`` resolves which operand positions
+    a bounded dynamic index may read or write,
+    but the index operand itself may depend on the function's inputs.
+    Those dependencies reach every position the enumeration produced,
+    so they are unioned in afterwards.
+
+    Builds a new list rather than mutating ``result`` in place,
+    which is required since enumerated patterns may alias input index sets.
+    """
+    if not any(index_sets):
+        return result
+    combined = _union_all(index_sets)
+    return [iset | combined for iset in result]
+
+
 # Shape and size
 
 

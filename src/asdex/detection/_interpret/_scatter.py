@@ -18,6 +18,7 @@ from ._common import (
     _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
+    _merge_index_dependencies,
     _numel,
     _PropState,
     _union_all,
@@ -233,10 +234,9 @@ def _prop_scatter(
 
         result = _enumerate_bounded_patterns(ranges, out_size, _make)
         if result is not None:
-            if any(si_index_sets):
-                combined_si = _union_all(si_index_sets)
-                result = [iset | combined_si for iset in result]
-            state.indices[eqn.outvars[0]] = result
+            state.indices[eqn.outvars[0]] = _merge_index_dependencies(
+                result, si_index_sets
+            )
             return
 
     # Dynamic indices - conservative fallback,
