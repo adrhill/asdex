@@ -69,6 +69,15 @@ _BINARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] 
 # (e.g. ``jnp.floor_divide`` expands to div/sign/rem/select_n).
 # ``round`` is excluded: ``lax.round`` rounding methods differ from
 # numpy's round-half-to-even, and a mismatched const yields a wrong pattern.
+#
+# These keys must stay in sync with the _prop_zero_derivative_unary_const case
+# in _prop_dispatch, which a match statement cannot derive from this dict.
+# _prop_zero_derivative_unary_const indexes directly rather than using .get,
+# so a desync raises KeyError instead of silently breaking the const chain
+# and degrading downstream gather/scatter to a conservative pattern.
+# _BINARY_CONST_UFUNCS is deliberately the opposite:
+# it covers only a subset of a broad dispatch group,
+# so a miss there means "no const propagation for this primitive", not a desync.
 _UNARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
     "sign": np.sign,
     "floor": np.floor,
@@ -243,11 +252,13 @@ def _prop_zero_derivative_unary_const(eqn: JaxprEqn, state: _PropState) -> None:
     (e.g. inside the ``jnp.floor_divide`` expansion).
     Without const propagation here the chain breaks
     and downstream gather/scatter falls back to conservative.
+
+    Indexes ``_UNARY_CONST_UFUNCS`` directly,
+    so a primitive added to the dispatch case but not to the dict
+    raises instead of silently skipping const propagation.
     """
     _zero_derivative(eqn, state)
-    ufunc = _UNARY_CONST_UFUNCS.get(eqn.primitive.name)
-    if ufunc is not None:
-        _propagate_const_unary(eqn, state, ufunc)
+    _propagate_const_unary(eqn, state, _UNARY_CONST_UFUNCS[eqn.primitive.name])
 
 
 def _prop_ternary_elementwise(eqn: JaxprEqn, state: _PropState) -> None:
