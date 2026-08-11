@@ -7,6 +7,7 @@ from jax._src.core import JaxprEqn, Var
 
 from ._common import (
     Atom,
+    ValueBounds,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
@@ -34,16 +35,14 @@ def _all_const_vals(
     return vals
 
 
-def _merged_case_bounds(
-    atoms: Sequence[Atom], state: _PropState
-) -> tuple[np.ndarray, np.ndarray] | None:
+def _merged_case_bounds(atoms: Sequence[Atom], state: _PropState) -> ValueBounds | None:
     """Element-wise ``(min lo, max hi)`` envelope of every atom's bounds.
 
     Returns ``None`` as soon as one atom has no bounds,
     since the envelope needs all of them.
     Stopping early keeps the remaining cases' consts unmaterialized.
     """
-    merged: tuple[np.ndarray, np.ndarray] | None = None
+    merged: ValueBounds | None = None
     for atom in atoms:
         bounds = _atom_value_bounds(atom, state)
         if bounds is None:

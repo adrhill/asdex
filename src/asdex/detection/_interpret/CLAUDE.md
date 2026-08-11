@@ -21,7 +21,8 @@ through primitives to determine Jacobian sparsity patterns.
   Seeded closure constants stay in their original array type
   and are materialized to numpy by `_atom_const_val` on first read,
   so never-read constants (e.g. conv kernels) are never copied to host.
-- `StateBounds` = `dict[Var, tuple[np.ndarray, np.ndarray]]` — per-element inclusive (lo, hi) integer bounds
+- `ValueBounds` = `tuple[np.ndarray, np.ndarray]` — per-element inclusive (lo, hi) bounds for one array
+- `StateBounds` = `dict[Var, ValueBounds]` — maps jaxpr variables to their value bounds
 - `_PropState` — bundles the three dicts above as `state.indices`, `state.consts`, and `state.bounds`.
   Every handler takes `(eqn, state)`,
   and every `_common` helper that touches state takes the whole bundle,
@@ -141,11 +142,14 @@ is what lets a backend without cheap ordered iteration stay viable.
 - **`_atom_value_bounds(atom, state)`** —
   returns `(lo, hi)` bounds for an atom:
   exact `(val, val)` for constants, tracked bounds for bounded variables, or `None`.
-- **`_binary_value_bounds(eqn, state)`** —
-  returns both operands' bounds for a binary op, or `None` if either is unknown.
-  Checks the first operand before reading the second,
-  so an input-dependent first operand does not force materializing
-  a large second-operand const whose bounds would be discarded.
+- **`_binary_value_bounds(eqn, state)`** / **`_ternary_value_bounds(eqn, state)`** —
+  return every operand's bounds for a binary or ternary op,
+  or `None` if any of them is unknown.
+  Each operand is checked before the next is read,
+  so an input-dependent early operand does not force materializing
+  a large later-operand const whose bounds would be discarded.
+  Every bounds propagator with more than one operand goes through these,
+  so the short-circuit order cannot drift between handlers.
 - **`_forward_across_jaxpr_boundary(state, src_atoms, dst_vars)`** —
   transfers known const values and value bounds together
   across a nested-jaxpr boundary,
@@ -196,9 +200,22 @@ for variables that are bounded but not statically constant
 
 Bounds flow through three roles:
 **producers** create bounds (`argmax`/`argmin`),
-**propagators** forward them (`add`, `sub`, `convert_element_type`, `broadcast_in_dim`, `select_n`),
+**propagators** forward them
+(`add`, `sub`, `mul`, `div`, `integer_pow`, `max`, `min`, `clamp`,
+`convert_element_type`, `broadcast_in_dim`, `select_n`),
 and **consumers** use them to tighten sparsity
 (`gather`, `scatter`, `dynamic_slice`, `dynamic_update_slice`, comparisons).
+
+`max`, `min`, and `clamp` are what keep `jnp.clip` on an index from erasing its bounds.
+`jnp.clip` lowers to `max` followed by `min`, not to `clamp`,
+so all three need rules for the "clip an index into range" idiom to stay sparse.
+Being monotone increasing in every operand,
+all three are exact at the interval endpoints.
+
+Propagators only fire when **every** operand is bounded.
+An operand with no bounds could be anything,
+and the `(lo, hi)` representation cannot express a half-open interval,
+so the result is dropped rather than widened.
 
 **Invariant**: if bounds are unavailable (`_atom_value_bounds` returns `None`),
 the handler must assume the worst and return a conservative pattern.

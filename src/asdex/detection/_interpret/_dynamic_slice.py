@@ -5,6 +5,7 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
+    ValueBounds,
     _atom_const_val,
     _atom_shape,
     _atom_value_bounds,
@@ -40,7 +41,7 @@ def _resolve_start_bounds(
     eqn: JaxprEqn,
     start_offset: int,
     state: _PropState,
-) -> tuple[np.ndarray, np.ndarray] | None:
+) -> ValueBounds | None:
     """Try to resolve per-dimension (lo, hi) bounds for start indices.
 
     Returns None if any start has no bounds information.

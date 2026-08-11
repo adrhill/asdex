@@ -21,6 +21,7 @@ from ._common import (
     _propagate_const_binary,
     _propagate_const_unary,
     _PropState,
+    _ternary_value_bounds,
     _union_elementwise,
 )
 
@@ -367,6 +368,30 @@ def _prop_sub(
     _propagate_bounds_sub(eqn, state)
 
 
+def _prop_max(
+    eqn: JaxprEqn,
+    state: _PropState,
+) -> None:
+    """Max: binary elementwise with interval arithmetic bounds.
+
+    ``max([a,b], [c,d]) = [max(a,c), max(b,d)]``.
+    """
+    _prop_binary_const(eqn, state)
+    _propagate_bounds_extremum(eqn, state, np.maximum)
+
+
+def _prop_min(
+    eqn: JaxprEqn,
+    state: _PropState,
+) -> None:
+    """Min: binary elementwise with interval arithmetic bounds.
+
+    ``min([a,b], [c,d]) = [min(a,c), min(b,d)]``.
+    """
+    _prop_binary_const(eqn, state)
+    _propagate_bounds_extremum(eqn, state, np.minimum)
+
+
 def _prop_integer_pow(
     eqn: JaxprEqn,
     state: _PropState,
@@ -528,7 +553,11 @@ def _prop_convert_element_type(
 
 
 def _prop_clamp(eqn: JaxprEqn, state: _PropState) -> None:
-    """Clamp(lo, x, hi) returns lo when x < lo, hi when x > hi, else x.
+    """Clamp(lo, x, hi) computes ``min(max(x, lo), hi)``.
+
+    For the usual ``lo <= hi`` this returns lo when x < lo, hi when x > hi, else x.
+    The nested form is what XLA computes and is what the bounds rule below relies on,
+    so it also fixes the result to hi when the caller passes ``lo > hi``.
 
     All three operands can contribute to the output depending on runtime values:
         ∂clamp/∂lo = 1 if x < lo, else 0
@@ -555,4 +584,21 @@ def _prop_clamp(eqn: JaxprEqn, state: _PropState) -> None:
 
     state.indices[eqn.outvars[0]] = _union_elementwise(
         [lo, x, hi], _atom_numel(eqn.outvars[0])
+    )
+    _propagate_bounds_clamp(eqn, state)
+
+
+def _propagate_bounds_clamp(eqn: JaxprEqn, state: _PropState) -> None:
+    """Propagate value bounds through ``clamp`` via interval arithmetic.
+
+    ``min(max(x, lo), hi)`` is monotone increasing in all three operands,
+    so evaluating at the interval endpoints is exact.
+    """
+    bounds = _ternary_value_bounds(eqn, state)
+    if bounds is None:
+        return
+    (min_lo, min_hi), (val_lo, val_hi), (max_lo, max_hi) = bounds
+    state.bounds[eqn.outvars[0]] = (
+        np.minimum(np.maximum(val_lo, min_lo), max_lo),
+        np.minimum(np.maximum(val_hi, min_hi), max_hi),
     )

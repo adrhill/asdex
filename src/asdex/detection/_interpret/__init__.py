@@ -37,6 +37,8 @@ from ._elementwise import (
     _prop_clamp,
     _prop_convert_element_type,
     _prop_integer_pow,
+    _prop_max,
+    _prop_min,
     _prop_sub,
     _prop_ternary_elementwise,
     _prop_unary_elementwise,
@@ -215,11 +217,15 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_sub(eqn, state)
         case "div":
             _prop_div(eqn, state)
+        # ∂max/∂x = 1 if x>y else 0, ∂max/∂y = 1 if y>x else 0
+        case "max":
+            _prop_max(eqn, state)
+        # ∂min/∂x = 1 if x<y else 0, ∂min/∂y = 1 if y<x else 0
+        case "min":
+            _prop_min(eqn, state)
         # Binary elementwise with nonzero partials wrt both operands
         case (
             "pow"  # ∂(x^y)/∂x = y·x^(y-1), ∂(x^y)/∂y = x^y·ln(x)
-            | "max"  # ∂max/∂x = 1 if x>y else 0, ∂max/∂y = 1 if y>x else 0
-            | "min"  # ∂min/∂x = 1 if x<y else 0, ∂min/∂y = 1 if y<x else 0
             | "atan2"  # ∂atan2(y,x)/∂y = x/(x²+y²), ∂/∂x = -y/(x²+y²)
             | "rem"  # ∂(x mod y)/∂x = 1, ∂(x mod y)/∂y = -⌊x/y⌋
             | "nextafter"
