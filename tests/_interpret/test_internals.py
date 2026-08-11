@@ -150,6 +150,10 @@ def test_forward_into_jaxpr_preserves_laziness():
     _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
     _forward_into_jaxpr(state, [outer], [inner])
     assert state.consts[inner] is closed.consts[0]  # still unconverted
+
+
+@pytest.mark.elementwise
+def test_stop_gradient():
     """stop_gradient passes dependencies through unchanged."""
 
     def f(x):
