@@ -1,5 +1,17 @@
 # asdex
 
+## Version `v0.5.2`
+* ![Maintenance][badge-maintenance] Update `scan` sparsity propagation for JAX 0.11's new jaxpr representation, which replaces the `num_consts`/`num_carry` parameters with `ft_in`/`ft_out`.
+  Following upstream, asdex now requires `jax>=0.11.0` and Python `>=3.12` ([#180])
+
+## Version `v0.5.1`
+* ![Feature][badge-feature] Register `ColoredPattern`, `SparsityPattern`, and `StarSet` as JAX pytrees, so they can be passed into `jax.jit`-compiled functions without triggering recompilation ([#176])
+* ![Feature][badge-feature] Export `ColoringMode` and annotate the public type aliases with `TypeAlias`, so `ColoredPattern.mode` can be named in downstream code ([#168])
+* ![Enhancement][badge-enhancement] Ship a PEP 561 `py.typed` marker so downstream type checkers use asdex's inline annotations instead of treating the package as untyped ([#168])
+* ![Documentation][badge-docs] Update the README and docs landing page with a related-work section ([#169])
+* ![Documentation][badge-docs] Render shared docstring fragments in the static API reference ([#161])
+* ![Documentation][badge-docs] Add a contributing guide and AI policy ([#160])
+
 ## Version `v0.5.0`
 This is not a breaking release for most users and has been tagged conservatively only for those importing from internal file paths.
 
@@ -124,6 +136,12 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#180]: https://github.com/adrhill/asdex/pull/180
+[#176]: https://github.com/adrhill/asdex/pull/176
+[#169]: https://github.com/adrhill/asdex/pull/169
+[#168]: https://github.com/adrhill/asdex/pull/168
+[#161]: https://github.com/adrhill/asdex/pull/161
+[#160]: https://github.com/adrhill/asdex/pull/160
 [#158]: https://github.com/adrhill/asdex/pull/158
 [#155]: https://github.com/adrhill/asdex/pull/155
 [#154]: https://github.com/adrhill/asdex/pull/154

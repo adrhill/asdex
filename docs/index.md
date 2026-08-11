@@ -140,7 +140,7 @@ If you use asdex in your research, please cite:
 
 ```bibtex
 @software{asdex2026,
-  author = {Hill, Adrian},
+  author = {Hill, Adrian and Dalle, Guillaume},
   title = {asdex: Automatic Sparse Differentiation in JAX},
   url = {https://github.com/adrhill/asdex},
   doi = {10.5281/zenodo.18788242}

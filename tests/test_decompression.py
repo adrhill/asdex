@@ -903,7 +903,7 @@ def test_decompress_data_grad_symmetric_coloring():
         rng.normal(size=(coloring.num_colors, coloring.sparsity.n))
     )
     weights = jnp.asarray(rng.normal(size=coloring.sparsity.nnz))
-    color_idx, elem_idx = coloring._extraction_indices
+    color_idx, elem_idx = coloring._compute_extraction_indices()
 
     def via_gather(c):
         return jnp.vdot(weights, _decompress_data(c, coloring))

@@ -23,7 +23,7 @@
   <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/news-changelog-yellow" alt="Changelog"></a>
 </p>
 <p align="center">
-  <a href="https://doi.org/10.5281/zenodo.18788242"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg" alt="DOI"></a>
+  <a href="https://doi.org/10.5281/zenodo.18788242"><img src="https://img.shields.io/badge/DOI-10.5281/zenodo.18788242-blue.svg" alt="DOI"></a>
 </p>
 
 `asdex` exploits sparsity structure to efficiently materialize Jacobians and Hessians.
@@ -168,7 +168,7 @@ If you use asdex in your research, please cite:
 
 ```bibtex
 @software{asdex2026,
-  author = {Hill, Adrian},
+  author = {Hill, Adrian and Dalle, Guillaume},
   title = {asdex: Automatic Sparse Differentiation in JAX},
   url = {https://github.com/adrhill/asdex},
   doi = {10.5281/zenodo.18788242}

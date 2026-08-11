@@ -1094,17 +1094,18 @@ def test_extraction_indices_neutral_color_raises():
     Star-coloring postprocessing guarantees this cannot happen
     for colorings produced by the public API;
     the assertion guards hand-constructed or corrupted colorings.
+    Extraction indices are computed eagerly,
+    so the guard fires at construction time.
     """
     sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
-    coloring = ColoredPattern(
-        sparsity=sparsity,
-        colors=np.array([0, -1], dtype=np.int32),
-        num_colors=1,
-        symmetric=False,
-        mode="fwd",
-    )
     with pytest.raises(AssertionError, match="neutral"):
-        _ = coloring._extraction_indices
+        ColoredPattern(
+            sparsity=sparsity,
+            colors=np.array([0, -1], dtype=np.int32),
+            num_colors=1,
+            symmetric=False,
+            mode="fwd",
+        )
 
 
 def test_hub_extraction_missing_edge_raises():
@@ -1114,22 +1115,23 @@ def test_hub_extraction_missing_edge_raises():
     so a missing edge must raise instead of silently reading garbage.
     Here the star set is empty,
     so the lookup position falls past the end of the edge arrays.
+    Extraction indices are computed eagerly,
+    so the guard fires at construction time.
     """
     sparsity = SparsityPattern.from_coo([0, 1], [1, 0], (2, 2))
     star_set = StarSet(
         star=np.empty(0, dtype=np.int32),
         hub=np.empty(0, dtype=np.int32),
     )
-    coloring = ColoredPattern(
-        sparsity=sparsity,
-        colors=np.array([0, 1], dtype=np.int32),
-        num_colors=2,
-        symmetric=True,
-        mode="fwd_over_rev",
-        star_set=star_set,
-    )
     with pytest.raises(AssertionError, match="missing"):
-        _ = coloring._extraction_indices
+        ColoredPattern(
+            sparsity=sparsity,
+            colors=np.array([0, 1], dtype=np.int32),
+            num_colors=2,
+            symmetric=True,
+            mode="fwd_over_rev",
+            star_set=star_set,
+        )
 
 
 def test_hub_extraction_near_miss_edge_raises():
@@ -1139,6 +1141,8 @@ def test_hub_extraction_near_miss_edge_raises():
     so the binary search lands on an in-bounds position with a mismatched key.
     Without the guard, the wrong hub would be picked
     and wrong values extracted silently.
+    Extraction indices are computed eagerly,
+    so the guard fires at construction time.
     """
     sparsity = SparsityPattern.from_coo([0, 1], [1, 0], (3, 3))
     star_set = StarSet(
@@ -1148,13 +1152,405 @@ def test_hub_extraction_near_miss_edge_raises():
         edge_hi=np.array([2], dtype=np.int32),
         edge_pos=np.array([0], dtype=np.int32),
     )
-    coloring = ColoredPattern(
-        sparsity=sparsity,
-        colors=np.array([0, 1, 0], dtype=np.int32),
-        num_colors=2,
-        symmetric=True,
-        mode="fwd_over_rev",
-        star_set=star_set,
-    )
     with pytest.raises(AssertionError, match="missing"):
-        _ = coloring._extraction_indices
+        ColoredPattern(
+            sparsity=sparsity,
+            colors=np.array([0, 1, 0], dtype=np.int32),
+            num_colors=2,
+            symmetric=True,
+            mode="fwd_over_rev",
+            star_set=star_set,
+        )
+
+
+# PyTree registration
+
+
+def _banded_function(x):
+    """Nonlinear function with a banded Jacobian, used by the pytree tests."""
+    return x[:-1] * x[1:]
+
+
+def test_sparsity_pattern_flatten_unflatten_roundtrip():
+    """SparsityPattern roundtrips through tree_flatten and tree_unflatten.
+
+    Uses a list container inside input_avals and tuple argnums
+    to cover the aval flattening in the static aux data,
+    since raw lists are not hashable and must travel flattened.
+    """
+    input_avals = (
+        [ShapeDtypeStruct((2,), jnp.float32), ShapeDtypeStruct((1,), jnp.float32)],
+        ShapeDtypeStruct((3,), jnp.float32),
+    )
+    original = SparsityPattern.from_coo(
+        [0, 1, 2],
+        [0, 1, 5],
+        (3, 6),
+        input_avals=input_avals,
+        argnums=(0, 1),
+    )
+
+    leaves, treedef = jax.tree_util.tree_flatten(original)
+    assert len(leaves) == 1  # _bcoo_indices
+
+    roundtripped = jax.tree_util.tree_unflatten(treedef, leaves)
+    assert isinstance(roundtripped, SparsityPattern)
+    # rows and cols travel in the static aux data,
+    # so unflattening reattaches the very same concrete numpy arrays.
+    assert roundtripped.rows is original.rows
+    assert roundtripped.cols is original.cols
+    np.testing.assert_array_equal(
+        np.asarray(roundtripped._bcoo_indices), np.asarray(original._bcoo_indices)
+    )
+    assert roundtripped.shape == original.shape
+    assert roundtripped.argnums == original.argnums
+    assert roundtripped.input_avals == original.input_avals
+    assert isinstance(roundtripped.input_avals[0], list)
+    assert roundtripped._dyn_flat == original._dyn_flat
+    assert roundtripped._entries_sorted_unique == original._entries_sorted_unique
+
+    # Lazy caches are not part of the flat representation
+    # and start out empty on the rebuilt instance.
+    assert "col_to_rows" not in vars(roundtripped)
+    assert "row_to_cols" not in vars(roundtripped)
+    assert "_block_index_cache" not in vars(roundtripped)
+
+
+def test_star_set_flatten_unflatten_roundtrip():
+    """StarSet roundtrips through tree_flatten and tree_unflatten.
+
+    The rebuilt instance must still answer edge and hub lookups.
+    """
+    original = StarSet(
+        star=np.array([0], dtype=np.int32),
+        hub=np.array([1], dtype=np.int32),
+        edge_lo=np.array([0], dtype=np.int32),
+        edge_hi=np.array([1], dtype=np.int32),
+        edge_pos=np.array([0], dtype=np.int32),
+    )
+
+    leaves, treedef = jax.tree_util.tree_flatten(original)
+    assert len(leaves) == 5
+
+    roundtripped = jax.tree_util.tree_unflatten(treedef, leaves)
+    assert isinstance(roundtripped, StarSet)
+    np.testing.assert_array_equal(roundtripped.star, original.star)
+    np.testing.assert_array_equal(roundtripped.hub, original.hub)
+    np.testing.assert_array_equal(roundtripped.edge_lo, original.edge_lo)
+    np.testing.assert_array_equal(roundtripped.edge_hi, original.edge_hi)
+    np.testing.assert_array_equal(roundtripped.edge_pos, original.edge_pos)
+    assert roundtripped.edge_index(0, 1) == 0
+    assert roundtripped.hub_vertex(0, 1) == 1
+
+
+def test_colored_pattern_flatten_unflatten_roundtrip_nonsymmetric():
+    """A Jacobian coloring roundtrips with all derived data reattached verbatim.
+
+    Unflattening reattaches the flattened values instead of recomputing them,
+    so the derived arrays on the rebuilt instance
+    are the very same objects that were flattened.
+    """
+    x = jnp.arange(1.0, 6.0)
+    original = asdex.jacobian_coloring(_banded_function, x)
+
+    leaves, treedef = jax.tree_util.tree_flatten(original)
+    roundtripped = jax.tree_util.tree_unflatten(treedef, leaves)
+
+    assert isinstance(roundtripped, ColoredPattern)
+    np.testing.assert_array_equal(roundtripped.colors, original.colors)
+    assert roundtripped.num_colors == original.num_colors
+    assert roundtripped.symmetric == original.symmetric
+    assert roundtripped.mode == original.mode
+    assert roundtripped.star_set is None
+
+    assert roundtripped._gather_indices is original._gather_indices
+    assert roundtripped._seed_matrix is original._seed_matrix
+
+    # The per-dtype device seed memo is lazy and starts out empty.
+    assert "_device_seed_cache" not in vars(roundtripped)
+
+    # The rebuilt coloring computes the same Jacobian.
+    jac_original = asdex.jacobian_from_coloring(
+        _banded_function, original, output_format="dense"
+    )(x)
+    jac_roundtripped = asdex.jacobian_from_coloring(
+        _banded_function, roundtripped, output_format="dense"
+    )(x)
+    np.testing.assert_array_equal(
+        np.asarray(jac_roundtripped), np.asarray(jac_original)
+    )
+
+
+def test_colored_pattern_flatten_unflatten_roundtrip_symmetric():
+    """A symmetric Hessian coloring roundtrips with its star set intact.
+
+    An empty symmetric coloring carries star_set=None
+    and therefore has a different treedef,
+    which correctly reflects the structural difference.
+    """
+
+    def scalar_function(x):
+        return x[0] * x[1] + x[2] ** 2 + x[3]
+
+    x = jnp.arange(1.0, 5.0)
+    original = asdex.hessian_coloring(scalar_function, x)
+    assert original.symmetric
+    assert original.star_set is not None
+
+    leaves, treedef = jax.tree_util.tree_flatten(original)
+    roundtripped = jax.tree_util.tree_unflatten(treedef, leaves)
+
+    assert isinstance(roundtripped.star_set, StarSet)
+    np.testing.assert_array_equal(roundtripped.star_set.star, original.star_set.star)
+    np.testing.assert_array_equal(roundtripped.star_set.hub, original.star_set.hub)
+    np.testing.assert_array_equal(roundtripped.colors, original.colors)
+
+    hess_roundtripped = asdex.hessian_from_coloring(
+        scalar_function, roundtripped, output_format="dense"
+    )(x)
+    np.testing.assert_allclose(
+        np.asarray(hess_roundtripped),
+        np.asarray(jax.hessian(scalar_function)(x)),
+    )
+
+    def linear_function(x):
+        return x[0] + x[1] + x[2] + x[3]
+
+    empty_symmetric = asdex.hessian_coloring(linear_function, x)
+    assert empty_symmetric.symmetric
+    assert empty_symmetric.star_set is None
+    empty_treedef = jax.tree_util.tree_structure(empty_symmetric)
+    assert empty_treedef != treedef
+
+    empty_roundtripped = jax.tree_util.tree_unflatten(
+        empty_treedef, jax.tree_util.tree_leaves(empty_symmetric)
+    )
+    assert empty_roundtripped.star_set is None
+    assert empty_roundtripped.num_colors == 0
+
+
+def test_colored_pattern_treedef_equality():
+    """Structurally equal colorings share a treedef, different ones do not.
+
+    Treedef equality is what makes jit caching work
+    when a coloring is passed as an argument.
+    """
+    x = jnp.arange(1.0, 6.0)
+    first = asdex.jacobian_coloring(_banded_function, x)
+    second = asdex.jacobian_coloring(_banded_function, x)
+    assert jax.tree_util.tree_structure(first) == jax.tree_util.tree_structure(second)
+
+    wider = asdex.jacobian_coloring(_banded_function, jnp.arange(1.0, 7.0))
+    assert jax.tree_util.tree_structure(first) != jax.tree_util.tree_structure(wider)
+
+    reverse = asdex.jacobian_coloring(_banded_function, x, mode="rev")
+    assert jax.tree_util.tree_structure(first) != jax.tree_util.tree_structure(reverse)
+
+
+def test_sparsity_pattern_treedef_reflects_entries():
+    """Patterns with different entry positions get different treedefs.
+
+    The entry arrays are static aux data,
+    and block-extraction indices derived from them
+    are baked into compiled functions as constants,
+    so patterns with different entries must not share a jit cache entry.
+    """
+    first = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
+    same = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
+    different = SparsityPattern.from_coo([0, 1], [1, 0], (2, 2))
+
+    assert jax.tree_util.tree_structure(first) == jax.tree_util.tree_structure(same)
+    assert jax.tree_util.tree_structure(first) != jax.tree_util.tree_structure(
+        different
+    )
+
+
+def test_colored_pattern_tree_map_identity():
+    """An identity tree_map produces a fully working ColoredPattern."""
+    x = jnp.arange(1.0, 6.0)
+    original = asdex.jacobian_coloring(_banded_function, x)
+    mapped = jax.tree_util.tree_map(lambda leaf: leaf, original)
+
+    assert isinstance(mapped, ColoredPattern)
+    jac_original = asdex.jacobian_from_coloring(
+        _banded_function, original, output_format="dense"
+    )(x)
+    jac_mapped = asdex.jacobian_from_coloring(
+        _banded_function, mapped, output_format="dense"
+    )(x)
+    np.testing.assert_array_equal(np.asarray(jac_mapped), np.asarray(jac_original))
+
+
+def test_colored_pattern_through_jit():
+    """A ColoredPattern passes through a jit boundary and stays usable.
+
+    Unflattening inside the trace receives tracer leaves,
+    so it must not run validation or numpy computations.
+    The pattern returned from jit carries device arrays as leaves
+    and must still decompress correctly.
+    """
+    x = jnp.arange(1.0, 6.0)
+    coloring = asdex.jacobian_coloring(_banded_function, x)
+
+    returned = jax.jit(lambda c: c)(coloring)
+    assert isinstance(returned, ColoredPattern)
+    assert returned.num_colors == coloring.num_colors
+    assert returned.mode == coloring.mode
+    np.testing.assert_array_equal(np.asarray(returned.colors), coloring.colors)
+
+    jac_eager = asdex.jacobian_from_coloring(
+        _banded_function, returned, output_format="dense"
+    )(x)
+    np.testing.assert_allclose(
+        np.asarray(jac_eager), np.asarray(jax.jacobian(_banded_function)(x))
+    )
+
+    # decompress_data consumes the coloring inside jit with traced leaves.
+    compressed = asdex.compressed_jacobian_from_coloring(_banded_function, coloring)(x)
+    data_eager = asdex.decompress_data(compressed, coloring)
+    data_jitted = jax.jit(asdex.decompress_data)(compressed, coloring)
+    np.testing.assert_allclose(np.asarray(data_jitted), np.asarray(data_eager))
+
+
+def test_colored_pattern_key_paths():
+    """Flattening with paths yields attribute-named key entries."""
+    x = jnp.arange(1.0, 6.0)
+    coloring = asdex.jacobian_coloring(_banded_function, x)
+
+    path_leaf_pairs, _ = jax.tree_util.tree_flatten_with_path(coloring)
+    paths = [path for path, _ in path_leaf_pairs]
+    bcoo_indices_path = (
+        jax.tree_util.GetAttrKey("sparsity"),
+        jax.tree_util.GetAttrKey("_bcoo_indices"),
+    )
+    assert any(path == bcoo_indices_path for path in paths)
+    assert any(path == (jax.tree_util.GetAttrKey("colors"),) for path in paths)
+
+
+def test_coloring_into_jitted_jacobian(output_format, to_dense):
+    """A coloring built eagerly feeds a jitted sparse Jacobian computation.
+
+    The coloring crosses the jit boundary as a pytree argument
+    and the Jacobian computed inside jit matches
+    both the eager sparse result and the JAX reference.
+    """
+    x = jnp.arange(1.0, 6.0)
+    coloring = asdex.jacobian_coloring(_banded_function, x)
+
+    @jax.jit
+    def jitted_jacobian(coloring, x):
+        return asdex.jacobian_from_coloring(
+            _banded_function, coloring, output_format=output_format
+        )(x)
+
+    jac_jitted = jitted_jacobian(coloring, x)
+    jac_eager = asdex.jacobian_from_coloring(
+        _banded_function, coloring, output_format=output_format
+    )(x)
+    jac_reference = jax.jacobian(_banded_function)(x)
+
+    np.testing.assert_allclose(to_dense(jac_jitted), to_dense(jac_eager))
+    np.testing.assert_allclose(to_dense(jac_jitted), np.asarray(jac_reference))
+
+
+def test_hessian_coloring_into_jitted_hessian(output_format, to_dense):
+    """A symmetric Hessian coloring feeds a jitted sparse Hessian computation.
+
+    The coloring crosses the jit boundary as a pytree argument,
+    so the star-set arrays are traced leaves inside the trace,
+    and the Hessian computed inside jit matches the JAX reference.
+    """
+
+    def scalar_function(x):
+        return x[0] * x[1] + x[2] ** 2 + x[2] * x[3]
+
+    x = jnp.arange(1.0, 5.0)
+    coloring = asdex.hessian_coloring(scalar_function, x)
+    assert coloring.symmetric
+    assert coloring.star_set is not None
+
+    @jax.jit
+    def jitted_hessian(coloring, x):
+        return asdex.hessian_from_coloring(
+            scalar_function, coloring, output_format=output_format
+        )(x)
+
+    hess_jitted = jitted_hessian(coloring, x)
+    hess_reference = jax.hessian(scalar_function)(x)
+    np.testing.assert_allclose(to_dense(hess_jitted), np.asarray(hess_reference))
+
+
+def test_pytree_input_coloring_into_jitted_jacobian(
+    output_format, assert_trees_allclose
+):
+    """A coloring for a pytree-input function crosses the jit boundary.
+
+    The input structure and the entry arrays travel in the static aux data,
+    so leaf shapes and per-leaf block indices stay available while tracing.
+    """
+
+    def f(params):
+        return params["w"] * params["b"][0]
+
+    params = {"b": jnp.array([2.0]), "w": jnp.arange(1.0, 4.0)}
+    coloring = asdex.jacobian_coloring(f, params)
+
+    @jax.jit
+    def jitted_jacobian(coloring, params):
+        return asdex.jacobian_from_coloring(f, coloring, output_format=output_format)(
+            params
+        )
+
+    jac_jitted = jitted_jacobian(coloring, params)
+    jac_reference = jax.jacobian(f)(params)
+    assert_trees_allclose(jac_jitted, jac_reference)
+
+
+def test_pytree_output_coloring_into_jitted_jacobian(
+    output_format, assert_trees_allclose
+):
+    """A coloring for a multi-output function crosses the jit boundary.
+
+    BCOO output assembles per-leaf blocks with ``_block_indices``,
+    which needs the concrete entry arrays inside the trace.
+    """
+
+    def f(x):
+        return x[:-1] * x[1:], x * x
+
+    x = jnp.arange(1.0, 6.0)
+    coloring = asdex.jacobian_coloring(f, x)
+
+    @jax.jit
+    def jitted_jacobian(coloring, x):
+        return asdex.jacobian_from_coloring(f, coloring, output_format=output_format)(x)
+
+    jac_jitted = jitted_jacobian(coloring, x)
+    jac_reference = jax.jacobian(f)(x)
+    assert_trees_allclose(jac_jitted, jac_reference)
+
+
+def test_pytree_input_coloring_into_jitted_hessian(
+    output_format, assert_trees_allclose
+):
+    """A Hessian coloring for a pytree input crosses the jit boundary.
+
+    BCOO output assembles per-leaf Hessian blocks with ``_block_indices``,
+    which needs the concrete entry arrays inside the trace.
+    """
+
+    def f(params):
+        return params["w"] @ params["w"] * params["b"][0]
+
+    params = {"b": jnp.array([2.0]), "w": jnp.arange(1.0, 4.0)}
+    coloring = asdex.hessian_coloring(f, params)
+
+    @jax.jit
+    def jitted_hessian(coloring, params):
+        return asdex.hessian_from_coloring(f, coloring, output_format=output_format)(
+            params
+        )
+
+    hess_jitted = jitted_hessian(coloring, params)
+    hess_reference = jax.hessian(f)(params)
+    assert_trees_allclose(hess_jitted, hess_reference)

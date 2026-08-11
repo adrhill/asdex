@@ -37,7 +37,11 @@ def _prop_scan(
         outvars: [carry_final..., ys...]
         body jaxpr invars:  [consts..., carry..., x_slice...]
         body jaxpr outvars: [carry_new..., y_slice...]
-        params: jaxpr, num_consts, num_carry, length, reverse, linear, unroll
+        params: jaxpr, ft_in, ft_out, length, reverse, unroll
+
+    ``ft_in`` is a ``jax._src.flattree.FTTuple`` splitting the invars into
+    ``(consts, carry, xs)`` groups; its per-group lengths give the
+    ``num_consts`` / ``num_carry`` counts.
 
     xs arrays have an extra leading dimension of size ``length``
     compared to their body counterparts x_slice.
@@ -47,8 +51,9 @@ def _prop_scan(
     """
     body_closed = eqn.params["jaxpr"]
     body_jaxpr = body_closed.jaxpr
-    num_consts = eqn.params["num_consts"]
-    num_carry = eqn.params["num_carry"]
+    num_consts, num_carry, _num_xs = (
+        len(group) for group in eqn.params["ft_in"].unpack()
+    )
     length = eqn.params["length"]
     reverse = eqn.params["reverse"]
 
