@@ -47,8 +47,8 @@ def _contract_union_sets(
 ) -> list[IndexSet]:
     """Union the index sets over the contracting offsets for each base position.
 
-    For lhs these are the row sets ``deps(lhs[b, i, :])``,
-    for rhs the column sets ``deps(rhs[b, :, j])``.
+    For lhs these are the row sets, the unioned index sets of ``lhs[b, i, :]``.
+    For rhs the column sets, the unioned index sets of ``rhs[b, :, j]``.
     """
     return [_union_all([indices[base + o] for o in offsets]) for base in bases.tolist()]
 
