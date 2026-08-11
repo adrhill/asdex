@@ -98,10 +98,14 @@ def test_while_inner_jaxpr_layouts():
 def test_scan_layout():
     """JAX binds scan_p as [consts, carry_init, xs] -> [carry_final, ys].
 
-    ``_prop_scan`` slices eqn.invars by num_consts and num_carry,
+    ``_prop_scan`` slices eqn.invars by the consts and carry group sizes,
     slices xs along a leading axis of size ``length``,
     and feeds the body jaxpr [consts..., carry..., x_slice...],
     so every one of these orderings is load-bearing.
+
+    JAX 0.11 replaced the ``num_consts`` / ``num_carry`` params
+    with ``ft_in``, an ``FTTuple`` splitting the invars into
+    ``(consts, carry, xs)`` groups whose lengths give those counts.
     """
 
     def f(c, init, xs):
@@ -114,8 +118,10 @@ def test_scan_layout():
     eqn = _unique_eqn(jaxpr, "scan")
     c_var, init_var, xs_var = jaxpr.invars
 
-    assert eqn.params["num_consts"] == 1
-    assert eqn.params["num_carry"] == 1
+    num_consts, num_carry, num_xs = (
+        len(group) for group in eqn.params["ft_in"].unpack()
+    )
+    assert (num_consts, num_carry, num_xs) == (1, 1, 1)
     assert eqn.params["length"] == 3
     assert eqn.params["reverse"] is False
     assert list(eqn.invars) == [c_var, init_var, xs_var]
