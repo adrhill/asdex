@@ -308,6 +308,88 @@ def _hessian_compressed_rev_over_rev(
     return H_compressed, value, aux
 
 
+# Hessian stack over a vector-valued output (experimental)
+#
+# EXPERIMENTAL: scoped to a single int argnums selecting a single flat-array
+# leaf (asdex's normal Hessian engine has no such restriction; this one is a
+# narrow prototype -- see _hessian_stack_compressed_fwd_over_rev's docstring).
+
+
+def _hessian_stack_compressed_fwd_over_rev(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    chunk_size: int | None,
+    *,
+    f_aux: Callable[..., Any] | None = None,
+) -> tuple[jax.Array, jax.Array, Any]:
+    """Forward-over-reverse HVP stack for a Hessian of a *vector*-valued ``f``.
+
+    The standard workaround for a "3D sparse Hessian" (one Hessian slice per
+    output row of a vector-valued ``f``) is to reduce to scalar via a weighted
+    sum ``dot(w, f(z))`` and re-``jax.linearize`` that scalar reduction once
+    per output row, vmapped over one-hot ``w``. That multiplies the compiled
+    program's size by the output dimension ``m``, since each row re-triggers
+    a fresh forward-pass-then-backward-pass linearization from scratch.
+
+    Here we instead compute ``jax.jvp(jax.jacrev(f), (z,), (tangent,))`` once
+    per *color*. ``jax.jacrev`` builds the dense Jacobian from a single
+    ``jax.vjp`` call plus a cheap vmap of the resulting *linear*
+    cotangent-application function, so forward-differentiating that whole
+    computation along a colored tangent yields every output row's Hessian
+    slice for that color in one pass -- no outer vmap over ``m`` at all.
+
+    ``coloring`` is the same ``ColoredPattern`` the existing workaround
+    already needs: the Hessian sparsity/coloring of the weighted-sum
+    reduction ``dot(w, f(z))`` for a generic (e.g. all-ones) ``w``, which is
+    independent of ``w``'s value and exactly captures which ``(i, j)`` input
+    pairs co-occur in some output row.
+
+    Returns ``(B, value, aux)`` where ``B`` has shape
+    ``(num_colors, m, n_selected)`` -- note the extra ``m`` axis after
+    ``num_colors``, unlike the scalar Hessian engine's ``(num_colors,
+    n_selected)``. Decompress row ``k`` with the existing
+    ``decompress``/``decompress_data`` on ``B[:, k, :]``, or all rows at once
+    via ``jax.vmap(decompress_data, in_axes=(1, None))(B, coloring)``.
+
+    Raises:
+        NotImplementedError: If ``coloring.sparsity.argnums`` is not a single
+            int, or the selected argument is not a single flat-array pytree
+            leaf. Generalizing to multi-argnums/pytree-structured selections
+            would follow the same tangent-flattening helpers the rest of this
+            module uses; out of scope for this prototype.
+    """
+    sparsity = coloring.sparsity
+    pos = sparsity.argnums
+    if not isinstance(pos, int):
+        msg = "hessian stack (experimental) only supports a single int argnums"
+        raise NotImplementedError(msg)
+    leaves = jax.tree_util.tree_leaves(sparsity.input_avals[pos])
+    if len(leaves) != 1:
+        msg = (
+            "hessian stack (experimental) only supports a single flat-array "
+            "selected argument, not a pytree-structured one"
+        )
+        raise NotImplementedError(msg)
+
+    dtype = _uniform_selected_dtype(args, sparsity)
+    seeds = coloring._device_seeds(dtype)
+
+    def f_of_selected(z: jax.Array) -> Any:
+        return f(*args[:pos], z, *args[pos + 1 :])
+
+    jac_fn = jax.jacrev(f_of_selected)
+
+    def single_color(tangent: jax.Array) -> jax.Array:
+        _, jac_tangent = jax.jvp(jac_fn, (args[pos],), (tangent,))
+        return jac_tangent  # shape (m, n_selected) for this color
+
+    H_compressed = _chunked_vmap(single_color, seeds, chunk_size)
+    value = f_of_selected(args[pos])
+    aux = f_aux(*args)[1] if f_aux is not None else None
+    return H_compressed, value, aux
+
+
 # Seed / tangent / cotangent plumbing over the selected input space
 
 

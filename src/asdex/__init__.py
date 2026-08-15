@@ -32,6 +32,7 @@ from asdex.coloring import (
 from asdex.decompression import (
     compressed_hessian,
     compressed_hessian_from_coloring,
+    compressed_hessian_stack_from_coloring,
     compressed_jacobian,
     compressed_jacobian_from_coloring,
     decompress,
@@ -72,6 +73,7 @@ __all__ = [
     "color_symmetric",
     "compressed_hessian",
     "compressed_hessian_from_coloring",
+    "compressed_hessian_stack_from_coloring",
     "compressed_jacobian",
     "compressed_jacobian_from_coloring",
     "decompress",

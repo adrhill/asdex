@@ -48,6 +48,7 @@ from asdex.coloring import jacobian_coloring as _jacobian_coloring
 from asdex.decompression._compress import (
     _CallCache,
     _compress_hessian,
+    _compress_hessian_stack,
     _compress_jacobian,
 )
 from asdex.decompression._decompress import (
@@ -833,6 +834,77 @@ def compressed_hessian_from_coloring(
             chunk_size=chunk_size,
             call_cache=call_cache if f_bound is f else None,
             need_value=False,
+        )
+        return (compressed, aux) if has_aux else compressed
+
+    return compressed_fn
+
+
+@_fill_doc
+def compressed_hessian_stack_from_coloring(
+    f: Callable[..., Any],
+    coloring: ColoredPattern,
+    *,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
+) -> Callable[..., Any]:
+    """Build a compressed Hessian-stack function for a *vector*-valued ``f``. EXPERIMENTAL.
+
+    ``asdex.hessian_from_coloring`` only supports scalar-valued ``f``. To get
+    a Hessian slice per output row of a vector-valued ``f`` (a "3D sparse
+    Hessian"), the standard workaround is to reduce to scalar via a weighted
+    sum ``dot(w, f(z))`` and re-linearize that scalar reduction once per
+    output row, vmapped over one-hot ``w`` -- which multiplies the compiled
+    program's size (and compile time) by the output dimension.
+
+    This function instead computes ``jax.jvp(jax.jacrev(f), ...)`` once per
+    color, avoiding that outer vmap entirely. ``coloring`` is still the
+    Hessian coloring of the weighted-sum reduction (computed exactly as for
+    the existing workaround, via ``hessian_sparsity``/
+    ``hessian_coloring_from_sparsity`` on ``dot(w, f(z))``) -- this function
+    does not change how sparsity is detected or colored, only how the
+    compressed matrix is computed from an existing coloring.
+
+    Scope (see ``_hessian_stack_compressed_fwd_over_rev`` for details): only
+    a single int ``argnums`` selecting a single flat-array leaf is supported;
+    other cases raise ``NotImplementedError``. This is a narrower
+    precondition than the rest of asdex's Hessian API, which handles
+    multi-argnums and pytree-structured inputs; generalizing this function
+    the same way is future work.
+
+    ``f`` must accept the *same positional arity* used to build ``coloring``,
+    i.e. the weighted-sum reduction's signature ``(z, w, *a)`` -- including
+    the ``w`` slot, even though ``f`` itself ignores it and returns the full
+    vector-valued output: ``f = lambda z, w, *a: original_f(z, *a)``.
+
+    Args:
+        f: A function returning an array (not necessarily scalar), called
+            with the same positional arguments (including the unused ``w``)
+            as the weighted-sum reduction used to build ``coloring``.
+        coloring: The Hessian coloring of the weighted-sum reduction of ``f``.
+        has_aux: {has_aux}
+        chunk_size: {chunk_size}
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            ``B`` of shape ``(num_colors, m, n_selected)`` -- note the extra
+            ``m`` (output-row) axis versus the scalar Hessian engine's
+            ``(num_colors, n_selected)`` -- or ``(B, aux)`` when
+            ``has_aux=True``. Decompress row ``k`` via
+            ``asdex.decompress_data(B[:, k, :], coloring)``, or all rows via
+            ``jax.vmap(asdex.decompress_data, in_axes=(1, None))(B, coloring)``.
+
+    Raises:
+        NotImplementedError: If ``coloring.sparsity.argnums`` is not a single
+            int, or the selected argument is not a single flat-array leaf.
+    """
+    _assert_chunk_size(chunk_size)
+
+    def compressed_fn(*args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = _merge_args_kwargs(f, args, kwargs, expected_nargs)
+        compressed, _value, aux = _compress_hessian_stack(
+            f_bound, merged_args, coloring, has_aux=has_aux, chunk_size=chunk_size
         )
         return (compressed, aux) if has_aux else compressed
 

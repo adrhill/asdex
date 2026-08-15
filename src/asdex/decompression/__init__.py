@@ -14,6 +14,7 @@ factories that stop at ``B``, and ``decompress``/``decompress_data`` that turn
 from asdex.decompression._api import (
     compressed_hessian,
     compressed_hessian_from_coloring,
+    compressed_hessian_stack_from_coloring,
     compressed_jacobian,
     compressed_jacobian_from_coloring,
     decompress,
@@ -35,6 +36,7 @@ from asdex.decompression._api import (
 __all__ = [
     "compressed_hessian",
     "compressed_hessian_from_coloring",
+    "compressed_hessian_stack_from_coloring",
     "compressed_jacobian",
     "compressed_jacobian_from_coloring",
     "decompress",

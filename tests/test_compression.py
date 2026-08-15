@@ -34,6 +34,7 @@ from asdex import (
     value_and_compressed_jacobian,
     value_and_compressed_jacobian_from_coloring,
 )
+from asdex.decompression import compressed_hessian_stack_from_coloring
 
 pytestmark = pytest.mark.filterwarnings("ignore::asdex.DenseColoringWarning")
 
@@ -567,3 +568,132 @@ def test_value_and_compressed_jacobian_zero_pattern():
     value, B = value_and_compressed_jacobian(f, x)(x)
     assert_allclose(value, f(x))
     assert B.shape[0] == jacobian_coloring(f, x).num_colors
+
+
+# Compressed Hessian stack: vector-valued f (EXPERIMENTAL)
+#
+# compressed_hessian_stack_from_coloring computes a Hessian slice per output
+# row of a vector-valued f, using jax.jvp(jax.jacrev(f), ...) per color
+# instead of the vmap-over-one-hot-output-rows workaround. It reuses the same
+# coloring the workaround already needs (the Hessian coloring of a
+# weighted-sum reduction dot(w, f(z))), so tests build that coloring the same
+# way the workaround does.
+
+
+def _hess_f_vec(x):
+    """Vector-valued (m=3): each output has a different tridiagonal-ish Hessian."""
+    return jnp.array(
+        [
+            jnp.sum((x[1:] - x[:-1]) ** 2) + jnp.sum(x**3),
+            jnp.sum(x**2) + x[0] * x[-1],
+            jnp.sum(jnp.sin(x)) + x[1] * x[2] ** 2,
+        ]
+    )
+
+
+def _weighted_coloring(f, x, n_out, *, mode):
+    """Hessian coloring of dot(w, f(z)), matching the vmap-over-eye workaround's setup."""
+    wfn = lambda z, w: jnp.dot(w, f(z))  # noqa: E731
+    return hessian_coloring(wfn, x, jnp.ones(n_out), argnums=0, mode=mode)
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_stack_shape(hessian_mode):
+    """B has shape (num_colors, m, n), with the extra m axis vs. the scalar engine."""
+    x = jnp.arange(1.0, 6.0)
+    n_out = 3
+    coloring = _weighted_coloring(_hess_f_vec, x, n_out, mode=hessian_mode)
+    f_stack = lambda z, w: _hess_f_vec(z)  # noqa: E731
+    B = compressed_hessian_stack_from_coloring(f_stack, coloring)(x, jnp.ones(n_out))
+    assert B.shape == (coloring.num_colors, n_out, coloring.sparsity.n)
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_stack_matches_jax_hessian(hessian_mode):
+    """Each decompressed row matches jax.hessian(lambda z: f(z)[k])(x)."""
+    x = jnp.arange(1.0, 6.0)
+    n_out = 3
+    coloring = _weighted_coloring(_hess_f_vec, x, n_out, mode=hessian_mode)
+    f_stack = lambda z, w: _hess_f_vec(z)  # noqa: E731
+    B = compressed_hessian_stack_from_coloring(f_stack, coloring)(x, jnp.ones(n_out))
+
+    for k in range(n_out):
+        H_k = decompress(B[:, k, :], coloring, output_format="dense")
+        ref_k = jax.hessian(lambda z, k=k: _hess_f_vec(z)[k])(x)
+        assert_allclose(H_k, ref_k, rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_stack_vmapped_decompress_matches_jax_hessian(hessian_mode):
+    """jax.vmap(decompress_data, in_axes=(1, None)) recovers every row at once."""
+    x = jnp.arange(1.0, 6.0)
+    n_out = 3
+    coloring = _weighted_coloring(_hess_f_vec, x, n_out, mode=hessian_mode)
+    f_stack = lambda z, w: _hess_f_vec(z)  # noqa: E731
+    B = compressed_hessian_stack_from_coloring(f_stack, coloring)(x, jnp.ones(n_out))
+
+    data_stack = jax.vmap(decompress_data, in_axes=(1, None))(B, coloring)
+    assert data_stack.shape == (n_out, coloring.sparsity.nnz)
+
+    ref = jax.hessian(_hess_f_vec)(x)  # (n_out, n, n)
+    for k in range(n_out):
+        dense = np.zeros((x.size, x.size))
+        dense[
+            np.asarray(coloring.sparsity.rows), np.asarray(coloring.sparsity.cols)
+        ] = np.asarray(data_stack[k])
+        assert_allclose(dense, ref[k], rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_stack_has_aux(hessian_mode):
+    """has_aux=True returns (B, aux) with aux from the original vector-valued f."""
+    x = jnp.arange(1.0, 6.0)
+    n_out = 3
+    coloring = _weighted_coloring(_hess_f_vec, x, n_out, mode=hessian_mode)
+
+    def f_aux(z, w):
+        return _hess_f_vec(z), jnp.sum(z)
+
+    B, aux = compressed_hessian_stack_from_coloring(f_aux, coloring, has_aux=True)(
+        x, jnp.ones(n_out)
+    )
+    assert B.shape == (coloring.num_colors, n_out, coloring.sparsity.n)
+    assert_allclose(aux, jnp.sum(x))
+
+    for k in range(n_out):
+        H_k = decompress(B[:, k, :], coloring, output_format="dense")
+        ref_k = jax.hessian(lambda z, k=k: _hess_f_vec(z)[k])(x)
+        assert_allclose(H_k, ref_k, rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_stack_rejects_multi_argnums():
+    """Multi-position argnums is out of scope (NotImplementedError, not a wrong result)."""
+    x = jnp.arange(1.0, 4.0)
+    y = jnp.arange(1.0, 4.0)
+    n_out = 2
+
+    def f(a, b):
+        return jnp.array([jnp.sum(a * b), jnp.sum(a**2 + b**2)])
+
+    wfn = lambda a, b, w: jnp.dot(w, f(a, b))  # noqa: E731
+    coloring = hessian_coloring(wfn, x, y, jnp.ones(n_out), argnums=(0, 1))
+    f_stack = lambda a, b, w: f(a, b)  # noqa: E731
+    with pytest.raises(NotImplementedError):
+        compressed_hessian_stack_from_coloring(f_stack, coloring)(x, y, jnp.ones(n_out))
+
+
+@pytest.mark.hessian
+def test_compressed_hessian_stack_zero_pattern():
+    """A function with an all-zero Hessian compresses to an all-zero B, per row."""
+    n_out = 2
+
+    def f(x):
+        return jnp.stack([jnp.sum(x), jnp.sum(2 * x)])
+
+    x = jnp.arange(1.0, 4.0)
+    coloring = _weighted_coloring(f, x, n_out, mode="fwd_over_rev")
+    f_stack = lambda z, w: f(z)  # noqa: E731
+    B = compressed_hessian_stack_from_coloring(f_stack, coloring)(x, jnp.ones(n_out))
+    assert B.shape == (coloring.num_colors, n_out, coloring.sparsity.n)
+    assert_allclose(B, jnp.zeros_like(B))

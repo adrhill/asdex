@@ -29,7 +29,11 @@ from asdex._arguments import (
     _validate_input_dtypes,
     _validate_output_dtypes,
 )
-from asdex._differentiation import _hessian_compressed, _jacobian_compressed
+from asdex._differentiation import (
+    _hessian_compressed,
+    _hessian_stack_compressed_fwd_over_rev,
+    _jacobian_compressed,
+)
 from asdex._pattern import ColoredPattern, SparsityPattern
 from asdex.detection._api import _ensure_scalar, _strip_aux
 
@@ -245,5 +249,50 @@ def _compress_hessian(
     f_aux = _cached_scalar_aux_fn(f, call_cache) if has_aux else None
     compressed, value, aux = _hessian_compressed(
         f_scalar, args, coloring, chunk_size, f_aux=f_aux
+    )
+    return compressed, value, aux
+
+
+def _compress_hessian_stack(
+    f: Callable[..., Any],
+    args: tuple[Any, ...],
+    coloring: ColoredPattern,
+    *,
+    has_aux: bool,
+    chunk_size: int | None,
+) -> tuple[jax.Array, Any, Any]:
+    """Compress the Hessian stack of a *vector*-valued ``f``. EXPERIMENTAL.
+
+    Mirrors ``_compress_hessian``, but ``f`` returns a vector rather than a
+    scalar: the compressed matrix gets an extra output axis, ``B`` of shape
+    ``(num_colors, m, n_selected)``. See
+    ``_hessian_stack_compressed_fwd_over_rev`` for the scope restrictions
+    (single int ``argnums``, single flat-array selected leaf) and the
+    algorithm (``jax.jvp(jax.jacrev(f), ...)`` per color, avoiding the
+    outer-vmap-over-output-rows workaround).
+    """
+    sparsity = coloring.sparsity
+    _validate_args(args, sparsity)
+
+    f_plain = _strip_aux(f) if has_aux else f
+
+    if sparsity.nnz == 0:
+        out_struct = jax.eval_shape(f_plain, *args)
+        m = out_struct.shape[0] if out_struct.shape else 1
+        dim = coloring._compressed_dim
+        dtype = (
+            out_struct.dtype
+            if jnp.issubdtype(out_struct.dtype, jnp.inexact)
+            else jnp.float_
+        )
+        compressed = jnp.zeros((coloring.num_colors, m, dim), dtype=dtype)
+        if has_aux:
+            value, aux = f(*args)
+            return compressed, value, aux
+        return compressed, f_plain(*args), None
+
+    f_aux = f if has_aux else None
+    compressed, value, aux = _hessian_stack_compressed_fwd_over_rev(
+        f_plain, args, coloring, chunk_size, f_aux=f_aux
     )
     return compressed, value, aux
