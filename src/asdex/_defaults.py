@@ -26,7 +26,6 @@ _DEFAULT_ALLOW_INT: bool = False
 _DEFAULT_MODE: None = None
 _DEFAULT_SYMMETRIC_JACOBIAN: bool = False
 _DEFAULT_SYMMETRIC_HESSIAN: bool = True
-_DEFAULT_POSTPROCESS: bool = False
 _DEFAULT_OUTPUT_FORMAT: OutputFormat = "bcoo"
 _DEFAULT_CHUNK_SIZE: int | None = None
 # Resolved AD modes chosen when ``mode`` is left as ``_DEFAULT_MODE`` (None).

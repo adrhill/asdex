@@ -16,7 +16,6 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
-from asdex._defaults import _DEFAULT_POSTPROCESS
 from asdex._docstrings import _fill_doc
 from asdex._errors import InvalidColoringError
 from asdex._pattern import SparsityPattern, StarSet
@@ -25,14 +24,12 @@ from asdex.coloring._graph import (
     _build_edge_to_index,
     _build_symmetric_csr,
 )
-from asdex.coloring._postprocessing import _postprocess_star_coloring
 
 
 @_fill_doc
 def color_symmetric(
     sparsity: SparsityPattern,
     *,
-    postprocess: bool = _DEFAULT_POSTPROCESS,
     forced_colors: NDArray[np.int32] | list[int] | None = None,
 ) -> tuple[NDArray[np.int32], int, StarSet]:
     """Greedy symmetric coloring for sparse Hessian computation.
@@ -47,16 +44,13 @@ def color_symmetric(
 
     Args:
         sparsity: {sparsity_pattern_hess}
-        postprocess: {postprocess_symmetric}
         forced_colors: {forced_colors}
 
     Returns:
         Tuple ``(colors, num_colors, star_set)`` where:
 
             - colors: Array of shape ``(n,)`` with color assignment for each vertex.
-              Values are in ``[0, num_colors - 1]`` for active vertices.
-              After postprocessing, vertices whose color is pruned have value ``-1``
-              (neutral — no HVP needed for them).
+              Values are in ``[0, num_colors - 1]``.
             - num_colors: Number of active colors (i.e. number of HVPs).
             - star_set: :class:`StarSet` encoding the 2-colored star decomposition.
 
@@ -82,9 +76,7 @@ def color_symmetric(
             ),
         )
 
-    indptr, neighbors, has_self_loop = _build_symmetric_csr(
-        sparsity.rows, sparsity.cols, n
-    )
+    indptr, neighbors = _build_symmetric_csr(sparsity.rows, sparsity.cols, n)
     edge_to_index = _build_edge_to_index(indptr, neighbors)
     num_edges = len(neighbors) // 2
 
@@ -130,11 +122,6 @@ def color_symmetric(
     star_set = StarSet(
         star=star, hub=hub, edge_lo=edge_lo, edge_hi=edge_hi, edge_pos=edge_pos
     )
-
-    if postprocess:
-        num_colors = _postprocess_star_coloring(
-            colors, star_set, has_self_loop, num_colors
-        )
 
     return colors, int(num_colors), star_set
 
