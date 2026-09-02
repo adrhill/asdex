@@ -33,8 +33,7 @@ def _assert_same_coloring(
 ) -> None:
     """Assert asdex colors equal SMC colors, and that the color count agrees."""
     np.testing.assert_array_equal(actual, expected)
-    expected_num = len(np.unique(expected[expected >= 0]))
-    assert num_colors == expected_num
+    assert num_colors == len(np.unique(expected))
 
 
 @pytest.mark.parametrize(("m", "n", "p"), ASYMMETRIC_PARAMS)
@@ -53,21 +52,13 @@ def test_color_rows_matches_smc_random(smc, m, n, p):
     _assert_same_coloring(colors, num_colors, smc.color_rows(matrix))
 
 
-@pytest.mark.parametrize("postprocess", [False, True])
 @pytest.mark.parametrize("diagonal", [False, True])
 @pytest.mark.parametrize(("n", "p"), SYMMETRIC_PARAMS)
-def test_color_symmetric_matches_smc_random(smc, n, p, diagonal, postprocess):
-    """Star coloring of a random symmetric pattern matches SMC's star coloring.
-
-    Covers both postprocessing settings, since pruning unused colors is a
-    separate pass whose neutral (``-1``) assignments must also agree.
-    """
+def test_color_symmetric_matches_smc_random(smc, n, p, diagonal):
+    """Star coloring of a random symmetric pattern matches SMC's star coloring."""
     matrix = random_symmetric_matrix(n, p, diagonal=diagonal)
-    colors, num_colors, _ = color_symmetric(
-        SparsityPattern.from_dense(matrix), postprocess=postprocess
-    )
-    expected = smc.color_symmetric(matrix, postprocess=postprocess)
-    _assert_same_coloring(colors, num_colors, expected)
+    colors, num_colors, _ = color_symmetric(SparsityPattern.from_dense(matrix))
+    _assert_same_coloring(colors, num_colors, smc.color_symmetric(matrix))
 
 
 @pytest.mark.parametrize("name", list(STRUCTURED_MATRICES))
@@ -86,13 +77,9 @@ def test_color_rows_matches_smc_structured(smc, name):
     _assert_same_coloring(colors, num_colors, smc.color_rows(matrix))
 
 
-@pytest.mark.parametrize("postprocess", [False, True])
 @pytest.mark.parametrize("name", list(STRUCTURED_SYMMETRIC_MATRICES))
-def test_color_symmetric_matches_smc_structured(smc, name, postprocess):
+def test_color_symmetric_matches_smc_structured(smc, name):
     """Star coloring of a deterministic symmetric pattern matches SMC's."""
     matrix = STRUCTURED_SYMMETRIC_MATRICES[name]
-    colors, num_colors, _ = color_symmetric(
-        SparsityPattern.from_dense(matrix), postprocess=postprocess
-    )
-    expected = smc.color_symmetric(matrix, postprocess=postprocess)
-    _assert_same_coloring(colors, num_colors, expected)
+    colors, num_colors, _ = color_symmetric(SparsityPattern.from_dense(matrix))
+    _assert_same_coloring(colors, num_colors, smc.color_symmetric(matrix))

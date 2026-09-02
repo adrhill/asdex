@@ -136,8 +136,7 @@ the `smc` marker is deselected by default and no module-level import touches Jul
 so the core suite never starts a Julia runtime.
 CI runs this suite in its own `SMC` job.
 
-Julia indexes colors from 1 and marks neutral vertices with 0,
-while asdex indexes from 0 and marks neutral vertices with -1,
+Julia indexes colors from 1 and Python from 0,
 so colors crossing the bridge are shifted by one.
 
 ## CUTEst Integration Tests

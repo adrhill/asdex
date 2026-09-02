@@ -4,9 +4,8 @@ The Julia runtime is started lazily inside the session-scoped ``smc`` fixture,
 never at import time, so collecting the core test suite (which deselects the
 ``smc`` marker) never loads Julia.
 
-Julia numbers colors from 1 and neutral vertices with 0,
-while asdex numbers colors from 0 and neutral vertices with -1;
-every color vector crossing the bridge is shifted accordingly.
+Julia numbers colors from 1 and Python from 0,
+so every color vector crossing the bridge is shifted by one.
 """
 
 import numpy as np
@@ -33,27 +32,28 @@ matrix(rows, cols, m, n) = sparse(
     Int.(rows) .+ 1, Int.(cols) .+ 1, ones(Float64, length(rows)), Int(m), Int(n)
 )
 
-algorithm(postprocessing) = GreedyColoringAlgorithm(
-    LargestFirst(); postprocessing=Bool(postprocessing), decompression=:direct
+# asdex has no equivalent of SMC's optional postprocessing pass, so it stays off.
+const ALGORITHM = GreedyColoringAlgorithm(
+    LargestFirst(); postprocessing=false, decompression=:direct
 )
 
 function color_cols(rows, cols, m, n)
     problem = ColoringProblem(; structure=:nonsymmetric, partition=:column)
-    result = coloring(matrix(rows, cols, m, n), problem, algorithm(false))
+    result = coloring(matrix(rows, cols, m, n), problem, ALGORITHM)
     return collect(column_colors(result))
 end
 
 function color_rows(rows, cols, m, n)
     problem = ColoringProblem(; structure=:nonsymmetric, partition=:row)
-    result = coloring(matrix(rows, cols, m, n), problem, algorithm(false))
+    result = coloring(matrix(rows, cols, m, n), problem, ALGORITHM)
     return collect(row_colors(result))
 end
 
-function color_symmetric(rows, cols, n, postprocessing)
+function color_symmetric(rows, cols, n)
     A = matrix(rows, cols, n, n)
     @assert A == transpose(A)
     problem = ColoringProblem(; structure=:symmetric, partition=:column)
-    result = coloring(A, problem, algorithm(postprocessing))
+    result = coloring(A, problem, ALGORITHM)
     return collect(column_colors(result))
 end
 
@@ -93,16 +93,11 @@ class SMC:
         m, n = dense.shape
         return _shift(self._jl.color_rows(rows, cols, m, n))
 
-    def color_symmetric(
-        self, dense: NDArray, *, postprocess: bool
-    ) -> NDArray[np.int32]:
-        """SMC star coloring with ``LargestFirst``, as 0-based colors.
-
-        Pruned (neutral) vertices come back as ``-1``, matching asdex.
-        """
+    def color_symmetric(self, dense: NDArray) -> NDArray[np.int32]:
+        """SMC star coloring with ``LargestFirst``, as 0-based colors."""
         rows, cols = _coo(dense)
         n = dense.shape[0]
-        return _shift(self._jl.color_symmetric(rows, cols, n, postprocess))
+        return _shift(self._jl.color_symmetric(rows, cols, n))
 
     def orthogonal_cols(self, dense: NDArray, colors: NDArray) -> bool:
         """Whether the 0-based column coloring is structurally orthogonal."""
@@ -136,7 +131,7 @@ def _as_int64(colors: NDArray) -> NDArray[np.int64]:
 
 
 def _shift(colors) -> NDArray[np.int32]:
-    """Convert Julia's 1-based colors (0 = neutral) to asdex's 0-based (-1 = neutral)."""
+    """Convert Julia's 1-based colors to asdex's 0-based colors."""
     return np.asarray(colors, dtype=np.int32) - 1
 
 
