@@ -16,6 +16,9 @@ Never remove or simplify a test to make it pass.
   plus `decompress` / `decompress_data` called directly on a caller-supplied `B`.
 - `_interpret/` mirrors the handler modules: `_interpret/test_foo.py` tests `src/asdex/detection/_interpret/_foo.py`.
 - `e2e/` contains end-to-end tests covering the full pipeline from public API through detection, coloring, and decompression.
+- `smc/` cross-validates the coloring algorithms and their validators against
+  [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl) (SMC),
+  the Julia package they were ported from.
 - External-package handler tests live in subfolders (e.g., `_interpret/_equinox/`).
 
 ## Running Tests
@@ -26,7 +29,7 @@ Always run linting and type checking before tests:
 uv run ruff check --fix .  # lint + auto-fix
 uv run ruff format .       # format
 uv run ty check            # type check
-uv run pytest              # run tests (skips slow, benchmark, and cutest by default: we only run these in CI)
+uv run pytest              # run tests (skips slow, benchmark, cutest, and smc by default: we only run these in CI)
 ```
 
 ## Markers
@@ -109,6 +112,33 @@ Handler test files (`_interpret/test_*.py`) should cover:
       dtype=int,
   )
   ```
+
+## SparseMatrixColorings.jl Cross-Validation
+
+asdex's greedy colorings are ports of SMC's.
+Both use the `LargestFirst` vertex ordering with the same tie-breaking,
+so on identical patterns they must produce *identical* colorings,
+not merely colorings of the same quality.
+`tests/smc/` asserts that equality on random and deterministic matrices,
+and checks `check_coloring_cols` / `check_coloring_rows` / `check_coloring_symmetric`
+against SMC's `structurally_orthogonal_columns` / `symmetrically_orthogonal_columns`.
+
+```bash
+uv sync --no-default-groups --group smc
+uv run pytest tests/smc -m smc
+```
+
+SMC is called from Python through [PythonCall.jl](https://github.com/JuliaPy/PythonCall.jl)'s
+`juliacall` package.
+Julia and SMC are installed on demand by `juliapkg` inside the session-scoped `smc` fixture,
+which is the *only* place Julia is imported:
+the `smc` marker is deselected by default and no module-level import touches Julia,
+so the core suite never starts a Julia runtime.
+CI runs this suite in its own `SMC` job.
+
+Julia indexes colors from 1 and marks neutral vertices with 0,
+while asdex indexes from 0 and marks neutral vertices with -1,
+so colors crossing the bridge are shifted by one.
 
 ## CUTEst Integration Tests
 
