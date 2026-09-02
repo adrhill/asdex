@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786126862836,
+  "lastUpdate": 1788370352612,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -19632,6 +19632,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000009307145222293271",
             "extra": "mean: 25.095873114968775 usec\nrounds: 15321"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "185490550+gdalle-bot@users.noreply.github.com",
+            "name": "Guillaume Dalle (bot)",
+            "username": "gdalle-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "910c67d5ea70050ad2de334c87b33f3f894a969a",
+          "message": "refactor!: remove star-coloring postprocessing (#186)\n\nDrop the `postprocess` keyword from `color_symmetric`, `jacobian_coloring`,\n`hessian_coloring`, `jacobian_coloring_from_sparsity` and\n`hessian_coloring_from_sparsity`, along with the `_postprocessing` module,\nthe `_DEFAULT_POSTPROCESS` default and its docstring fragments.\n\n`_build_symmetric_csr` no longer returns `has_self_loop`, whose only\nconsumer was postprocessing.\n\nCo-authored-by: Claude Opus 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-02T19:31:53+02:00",
+          "tree_id": "9d642fcc5014bac5acc95d68e0cc127fe97d1db5",
+          "url": "https://github.com/adrhill/asdex/commit/910c67d5ea70050ad2de334c87b33f3f894a969a"
+        },
+        "date": 1788370351083,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1018.8461215714761,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001430420609778775",
+            "extra": "mean: 981.5024848478515 usec\nrounds: 33"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 43580.849966802765,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002165543493857397",
+            "extra": "mean: 22.945858117997677 usec\nrounds: 6153"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 117583.7085716047,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001341725275651842",
+            "extra": "mean: 8.5045795216693 usec\nrounds: 31526"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 83089.81048698952,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013023112569140084",
+            "extra": "mean: 12.035170066449766 usec\nrounds: 17452"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 119359.973772939,
+            "unit": "iter/sec",
+            "range": "stddev: 9.962701136602505e-7",
+            "extra": "mean: 8.378017926698954 usec\nrounds: 37765"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 31.201170655441395,
+            "unit": "iter/sec",
+            "range": "stddev: 0.020486574553758314",
+            "extra": "mean: 32.05007950000116 msec\nrounds: 16"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 4740.634732043688,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000060874552332776585",
+            "extra": "mean: 210.9422169231123 usec\nrounds: 3900"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2805.9594244976765,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015829104558593975",
+            "extra": "mean: 356.3843408673025 usec\nrounds: 1637"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2756.3272992441875,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000018406714448586144",
+            "extra": "mean: 362.8016165838542 usec\nrounds: 1411"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 6024.548574641471,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009850471596640032",
+            "extra": "mean: 165.98754041243853 usec\nrounds: 4219"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 156.38470271461054,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010349104747093354",
+            "extra": "mean: 6.394487329268511 msec\nrounds: 82"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 43117.071284174584,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002108760000545325",
+            "extra": "mean: 23.192669868721666 usec\nrounds: 30397"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 34398.93323323284,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001671392869984945",
+            "extra": "mean: 29.07066894254439 usec\nrounds: 16843"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 33105.32044829412,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015987525300932504",
+            "extra": "mean: 30.20662499134724 usec\nrounds: 14373"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 28860.069505898973,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000019600965129603514",
+            "extra": "mean: 34.64995119972254 usec\nrounds: 18545"
           }
         ]
       }
