@@ -1721,7 +1721,7 @@
 <a class="headerlink" href="#asdex.jacobian" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect sparsity, color, and return a function computing sparse Jacobians.</p>
-<p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, *args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, postprocess=_DEFAULT_POSTPROCESS, **kwargs)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
+<p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, *args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, **kwargs)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
 and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format=_DEFAULT_OUTPUT_FORMAT, *, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, chunk_size=_DEFAULT_CHUNK_SIZE)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
 in one call.</p>
 <p>For repeated evaluation, wrap the returned function in <code>jax.jit</code>:
@@ -3605,7 +3605,7 @@ for the per-mode <code>dim</code>).</p>
 </div><h2 id="coloring">Coloring<a class="headerlink" href="#coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Detect Jacobian sparsity and color in one step.</p>
@@ -3733,25 +3733,6 @@ Defaults to <code>False</code>.</p>
 </tr>
 <tr class="doc-section-item">
 <td>
-<code>postprocess</code>
-</td>
-<td>
-<code><span title="bool">bool</span></code>
-</td>
-<td>
-<div class="doc-md-description">
-<p>Only read when <code>symmetric=True</code>.
-Prune colors never used as hubs and compact the remaining ones
-(reduces the number of VJPs/JVPs during decompression).
-Defaults to <code>False</code>.</p>
-</div>
-</td>
-<td>
-<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
-</td>
-</tr>
-<tr class="doc-section-item">
-<td>
 <code>**kwargs</code>
 </td>
 <td>
@@ -3804,7 +3785,7 @@ Non-traceable values (bools, strings, ints) are bound statically.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.jacobian_coloring_from_sparsity">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="n">postprocess</span><span class="o">=</span><span class="n">_DEFAULT_POSTPROCESS</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_coloring_from_sparsity</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="n">_DEFAULT_MODE</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.jacobian_coloring_from_sparsity" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Color a sparsity pattern for sparse Jacobian computation.</p>
@@ -3888,25 +3869,6 @@ Defaults to <code>False</code>.</p>
 </td>
 <td>
 <code><span title="asdex._defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
-</td>
-</tr>
-<tr class="doc-section-item">
-<td>
-<code>postprocess</code>
-</td>
-<td>
-<code><span title="bool">bool</span></code>
-</td>
-<td>
-<div class="doc-md-description">
-<p>Only read when <code>symmetric=True</code>.
-Prune colors never used as hubs and compact the remaining ones
-(reduces the number of VJPs/JVPs during decompression).
-Defaults to <code>False</code>.</p>
-</div>
-</td>
-<td>
-<code><span title="asdex._defaults._DEFAULT_POSTPROCESS">_DEFAULT_POSTPROCESS</span></code>
 </td>
 </tr>
 </tbody>
@@ -4147,7 +4109,7 @@ pass a tuple of all positional arguments.</p>
 </td>
 <td>
 <div class="doc-md-description">
-<p>Pre-computed colored pattern from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, *args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, postprocess=_DEFAULT_POSTPROCESS, **kwargs)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>.</p>
+<p>Pre-computed colored pattern from <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, *args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, **kwargs)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>.</p>
 </div>
 </td>
 <td>
