@@ -1,5 +1,8 @@
 # asdex
 
+## Unreleased
+* ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity`
+
 ## Version `v0.5.2`
 * ![Maintenance][badge-maintenance] Update `scan` sparsity propagation for JAX 0.11's new jaxpr representation, which replaces the `num_consts`/`num_carry` parameters with `ft_in`/`ft_out`.
   Following upstream, asdex now requires `jax>=0.11.0` and Python `>=3.12` ([#180])
