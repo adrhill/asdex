@@ -25,7 +25,6 @@ from asdex._defaults import (
     _DEFAULT_HAS_AUX,
     _DEFAULT_HESSIAN_MODE,
     _DEFAULT_MODE,
-    _DEFAULT_POSTPROCESS,
     _DEFAULT_SYMMETRIC_HESSIAN,
     _DEFAULT_SYMMETRIC_JACOBIAN,
     _DEFAULT_SYMMETRIC_JACOBIAN_MODE,
@@ -53,7 +52,6 @@ def jacobian_coloring(
     has_aux: bool = _DEFAULT_HAS_AUX,
     mode: JacobianMode | None = _DEFAULT_MODE,
     symmetric: bool = _DEFAULT_SYMMETRIC_JACOBIAN,
-    postprocess: bool = _DEFAULT_POSTPROCESS,
     **kwargs: Any,
 ) -> ColoredPattern:
     """Detect Jacobian sparsity and color in one step.
@@ -65,7 +63,6 @@ def jacobian_coloring(
         has_aux: {has_aux_detect}
         mode: {mode_jac_coloring}
         symmetric: {symmetric_jac}
-        postprocess: {postprocess_jac}
         **kwargs: {sample_kwargs_detect}
 
     Returns:
@@ -74,9 +71,7 @@ def jacobian_coloring(
     sparsity = _detect_jacobian_sparsity(
         f, *args, argnums=argnums, has_aux=has_aux, **kwargs
     )
-    return jacobian_coloring_from_sparsity(
-        sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
-    )
+    return jacobian_coloring_from_sparsity(sparsity, symmetric=symmetric, mode=mode)
 
 
 @_fill_doc
@@ -87,7 +82,6 @@ def hessian_coloring(
     has_aux: bool = _DEFAULT_HAS_AUX,
     mode: HessianMode | None = _DEFAULT_MODE,
     symmetric: bool = _DEFAULT_SYMMETRIC_HESSIAN,
-    postprocess: bool = _DEFAULT_POSTPROCESS,
     **kwargs: Any,
 ) -> ColoredPattern:
     """Detect Hessian sparsity and color in one step.
@@ -99,7 +93,6 @@ def hessian_coloring(
         has_aux: {has_aux_detect}
         mode: {mode_hess}
         symmetric: {symmetric_hess}
-        postprocess: {postprocess_hess}
         **kwargs: {sample_kwargs_detect}
 
     Returns:
@@ -108,9 +101,7 @@ def hessian_coloring(
     sparsity = _detect_hessian_sparsity(
         f, *args, argnums=argnums, has_aux=has_aux, **kwargs
     )
-    return hessian_coloring_from_sparsity(
-        sparsity, symmetric=symmetric, mode=mode, postprocess=postprocess
-    )
+    return hessian_coloring_from_sparsity(sparsity, symmetric=symmetric, mode=mode)
 
 
 @_fill_doc
@@ -119,7 +110,6 @@ def jacobian_coloring_from_sparsity(
     *,
     mode: JacobianMode | None = _DEFAULT_MODE,
     symmetric: bool = _DEFAULT_SYMMETRIC_JACOBIAN,
-    postprocess: bool = _DEFAULT_POSTPROCESS,
 ) -> ColoredPattern:
     """Color a sparsity pattern for sparse Jacobian computation.
 
@@ -130,7 +120,6 @@ def jacobian_coloring_from_sparsity(
         sparsity: {sparsity_jac}
         mode: {mode_jac_coloring}
         symmetric: {symmetric_jac}
-        postprocess: {postprocess_jac}
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`jacobian_from_coloring`][asdex.jacobian_from_coloring].
@@ -144,7 +133,6 @@ def jacobian_coloring_from_sparsity(
         return _color_jacobian_symmetric(
             sparsity,
             mode if mode is not None else _DEFAULT_SYMMETRIC_JACOBIAN_MODE,
-            postprocess=postprocess,
         )
 
     # Nothing to compute when there are no nonzeros.
@@ -212,7 +200,6 @@ def hessian_coloring_from_sparsity(
     *,
     mode: HessianMode | None = _DEFAULT_MODE,
     symmetric: bool = _DEFAULT_SYMMETRIC_HESSIAN,
-    postprocess: bool = _DEFAULT_POSTPROCESS,
 ) -> ColoredPattern:
     """Color a sparsity pattern for sparse Hessian computation.
 
@@ -220,7 +207,6 @@ def hessian_coloring_from_sparsity(
         sparsity: {sparsity_hess}
         mode: {mode_hess}
         symmetric: {symmetric_hess}
-        postprocess: {postprocess_hess}
 
     Returns:
         A [`ColoredPattern`][asdex.ColoredPattern] ready for [`hessian_from_coloring`][asdex.hessian_from_coloring].
@@ -239,7 +225,7 @@ def hessian_coloring_from_sparsity(
         return _empty_hessian_pattern(sparsity, symmetric=symmetric, mode=resolved_mode)
 
     if symmetric:
-        colors_arr, num, star_set = color_symmetric(sparsity, postprocess=postprocess)
+        colors_arr, num, star_set = color_symmetric(sparsity)
         result = ColoredPattern(
             sparsity,
             colors=colors_arr,
@@ -290,15 +276,12 @@ def _coerce_sparsity(
 def _color_jacobian_symmetric(
     sparsity: SparsityPattern,
     mode: JacobianMode,
-    *,
-    postprocess: bool,
 ) -> ColoredPattern:
     """Color a Jacobian pattern using symmetric (star) coloring.
 
     Args:
         sparsity: Sparsity pattern (must be square).
         mode: The resolved AD mode.
-        postprocess: Whether to prune unused colors after star coloring.
     """
     if sparsity.nnz == 0:
         if sparsity.m != sparsity.n:
@@ -311,7 +294,7 @@ def _color_jacobian_symmetric(
             symmetric=True,
             mode=mode,
         )
-    colors_arr, num, star_set = color_symmetric(sparsity, postprocess=postprocess)
+    colors_arr, num, star_set = color_symmetric(sparsity)
     result = ColoredPattern(
         sparsity,
         colors=colors_arr,
