@@ -14,9 +14,11 @@ class VerificationError(AssertionError):
 
 
 class InvalidColoringError(ValueError):
-    """Raised when a user-supplied coloring violates a star-coloring constraint.
+    """Raised when a coloring violates the constraints it is checked against.
 
-    See [`color_symmetric`][asdex.color_symmetric] with ``forced_colors``.
+    See [`check_coloring_rows`][asdex.check_coloring_rows],
+    [`check_coloring_cols`][asdex.check_coloring_cols],
+    and [`check_coloring_symmetric`][asdex.check_coloring_symmetric].
     """
 
 

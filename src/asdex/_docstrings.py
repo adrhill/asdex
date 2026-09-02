@@ -112,10 +112,6 @@ _COLORS_COLS = "Column color assignment, shape ``(n,)``."
 
 _COLORS_VERTEX = "Vertex color assignment, shape ``(n,)``."
 
-_FORCED_COLORS = """Optional pre-computed color assignment of shape ``(n,)``.
-        When provided, the algorithm verifies it satisfies the star-coloring
-        constraints and raises [`InvalidColoringError`][asdex.InvalidColoringError] otherwise."""
-
 # Sample inputs and differentiation options
 
 _SAMPLE_ARGS = """Sample arguments of ``f``.
@@ -267,7 +263,6 @@ _FRAGMENTS: dict[str, str] = {
     "colors_rows": _COLORS_ROWS,
     "colors_cols": _COLORS_COLS,
     "colors_vertex": _COLORS_VERTEX,
-    "forced_colors": _FORCED_COLORS,
     "sample_args": _SAMPLE_ARGS,
     "x_multi_input": _X_MULTI_INPUT,
     "x_jac": _X_JAC,

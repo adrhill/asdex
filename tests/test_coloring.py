@@ -30,7 +30,6 @@ from asdex import (
 )
 from asdex._pattern import _compressed_pattern
 from asdex.coloring import (
-    InvalidColoringError,
     StarSet,
     _reconstruct_edge_arrays,
     color_cols,
@@ -1430,72 +1429,6 @@ def test_hessian_coloring_non_symmetric_column_roundtrip():
     result = hessian_from_coloring(f, coloring)(x).todense()
     expected = jax.hessian(f)(x)
     assert_allclose(result, expected, rtol=1e-5)
-
-
-# forced_colors tests
-
-
-@pytest.mark.coloring
-def test_color_symmetric_forced_colors_overrides_greedy_choice():
-    """A valid forced coloring overrides what greedy would pick on its own.
-
-    Greedy picks a 2-coloring on path 0-1-2 (star chromatic number is 2).
-    Forcing a 3-coloring returns that distinct assignment verbatim,
-    demonstrating that forced colors are used instead of recomputed, and
-    the companion star set is rebuilt around the forced colors.
-    """
-    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
-    _, greedy_num, _ = color_symmetric(sparsity)
-    assert greedy_num == 2  # sanity: baseline differs from forced
-
-    forced = np.array([0, 1, 2], dtype=np.int32)
-    colors, num, star_set = color_symmetric(sparsity, forced_colors=forced)
-
-    check_coloring_symmetric(sparsity, colors)
-    np.testing.assert_array_equal(colors, forced)
-    assert num == 3
-    # With 3 distinct colors every edge is a trivial star (no shared-color
-    # neighbor to absorb into). The star set must still cover both edges.
-    edges = set(zip(star_set.edge_lo.tolist(), star_set.edge_hi.tolist(), strict=True))
-    assert edges == {(0, 1), (1, 2)}
-
-
-@pytest.mark.coloring
-def test_color_symmetric_forced_colors_accepts_list():
-    """color_symmetric accepts a plain Python list for forced_colors."""
-    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
-
-    colors, _, _ = color_symmetric(sparsity, forced_colors=[0, 1, 0])
-
-    check_coloring_symmetric(sparsity, colors)
-    np.testing.assert_array_equal(colors, np.array([0, 1, 0], dtype=np.int32))
-
-
-@pytest.mark.coloring
-def test_color_symmetric_forced_colors_wrong_shape_raises():
-    """forced_colors with wrong shape raises ValueError."""
-    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
-
-    with pytest.raises(ValueError, match=r"shape \(3,\)"):
-        color_symmetric(sparsity, forced_colors=np.array([0, 1], dtype=np.int32))
-
-
-@pytest.mark.coloring
-def test_color_symmetric_forced_colors_negative_raises():
-    """forced_colors with negative values raises ValueError."""
-    sparsity = _make_symmetric_graph_no_diagonal(3, [(0, 1), (1, 2)])
-
-    with pytest.raises(ValueError, match="non-negative"):
-        color_symmetric(sparsity, forced_colors=np.array([0, -1, 1], dtype=np.int32))
-
-
-@pytest.mark.coloring
-def test_color_symmetric_forced_colors_distance1_violation_raises():
-    """Adjacent vertices sharing a forced color violate the star constraint."""
-    sparsity = _make_symmetric_graph_no_diagonal(2, [(0, 1)])
-
-    with pytest.raises(InvalidColoringError, match="violates a star-coloring"):
-        color_symmetric(sparsity, forced_colors=np.array([0, 0], dtype=np.int32))
 
 
 # StarSet.hub_vertex tests
