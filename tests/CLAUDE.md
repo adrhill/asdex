@@ -130,11 +130,23 @@ uv run pytest tests/smc -m smc
 
 SMC is called from Python through [PythonCall.jl](https://github.com/JuliaPy/PythonCall.jl)'s
 `juliacall` package.
-Julia and SMC are installed on demand by `juliapkg` inside the session-scoped `smc` fixture,
-which is the *only* place Julia is imported:
+The Julia version and the SMC version bound are declared in
+[`tests/juliapkg.json`](juliapkg.json), which `juliacall` resolves on import,
+installing both on demand.
+That file sits in `tests/` rather than `tests/smc/` because `juliapkg` only
+discovers `juliapkg.json` one directory deep from a `sys.path` entry.
+
+The `smc` fixture is the *only* place Julia is imported:
 the `smc` marker is deselected by default and no module-level import touches Julia,
 so the core suite never starts a Julia runtime.
 CI runs this suite in its own `SMC` job.
+
+Every random size/density parametrization runs over `_matrices.SAMPLES` independent
+draws, so a comparison never rests on a single lucky pattern.
+The checker comparisons additionally sweep the density, and
+`test_random_colorings_cover_both_verdicts` asserts that the randomly drawn
+colorings really do include both valid and invalid ones —
+otherwise those tests could pass vacuously.
 
 Julia indexes colors from 1 and Python from 0,
 so colors crossing the bridge are shifted by one.

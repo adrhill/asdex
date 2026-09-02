@@ -152,7 +152,8 @@ uv sync --no-default-groups --group smc
 uv run --no-default-groups --group smc pytest tests/smc -m smc
 ```
 
-Julia itself is downloaded on demand if it is not already on your `PATH`.
+The Julia version and the SparseMatrixColorings.jl version bound are declared in
+`tests/juliapkg.json`; both are downloaded on demand if they are not already available.
 
 ---
 

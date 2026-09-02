@@ -25,25 +25,32 @@ SYMMETRIC_PARAMS = [
     *[(100, p) for p in (0.01, 0.02, 0.03, 0.04, 0.05)],
 ]
 
+# Independent draws per (size, density) parametrization.
+# One matrix per density would leave the comparison at the mercy of a single
+# lucky pattern, so every sweep runs over this many samples.
+SAMPLES = list(range(10))
 
-def random_matrix(m: int, n: int, p: float) -> NDArray[np.int_]:
+
+def random_matrix(m: int, n: int, p: float, sample: int) -> NDArray[np.int_]:
     """Random ``m x n`` 0/1 matrix with each entry non-zero with probability ``p``.
 
-    The seed is derived from the shape and density,
+    The seed is derived from the shape, density and sample index,
     so a parametrized case always sees the same matrix.
     """
-    rng = np.random.default_rng([m, n, round(p * 1000)])
+    rng = np.random.default_rng([m, n, round(p * 1000), sample])
     return (rng.random((m, n)) < p).astype(int)
 
 
-def random_symmetric_matrix(n: int, p: float, *, diagonal: bool) -> NDArray[np.int_]:
+def random_symmetric_matrix(
+    n: int, p: float, sample: int, *, diagonal: bool
+) -> NDArray[np.int_]:
     """Random structurally symmetric ``n x n`` 0/1 matrix.
 
     Symmetrized by ``max(M, M.T)``, so the off-diagonal density is slightly
     above ``p``.
     ``diagonal`` forces the diagonal fully on or fully off.
     """
-    rng = np.random.default_rng([n, round(p * 1000), int(diagonal)])
+    rng = np.random.default_rng([n, round(p * 1000), sample, int(diagonal)])
     matrix = (rng.random((n, n)) < p).astype(int)
     matrix = np.maximum(matrix, matrix.T)
     np.fill_diagonal(matrix, int(diagonal))

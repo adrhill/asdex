@@ -1,0 +1,12 @@
+{
+    "julia": "1.12",
+    "packages": {
+        "SparseMatrixColorings": {
+            "uuid": "0a514795-09f3-496d-8182-132a7b665d35",
+            "version": "0.4"
+        },
+        "SparseArrays": {
+            "uuid": "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+        }
+    }
+}

@@ -18,6 +18,7 @@ from asdex import SparsityPattern
 from asdex.coloring import color_cols, color_rows, color_symmetric
 from tests.smc._matrices import (
     ASYMMETRIC_PARAMS,
+    SAMPLES,
     STRUCTURED_MATRICES,
     STRUCTURED_SYMMETRIC_MATRICES,
     SYMMETRIC_PARAMS,
@@ -36,27 +37,30 @@ def _assert_same_coloring(
     assert num_colors == len(np.unique(expected))
 
 
+@pytest.mark.parametrize("sample", SAMPLES)
 @pytest.mark.parametrize(("m", "n", "p"), ASYMMETRIC_PARAMS)
-def test_color_cols_matches_smc_random(smc, m, n, p):
+def test_color_cols_matches_smc_random(smc, m, n, p, sample):
     """Column coloring of a random pattern matches SMC's column coloring."""
-    matrix = random_matrix(m, n, p)
+    matrix = random_matrix(m, n, p, sample)
     colors, num_colors = color_cols(SparsityPattern.from_dense(matrix))
     _assert_same_coloring(colors, num_colors, smc.color_cols(matrix))
 
 
+@pytest.mark.parametrize("sample", SAMPLES)
 @pytest.mark.parametrize(("m", "n", "p"), ASYMMETRIC_PARAMS)
-def test_color_rows_matches_smc_random(smc, m, n, p):
+def test_color_rows_matches_smc_random(smc, m, n, p, sample):
     """Row coloring of a random pattern matches SMC's row coloring."""
-    matrix = random_matrix(m, n, p)
+    matrix = random_matrix(m, n, p, sample)
     colors, num_colors = color_rows(SparsityPattern.from_dense(matrix))
     _assert_same_coloring(colors, num_colors, smc.color_rows(matrix))
 
 
+@pytest.mark.parametrize("sample", SAMPLES)
 @pytest.mark.parametrize("diagonal", [False, True])
 @pytest.mark.parametrize(("n", "p"), SYMMETRIC_PARAMS)
-def test_color_symmetric_matches_smc_random(smc, n, p, diagonal):
+def test_color_symmetric_matches_smc_random(smc, n, p, diagonal, sample):
     """Star coloring of a random symmetric pattern matches SMC's star coloring."""
-    matrix = random_symmetric_matrix(n, p, diagonal=diagonal)
+    matrix = random_symmetric_matrix(n, p, sample, diagonal=diagonal)
     colors, num_colors, _ = color_symmetric(SparsityPattern.from_dense(matrix))
     _assert_same_coloring(colors, num_colors, smc.color_symmetric(matrix))
 

@@ -4,6 +4,9 @@ The Julia runtime is started lazily inside the session-scoped ``smc`` fixture,
 never at import time, so collecting the core test suite (which deselects the
 ``smc`` marker) never loads Julia.
 
+The Julia version and the SparseMatrixColorings.jl bound live in
+``tests/juliapkg.json``, which ``juliacall`` picks up on import.
+
 Julia numbers colors from 1 and Python from 0,
 so every color vector crossing the bridge is shifted by one.
 """
@@ -11,11 +14,6 @@ so every color vector crossing the bridge is shifted by one.
 import numpy as np
 import pytest
 from numpy.typing import NDArray
-
-# Package registered in the juliacall environment before Julia starts.
-_SMC_NAME = "SparseMatrixColorings"
-_SMC_UUID = "0a514795-09f3-496d-8182-132a7b665d35"
-_SMC_VERSION = "0.4"
 
 # Julia-side helpers.
 # Matrices cross the bridge as 0-based COO index arrays plus a shape,
@@ -137,17 +135,16 @@ def _shift(colors) -> NDArray[np.int32]:
 
 @pytest.fixture(scope="session")
 def smc() -> SMC:
-    """Start Julia, install SparseMatrixColorings.jl, and expose its coloring API."""
-    juliapkg = pytest.importorskip(
-        "juliapkg", reason="install the 'smc' dependency group to run these tests"
+    """Start Julia and expose the SparseMatrixColorings.jl coloring API.
+
+    Importing ``juliacall`` resolves ``tests/juliapkg.json``, installing Julia
+    and SparseMatrixColorings.jl on demand.
+    The import is here rather than at module scope because it boots a Julia
+    runtime, which only tests using this fixture should pay for.
+    """
+    juliacall = pytest.importorskip(
+        "juliacall", reason="install the 'smc' dependency group to run these tests"
     )
-    juliapkg.require_julia("1.10")
-    juliapkg.add(_SMC_NAME, _SMC_UUID, version=_SMC_VERSION)
-    juliapkg.resolve()
-
-    # Imported here rather than at module scope: importing juliacall boots a
-    # Julia runtime, and only tests using this fixture should pay that cost.
-    from juliacall import Main as jl  # noqa: PLC0415
-
+    jl = juliacall.Main
     jl.seval(_JULIA_SETUP)
     return SMC(jl.AsdexSMC)
