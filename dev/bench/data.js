@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788422432636,
+  "lastUpdate": 1788424683579,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -19890,6 +19890,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000028644281618114627",
             "extra": "mean: 21.51773640008915 usec\nrounds: 14890"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "185490550+gdalle-bot@users.noreply.github.com",
+            "name": "Guillaume Dalle (bot)",
+            "username": "gdalle-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e1bf0027e98eb0597a8ded10cbdbc32532a8d90",
+          "message": "test: cross-validate colorings against SparseMatrixColorings.jl (#187)\n\n* test: cross-validate colorings against SparseMatrixColorings.jl\n\nasdex's greedy colorings are ports of SparseMatrixColorings.jl (SMC).\nBoth sides use the LargestFirst vertex ordering with the same tie-breaking,\nso on identical patterns they must produce identical color assignments,\nnot merely colorings of the same quality.\n\nAdd tests/smc/, which calls SMC from Python through PythonCall.jl's juliacall\npackage and asserts that equality for color_cols, color_rows and\ncolor_symmetric (both postprocessing settings) on random matrices — size and\ndensity sweeps mirroring SMC's own test/random.jl — and on deterministic\npatterns (diagonal, banded, arrow, block-diagonal, and the two worked examples\nSMC ships as fixtures).\n\nAlso cross-validate check_coloring_cols, check_coloring_rows and\ncheck_coloring_symmetric against SMC's structurally_orthogonal_columns and\nsymmetrically_orthogonal_columns, using the cases from SMC's test/check.jl\nplus randomized colorings. The star-coloring and symmetric-orthogonality\nnotions only coincide when the diagonal is non-zero, so those comparisons fill\nthe diagonal in.\n\nJulia is imported lazily inside the session-scoped `smc` fixture and the new\n`smc` marker is deselected by default, so the core suite never starts a Julia\nruntime. CI runs the suite in a separate SMC job.\n\nCloses #144\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>\n\n* test: drop postprocessing coverage from the SMC comparison\n\nFollows #186, which removed the `postprocess` keyword from `color_symmetric`.\nThe Julia side now pins `postprocessing=false` in a single algorithm constant,\nand the symmetric comparisons lose their `postprocess` parametrization.\nWithout postprocessing no vertex is ever neutral, so the color-count assertion\nand the surrounding docs no longer mention the 0/-1 neutral convention.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>\n\n* test: address review on the SMC comparison suite\n\nMove the Julia and SparseMatrixColorings.jl requirements out of imperative\n`juliapkg` calls and into `tests/juliapkg.json`, which `juliacall` resolves on\nimport, and raise the Julia bound to 1.12. The file lives in `tests/` rather\nthan `tests/smc/` because juliapkg only discovers `juliapkg.json` one directory\ndeep from a `sys.path` entry.\n\nRun every random size/density parametrization over 10 independent draws instead\nof one, so a comparison never rests on a single lucky pattern.\n\nSweep the density in the checker comparisons, and add\n`test_random_colorings_cover_both_verdicts`, which replays the same seeded\ncolorings through asdex alone and asserts they include both valid and invalid\nones — without it those tests could pass vacuously.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5 <noreply@anthropic.com>",
+          "timestamp": "2026-09-03T10:37:28+02:00",
+          "tree_id": "f495ba188b3c53bcb417e8e56862e50385d34725",
+          "url": "https://github.com/adrhill/asdex/commit/4e1bf0027e98eb0597a8ded10cbdbc32532a8d90"
+        },
+        "date": 1788424681125,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 771.7150041980025,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00025157419843708264",
+            "extra": "mean: 1.295815157875854 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 26609.216465843932,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008366506904610329",
+            "extra": "mean: 37.580963771842654 usec\nrounds: 7370"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 89990.2049867247,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000012836267770054292",
+            "extra": "mean: 11.112320503631695 usec\nrounds: 27644"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 61619.692286967584,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017716479571835323",
+            "extra": "mean: 16.228578282132993 usec\nrounds: 16281"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 89547.34339374093,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013235813211752223",
+            "extra": "mean: 11.167277130746202 usec\nrounds: 28676"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 18.18734430868556,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03749922683487258",
+            "extra": "mean: 54.983288545455174 msec\nrounds: 11"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2892.4583599664807,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007488607326499547",
+            "extra": "mean: 345.7266710700681 usec\nrounds: 2347"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1897.8831296605524,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000016043369419846197",
+            "extra": "mean: 526.9028342007845 usec\nrounds: 1152"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1872.4594137209324,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004222785045629643",
+            "extra": "mean: 534.0569694981052 usec\nrounds: 918"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4425.945468051922,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001685373591387291",
+            "extra": "mean: 225.9404249822693 usec\nrounds: 3699"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 126.27287870964386,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011907040231319064",
+            "extra": "mean: 7.919356953122403 msec\nrounds: 64"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27402.053649105914,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002151145817038813",
+            "extra": "mean: 36.493615143061675 usec\nrounds: 21026"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 62277.636104275865,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002744116030352176",
+            "extra": "mean: 16.05712841003838 usec\nrounds: 12756"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 52812.15611162718,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003567604639332761",
+            "extra": "mean: 18.935034538001734 usec\nrounds: 11321"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 61143.05214019301,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003095143101821151",
+            "extra": "mean: 16.355088027125813 usec\nrounds: 16529"
           }
         ]
       }
