@@ -5129,7 +5129,7 @@ by using a combined tangent vector.</p>
 </div>
 <div class="doc doc-object doc-function">
 <h2 class="doc doc-heading" id="asdex.color_symmetric">
-<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_symmetric</span><span class="p">(</span><span class="n">sparsity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">forced_colors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">color_symmetric</span><span class="p">(</span><span class="n">sparsity</span><span class="p">)</span></code>
 <a class="headerlink" href="#asdex.color_symmetric" title="Permanent link">¶</a></h2>
 <div class="doc doc-contents first">
 <p>Greedy symmetric coloring for sparse Hessian computation.</p>
@@ -5169,24 +5169,6 @@ Hessian decompression can use hub-based extraction.</p>
 </td>
 <td>
 <em>required</em>
-</td>
-</tr>
-<tr class="doc-section-item">
-<td>
-<code>forced_colors</code>
-</td>
-<td>
-<code><span title="numpy.typing.NDArray">NDArray</span>[<span title="numpy.int32">int32</span>] | <span title="list">list</span>[<span title="int">int</span>] | None</code>
-</td>
-<td>
-<div class="doc-md-description">
-<p>Optional pre-computed color assignment of shape <code>(n,)</code>.
-When provided, the algorithm verifies it satisfies the star-coloring
-constraints and raises <a class="autorefs autorefs-internal" title="asdex.InvalidColoringError" href="coloring/#asdex.InvalidColoringError"><code>InvalidColoringError</code></a> otherwise.</p>
-</div>
-</td>
-<td>
-<code>None</code>
 </td>
 </tr>
 </tbody>
@@ -5234,16 +5216,6 @@ constraints and raises <a class="autorefs autorefs-internal" title="asdex.Invali
 <td>
 <div class="doc-md-description">
 <p>If pattern is not square.</p>
-</div>
-</td>
-</tr>
-<tr class="doc-section-item">
-<td>
-<code><a class="autorefs autorefs-internal" title="asdex.InvalidColoringError (asdex._errors.InvalidColoringError)" href="coloring/#asdex.InvalidColoringError">InvalidColoringError</a></code>
-</td>
-<td>
-<div class="doc-md-description">
-<p>If <code>forced_colors</code> violates a star-coloring constraint.</p>
 </div>
 </td>
 </tr>
@@ -6270,7 +6242,7 @@ Resolved, never <code>"auto"</code>.
 <div class="doc-md-description">
 <p>Star-coloring structure (hub/spoke assignment per edge).
 Present only for symmetric colorings produced by
-<a class="autorefs autorefs-internal" title="asdex.color_symmetric(sparsity, *, forced_colors=None)" href="#asdex.color_symmetric"><code>color_symmetric</code></a>;
+<a class="autorefs autorefs-internal" title="asdex.color_symmetric(sparsity)" href="#asdex.color_symmetric"><code>color_symmetric</code></a>;
 <code>None</code> otherwise.</p>
 </div>
 </td>
