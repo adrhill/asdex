@@ -28,7 +28,6 @@ from asdex.coloring._graph import (
 @_fill_doc
 def color_symmetric(
     sparsity: SparsityPattern,
-    *,
 ) -> tuple[NDArray[np.int32], int, StarSet]:
     """Greedy symmetric coloring for sparse Hessian computation.
 
