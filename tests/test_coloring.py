@@ -772,87 +772,16 @@ def test_star_empty():
     assert len(colors) == 0
 
 
-# Postprocessing tests
+# Symmetric test helpers
 
 
 def _make_symmetric_graph_no_diagonal(
     n: int, edges: list[tuple[int, int]]
 ) -> SparsityPattern:
-    """Symmetric adjacency pattern with no self-loops (no diagonal entries).
-
-    Used to exercise star-coloring postprocessing, which can prune a color
-    only when it is not forced-used by a diagonal nonzero.
-    """
+    """Symmetric adjacency pattern with no self-loops (no diagonal entries)."""
     rows = [i for i, j in edges] + [j for i, j in edges]
     cols = [j for i, j in edges] + [i for i, j in edges]
     return SparsityPattern.from_coo(rows, cols, (n, n))
-
-
-@pytest.mark.coloring
-def test_star_postprocessing_reduces_colors_on_c4():
-    """Postprocessing on a 4-cycle (no diagonal) reduces 3 colors to 2.
-
-    C4 has star chromatic number 3, but with LargestFirst greedy + postprocessing,
-    the middle color is only assigned to vertices whose color is never used as
-    a hub, so it gets pruned.
-    """
-    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
-
-    colors_off, num_off, _ = color_symmetric(sparsity, postprocess=False)
-    colors_on, num_on, _ = color_symmetric(sparsity, postprocess=True)
-
-    check_coloring_symmetric(sparsity, colors_off)
-    check_coloring_symmetric(sparsity, colors_on)
-    assert num_off == 3
-    assert num_on == 2
-    assert num_on < num_off
-    # Postprocessing introduces the neutral sentinel.
-    assert (colors_on == -1).any()
-    assert not (colors_off == -1).any()
-
-
-@pytest.mark.coloring
-def test_star_postprocessing_noop_when_full_diagonal():
-    """With a full diagonal, every color is forced-used; postprocessing is a no-op."""
-    sparsity = _make_banded(20, 2)
-
-    colors_off, num_off, _ = color_symmetric(sparsity, postprocess=False)
-    colors_on, num_on, _ = color_symmetric(sparsity, postprocess=True)
-
-    check_coloring_symmetric(sparsity, colors_off)
-    check_coloring_symmetric(sparsity, colors_on)
-    assert num_on == num_off
-    assert not (colors_on == -1).any()
-
-
-@pytest.mark.coloring
-def test_hessian_coloring_postprocess_flag_threaded():
-    """The postprocess flag on hessian_coloring_from_sparsity reaches color_symmetric."""
-    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
-
-    result_off = hessian_coloring_from_sparsity(sparsity, postprocess=False)
-    result_on = hessian_coloring_from_sparsity(sparsity, postprocess=True)
-
-    assert result_off.num_colors == 3
-    assert result_on.num_colors == 2
-    assert result_on.num_colors < result_off.num_colors
-
-
-@pytest.mark.coloring
-def test_jacobian_coloring_symmetric_postprocess_flag_threaded():
-    """The postprocess flag on jacobian_coloring_from_sparsity reaches color_symmetric."""
-    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (0, 2), (1, 3), (2, 3)])
-
-    result_off = jacobian_coloring_from_sparsity(
-        sparsity, symmetric=True, postprocess=False
-    )
-    result_on = jacobian_coloring_from_sparsity(
-        sparsity, symmetric=True, postprocess=True
-    )
-
-    assert result_off.num_colors == 3
-    assert result_on.num_colors == 2
-    assert result_on.num_colors < result_off.num_colors
 
 
 # Unified jacobian_coloring_from_sparsity() tests
@@ -1544,58 +1473,6 @@ def test_reconstruct_edge_arrays_empty_no_aliasing(rows, cols, n):
     assert edge_lo is not edge_hi
     assert edge_lo is not edge_pos
     assert edge_hi is not edge_pos
-
-
-# Postprocessing: trivial-star hub flip
-
-
-@pytest.mark.coloring
-def test_postprocess_trivial_star_marks_default_hub_color_used():
-    """Trivial stars with fresh spoke colors mark the default hub's color used.
-
-    Two disjoint edges with no diagonal entries form two trivial stars.
-    Greedy assigns color 0 to both spokes (0 and 2) and color 1 to both
-    default hubs (1 and 3). During postprocessing neither spoke color has
-    been marked used by a non-trivial star, so the default-hub branch
-    records color 1 as used; color 0 gets pruned, leaving the spokes with
-    the neutral ``-1`` sentinel and compacting color 1 down to 0.
-    """
-    sparsity = _make_symmetric_graph_no_diagonal(4, [(0, 1), (2, 3)])
-
-    colors_on, num_on, _ = color_symmetric(sparsity, postprocess=True)
-
-    check_coloring_symmetric(sparsity, colors_on)
-    # Hubs keep an active color; spokes are pruned to the neutral sentinel.
-    assert num_on == 1
-    np.testing.assert_array_equal(colors_on, np.array([-1, 0, -1, 0], dtype=np.int32))
-
-
-@pytest.mark.coloring
-def test_postprocess_trivial_star_flips_hub_to_keep_used_color():
-    """A trivial star flips its hub when the spoke already carries a used color.
-
-    Graph: path 0-1-2 joined to a disjoint edge 3-4.
-    Star-coloring with LargestFirst visits vertex 1 first (highest degree),
-    colors it 0, then colors 0, 2, 3, 4 with color 1. Vertex 1 becomes
-    the hub of the path star, so color 0 is marked used. The trivial
-    star on edge (3, 4) defaults to hub=4 (the max endpoint, color 1),
-    but its spoke vertex 3 already has color 1 — so the flip branch
-    reassigns the hub to 3, and color 1 remains "used" exactly once.
-    """
-    sparsity = _make_symmetric_graph_no_diagonal(5, [(0, 1), (1, 2), (3, 4)])
-
-    colors_off, num_off, star_off = color_symmetric(sparsity, postprocess=False)
-    colors_on, num_on, star_on = color_symmetric(sparsity, postprocess=True)
-
-    check_coloring_symmetric(sparsity, colors_off)
-    check_coloring_symmetric(sparsity, colors_on)
-    # Without postprocess, the trivial-star edge (3, 4) has an unresolved hub.
-    assert star_off.hub_vertex(3, 4) == 4  # default = max endpoint
-    # Postprocess flips the hub to the spoke whose color is already used.
-    assert star_on.hub_vertex(3, 4) == 3
-    # Flipping collapses the color count from 2 down to 1.
-    assert num_off == 2
-    assert num_on == 1
 
 
 # PyTree input tests
