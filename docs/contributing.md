@@ -126,7 +126,7 @@ uv run pytest                          # the whole suite
 uv run pytest tests/test_coloring.py   # a single file
 ```
 
-By default the suite skips the `slow`, `benchmark`, and `cutest` tests, which only run in CI.
+By default the suite skips the `slow`, `benchmark`, `cutest`, and `smc` tests, which only run in CI.
 Pass `-m` with a marker to run a subset:
 
 ```bash
@@ -137,6 +137,23 @@ uv run pytest -m "not slow"    # skip slow tests
 The default selection and the full list of markers are defined together in the `[tool.pytest.ini_options]` table of
 [`pyproject.toml`](https://github.com/adrhill/asdex/blob/main/pyproject.toml).
 `--strict-markers` is enabled there, so a test tagged with a marker missing from that table fails fast.
+
+### Cross-validation against SparseMatrixColorings.jl
+
+asdex's graph coloring algorithms are ports of
+[SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl).
+The `smc` tests call the Julia package from Python through
+[PythonCall.jl](https://github.com/JuliaPy/PythonCall.jl)'s `juliacall` package
+and assert that both implementations produce identical colorings.
+They live in their own dependency group and CI job so that the core suite never loads Julia:
+
+```bash
+uv sync --no-default-groups --group smc
+uv run --no-default-groups --group smc pytest tests/smc -m smc
+```
+
+The Julia version and the SparseMatrixColorings.jl version bound are declared in
+`tests/juliapkg.json`; both are downloaded on demand if they are not already available.
 
 ---
 
