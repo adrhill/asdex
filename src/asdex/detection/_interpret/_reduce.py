@@ -8,7 +8,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
+    IndexSetSequenceBuilder,
     StateIndices,
     _atom_shape,
     _empty_index_sets,
@@ -65,7 +65,7 @@ def _prop_reduce(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     out_coords = tuple(in_coords[d] for d in kept_dims)
     group_map = np.ravel_multi_index(out_coords, out_shape).ravel()
 
-    out_indices: list[IndexSet] = _empty_index_sets(out_size)
+    out_indices: IndexSetSequenceBuilder = _empty_index_sets(out_size)
     for in_flat, elem_deps in enumerate(in_indices):
         out_indices[group_map[in_flat]] |= elem_deps
 

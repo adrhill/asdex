@@ -4,7 +4,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
+    IndexSetView,
     StateConsts,
     StateIndices,
     _atom_const_val,
@@ -55,7 +55,7 @@ def _prop_stack(
 
     # Pool all input index sets into one list.
     # Build position arrays that map to positions in the pool.
-    all_indices: list[IndexSet] = []
+    all_indices: list[IndexSetView] = []
     index_arrays = []
     for invar in eqn.invars:
         in_indices = _index_sets(state_indices, invar)

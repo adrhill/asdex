@@ -7,6 +7,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
+    IndexSetView,
     StateBounds,
     StateConsts,
     StateIndices,
@@ -177,7 +178,7 @@ def _prop_gather(
             range(int(lo_flat[i]), int(hi_flat[i]) + 1) for i in range(len(lo_flat))
         ]
 
-        def _make(vals: tuple[int, ...]) -> list[set[int]]:
+        def _make(vals: tuple[int, ...]) -> list[IndexSetView]:
             candidate = np.array(vals, dtype=lo.dtype).reshape(si_shape)
             return _permute_indices(
                 operand_indices, _gather_flat_map(candidate, eqn, operand_shape)

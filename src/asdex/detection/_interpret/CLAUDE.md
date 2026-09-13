@@ -14,25 +14,57 @@ through primitives to determine Jacobian sparsity patterns.
 
 ## Key Types
 
+Two minimal array representations of a whole `list[set[int]]` underpin
+everything (both defined in `_common.py`):
+
+- `IndexSetArray` — a 1-D record array (`INDEX_SET_DTYPE`, fields
+  `set_index`/`int_index`, both `int32`). An element `(set_index=x, int_index=y)`
+  means `y ∈ sets[x]`. An unordered, possibly-duplicated bag of `(set, member)`
+  pairs; "unioning" is plain concatenation.
+- `IndexSetOffsetArrays` — the canonical CSR form `(set_offsets, int_indices)`
+  (both 1-D `int32`): `sets[x] == int_indices[set_offsets[x] : set_offsets[x+1]]`,
+  sorted and deduplicated.
+
+The conversion between them is plain numpy in `_common.py`: builder writes become
+`IndexSetArray` chunks, then `IndexSetSequence.from_index_set_arrays` concatenates,
+`np.unique`-dedups, and reduces to offsets via `np.bincount`/`np.cumsum`. The
+record dtype keeps both forms trivially Numba-friendly should a jitted consumer
+ever need them.
+
 - `IndexSet` = `set[int]` — a single per-element dependency set
-- `list[IndexSet]` — per-element dependency sets for one array
-- `StateIndices` = `dict[Var, list[IndexSet]]` — maps jaxpr variables to their index sets
+- `IndexSetSequence` — per-element dependency sets for one array, wrapping an
+  `IndexSetOffsetArrays` (`.set_offsets`, `.int_indices`, `.offset_arrays`).
+  Reading one element (`sequence[i]`) returns a read-only `IndexSetView`
+  (set-like, no copy); slicing/iterating yields those views. Immutable — never
+  mutate an element in place.
+- `IndexSetSequenceBuilder` — mutable accumulator for building an `IndexSetSequence`.
+  Supports `builder[i] |= members` (single element) and the batch
+  `builder[array] |= sequence` / `builder[slice] |= sequence` (also an equal-length int
+  array, an `IndexSetOffsetArrays`, or a collection of sets). Every write is
+  stored **verbatim** in a per-conversion-kind container and converted in bulk
+  on `.build()`. Only `|=` is supported — plain `=` is rejected, since the
+  builder only appends. Handlers that aggregate (reduce, dot_general, sort)
+  build with this.
+- `StateIndices` = `dict[Var, IndexSetSequence]` — maps jaxpr variables to their
+  index sets. Assigning an `IndexSetSequenceBuilder`, an `IndexSetSequence`, or a plain
+  `list[IndexSet]` all work; the value is normalized to an `IndexSetSequence`.
 - `StateConsts` = `dict[Var, np.ndarray]` — statically-known values for precise gather/scatter
 - `StateBounds` = `dict[Var, tuple[np.ndarray, np.ndarray]]` — per-element inclusive (lo, hi) integer bounds
 
 ## Naming Conventions
 
 **Terminology** — "indices" and "map" mean different things:
-- **"indices" / "index sets"**: `list[IndexSet]`,
-  the per-element dependency sets used for sparsity tracking.
+- **"indices" / "index sets"**: the per-element dependency sets used for
+  sparsity tracking (an `IndexSetSequence`, or a plain `list[IndexSet]` while
+  a handler is building one).
 - **"map"**: numpy integer arrays that map output positions to input positions.
   Not index sets.
 
 **Construction** — always use the factory helpers from `_common`:
 - `_empty_index_set()` instead of `set()`
 - `_singleton_index_set(i)` instead of `{i}`
-- `_empty_index_sets(n)` instead of `[set() for _ in range(n)]`
-- `_identity_index_sets(n)` instead of `[{i} for i in range(n)]`
+- `_empty_index_sets(n)` — an `IndexSetSequenceBuilder` of `n` empty sets
+- `_identity_index_sets(n)` — an `IndexSetSequenceBuilder` where element `i` depends on `i`
 
 This ensures a future backend swap only requires changing the helpers,
 not every handler.
@@ -85,14 +117,27 @@ not every handler.
 
 ## Index Set Aliasing
 
-Index sets in `StateIndices` are **shared, not copied**.
-Multiple output elements may reference the same `set[int]` object,
-and output sets may alias input sets.
+An `IndexSetSequence` is **immutable**, and reading an element returns a read-only
+`IndexSetView` over its backing array (no copy).
 Handlers must therefore **never mutate** a set obtained from `state_indices` or `_index_sets()`.
-Always build new sets (via `_union_all`, `|`, or the factory helpers) instead of mutating in place.
 
-The one exception is `_fixed_point_loop` in `_while.py`,
-which explicitly copies carry sets before mutating them via `|=`.
+To combine index sets, build new ones:
+- `s1 | s2` and `_union_all(...)` return fresh `set[int]`s.
+- Call `view.copy()` or `set(view)` to get a fresh, mutable `set` when you need
+  to mutate.
+- To build per-element output in bulk, use an `IndexSetSequenceBuilder`
+  (`out[i] |= deps`) and store it; `StateIndices` builds it on assignment.
+- `seq_a + seq_b` concatenates the sets of two `IndexSetSequence`s into a new one
+  (merging their backing arrays), e.g. to pool two operands before a
+  conservative union.
+
+`_prop_while` copies carry sets into fresh mutable sets before the
+fixed-point loop mutates them across iterations.
+
+Read-only reads are typed `IndexSetView`; freshly built/mutable sets are
+`set[int]` (aliased `IndexSet`). Use `AbstractSet[int]` for parameters that
+accept either. Only genuinely-mutable accumulators should be typed
+`list[IndexSet]`.
 
 ## Const Value Tracking
 

@@ -1,9 +1,10 @@
 """Propagation rule for pad operations."""
 
+from collections.abc import Set as AbstractSet
+
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
     StateIndices,
     _atom_shape,
     _empty_index_set,
@@ -61,7 +62,7 @@ def _prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     # The padding value is a scalar; use its first (only) dep set.
     pad_dep = pad_indices[0] if pad_indices else _empty_index_set()
 
-    out_indices: list[IndexSet] = []
+    out_indices: list[AbstractSet[int]] = []
     for out_flat in range(out_size):
         out_coord = _flat_to_coords(out_flat, out_strides)
 

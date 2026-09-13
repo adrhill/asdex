@@ -8,7 +8,7 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    IndexSet,
+    IndexSetSequenceBuilder,
     StateIndices,
     _atom_numel,
     _atom_shape,
@@ -67,8 +67,8 @@ def _prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     # Broadcast each slice's state_indices back to every element in the slice.
     for outvar in eqn.outvars:
-        out: list[IndexSet] = _empty_index_sets(total)
+        out: IndexSetSequenceBuilder = _empty_index_sets(total)
         for gd, g in zip(group_indices, groups, strict=True):
             for i in g:
-                out[i] = gd
+                out[i] |= gd
         state_indices[outvar] = out
