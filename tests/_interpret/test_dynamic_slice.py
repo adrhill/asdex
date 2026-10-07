@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 # dynamic_slice
 
@@ -241,3 +242,74 @@ def test_dynamic_slice_zero_size():
     result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (0, 3)
     assert result.nnz == 0
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize(
+    ("start", "expected_cols"),
+    [
+        pytest.param(3, [2, 3, 4], id="past_end"),
+        pytest.param(-9, [0, 1, 2], id="negative"),
+    ],
+)
+def test_dynamic_slice_static_out_of_bounds_start_is_clamped(start, expected_cols):
+    """A static out-of-bounds start is clamped like JAX does.
+
+    ``lax.dynamic_slice`` clamps starts into ``[0, dim - size]``,
+    so the slice always has ``size`` elements.
+    Slicing at the raw start would return too few rows or the wrong columns.
+    """
+
+    def f(x):
+        return lax.dynamic_slice(x, (start,), (3,))
+
+    x = np.arange(1.0, 6.0)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.zeros((3, 5), dtype=int)
+    expected[np.arange(3), expected_cols] = 1  # out[i] <- x[clamped + i]
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.array_ops
+def test_dynamic_slice_static_out_of_bounds_start_2d():
+    """Static out-of-bounds starts are clamped per dimension in 2D."""
+
+    def f(x):
+        return lax.dynamic_slice(x.reshape(3, 4), (5, -9), (2, 3)).ravel()
+
+    x = np.arange(1.0, 13.0)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # Starts clamp to (1, 0), so the slice reads rows 1-2 and columns 0-2.
+    expected = np.zeros((6, 12), dtype=int)
+    expected[np.arange(6), [4, 5, 6, 8, 9, 10]] = 1
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize(
+    ("start", "window"),
+    [
+        pytest.param(4, [3, 4], id="past_end"),
+        pytest.param(-9, [0, 1], id="negative"),
+    ],
+)
+def test_dynamic_update_slice_static_out_of_bounds_start_is_clamped(start, window):
+    """A static out-of-bounds update start is clamped like JAX does.
+
+    The update window is shifted back into the operand,
+    instead of raising on out-of-range coordinates.
+    """
+
+    def f(x):
+        return lax.dynamic_update_slice(x[:5], 2 * x[5:7], (start,))
+
+    x = np.arange(1.0, 8.0)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.zeros((5, 7), dtype=int)
+    expected[np.arange(5), np.arange(5)] = 1  # out[i] <- operand[i]
+    expected[window, :] = 0
+    expected[window, [5, 6]] = 1  # out[window] <- update
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, x)
