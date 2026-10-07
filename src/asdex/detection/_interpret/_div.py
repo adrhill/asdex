@@ -6,6 +6,7 @@ from jax._src.core import JaxprEqn
 from ._common import (
     _binary_value_bounds,
     _clear_where_zero,
+    _exact_ints,
     _propagate_const_binary,
     _PropState,
     _set_value_bounds,
@@ -63,6 +64,7 @@ def _propagate_bounds_div(
 
     out_dtype = getattr(eqn.outvars[0].aval, "dtype", np.float64)
     divide = _lax_div if np.issubdtype(out_dtype, np.integer) else np.true_divide
+    lo1, hi1, lo2, hi2 = map(_exact_ints, (lo1, hi1, lo2, hi2))
 
     # All four endpoint combinations.
     c1 = divide(lo1, lo2)

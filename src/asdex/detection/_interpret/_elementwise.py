@@ -35,11 +35,25 @@ def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
     while ``np.divide`` is true division and returns floats.
     Using numpy semantics on integer index arithmetic
     would resolve gather/scatter indices to the wrong positions.
+
+    Integer quotients stay in integer arithmetic,
+    since a float64 round trip loses the low bits of int64 operands above 2**53.
+    Division by zero is implementation-defined in XLA,
+    so whatever numpy returns there is as good as any value.
     """
+    in1_val, in2_val = np.asarray(in1_val), np.asarray(in2_val)
     result_dtype = np.result_type(in1_val, in2_val)
-    if np.issubdtype(result_dtype, np.integer):
-        return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
-    return np.true_divide(in1_val, in2_val)
+    if not (
+        np.issubdtype(result_dtype, np.integer) or result_dtype == np.dtype(object)
+    ):
+        return np.true_divide(in1_val, in2_val)
+    with np.errstate(divide="ignore", over="ignore"):
+        quotient = np.floor_divide(in1_val, in2_val)
+    # Floor and truncation differ when the division is inexact
+    # and the operands have opposite signs.
+    inexact = quotient * in2_val != in1_val
+    opposite_signs = (in1_val < 0) != (in2_val < 0)
+    return quotient + (inexact & opposite_signs & (in2_val != 0)).astype(result_dtype)
 
 
 # Functions for evaluating constant values during tracing.

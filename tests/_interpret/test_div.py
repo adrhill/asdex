@@ -18,6 +18,7 @@ from jax import lax
 from asdex import jacobian_sparsity
 from asdex.detection._interpret._common import _PropState
 from asdex.detection._interpret._div import _propagate_bounds_div
+from asdex.detection._interpret._elementwise import _lax_div
 
 
 @pytest.mark.elementwise
@@ -81,3 +82,19 @@ def test_div_bounds_integer_truncation():
     lo, hi = state.bounds[eqn.outvars[0]]
     np.testing.assert_array_equal(lo, [-2])
     np.testing.assert_array_equal(hi, [-2])
+
+
+@pytest.mark.elementwise
+def test_lax_div_matches_lax_for_large_int64():
+    """Integer const division is exact for int64 values beyond float64 precision.
+
+    Truncating a float64 quotient loses the low bits of operands above 2**53,
+    so an index computed from such a quotient would resolve to the wrong position.
+    The result must match ``lax.div`` exactly, for every sign combination.
+    """
+    big = 2**60 + 3
+    a = np.array([big, -big, big, -big, 7, -7], dtype=np.int64)
+    b = np.array([3, 3, -3, -3, 2, 2], dtype=np.int64)
+    with jax.enable_x64(True):
+        expected = np.asarray(lax.div(a, b))
+    np.testing.assert_array_equal(_lax_div(a, b), expected)
