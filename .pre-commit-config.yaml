@@ -4,6 +4,8 @@ repos:
     hooks:
       - id: typos
         priority: 0
+        exclude: 'paper/paper.bib'
+        args: [--diff, --force-exclude] # don't --write-changes, report only
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
