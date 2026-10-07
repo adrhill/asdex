@@ -83,8 +83,13 @@ class _PropState:
     ``indices`` is scoped to a single jaxpr:
     each nested jaxpr (cond branch, while body, jit call) gets a fresh dict,
     so intermediate index sets can be freed when the scope ends.
-    ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
-    which is safe because jaxpr variables are globally unique objects.
+    ``consts`` and ``bounds`` are shared across nested scopes by aliasing.
+    JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
+    can be propagated from several call sites.
+    Value info on a jaxpr's vars is therefore overwritten on every entry:
+    ``_forward_across_jaxpr_boundary`` clears what it cannot forward,
+    ``_forget_value_info`` clears inputs that are never forwarded,
+    and ``_prop_jaxpr`` clears each equation's outvars before dispatch.
     """
 
     indices: StateIndices = field(default_factory=dict)
@@ -622,8 +627,12 @@ def _forward_across_jaxpr_boundary(
     reading them here would force the host copies
     that ``_seed_const_vals`` deliberately defers
     at every nested-jaxpr boundary.
+
+    Destinations whose source has no const value or bounds are cleared,
+    so a reused jaxpr does not keep value info from an earlier call site.
     """
     for src, dst in zip(src_atoms, dst_vars, strict=False):
+        _forget_value_info(state, [dst])
         if isinstance(src, Literal):
             state.consts[dst] = np.asarray(src.val)
         elif isinstance(src, Var):
@@ -631,3 +640,17 @@ def _forward_across_jaxpr_boundary(
                 state.consts[dst] = state.consts[src]
             if src in state.bounds:
                 state.bounds[dst] = state.bounds[src]
+
+
+def _forget_value_info(state: _PropState, variables: Sequence[Var]) -> None:
+    """Drop any const values and value bounds stored on ``variables``.
+
+    Used for nested-jaxpr inputs that are never forwarded
+    (e.g. loop carries, whose values change every iteration)
+    and for equation outputs before they are recomputed.
+    Without it, a jaxpr reused from an earlier call site
+    would still carry that call's value info.
+    """
+    for var in variables:
+        state.consts.pop(var, None)
+        state.bounds.pop(var, None)

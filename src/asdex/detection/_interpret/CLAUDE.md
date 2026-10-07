@@ -30,6 +30,11 @@ through primitives to determine Jacobian sparsity patterns.
   `indices` is scoped to a single jaxpr
   (each nested jaxpr gets a fresh dict via `_prop_jaxpr`, so intermediates can be freed),
   while `consts` and `bounds` are shared across nested scopes by aliasing.
+  JAX caches traced jaxprs, so the same inner `Var`s can be reached from several call sites.
+  Value info is therefore overwritten on every entry:
+  `_forward_across_jaxpr_boundary` clears destinations it cannot forward,
+  `_forget_value_info` clears never-forwarded inputs such as loop carries,
+  and `_prop_jaxpr` clears each equation's outvars before dispatch.
 
 ## Naming Conventions
 
