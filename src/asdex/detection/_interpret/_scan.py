@@ -5,6 +5,7 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     PropJaxprFn,
+    _atom_numel,
     _forget_value_info,
     _forward_across_jaxpr_boundary,
     _index_sets,
@@ -79,10 +80,12 @@ def _prop_scan(
     carry_indices: list[list[IndexSet]] = [_index_sets(state, v) for v in carry_init]
 
     # Pre-compute xs index sets and per-slice sizes.
-    # xs arrays carry a leading dim of size ``length``,
-    # so each per-timestep slice has ``numel // length`` elements.
+    # The body's xs invars are single timesteps,
+    # so their sizes are the slice sizes, even when ``length`` is zero.
     xs_all_indices: list[list[IndexSet]] = [_index_sets(state, v) for v in xs]
-    xs_slice_numels: list[int] = [len(ind) // length for ind in xs_all_indices]
+    xs_slice_numels: list[int] = [
+        _atom_numel(v) for v in body_jaxpr.invars[num_consts + num_carry :]
+    ]
 
     # The saturation early exit is only sound when every timestep
     # sees the same xs index sets,

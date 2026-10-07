@@ -703,3 +703,25 @@ def test_scan_saturation_no_carry():
     result = jacobian_sparsity(f, np.zeros(n)).todense().astype(int)
     expected = np.ones((length, n), dtype=int)  # ys[t] = x[0] + x[1] + x[2]
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.control_flow
+def test_scan_zero_length_with_xs():
+    """A zero-length scan over xs returns the initial carry and empty ys.
+
+    The body never runs, so the final carry depends only on the initial carry
+    and the ys output has no elements.
+    The per-timestep xs slice size is undefined for zero timesteps,
+    so it must not be computed by dividing by the length.
+    """
+
+    def f(x):
+        xs = jnp.zeros((0, 2)) + x[:2]
+        carry, ys = jax.lax.scan(lambda c, xi: (c + xi.sum(), xi * c), x[0], xs)
+        return jnp.concatenate([carry[None], ys.ravel()])
+
+    x = np.arange(1.0, 4.0)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array([[1, 0, 0]], dtype=int)  # carry = x[0]
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, x)
