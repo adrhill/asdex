@@ -8,6 +8,7 @@ from ._common import (
     _clear_where_zero,
     _propagate_const_binary,
     _PropState,
+    _set_value_bounds,
 )
 from ._elementwise import _binary_elementwise, _lax_div
 
@@ -71,4 +72,4 @@ def _propagate_bounds_div(
 
     lo = np.minimum(np.minimum(c1, c2), np.minimum(c3, c4))
     hi = np.maximum(np.maximum(c1, c2), np.maximum(c3, c4))
-    state.bounds[eqn.outvars[0]] = (lo, hi)
+    _set_value_bounds(state, eqn.outvars[0], lo, hi)

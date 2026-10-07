@@ -293,6 +293,50 @@ def _atom_value_bounds(
     return None
 
 
+def _exact_ints(a: np.ndarray) -> np.ndarray:
+    """Widen an integer array to Python ints so bounds arithmetic cannot wrap.
+
+    Interval arithmetic in the operand dtype silently wraps on overflow
+    (e.g. int8 ``120 + 15`` gives ``-121``),
+    yielding bounds that exclude values the program computes.
+    Arbitrary-precision ints keep the endpoints exact,
+    and ``_set_value_bounds`` then drops any interval
+    that does not fit the output dtype.
+    Non-integer arrays are returned unchanged.
+    """
+    a = np.asarray(a)
+    if np.issubdtype(a.dtype, np.integer):
+        return a.astype(object)
+    return a
+
+
+def _set_value_bounds(
+    state: _PropState, var: Var, lo: np.ndarray, hi: np.ndarray
+) -> None:
+    """Store ``(lo, hi)`` as the value bounds of ``var`` if they are sound.
+
+    Every bounds write goes through here,
+    so stored bounds always satisfy ``lo <= hi``
+    and, for integer outputs, lie within the output dtype's range.
+    Bounds outside that range mean the computation may wrap around,
+    so the real values are not an interval and nothing is stored.
+    """
+    lo, hi = np.asarray(lo), np.asarray(hi)
+    if not np.all(lo <= hi):
+        return
+    aval_dtype = getattr(var.aval, "dtype", None)
+    if aval_dtype is None:
+        return
+    dtype = np.dtype(aval_dtype)
+    if np.issubdtype(dtype, np.integer):
+        info = np.iinfo(dtype.type)
+        if not (np.all(lo >= info.min) and np.all(hi <= info.max)):
+            return
+        lo = lo.astype(dtype, copy=False)
+        hi = hi.astype(dtype, copy=False)
+    state.bounds[var] = (lo, hi)
+
+
 def _binary_value_bounds(
     eqn: JaxprEqn,
     state: _PropState,

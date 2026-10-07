@@ -16,11 +16,13 @@ from ._common import (
     _clear_where_zero,
     _empty_index_set,
     _empty_index_sets,
+    _exact_ints,
     _index_sets,
     _numel,
     _propagate_const_binary,
     _propagate_const_unary,
     _PropState,
+    _set_value_bounds,
     _ternary_value_bounds,
     _union_elementwise,
 )
@@ -198,7 +200,8 @@ def _propagate_bounds_add(
     if bounds is None:
         return
     (lo1, hi1), (lo2, hi2) = bounds
-    state.bounds[eqn.outvars[0]] = (lo1 + lo2, hi1 + hi2)
+    lo1, hi1, lo2, hi2 = map(_exact_ints, (lo1, hi1, lo2, hi2))
+    _set_value_bounds(state, eqn.outvars[0], lo1 + lo2, hi1 + hi2)
 
 
 def _propagate_bounds_sub(
@@ -210,7 +213,8 @@ def _propagate_bounds_sub(
     if bounds is None:
         return
     (lo1, hi1), (lo2, hi2) = bounds
-    state.bounds[eqn.outvars[0]] = (lo1 - hi2, hi1 - lo2)
+    lo1, hi1, lo2, hi2 = map(_exact_ints, (lo1, hi1, lo2, hi2))
+    _set_value_bounds(state, eqn.outvars[0], lo1 - hi2, hi1 - lo2)
 
 
 def _propagate_bounds_extremum(
@@ -231,7 +235,7 @@ def _propagate_bounds_extremum(
     if bounds is None:
         return
     (lo1, hi1), (lo2, hi2) = bounds
-    state.bounds[eqn.outvars[0]] = (combine(lo1, lo2), combine(hi1, hi2))
+    _set_value_bounds(state, eqn.outvars[0], combine(lo1, lo2), combine(hi1, hi2))
 
 
 # Composite handlers (public)
@@ -459,16 +463,16 @@ def _propagate_bounds_integer_pow(
     if in_bounds is None:
         return
 
-    lo, hi = in_bounds
+    lo, hi = map(_exact_ints, in_bounds)
 
     if y < 0:
         return
     if y == 0:
         ones = np.ones_like(lo)
-        state.bounds[eqn.outvars[0]] = (ones, ones)
+        _set_value_bounds(state, eqn.outvars[0], ones, ones)
     elif y % 2 == 1:
         # Odd power is monotone.
-        state.bounds[eqn.outvars[0]] = (np.power(lo, y), np.power(hi, y))
+        _set_value_bounds(state, eqn.outvars[0], np.power(lo, y), np.power(hi, y))
     else:
         # Even power: x^n is not monotone over intervals spanning zero.
         abs_lo = np.abs(lo)
@@ -479,7 +483,7 @@ def _propagate_bounds_integer_pow(
         spans_zero = (lo <= 0) & (hi >= 0)
         out_lo = np.where(spans_zero, np.zeros_like(lo), np.power(min_abs, y))
         out_hi = np.power(max_abs, y)
-        state.bounds[eqn.outvars[0]] = (out_lo, out_hi)
+        _set_value_bounds(state, eqn.outvars[0], out_lo, out_hi)
 
 
 def _prop_unary_elementwise(eqn: JaxprEqn, state: _PropState) -> None:
@@ -539,17 +543,17 @@ def _prop_convert_element_type(
             state.consts[eqn.outvars[0]] = in_val
 
     # Propagate value bounds with dtype cast.
+    # Integer targets keep the exact endpoints,
+    # so ``_set_value_bounds`` drops intervals that would wrap.
     bounds = _atom_value_bounds(eqn.invars[0], state)
     if bounds is not None:
         lo, hi = bounds
         new_dtype = eqn.params.get("new_dtype")
-        if new_dtype is not None:
-            state.bounds[eqn.outvars[0]] = (
-                lo.astype(new_dtype),
-                hi.astype(new_dtype),
-            )
-        else:
-            state.bounds[eqn.outvars[0]] = (lo, hi)
+        if new_dtype is not None and np.issubdtype(new_dtype, np.integer):
+            lo, hi = _exact_ints(lo), _exact_ints(hi)
+        elif new_dtype is not None:
+            lo, hi = lo.astype(new_dtype), hi.astype(new_dtype)
+        _set_value_bounds(state, eqn.outvars[0], lo, hi)
 
 
 def _prop_clamp(eqn: JaxprEqn, state: _PropState) -> None:
@@ -598,7 +602,9 @@ def _propagate_bounds_clamp(eqn: JaxprEqn, state: _PropState) -> None:
     if bounds is None:
         return
     (min_lo, min_hi), (val_lo, val_hi), (max_lo, max_hi) = bounds
-    state.bounds[eqn.outvars[0]] = (
+    _set_value_bounds(
+        state,
+        eqn.outvars[0],
         np.minimum(np.maximum(val_lo, min_lo), max_lo),
         np.minimum(np.maximum(val_hi, min_hi), max_hi),
     )
