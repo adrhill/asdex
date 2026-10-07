@@ -1,6 +1,10 @@
 # asdex
 
-## Version `v0.5.3`
+## Unreleased
+* ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity`
+* ![Maintenance][badge-maintenance] Cross-validate the greedy colorings and their validators against [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl), the Julia package they were ported from.
+  The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
+* ![Feature][badge-feature] Support the `one_minus_square` primitive that JAX 0.11.2 emits in the derivatives of `tanh`, `arcsin`, `arccos`, and `arctanh` ([#192])
 * ![Enhancement][badge-enhancement] Propagate value bounds through `max`, `min`, and `clamp`, so clipping a data-dependent index into range (e.g. `jnp.clip(idx, 0, n)`) keeps it bounded.
   Previously `jnp.clip` erased the bounds and downstream `gather`, `scatter`, and `dynamic_slice` fell back to a dense pattern ([#181])
 
@@ -140,6 +144,8 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#192]: https://github.com/adrhill/asdex/pull/192
+[#187]: https://github.com/adrhill/asdex/pull/187
 [#181]: https://github.com/adrhill/asdex/pull/181
 [#180]: https://github.com/adrhill/asdex/pull/180
 [#176]: https://github.com/adrhill/asdex/pull/176

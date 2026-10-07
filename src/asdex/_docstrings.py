@@ -45,7 +45,6 @@ from asdex._defaults import (
     _DEFAULT_HOLOMORPHIC,
     _DEFAULT_MATVEC_TOL,
     _DEFAULT_NUM_PROBES,
-    _DEFAULT_POSTPROCESS,
     _DEFAULT_SYMMETRIC_HESSIAN,
     _DEFAULT_SYMMETRIC_JACOBIAN,
     _DEFAULT_SYMMETRIC_JACOBIAN_MODE,
@@ -112,10 +111,6 @@ _COLORS_COLS = "Column color assignment, shape ``(n,)``."
 
 _COLORS_VERTEX = "Vertex color assignment, shape ``(n,)``."
 
-_FORCED_COLORS = """Optional pre-computed color assignment of shape ``(n,)``.
-        When provided, the algorithm verifies it satisfies the star-coloring
-        constraints and raises [`InvalidColoringError`][asdex.InvalidColoringError] otherwise."""
-
 # Sample inputs and differentiation options
 
 _SAMPLE_ARGS = """Sample arguments of ``f``.
@@ -171,24 +166,6 @@ _SYMMETRIC_JAC = f"""Whether to use symmetric coloring.
 
 _SYMMETRIC_HESS = f"""Whether to use symmetric coloring.
         Defaults to ``{_DEFAULT_SYMMETRIC_HESSIAN}``."""
-
-_POSTPROCESS_JAC = f"""Only read when ``symmetric=True``.
-        Prune colors never used as hubs and compact the remaining ones
-        (reduces the number of VJPs/JVPs during decompression).
-        Defaults to ``{_DEFAULT_POSTPROCESS}``."""
-
-_POSTPROCESS_HESS = f"""Only read when ``symmetric=True``.
-        Prune colors never used as hubs and compact the remaining ones
-        (reduces the number of HVPs during decompression).
-        Pruned vertices get the neutral color ``-1`` (no HVP is computed for them).
-        Defaults to ``{_DEFAULT_POSTPROCESS}``."""
-
-_POSTPROCESS_SYMMETRIC = f"""If ``True``, replace colors that are never used as a hub color
-        (and not forced by a diagonal entry) with ``-1`` (neutral),
-        then compact remaining colors down.
-        This reduces the number of HVPs needed during decompression.
-        Defaults to ``{_DEFAULT_POSTPROCESS}``,
-        matching SparseMatrixColorings.jl's ``postprocessing=false`` default."""
 
 _CHUNK_SIZE = f"""Maximum number of colors to process in parallel.
         Defaults to ``{_DEFAULT_CHUNK_SIZE}``, processing all colors in a single vmapped batch.
@@ -267,7 +244,6 @@ _FRAGMENTS: dict[str, str] = {
     "colors_rows": _COLORS_ROWS,
     "colors_cols": _COLORS_COLS,
     "colors_vertex": _COLORS_VERTEX,
-    "forced_colors": _FORCED_COLORS,
     "sample_args": _SAMPLE_ARGS,
     "x_multi_input": _X_MULTI_INPUT,
     "x_jac": _X_JAC,
@@ -283,9 +259,6 @@ _FRAGMENTS: dict[str, str] = {
     "mode_hess": _MODE_HESS,
     "symmetric_jac": _SYMMETRIC_JAC,
     "symmetric_hess": _SYMMETRIC_HESS,
-    "postprocess_jac": _POSTPROCESS_JAC,
-    "postprocess_hess": _POSTPROCESS_HESS,
-    "postprocess_symmetric": _POSTPROCESS_SYMMETRIC,
     "chunk_size": _CHUNK_SIZE,
     "sample_kwargs": _SAMPLE_KWARGS,
     "sample_kwargs_detect": _SAMPLE_KWARGS_DETECT,

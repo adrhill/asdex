@@ -81,6 +81,10 @@ docs = [
     "mkdocs-matplotlib>=0.10.0",
     "mkdocstrings[python]>=0.27.0",
 ]
+smc = [
+    "juliacall>=0.9.35",
+    "pytest>=8.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -90,7 +94,7 @@ build-backend = "hatchling.build"
 packages = ["src/asdex"]
 
 [tool.pytest.ini_options]
-addopts = "--tb=short --strict-markers -m 'not (slow or benchmark or cutest)'"
+addopts = "--tb=short --strict-markers -m 'not (slow or benchmark or cutest or smc)'"
 testpaths = ["tests"]
 filterwarnings = [
     "ignore:Setting `jax_pmap_shmap_merge`:DeprecationWarning",
@@ -111,6 +115,7 @@ markers = [
     "dashboard: benchmarks tracked in the GitHub Pages dashboard",
     "plot: matplotlib visualization smoke tests",
     "cutest: CUTEst benchmark problem tests (requires sif2jax)",
+    "smc: cross-validation against SparseMatrixColorings.jl (requires Julia via juliacall)",
 ]
 
 [tool.ruff]
@@ -157,10 +162,15 @@ exclude_also = [
     "assert_never\\(",
 ]
 
-# These files import optional dependencies (matplotlib, griffe) that are absent
-# from the lean type-check environment (dev group only), so ignore unresolved imports.
+# These files import optional dependencies (matplotlib, griffe, juliacall) that are
+# absent from the lean type-check environment (dev group only),
+# so ignore unresolved imports.
 [[tool.ty.overrides]]
-include = ["src/asdex/_plotting.py", "docs/_griffe_extensions.py"]
+include = [
+    "src/asdex/_plotting.py",
+    "docs/_griffe_extensions.py",
+    "tests/smc/conftest.py",
+]
 
 [tool.ty.overrides.rules]
 unresolved-import = "ignore"

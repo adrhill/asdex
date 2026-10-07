@@ -58,11 +58,10 @@ def _build_symmetric_csr(
     rows: NDArray[np.int32],
     cols: NDArray[np.int32],
     n: int,
-) -> tuple[NDArray[np.int32], NDArray[np.int32], NDArray[np.bool_]]:
+) -> tuple[NDArray[np.int32], NDArray[np.int32]]:
     """Build a symmetric CSR adjacency for star-coloring an ``(n, n)`` pattern.
 
-    Self-loops are stripped from the CSR and reported separately via
-    ``has_self_loop``.
+    Self-loops are stripped from the CSR.
     Both symmetric and triangular input patterns are accepted:
     the function symmetrizes by including every off-diagonal entry in both
     directions, then deduplicates.
@@ -76,13 +75,11 @@ def _build_symmetric_csr(
         n: Number of vertices (pattern has shape ``(n, n)``).
 
     Returns:
-        Tuple ``(indptr, neighbors, has_self_loop)`` where:
+        Tuple ``(indptr, neighbors)`` where:
 
             - indptr: Shape ``(n + 1,)``, CSR row offsets.
             - neighbors: Off-diagonal neighbors per vertex,
               sorted ascending within each vertex's range.
-            - has_self_loop: Shape ``(n,)``,
-              ``True`` where ``(i, i)`` is in the input pattern.
     """
     off_mask = rows != cols
     off_rows = rows[off_mask]
@@ -109,12 +106,7 @@ def _build_symmetric_csr(
     np.cumsum(counts, out=indptr[1:])
     neighbors = sb.astype(np.int32, copy=False)
 
-    has_self_loop = np.zeros(n, dtype=bool)
-    diag_rows = rows[~off_mask]
-    if diag_rows.size > 0:
-        has_self_loop[diag_rows] = True
-
-    return indptr, neighbors, has_self_loop
+    return indptr, neighbors
 
 
 def _build_edge_to_index(
@@ -197,7 +189,7 @@ def _reconstruct_edge_arrays(
     # so in-place mutation of one cannot affect the others.
     if n == 0:
         return _empty_int32(), _empty_int32(), _empty_int32()
-    indptr, neighbors, _ = _build_symmetric_csr(rows, cols, n)
+    indptr, neighbors = _build_symmetric_csr(rows, cols, n)
     if len(neighbors) == 0:
         return _empty_int32(), _empty_int32(), _empty_int32()
     edge_to_index = _build_edge_to_index(indptr, neighbors)

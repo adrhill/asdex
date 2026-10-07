@@ -16,24 +16,18 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
-from asdex._defaults import _DEFAULT_POSTPROCESS
 from asdex._docstrings import _fill_doc
-from asdex._errors import InvalidColoringError
 from asdex._pattern import SparsityPattern, StarSet
 from asdex.coloring._graph import (
     _build_edge_arrays,
     _build_edge_to_index,
     _build_symmetric_csr,
 )
-from asdex.coloring._postprocessing import _postprocess_star_coloring
 
 
 @_fill_doc
 def color_symmetric(
     sparsity: SparsityPattern,
-    *,
-    postprocess: bool = _DEFAULT_POSTPROCESS,
-    forced_colors: NDArray[np.int32] | list[int] | None = None,
 ) -> tuple[NDArray[np.int32], int, StarSet]:
     """Greedy symmetric coloring for sparse Hessian computation.
 
@@ -47,22 +41,17 @@ def color_symmetric(
 
     Args:
         sparsity: {sparsity_pattern_hess}
-        postprocess: {postprocess_symmetric}
-        forced_colors: {forced_colors}
 
     Returns:
         Tuple ``(colors, num_colors, star_set)`` where:
 
             - colors: Array of shape ``(n,)`` with color assignment for each vertex.
-              Values are in ``[0, num_colors - 1]`` for active vertices.
-              After postprocessing, vertices whose color is pruned have value ``-1``
-              (neutral — no HVP needed for them).
+              Values are in ``[0, num_colors - 1]``.
             - num_colors: Number of active colors (i.e. number of HVPs).
             - star_set: :class:`StarSet` encoding the 2-colored star decomposition.
 
     Raises:
         ValueError: If pattern is not square.
-        InvalidColoringError: If ``forced_colors`` violates a star-coloring constraint.
     """
     if sparsity.m != sparsity.n:
         msg = (
@@ -82,59 +71,28 @@ def color_symmetric(
             ),
         )
 
-    indptr, neighbors, has_self_loop = _build_symmetric_csr(
-        sparsity.rows, sparsity.cols, n
-    )
+    indptr, neighbors = _build_symmetric_csr(sparsity.rows, sparsity.cols, n)
     edge_to_index = _build_edge_to_index(indptr, neighbors)
     num_edges = len(neighbors) // 2
-
-    if forced_colors is not None:
-        forced_arr = np.asarray(forced_colors, dtype=np.int32)
-        if forced_arr.shape != (n,):
-            msg = f"forced_colors must have shape ({n},), got {forced_arr.shape}"
-            raise ValueError(msg)
-        if np.any(forced_arr < 0):
-            msg = "forced_colors must contain non-negative integers"
-            raise ValueError(msg)
-        has_forced = True
-    else:
-        forced_arr = np.empty(0, dtype=np.int32)
-        has_forced = False
 
     # LargestFirst ordering: CSR row length is the (self-loop-free) degree.
     degrees = indptr[1:] - indptr[:-1]
     order = np.argsort(-degrees, kind="stable").astype(np.int64, copy=False)
 
-    colors, star, hub_buf, hub_len, num_colors, error_vertex, error_color = (
-        _star_coloring_core(
-            n,
-            num_edges,
-            indptr,
-            neighbors,
-            edge_to_index,
-            order,
-            forced_arr,
-            has_forced,
-        )
+    colors, star, hub_buf, hub_len, num_colors = _star_coloring_core(
+        n,
+        num_edges,
+        indptr,
+        neighbors,
+        edge_to_index,
+        order,
     )
-
-    if error_vertex >= 0:
-        msg = (
-            f"forced_colors[{error_vertex}] = {error_color} violates a star-coloring "
-            f"constraint at vertex {error_vertex}"
-        )
-        raise InvalidColoringError(msg)
 
     hub = hub_buf[:hub_len]
     edge_lo, edge_hi, edge_pos = _build_edge_arrays(indptr, neighbors, edge_to_index)
     star_set = StarSet(
         star=star, hub=hub, edge_lo=edge_lo, edge_hi=edge_hi, edge_pos=edge_pos
     )
-
-    if postprocess:
-        num_colors = _postprocess_star_coloring(
-            colors, star_set, has_self_loop, num_colors
-        )
 
     return colors, int(num_colors), star_set
 
@@ -233,14 +191,10 @@ def _star_coloring_core(
     neighbors: NDArray[np.int32],
     edge_to_index: NDArray[np.int32],
     order: NDArray[np.int64],
-    forced: NDArray[np.int32],
-    has_forced: bool,
 ) -> tuple[
     NDArray[np.int32],
     NDArray[np.int32],
     NDArray[np.int32],
-    int,
-    int,
     int,
     int,
 ]:
@@ -254,10 +208,6 @@ def _star_coloring_core(
     - ``fn_p`` / ``fn_q`` / ``fn_edge`` replace the list of
       ``(p, q, edge_pq)`` tuples indexed by color.
     - ``forbidden_colors`` / ``treated`` / ``star`` / ``colors`` are int32 arrays.
-
-    On success returns ``(error_vertex, error_color) = (-1, -1)``.
-    On a forced-color star-coloring violation, returns early with
-    those fields set so the Python wrapper can raise :class:`InvalidColoringError`.
 
     SMC stamp trick: ``forbidden_colors[c] == v`` means color ``c`` is forbidden
     for ``v`` and ``treated[w] == v`` means ``w``'s colored neighbors have been
@@ -273,8 +223,6 @@ def _star_coloring_core(
     hub_buf = np.empty(num_edges, dtype=np.int32)
     hub_len = 0
     num_colors = 0
-    error_vertex = -1
-    error_color = -1
 
     for v in order:
         for pos_vw in range(indptr[v], indptr[v + 1]):
@@ -311,24 +259,9 @@ def _star_coloring_core(
                     if s_wx >= 0 and hub_buf[s_wx] == x:
                         forbidden_colors[cx] = v
 
-        if not has_forced:
-            color = 0
-            while color < n and forbidden_colors[color] == v:
-                color += 1
-        else:
-            color = forced[v]
-            if color < n and forbidden_colors[color] == v:
-                error_vertex = v
-                error_color = color
-                return (
-                    colors,
-                    star,
-                    hub_buf,
-                    hub_len,
-                    num_colors,
-                    error_vertex,
-                    error_color,
-                )
+        color = 0
+        while color < n and forbidden_colors[color] == v:
+            color += 1
 
         colors[v] = color
         if color + 1 > num_colors:
@@ -348,12 +281,4 @@ def _star_coloring_core(
             fn_edge,
         )
 
-    return (
-        colors,
-        star,
-        hub_buf,
-        hub_len,
-        num_colors,
-        error_vertex,
-        error_color,
-    )
+    return colors, star, hub_buf, hub_len, num_colors

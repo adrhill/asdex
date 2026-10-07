@@ -508,8 +508,7 @@ class StarSet:
     Attributes:
         star: Mapping from undirected edge index to star index, shape ``(num_edges,)``.
         hub: Mapping from star index to hub vertex, shape ``(num_stars,)``.
-            ``hub[s] >= 0``: hub vertex (non-trivial star, or trivial star
-            whose hub was resolved by postprocessing).
+            ``hub[s] >= 0``: hub vertex of a non-trivial star.
             ``hub[s] < 0``: trivial star with unresolved hub, encoded as
             ``hub[s] = -(v + 1)`` where ``v`` is one of the edge's endpoints
             (arbitrarily picked at construction time);
@@ -564,7 +563,7 @@ class ColoredPattern:
             Shape ``(m,)`` for ``"rev"`` mode,
             ``(n,)`` for all other modes.
             A value of ``-1`` means "neutral": the vertex is not seeded
-            (used after star-coloring postprocessing).
+            (only for all-zero patterns, which need no AD pass).
         num_colors: Total number of active colors (number of JVPs/VJPs/HVPs).
         symmetric: Whether symmetric (star) coloring was used.
         mode: The AD mode.
@@ -697,8 +696,8 @@ class ColoredPattern:
 
         # The gather promises in-bounds indices, so a neutral (-1) color would
         # silently read garbage.
-        # Star-coloring postprocessing keeps diagonal and hub colors used,
-        # guaranteeing none reach here.
+        # Neutral colors only occur for all-zero patterns, which have no entries
+        # to extract, so none can reach here.
         # Checked explicitly (not `assert`) so `python -O` cannot strip the guard.
         if not (color_idx >= 0).all():
             raise AssertionError("neutral (-1) color in extraction indices")

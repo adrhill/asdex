@@ -1091,8 +1091,8 @@ def test_extraction_indices_neutral_color_raises():
 
     The decompression gather promises in-bounds indices,
     so a -1 color index would silently read garbage.
-    Star-coloring postprocessing guarantees this cannot happen
-    for colorings produced by the public API;
+    Colorings produced by the public API never assign a neutral color
+    to a vertex with nonzeros;
     the assertion guards hand-constructed or corrupted colorings.
     Extraction indices are computed eagerly,
     so the guard fires at construction time.

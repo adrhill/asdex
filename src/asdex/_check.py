@@ -89,8 +89,8 @@ def check_coloring_symmetric(
     2. Every path on 4 vertices uses at least 3 distinct colors
        (no 2-colored P4).
 
-    Vertices with color ``-1`` (neutral, from postprocessing) are excluded
-    from the P4 check as they represent the absence of a color.
+    Vertices with the neutral color ``-1`` are excluded from both checks,
+    as they represent the absence of a color.
 
     Args:
         sparsity: {sparsity_pattern_hess}
