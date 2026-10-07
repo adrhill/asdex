@@ -18,6 +18,9 @@ site/
 # Written by the executed save/load example in docs/index.md
 colored.npz
 
+# Paper
+*.pdf
+
 # Virtual environments
 .venv
 .claude/settings.local.json
