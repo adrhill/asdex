@@ -1458,3 +1458,141 @@ def test_clamp_variable_hi_bound():
 def test_union_with_zero_derivs(s1, s2, is_der1_zero, is_der2_zero, expected):
     """Only inputs with a nonzero derivative contribute their index sets."""
     assert _union_with_zero_derivs(s1, s2, is_der1_zero, is_der2_zero) == expected
+
+
+def _one_hot(n, position):
+    """Input whose ``argmax`` is ``position``.
+
+    The wrap-around tests below route ``argmax`` through overflowing integer ops,
+    so which elements a slice reads depends on which position wins.
+    Checking against JAX at every one-hot input covers every wrapped branch.
+    """
+    x = np.zeros(n)
+    x[position] = 1.0
+    return x
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "narrow",
+    [
+        pytest.param(lambda i: jnp.maximum(i, jnp.int8(121)), id="max"),
+        pytest.param(lambda i: jnp.clip(i, 121, 126), id="clip"),
+        pytest.param(lambda i: lax.clamp(jnp.int8(121), i, jnp.int8(126)), id="clamp"),
+    ],
+)
+def test_wrapped_add_bounds_are_dropped_before_narrowing(narrow):
+    """An int8 sum that can overflow carries no bounds into max, clip, or clamp.
+
+    argmax(x[:16]) + 120 wraps past 127 to -128,
+    so its real values are {120..127} or {-128..-121}
+    while unchecked interval arithmetic would claim [120, 135].
+    Narrowing that interval would claim the single start 21,
+    but JAX starts the slice anywhere in 21..26 or more.
+    The overflowing sum must lose its bounds,
+    so the slice falls back to a conservative pattern.
+    """
+
+    def f(x):
+        i = jnp.argmax(x[:16]).astype(jnp.int8) + jnp.int8(120)
+        start = narrow(i).astype(jnp.int32) - 100
+        return lax.dynamic_slice(x, (start,), (1,))
+
+    for position in range(16):
+        assert_jacobian_sparsity_conservative(f, _one_hot(40, position))
+    result = jacobian_sparsity(f, np.zeros(40)).todense().astype(int)
+    # TODO(add): track wrapped values as a union of intervals.
+    # The precise pattern reads x[21..27] only.
+    np.testing.assert_array_equal(result, np.ones((1, 40), dtype=int))
+
+
+@pytest.mark.elementwise
+def test_wrapped_unsigned_add_bounds_are_dropped():
+    """A uint8 sum that can overflow carries no bounds into ``min``.
+
+    argmax(x[:16]) + 250 is {250..255} or {0..9} after wraparound,
+    so minimum(., 5) can be any start in 0..5.
+    """
+
+    def f(x):
+        i = jnp.argmax(x[:16]).astype(jnp.uint8) + jnp.uint8(250)
+        start = jnp.minimum(i, jnp.uint8(5)).astype(jnp.int32)
+        return lax.dynamic_slice(x, (start,), (1,))
+
+    for position in range(16):
+        assert_jacobian_sparsity_conservative(f, _one_hot(20, position))
+    result = jacobian_sparsity(f, np.zeros(20)).todense().astype(int)
+    # TODO(add): track wrapped values as a union of intervals.
+    # The precise pattern reads x[0..5] only.
+    np.testing.assert_array_equal(result, np.ones((1, 20), dtype=int))
+
+
+@pytest.mark.elementwise
+def test_wrapped_mul_bounds_are_dropped():
+    """An int8 product that can overflow carries no bounds.
+
+    argmax(x[:4]) * 64 is {0, 64, -128, -64} after int8 wraparound.
+    Unchecked corner products claim [-64, 0],
+    so maximum(., 0) would claim the single start 0
+    while argmax = 1 really starts the slice at 64.
+    """
+
+    def f(x):
+        i = jnp.argmax(x[:4]).astype(jnp.int8) * jnp.int8(64)
+        start = jnp.maximum(i, jnp.int8(0)).astype(jnp.int32)
+        return lax.dynamic_slice(x, (start,), (1,))
+
+    for position in range(4):
+        assert_jacobian_sparsity_conservative(f, _one_hot(100, position))
+    result = jacobian_sparsity(f, np.zeros(100)).todense().astype(int)
+    # TODO(mul): track wrapped values as a union of intervals.
+    # The precise pattern reads x[0] and x[64] only.
+    np.testing.assert_array_equal(result, np.ones((1, 100), dtype=int))
+
+
+@pytest.mark.elementwise
+def test_wrapped_add_bounds_do_not_fold_comparison():
+    """A comparison on an overflowing sum does not fold to a constant.
+
+    argmax(x[:8]) + 124 in int8 is {124..127} or {-128..-125},
+    so ``i < 0`` can be either True or False
+    and both start positions 30 and 5 stay reachable.
+    """
+
+    def f(x):
+        i = jnp.argmax(x[:8]).astype(jnp.int8) + jnp.int8(124)
+        start = jnp.where(i < 0, 30, 5)
+        return lax.dynamic_slice(x, (start,), (1,))
+
+    for position in range(8):
+        assert_jacobian_sparsity_conservative(f, _one_hot(40, position))
+    result = jacobian_sparsity(f, np.zeros(40)).todense().astype(int)
+    # TODO(select_n): keep the branch values as a set instead of an interval.
+    # The precise pattern reads x[5] and x[30] only.
+    # Merged branch bounds enumerate every start in [5, 30]
+    expected = np.zeros((1, 40), dtype=int)
+    expected[0, 5:31] = 1
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_narrowing_convert_drops_bounds_that_wrap():
+    """Converting bounds to a narrower int dtype drops them if values can wrap.
+
+    argmax(x[:4]) + 126 is in [126, 129],
+    which wraps to {126, 127, -128, -127} in int8.
+    Casting the endpoints would give the inverted interval (126, -127),
+    which enumerates no start at all.
+    """
+
+    def f(x):
+        j = (jnp.argmax(x[:4]) + 126).astype(jnp.int8)
+        start = jnp.maximum(j, jnp.int8(0)).astype(jnp.int32)
+        return lax.dynamic_slice(x, (start,), (1,))
+
+    for position in range(4):
+        assert_jacobian_sparsity_conservative(f, _one_hot(130, position))
+    result = jacobian_sparsity(f, np.zeros(130)).todense().astype(int)
+    # TODO(convert_element_type): track wrapped values as a union of intervals.
+    # The precise pattern reads x[0], x[126], and x[127] only.
+    np.testing.assert_array_equal(result, np.ones((1, 130), dtype=int))

@@ -14,6 +14,7 @@ from ._common import (
     _atom_value_bounds,
     _index_sets,
     _PropState,
+    _set_value_bounds,
     _union_elementwise,
 )
 
@@ -122,11 +123,11 @@ def _prop_select_n(
     # Dynamic or mixed predicate → merge bounds across all branches.
     bounds = _merged_case_bounds(cases, state)
     if bounds is not None:
-        state.bounds[out_var] = bounds
+        _set_value_bounds(state, out_var, *bounds)
 
 
 def _store_branch_bounds(state: _PropState, out_var: Var, case: Atom) -> None:
     """Store one branch's value bounds as the output's, if that branch has any."""
     bounds = _atom_value_bounds(case, state)
     if bounds is not None:
-        state.bounds[out_var] = bounds
+        _set_value_bounds(state, out_var, *bounds)

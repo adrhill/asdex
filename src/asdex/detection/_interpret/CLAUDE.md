@@ -147,6 +147,12 @@ is what lets a backend without cheap ordered iteration stay viable.
 - **`_atom_value_bounds(atom, state)`** —
   returns `(lo, hi)` bounds for an atom:
   exact `(val, val)` for constants, tracked bounds for bounded variables, or `None`.
+- **`_set_value_bounds(state, var, lo, hi)`** —
+  the only writer of `state.bounds`,
+  dropping bounds that are inverted or overflow `var`'s integer dtype
+  (see [Value Bounds Tracking](#value-bounds-tracking)).
+- **`_exact_ints(a)`** —
+  widens integer endpoints to Python ints so bounds arithmetic cannot wrap.
 - **`_binary_value_bounds(eqn, state)`** / **`_ternary_value_bounds(eqn, state)`** —
   return every operand's bounds for a binary or ternary op,
   or `None` if any of them is unknown.
@@ -221,6 +227,15 @@ Propagators only fire when **every** operand is bounded.
 An operand with no bounds could be anything,
 and the `(lo, hi)` representation cannot express a half-open interval,
 so the result is dropped rather than widened.
+
+Every bounds write goes through `_set_value_bounds(state, var, lo, hi)`,
+which stores nothing unless `lo <= hi`
+and, for integer outputs, both endpoints fit the output dtype.
+Integer ops wrap on overflow just as they do in JAX,
+so the real values of an overflowing `int8` sum are not an interval.
+Arithmetic propagators therefore widen their operands with `_exact_ints` first,
+so an overflow shows up as an out-of-range endpoint and drops the bounds
+instead of wrapping into a wrong interval.
 
 **Invariant**: if bounds are unavailable (`_atom_value_bounds` returns `None`),
 the handler must assume the worst and return a conservative pattern.
