@@ -243,3 +243,63 @@ def test_jit_const_index_chain_resolves_outer_gather():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_reused_jit_jaxpr_does_not_leak_stale_consts():
+    """A cached jit jaxpr reused with a data-dependent input forgets old consts.
+
+    ``jnp.clip`` is jit-wrapped,
+    so both calls below share one inner jaxpr and therefore the same inner vars.
+    The first call stores const values on those vars.
+    The second call receives a data-dependent index,
+    so the stale consts must not resolve its gather as if it were static.
+    """
+
+    def f(x):
+        i = jnp.clip(jnp.arange(3), 0, 5)
+        j = jnp.clip(jnp.floor(x[:3]).astype(int), 0, 5)
+        return jnp.concatenate([x[i], x[j]])
+
+    result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
+    expected = np.zeros((6, 6), dtype=int)
+    # out[k] <- x[k] for the static index
+    expected[:3, :3] = np.eye(3, dtype=int)
+    # The data-dependent index can reach any element of x
+    expected[3:, :] = 1
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.control_flow
+def test_reused_jit_jaxpr_in_while_body_does_not_leak_stale_consts():
+    """A cached jit jaxpr called on a loop carry forgets consts from an earlier call.
+
+    ``jnp.take`` is jit-wrapped and first called with a static index,
+    which stores a const on the inner index var.
+    Inside the loop body the same jaxpr receives the carry,
+    which has no const value,
+    so the gather must not reuse the stale index 0.
+    """
+
+    def f(x):
+        first = jnp.take(x, jnp.int32(0))
+
+        def body(carry):
+            i, acc = carry
+            return i + 1, acc + jnp.take(x, i)
+
+        _, acc = jax.lax.while_loop(
+            lambda carry: carry[0] < 3, body, (jnp.int32(0), jnp.float32(0))
+        )
+        return jnp.stack([first, acc])
+
+    x = np.zeros(4, dtype=np.float32)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 0, 0, 0],  # first <- x[0]
+            [1, 1, 1, 1],  # acc <- x[i] for a loop-carried i
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)

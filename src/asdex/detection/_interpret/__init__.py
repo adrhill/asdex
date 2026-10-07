@@ -17,6 +17,7 @@ from ._common import (
     _atom_numel,
     _conservative_indices,
     _empty_index_sets,
+    _forget_value_info,
     _forward_across_jaxpr_boundary,
     _index_sets,
     _PropState,
@@ -106,8 +107,11 @@ def _prop_jaxpr(
     for var in jaxpr.constvars:
         state.indices[var] = _empty_index_sets(_atom_numel(var))
 
-    # Process each equation
+    # Process each equation.
+    # Handlers only record value info they can derive,
+    # so clear what a reused jaxpr's outvars kept from an earlier call site.
     for eqn in jaxpr.eqns:
+        _forget_value_info(state, eqn.outvars)
         _prop_dispatch(eqn, state)
 
     # Return output dependencies
