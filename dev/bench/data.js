@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788430105079,
+  "lastUpdate": 1791393149653,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -20148,6 +20148,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00000941069620226563",
             "extra": "mean: 25.737551733244725 usec\nrounds: 15174"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eb01e58f9234a75db76d70e338caf6b00825ef55",
+          "message": "feat: support `one_minus_square` primitive (#192)\n\n* feat: support `one_minus_square` primitive\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: add `one_minus_square` sparsity test\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: link #192 in changelog\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-07T19:11:53+02:00",
+          "tree_id": "4de68a19fb58f9b7aa20b5e0218143af4696510c",
+          "url": "https://github.com/adrhill/asdex/commit/eb01e58f9234a75db76d70e338caf6b00825ef55"
+        },
+        "date": 1791393147795,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 675.1563963104396,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00033109406094504663",
+            "extra": "mean: 1.4811383043465918 msec\nrounds: 23"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 28479.89108962585,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000019600148290561767",
+            "extra": "mean: 35.112493824257015 usec\nrounds: 8582"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 77262.68864892451,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010967802296816637",
+            "extra": "mean: 12.942857897994207 usec\nrounds: 22512"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 47738.1275190948,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017305468457941124",
+            "extra": "mean: 20.947616757695606 usec\nrounds: 15014"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 76464.6050329466,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010790870423286968",
+            "extra": "mean: 13.077946319988525 usec\nrounds: 23845"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 24.741205954828416,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00028698353086813264",
+            "extra": "mean: 40.41840166666747 msec\nrounds: 12"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3484.6252495214862,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003417084103637169",
+            "extra": "mean: 286.974905016636 usec\nrounds: 2990"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1595.3687008043962,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00019428982656649726",
+            "extra": "mean: 626.8143530055422 usec\nrounds: 915"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1601.2277807961184,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003004732876292576",
+            "extra": "mean: 624.5207658730525 usec\nrounds: 1008"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4188.7765740058785,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007479771865369327",
+            "extra": "mean: 238.73319150170468 usec\nrounds: 3436"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 116.7622965991397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.012272873790213815",
+            "extra": "mean: 8.564408453125338 msec\nrounds: 64"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 28188.668242353004,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002172736747324137",
+            "extra": "mean: 35.47524811752251 usec\nrounds: 21381"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 44724.28666025251,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002518418704418875",
+            "extra": "mean: 22.359216315656138 usec\nrounds: 13864"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 40327.39232970812,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000506124941664614",
+            "extra": "mean: 24.797040974636154 usec\nrounds: 12764"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 46019.01983929686,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005273132064543084",
+            "extra": "mean: 21.730145567900028 usec\nrounds: 14914"
           }
         ]
       }
