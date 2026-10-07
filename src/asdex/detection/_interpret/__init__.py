@@ -273,6 +273,7 @@ def _prop_dispatch(
             | "erfc"  # ∂erfc(x)/∂x = -2e^(-x²)/√π
             | "erf_inv"  # ∂erf⁻¹(x)/∂x = (√π/2)·exp(erf⁻¹(x)²)
             | "square"  # ∂x²/∂x = 2x
+            | "one_minus_square"  # ∂(1-x²)/∂x = -2x
             | "digamma"  # ∂ψ(x)/∂x = ψ₁(x)
             | "lgamma"  # ∂log(Γ(x))/∂x = ψ(x)
             | "bessel_i0e"  # nonzero derivative

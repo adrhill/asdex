@@ -4,6 +4,7 @@
 * ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity`
 * ![Maintenance][badge-maintenance] Cross-validate the greedy colorings and their validators against [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl), the Julia package they were ported from.
   The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
+* ![Feature][badge-feature] Support the `one_minus_square` primitive that JAX 0.11.2 emits in the derivatives of `tanh`, `arcsin`, `arccos`, and `arctanh` ([#192])
 
 ## Version `v0.5.2`
 * ![Maintenance][badge-maintenance] Update `scan` sparsity propagation for JAX 0.11's new jaxpr representation, which replaces the `num_consts`/`num_carry` parameters with `ft_in`/`ft_out`.
@@ -141,6 +142,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#192]: https://github.com/adrhill/asdex/pull/192
 [#187]: https://github.com/adrhill/asdex/pull/187
 [#180]: https://github.com/adrhill/asdex/pull/180
 [#176]: https://github.com/adrhill/asdex/pull/176
