@@ -22,7 +22,7 @@ def test_bitcast_same_width_has_zero_derivative():
     def f(x):
         return lax.bitcast_convert_type(x, jnp.int32).astype(jnp.float32)
 
-    x = jnp.arange(1.0, 4.0)
+    x = jnp.arange(1.0, 4.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
@@ -35,7 +35,7 @@ def test_bitcast_narrowing_adds_trailing_axis():
     def f(x):
         return lax.bitcast_convert_type(x, jnp.int8).astype(jnp.float32).ravel()
 
-    x = jnp.arange(1.0, 4.0)
+    x = jnp.arange(1.0, 4.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.zeros((12, 3), dtype=int))
@@ -49,7 +49,7 @@ def test_bitcast_widening_consumes_trailing_axis():
         halves = x.reshape(3, 2).astype(jnp.float16)
         return lax.bitcast_convert_type(halves, jnp.float32)
 
-    x = jnp.arange(1.0, 7.0)
+    x = jnp.arange(1.0, 7.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.zeros((3, 6), dtype=int))
@@ -67,7 +67,7 @@ def test_bitcast_reinterprets_const_bits():
         i = lax.bitcast_convert_type(jnp.float32(1.4e-45), jnp.int32)
         return x[i][None]
 
-    x = jnp.arange(5.0)
+    x = jnp.arange(5.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.zeros((1, 5), dtype=int)
@@ -83,7 +83,7 @@ def test_bitcast_narrowing_const_keeps_byte_order():
     def f(x):
         return x[lax.bitcast_convert_type(word, jnp.int8)]
 
-    x = jnp.arange(5.0)
+    x = jnp.arange(5.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.zeros((4, 5), dtype=int)
@@ -99,7 +99,7 @@ def test_bitcast_widening_const_joins_bytes():
     def f(x):
         return x[lax.bitcast_convert_type(data, jnp.int32)]
 
-    x = jnp.arange(5.0)
+    x = jnp.arange(5.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.zeros((2, 5), dtype=int)
@@ -115,5 +115,5 @@ def test_bitcast_zero_size():
         empty = lax.bitcast_convert_type(x[:0], jnp.int8)
         return empty.astype(jnp.float32).ravel()
 
-    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    result = jacobian_sparsity(f, np.zeros(3, dtype=np.float32)).todense().astype(int)
     assert result.shape == (0, 3)
