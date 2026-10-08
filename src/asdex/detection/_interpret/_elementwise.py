@@ -27,45 +27,15 @@ from ._common import (
     _union_elementwise,
 )
 
-
-def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
-    """Divide with ``lax.div`` semantics.
-
-    ``lax.div`` truncates toward zero for integer inputs,
-    while ``np.divide`` is true division and returns floats.
-    Using numpy semantics on integer index arithmetic
-    would resolve gather/scatter indices to the wrong positions.
-
-    Integer quotients stay in integer arithmetic,
-    since a float64 round trip loses the low bits of int64 operands above 2**53.
-    Division by zero is implementation-defined in XLA,
-    so whatever numpy returns there is as good as any value.
-    """
-    in1_val, in2_val = np.asarray(in1_val), np.asarray(in2_val)
-    result_dtype = np.result_type(in1_val, in2_val)
-    if not (
-        np.issubdtype(result_dtype, np.integer) or result_dtype == np.dtype(object)
-    ):
-        return np.true_divide(in1_val, in2_val)
-    with np.errstate(divide="ignore", over="ignore"):
-        quotient = np.floor_divide(in1_val, in2_val)
-    # Floor and truncation differ when the division is inexact
-    # and the operands have opposite signs.
-    inexact = quotient * in2_val != in1_val
-    opposite_signs = (in1_val < 0) != (in2_val < 0)
-    return quotient + (inexact & opposite_signs & (in2_val != 0)).astype(result_dtype)
-
-
 # Functions for evaluating constant values during tracing.
 # Used to propagate static index values through arithmetic to gather/scatter.
-# Entries must match lax semantics, which differ from numpy for integer div/rem.
+# Entries must match lax semantics, which differ from numpy for integer rem.
+# mul and div have their own handlers, which pass their ufunc directly.
 _BINARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] = {
     # arithmetic
     "add": np.add,
     "add_any": np.add,
     "sub": np.subtract,
-    "mul": np.multiply,
-    "div": _lax_div,
     "pow": np.power,
     "max": np.maximum,
     "min": np.minimum,
@@ -330,7 +300,7 @@ def _prop_binary_const(
     is_der1_zero_globally: bool = False,
     is_der2_zero_globally: bool = False,
 ) -> None:
-    """Binary elementwise primitives (div, pow, max, min, ...) with const propagation.
+    """Binary elementwise primitives (pow, max, min, ...) with const propagation.
 
     Each output element depends on the corresponding elements from both inputs.
     Also propagates const values for downstream index resolution.

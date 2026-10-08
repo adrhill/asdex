@@ -17,8 +17,7 @@ from jax import lax
 
 from asdex import jacobian_sparsity
 from asdex.detection._interpret._common import _PropState
-from asdex.detection._interpret._div import _propagate_bounds_div
-from asdex.detection._interpret._elementwise import _lax_div
+from asdex.detection._interpret._div import _lax_div, _propagate_bounds_div
 
 
 @pytest.mark.elementwise

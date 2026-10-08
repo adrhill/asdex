@@ -11,7 +11,7 @@ from ._common import (
     _PropState,
     _set_value_bounds,
 )
-from ._elementwise import _binary_elementwise, _lax_div
+from ._elementwise import _binary_elementwise
 
 
 def _prop_div(
@@ -75,3 +75,31 @@ def _propagate_bounds_div(
     lo = np.minimum(np.minimum(c1, c2), np.minimum(c3, c4))
     hi = np.maximum(np.maximum(c1, c2), np.maximum(c3, c4))
     _set_value_bounds(state, eqn.outvars[0], lo, hi)
+
+
+def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
+    """Divide with ``lax.div`` semantics.
+
+    ``lax.div`` truncates toward zero for integer inputs,
+    while ``np.divide`` is true division and returns floats.
+    Using numpy semantics on integer index arithmetic
+    would resolve gather/scatter indices to the wrong positions.
+
+    Integer quotients stay in integer arithmetic,
+    since a float64 round trip loses the low bits of int64 operands above 2**53.
+    Division by zero is implementation-defined in XLA,
+    so whatever numpy returns there is as good as any value.
+    """
+    in1_val, in2_val = np.asarray(in1_val), np.asarray(in2_val)
+    result_dtype = np.result_type(in1_val, in2_val)
+    if not (
+        np.issubdtype(result_dtype, np.integer) or result_dtype == np.dtype(object)
+    ):
+        return np.true_divide(in1_val, in2_val)
+    with np.errstate(divide="ignore", over="ignore"):
+        quotient = np.floor_divide(in1_val, in2_val)
+    # Floor and truncation differ when the division is inexact
+    # and the operands have opposite signs.
+    inexact = quotient * in2_val != in1_val
+    opposite_signs = (in1_val < 0) != (in2_val < 0)
+    return quotient + (inexact & opposite_signs & (in2_val != 0)).astype(result_dtype)
