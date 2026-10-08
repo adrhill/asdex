@@ -2,6 +2,7 @@
 
 import numpy as np
 from jax._src.core import JaxprEqn
+from jax.lax import GatherScatterMode
 
 from ._common import (
     IndexSet,
@@ -15,6 +16,7 @@ from ._common import (
     _index_sets,
     _numel,
     _PropState,
+    _union_all,
 )
 
 
@@ -55,6 +57,13 @@ def _scatter_flat_map(
     window_operand_dims = [d for d in range(op_ndim) if d not in removed]
     window_shape = tuple(updates_shape[d] for d in dim_nums.update_window_dims)
 
+    # Size of the written block along each operand dim, used by mode='clip'.
+    # Inserted and batching dims are written one element at a time.
+    window_extent = [1] * op_ndim
+    for i, d in enumerate(window_operand_dims):
+        window_extent[d] = window_shape[i]
+    is_clip = eqn.params.get("mode") == GatherScatterMode.CLIP
+
     updates_size = _numel(updates_shape)
     update_ndim = len(updates_shape)
     flat_map = np.full(updates_size, -1, dtype=np.intp)
@@ -76,6 +85,16 @@ def _scatter_flat_map(
                 start[d] = int(index_vector[i])
             for i, d in enumerate(operand_batching_dims):
                 start[d] = int(batch_idx[i])
+
+            # mode='clip' clamps the start so the whole window fits in the operand.
+            # E.g. a window of 2 at start 4 in an operand of length 5
+            # moves to start 3 and writes positions 3 and 4,
+            # where the default mode would drop it.
+            if is_clip:
+                start = [
+                    max(0, min(start[d], operand_shape[d] - window_extent[d]))
+                    for d in range(op_ndim)
+                ]
 
             for window_idx in np.ndindex(*window_shape) if window_shape else [()]:
                 # Build full operand index: start + window offset at non-removed dims.
@@ -146,9 +165,13 @@ def _scatter_for_indices(
                     combined |= updates_indices[u_flat]
                 out_indices.append(combined)
             else:
-                # Replace semantics: last writer wins.
-                last_u = scatter_positions[i][-1]
-                out_indices.append(updates_indices[last_u].copy())
+                # Replace semantics with duplicate indices:
+                # in zeros(3).at[[1, 1]].set([a, b]), out[1] may be a or b,
+                # since XLA leaves the order of the writes unspecified.
+                # Union all candidate writers.
+                out_indices.append(
+                    _union_all([updates_indices[u] for u in scatter_positions[i]])
+                )
         else:
             out_indices.append(operand_indices[i].copy())
 
@@ -194,6 +217,9 @@ def _prop_scatter(
         dimension_numbers: ScatterDimensionNumbers specifying axis mapping
         update_jaxpr: combination function (e.g., add for scatter-add),
             absent for plain scatter (replace)
+        mode: GatherScatterMode.
+            'clip' clamps out-of-bounds updates into range and still writes them.
+            Other modes drop them.
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scatter.html
     """

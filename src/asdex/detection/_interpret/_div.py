@@ -9,7 +9,32 @@ from ._common import (
     _propagate_const_binary,
     _PropState,
 )
-from ._elementwise import _binary_elementwise
+from ._elementwise import _binary_elementwise, _is_integer_division_undefined
+
+
+def _trunc_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
+    """Integer division truncating toward zero, like ``lax.div`` on integers."""
+    result_dtype = np.result_type(in1_val, in2_val)
+    return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
+
+
+def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray | None:
+    """Divide with ``lax.div`` semantics, or return None where it is undefined.
+
+    ``lax.div`` truncates toward zero for integer inputs,
+    while ``np.divide`` is true division and returns floats.
+    Using numpy semantics on integer index arithmetic
+    would resolve gather/scatter indices to the wrong positions.
+
+    Calling ``lax.div`` itself is not an option:
+    detection may run while an outer ``jax.jit`` is tracing,
+    and there ``lax.div`` returns a tracer instead of a concrete array.
+    """
+    if _is_integer_division_undefined(in1_val, in2_val):
+        return None
+    if np.issubdtype(np.result_type(in1_val, in2_val), np.integer):
+        return _trunc_div(in1_val, in2_val)
+    return np.true_divide(in1_val, in2_val)
 
 
 def _prop_div(
@@ -33,7 +58,7 @@ def _prop_div(
         invars[1]: denominator
     """
     _binary_elementwise(eqn, state)
-    _propagate_const_binary(eqn, state, np.divide)
+    _propagate_const_binary(eqn, state, _lax_div)
     _clear_where_zero(eqn, state, 0)
     _propagate_bounds_div(eqn, state)
 
@@ -46,7 +71,9 @@ def _propagate_bounds_div(
 
     Only propagates when divisor bounds have constant sign (no zero crossing),
     since division by an interval spanning zero is undefined.
-    Uses ``floor_divide`` for integer dtypes and ``true_divide`` for floats.
+    Integer division matches ``lax.div``, which truncates toward zero.
+    Flooring instead would exclude the value the program actually computes
+    for negative intervals, and bounded enumeration would never try it.
     """
     in1_bounds = _atom_value_bounds(eqn.invars[0], state)
     in2_bounds = _atom_value_bounds(eqn.invars[1], state)
@@ -61,7 +88,7 @@ def _propagate_bounds_div(
         return
 
     out_dtype = getattr(eqn.outvars[0].aval, "dtype", np.float64)
-    divide = np.floor_divide if np.issubdtype(out_dtype, np.integer) else np.true_divide
+    divide = _trunc_div if np.issubdtype(out_dtype, np.integer) else np.true_divide
 
     # All four endpoint combinations.
     c1 = divide(lo1, lo2)

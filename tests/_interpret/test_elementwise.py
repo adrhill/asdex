@@ -7,6 +7,11 @@ import pytest
 from jax import lax
 
 from asdex import jacobian_sparsity
+from asdex.detection._interpret._common import _PropState
+from asdex.detection._interpret._elementwise import (
+    _BINARY_CONST_UFUNCS,
+    _propagate_bounds_integer_pow,
+)
 from tests._utils import (
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
@@ -780,6 +785,110 @@ def test_binary_remainder():
 
     inputs = jnp.concatenate([dividend, divisor])
     assert_jacobian_sparsity_conservative(f, inputs)
+
+
+@pytest.mark.elementwise
+def test_rem_integer_const_negative_dividend():
+    """Integer rem const propagation follows lax.rem, which takes the dividend's sign.
+
+    lax.rem(-4, 3) = -1, so the gather index is -1 + 2 = 1.
+    np.remainder(-4, 3) = 2 would shift the index to 4,
+    dropping the true dependency on x[1].
+    The const chain sits in a cond branch
+    because top-level arithmetic on concrete arrays
+    is folded away during tracing.
+    """
+
+    def f(x):
+        idx = jnp.array([-4], dtype=jnp.int32)
+
+        def true_branch(ops):
+            i, values = ops
+            j = lax.rem(i, jnp.int32(3)) + jnp.int32(2)  # [-1] + 2 = [1]
+            return values[j] * 1.0
+
+        def false_branch(ops):
+            _, values = ops
+            return values[:1] * 0.0
+
+        return lax.cond(x[0] > 0, true_branch, false_branch, (idx, x))
+
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
+    expected = np.array([[0, 1, 0, 0, 0]], dtype=int)  # out[0] <- x[1]
+    np.testing.assert_array_equal(result, expected)
+    # x[0] > 0 takes the true branch, so jax.jacobian sees the gather.
+    assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("dtype", [jnp.int32, jnp.float32])
+def test_rem_const_matches_lax(dtype):
+    """The const function for ``rem`` agrees with ``lax.rem`` on every sign combination.
+
+    Guards against the numpy stand-in drifting from JAX's semantics.
+    """
+    num = np.array([-7, -6, -5, -1, 0, 1, 5, 6, 7], dtype=dtype)
+    den = np.array([-3, -2, 2, 3], dtype=dtype)
+    num, den = np.meshgrid(num, den)
+
+    expected = np.asarray(lax.rem(num, den))
+    result = _BINARY_CONST_UFUNCS["rem"](num, den)
+    assert result is not None
+    assert result.dtype == expected.dtype
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_rem_const_float_zero_divisor_matches_lax():
+    """Float remainder by zero is well defined (NaN) and matches ``lax.rem``."""
+    num = np.array([-1, 0, 1], dtype=np.float32)
+    den = np.zeros(3, dtype=np.float32)
+
+    with np.errstate(invalid="ignore"):
+        result = _BINARY_CONST_UFUNCS["rem"](num, den)
+    assert result is not None
+    np.testing.assert_array_equal(result, np.asarray(lax.rem(num, den)))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    ("num", "den"),
+    [
+        ([5, 6], [2, 0]),  # remainder by zero
+        ([np.iinfo(np.int32).min], [-1]),  # signed overflow
+    ],
+    ids=["zero_divisor", "int_min_by_minus_one"],
+)
+def test_rem_const_integer_undefined_is_unknown(num, den):
+    """Integer rem results that XLA leaves implementation-defined are not guessed."""
+    result = _BINARY_CONST_UFUNCS["rem"](
+        np.array(num, dtype=np.int32), np.array(den, dtype=np.int32)
+    )
+    assert result is None
+
+
+@pytest.mark.elementwise
+def test_integer_pow_bounds_negative_odd_exponent():
+    """Bounds through a negative odd exponent must not be inverted.
+
+    x^(-3) is decreasing on positive inputs,
+    so mapping (lo, hi) to (lo^y, hi^y) flips the interval.
+    Propagated bounds must either be skipped
+    or stay ordered and contain the true output values.
+    """
+    jaxpr = jax.make_jaxpr(lambda a: lax.integer_pow(a, -3))(jnp.zeros(1)).jaxpr
+    eqn = jaxpr.eqns[0]
+
+    state = _PropState(bounds={eqn.invars[0]: (np.array([2.0]), np.array([3.0]))})
+    _propagate_bounds_integer_pow(eqn, -3, state)
+
+    bounds = state.bounds.get(eqn.outvars[0])
+    if bounds is not None:
+        lo, hi = bounds
+        assert np.all(lo <= hi)
+        # True output values 3^-3 and 2^-3 must lie inside the bounds.
+        assert np.all(lo <= 3.0**-3)
+        assert np.all(hi >= 2.0**-3)
 
 
 @pytest.mark.elementwise

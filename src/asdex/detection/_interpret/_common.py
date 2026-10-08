@@ -162,10 +162,27 @@ def _atom_numel(atom: Atom) -> int:
 
 
 def _index_sets(state: _PropState, atom: Atom) -> list[IndexSet]:
-    """Get the index sets for a variable or literal."""
+    """Get the index sets for a variable or literal.
+
+    Every ``Var`` is either seeded (invars, constvars) or written by a handler,
+    so a missing ``Var`` indicates a handler bug upstream.
+    Handlers for outputs without input dependencies (e.g. zero-derivative ops)
+    still write one empty index set per element,
+    so "no dependencies" is never encoded as a missing entry.
+    Guessing a default here would silently drop dependencies
+    and get the element count wrong,
+    so we raise instead.
+    """
     if isinstance(atom, Literal):
         return _empty_index_sets(_atom_numel(atom))
-    return state.indices.get(atom, [_empty_index_set()])
+    if atom not in state.indices:
+        msg = (
+            f"No index sets recorded for variable '{atom}'. "
+            "Please help out asdex's development by reporting this at "
+            "https://github.com/adrhill/asdex/issues"
+        )
+        raise KeyError(msg)
+    return state.indices[atom]
 
 
 def _copy_index_sets(src: list[IndexSet]) -> list[IndexSet]:
@@ -228,19 +245,25 @@ def _propagate_const_unary(
 def _propagate_const_binary(
     eqn: JaxprEqn,
     state: _PropState,
-    transform: Callable[[np.ndarray, np.ndarray], np.ndarray],
+    transform: Callable[[np.ndarray, np.ndarray], np.ndarray | None],
 ) -> None:
     """Propagate a const value through a binary op.
 
     If both inputs are statically known,
     apply ``transform`` and store the result.
+    ``transform`` returns None when the result is unknown,
+    e.g. because XLA leaves it implementation-defined,
+    and then no const is recorded.
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
     static index arrays and fall back to conservative.
     """
     in1 = _atom_const_val(eqn.invars[0], state)
     in2 = _atom_const_val(eqn.invars[1], state)
-    if in1 is not None and in2 is not None:
-        state.consts[eqn.outvars[0]] = transform(in1, in2)
+    if in1 is None or in2 is None:
+        return
+    out = transform(in1, in2)
+    if out is not None:
+        state.consts[eqn.outvars[0]] = out
 
 
 # Zero-skipping
