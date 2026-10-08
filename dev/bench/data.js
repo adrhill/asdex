@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791493370152,
+  "lastUpdate": 1791495462524,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -20922,6 +20922,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002545069912814276",
             "extra": "mean: 16.565121658885193 usec\nrounds: 12683"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b9befb6e33017c5db3ed7304380d63a01121806d",
+          "message": "refactor(detection): deduplicate detection interpreter handlers (#199)\n\n* refactor: deduplicate detection interpreter handlers\n\n- Collapse the four comparison handlers into one _prop_comparison core\n  that derives the always-true/always-false checks from the ufunc\n  applied to the extreme bounds.\n- Share the pool-and-permute join core between stack and concatenate.\n- Extract the gather/scatter index-vector iteration into _iter_si_starts\n  and reuse _clamp_starts for gather's OOB policy and scatter's clip mode.\n- Add _bounded_ranges for the bounded-enumeration call sites\n  (gather, scatter, dynamic_slice, dynamic_update_slice).\n- Unify the three broadcasting implementations into _broadcast_flat_map\n  and dedupe broadcast_in_dim's intermediate-shape computation.\n- Collapse _atom_numel to _numel(_atom_shape(...)),\n  centralize the report-an-issue message in _report_issue,\n  and reuse _union_elementwise in select_n's dynamic path.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* docs(detection): add examples to shared handler helpers\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test(detection): cross-check comparison bounds resolution against jax.jacobian\n\nEvery comparison operator is tested on bounded, const, float, non-finite,\nand vector operands. The reference is the union of jax.jacobian over inputs\nthat reach every operand value. Conservative cases (eq/ne ignoring bounds,\nsame-operand comparisons, mixed per-element masks) are marked as fallback.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test(detection): promote comparison operands to a common dtype\n\nlax comparisons require equal dtypes, and argmax returns int64 when x64\nis enabled, which made the comparison tests fail in CI.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-08T23:37:06+02:00",
+          "tree_id": "adfc2088ca9094eb657ce9a0f51089517543e043",
+          "url": "https://github.com/adrhill/asdex/commit/b9befb6e33017c5db3ed7304380d63a01121806d"
+        },
+        "date": 1791495461144,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1295.9542795633417,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00025614385984109325",
+            "extra": "mean: 771.6321599994558 usec\nrounds: 25"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 46791.88599225638,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029002402173717067",
+            "extra": "mean: 21.371226630307028 usec\nrounds: 7713"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 162941.62932417076,
+            "unit": "iter/sec",
+            "range": "stddev: 8.910668169322067e-7",
+            "extra": "mean: 6.137167058827611 usec\nrounds: 29325"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 110826.56142280214,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001228836808387736",
+            "extra": "mean: 9.023107702358558 usec\nrounds: 21318"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 163296.31278122455,
+            "unit": "iter/sec",
+            "range": "stddev: 6.636482202823639e-7",
+            "extra": "mean: 6.123836986691457 usec\nrounds: 31341"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 39.002881011185266,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00029387066958456163",
+            "extra": "mean: 25.6391316250002 msec\nrounds: 16"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 5155.893846958663,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008232529691160056",
+            "extra": "mean: 193.95279066691333 usec\nrounds: 4543"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 3630.3981113603536,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005786374744266779",
+            "extra": "mean: 275.45188415308206 usec\nrounds: 1830"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 3622.027138322398,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012014077480038158",
+            "extra": "mean: 276.08848907277 usec\nrounds: 1693"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 8780.117427770778,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007986898757819081",
+            "extra": "mean: 113.89369313411271 usec\nrounds: 5957"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 249.4574072298892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001138305319367381",
+            "extra": "mean: 4.008700367347453 msec\nrounds: 98"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 47205.016977004576,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017136910451686881",
+            "extra": "mean: 21.184188970573604 usec\nrounds: 37953"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 104396.39951953845,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015117641504060086",
+            "extra": "mean: 9.578874411400019 usec\nrounds: 21873"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 91184.42738300862,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000019433659658459902",
+            "extra": "mean: 10.9667848853141 usec\nrounds: 17837"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 108657.82779419578,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013685734388407843",
+            "extra": "mean: 9.20320256994331 usec\nrounds: 22802"
           }
         ]
       }
