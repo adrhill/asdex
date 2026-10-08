@@ -201,7 +201,7 @@ a sparsity-focused extension of the popular linear and least-squares library `li
 
 # AI usage disclosure
 
-The `asdex` software and the prose of this manuscript were developed with the assistance of generative AI tools (Anthropic's Claude Opus 4.5 to 5.5 and Fable 5 models).
+Generative AI tools (Anthropic's Claude Opus 4.5 to 5.5 and Fable 5 models) were used in developing the `asdex` software and writing this manuscript.
 All AI-generated code and text were reviewed and verified by the authors.
 The design of `asdex` is based directly on prior work by the authors that was written without generative AI tools,
 namely the peer-reviewed Julia packages
