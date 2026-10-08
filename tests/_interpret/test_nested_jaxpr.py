@@ -187,3 +187,59 @@ def test_remat2_differentiated():
     # d/dx[cos(x_i)] only depends on x_i
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_jit_const_output_escapes_to_outer_consumer():
+    """Const values computed inside a jit call reach outer consumers.
+
+    The identity matrix passes through the jit-wrapped function,
+    so its concrete value must be forwarded
+    from the inner jaxpr's outputs to the outer equation's outvars,
+    mirroring the existing bounds forwarding.
+    The outer matmul can then skip the known zeros,
+    keeping the diagonal pattern instead of a dense fallback.
+    """
+
+    @jax.jit
+    def passthrough(w, x):
+        return w * 1.0, x * 1.0
+
+    def f(x):
+        w, x2 = passthrough(jnp.eye(3), x)
+        return w @ x2
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.eye(3, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_jit_const_index_chain_resolves_outer_gather():
+    """A const index array computed inside jit resolves an outer gather precisely.
+
+    The index chain crosses the jit boundary
+    and then runs through ``jnp.floor_divide``,
+    whose expansion uses div, sign, rem, and select_n.
+    Const values must survive the whole chain
+    for the gather to resolve statically instead of going dense.
+    """
+
+    def f(x):
+        @jax.jit
+        def make(i, xx):
+            return i * 2, xx * 1.0
+
+        idx, x2 = make(jnp.array([1, 0, 2]), x)
+        return x2[jnp.floor_divide(idx, 2)]
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 1, 0],  # out[0] <- x2[2 // 2] = x[1]
+            [1, 0, 0],  # out[1] <- x2[0 // 2] = x[0]
+            [0, 0, 1],  # out[2] <- x2[4 // 2] = x[2]
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
