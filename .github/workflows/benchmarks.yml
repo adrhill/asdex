@@ -11,6 +11,10 @@ jobs:
     permissions:
       contents: write
       deployments: write
+    # Shares the gh-pages group with the Documentation workflow so the two never push at the same time.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
       - name: Install uv

@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # Pushes to main deploy to gh-pages, which the Benchmarks workflow also pushes to.
+    # Share a concurrency group so the two never push at the same time.
+    concurrency:
+      group: ${{ github.event_name == 'push' && 'gh-pages' || format('docs-{0}', github.ref) }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v8.2.0
