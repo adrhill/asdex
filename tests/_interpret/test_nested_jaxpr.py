@@ -11,6 +11,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from jax import lax
 
 from asdex import jacobian, jacobian_sparsity
 from tests._utils import assert_jacobian_sparsity_exact
@@ -82,6 +83,30 @@ def test_custom_jvp_closure_captured_index():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.bug
+def test_custom_vjp_follows_primal_not_rule():
+    """custom_vjp is propagated through its primal, not its backward rule.
+
+    TODO(custom_vjp_call): trace ``fwd`` and ``bwd`` and follow the rule.
+    The primal round-trips through a bitcast and has zero derivative,
+    while the rule is the identity, so the precise pattern is the identity.
+    Today the detected pattern is empty and misses every nonzero.
+    """
+
+    @jax.custom_vjp
+    def bits_identity(x):
+        return lax.bitcast_convert_type(
+            lax.bitcast_convert_type(x, jnp.int32), jnp.float32
+        )
+
+    bits_identity.defvjp(lambda x: (bits_identity(x), None), lambda _, g: (g,))
+
+    # The int32 round trip needs float32, even if another test enabled x64
+    x = jnp.array([1.0, 2.0, 3.0], dtype=jnp.float32)
+    with pytest.raises(AssertionError):
+        assert_jacobian_sparsity_exact(bits_identity, x)
 
 
 @pytest.mark.elementwise
