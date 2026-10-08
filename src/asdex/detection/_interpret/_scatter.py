@@ -57,8 +57,8 @@ def _scatter_flat_map(
     window_operand_dims = [d for d in range(op_ndim) if d not in removed]
     window_shape = tuple(updates_shape[d] for d in dim_nums.update_window_dims)
 
-    # Window extent per operand dim: the window size at window dims, 1 elsewhere.
-    # Needed to clamp starts under mode='clip'.
+    # Size of the written block along each operand dim, used by mode='clip'.
+    # Inserted and batching dims are written one element at a time.
     window_extent = [1] * op_ndim
     for i, d in enumerate(window_operand_dims):
         window_extent[d] = window_shape[i]
@@ -86,8 +86,10 @@ def _scatter_flat_map(
             for i, d in enumerate(operand_batching_dims):
                 start[d] = int(batch_idx[i])
 
-            # mode='clip' clamps the start so the whole window stays in range,
-            # so the update lands at the clamped position instead of being dropped.
+            # mode='clip' clamps the start so the whole window fits in the operand.
+            # E.g. a window of 2 at start 4 in an operand of length 5
+            # moves to start 3 and writes positions 3 and 4,
+            # where the default mode would drop it.
             if is_clip:
                 start = [
                     max(0, min(start[d], operand_shape[d] - window_extent[d]))
@@ -163,9 +165,10 @@ def _scatter_for_indices(
                     combined |= updates_indices[u_flat]
                 out_indices.append(combined)
             else:
-                # Replace semantics: XLA leaves the applied update
-                # implementation-defined under duplicate indices,
-                # so union all candidate writers.
+                # Replace semantics with duplicate indices:
+                # in zeros(3).at[[1, 1]].set([a, b]), out[1] may be a or b,
+                # since XLA leaves the order of the writes unspecified.
+                # Union all candidate writers.
                 out_indices.append(
                     _union_all([updates_indices[u] for u in scatter_positions[i]])
                 )
@@ -214,8 +217,9 @@ def _prop_scatter(
         dimension_numbers: ScatterDimensionNumbers specifying axis mapping
         update_jaxpr: combination function (e.g., add for scatter-add),
             absent for plain scatter (replace)
-        mode: GatherScatterMode; 'clip' clamps out-of-bounds updates in place,
-            the default drops them
+        mode: GatherScatterMode.
+            'clip' clamps out-of-bounds updates into range and still writes them.
+            Other modes drop them.
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scatter.html
     """
