@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791487794009,
+  "lastUpdate": 1791490749744,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -20664,6 +20664,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000017205238893506573",
             "extra": "mean: 12.261728664917138 usec\nrounds: 19393"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c0b8b2153a0d0569cf2a85496554d847def1f47e",
+          "message": "fix(detection): fall back conservatively and forward consts and bounds across nested jaxprs (#197)\n\n* fix: fall back conservatively for input-dependent auxiliary inputs\n\nscatter indices, dynamic_slice and dynamic_update_slice starts,\nand conv kernels raised a ValueError when they depended on the input.\nThese are valid user code, for example a data-dependent index\nor a hypernetwork that produces a kernel.\n\nFall back to a conservative pattern that includes\nthe auxiliary input's own index sets, mirroring gather.\nWhen bounded enumeration still resolves the positions,\nunion the auxiliary index sets into every output instead.\nconv falls back to conservative whenever its kernel has index sets,\nsince its bilinear pattern is not tracked precisely yet.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: forward const values out of nested jaxprs and through sign, floor, ceil, and not\n\nConst values crossed into nested jaxprs but never back out,\nso an index array computed inside a jit-wrapped helper\nreached the outer gather or scatter as unknown,\nwhich then fell back to a dense pattern.\nForward const values from inner outvars to outer outvars,\nsymmetric to how value bounds already were.\n\nsign, floor, ceil, and not also dropped const values,\nwhich broke integer index chains such as the jnp.floor_divide expansion.\nPropagate them with the matching numpy functions.\nround stays excluded, since lax.round's rounding methods\ndiffer from numpy's round-half-to-even.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: forward value bounds into while, cond, and scan bodies\n\nValue bounds crossed into jit bodies but not into control flow,\nso a bounded index such as an argmax result\nlost its bounds inside a cond branch or loop body,\nand gather, scatter, and dynamic_slice there fell back to a dense pattern.\n\nMerge _forward_const_vals and _forward_value_bounds into _forward_into_jaxpr\nand use it at every nested-jaxpr boundary,\nso a call site can no longer forward const values and forget bounds,\nthe drift that caused this bug.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: note the fallback and forwarding fixes in the changelog\n\n* docs: explain when dynamic_slice and dynamic_update_slice starts are unresolvable\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: compute unary index consts with the lax primitive, including round\n\nBinding the equation's own primitive on the concrete inputs\nreplaces the hand-picked numpy table for sign, floor, ceil, and not.\nConst values now follow lax semantics by construction,\nso round can propagate consts too:\nits rounding_method param is honored instead of numpy's half-to-even.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: cross-check fallback and forwarding tests against jax.jacobian\n\nThe conv fallback test now pins its TODO's precise pattern\nagainst the numerical Jacobian.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* perf: compute unary index consts with numpy again\n\nBinding the lax primitive costs about 10µs per evaluation\nagainst 0.2µs for the numpy ufunc,\nwhich adds up on large unrolled programs.\nround keeps const propagation through `_lax_round`,\na numpy implementation that honors `rounding_method`\nand is pinned against `lax.round` on ties and near-ties.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: update CUTEst baselines for sparser VANDANMSLS and OET patterns\n\nForwarding consts and bounds across nested jaxprs\nshrinks the detected Hessian of VANDANMSLS from 484 to 16 nonzeros,\nnow matching the ground truth,\nand trims a few nonzeros from the OET inequality Jacobians.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-08T22:17:56+02:00",
+          "tree_id": "81d2d6d992de6cbd2875a49b5074ef95fc61fb07",
+          "url": "https://github.com/adrhill/asdex/commit/c0b8b2153a0d0569cf2a85496554d847def1f47e"
+        },
+        "date": 1791490748924,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 713.1874277960013,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002174686027692202",
+            "extra": "mean: 1.4021559565209243 msec\nrounds: 23"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27076.39078893693,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003949413465953259",
+            "extra": "mean: 36.93254421518349 usec\nrounds: 8436"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 70020.5843268591,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000032811440424459685",
+            "extra": "mean: 14.281514637637942 usec\nrounds: 23057"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 32238.19505224883,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006214175187947213",
+            "extra": "mean: 31.019106323393355 usec\nrounds: 14296"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 70011.49962782807,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002737658276237749",
+            "extra": "mean: 14.283367808372462 usec\nrounds: 22335"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 23.245331144598477,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003326029359918158",
+            "extra": "mean: 43.01939145454463 msec\nrounds: 11"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2912.134108372314,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000963509744798497",
+            "extra": "mean: 343.3907789909209 usec\nrounds: 2656"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1798.6014832321391,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010421183760166211",
+            "extra": "mean: 555.9875321591367 usec\nrounds: 1306"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1857.9766031928339,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011260988977335576",
+            "extra": "mean: 538.219909917893 usec\nrounds: 1099"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4101.484316629747,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015591962729157066",
+            "extra": "mean: 243.81417135875225 usec\nrounds: 3268"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 114.76808449107305,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01233232927972053",
+            "extra": "mean: 8.713223754098488 msec\nrounds: 61"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26633.97150174707,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004094206861999516",
+            "extra": "mean: 37.54603401653428 usec\nrounds: 18491"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 28682.577692136078,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009558489003392828",
+            "extra": "mean: 34.86436995773119 usec\nrounds: 13734"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 28153.260344163566,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007816137048323905",
+            "extra": "mean: 35.51986476078993 usec\nrounds: 11683"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 27289.294609744327,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008915800881501464",
+            "extra": "mean: 36.64440632492292 usec\nrounds: 12111"
           }
         ]
       }
