@@ -1,5 +1,7 @@
 """Propagation rules for element-wise operations."""
 
+from collections.abc import Callable
+
 import numpy as np
 from jax._src.core import JaxprEqn
 
@@ -18,20 +20,38 @@ from ._common import (
     _union_elementwise,
 )
 
-# Ufuncs for evaluating constant values during tracing.
+
+def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
+    """Divide with ``lax.div`` semantics.
+
+    ``lax.div`` truncates toward zero for integer inputs,
+    while ``np.divide`` is true division and returns floats.
+    Using numpy semantics on integer index arithmetic
+    would resolve gather/scatter indices to the wrong positions.
+    """
+    result_dtype = np.result_type(in1_val, in2_val)
+    if np.issubdtype(result_dtype, np.integer):
+        return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
+    return np.true_divide(in1_val, in2_val)
+
+
+# Functions for evaluating constant values during tracing.
 # Used to propagate static index values through arithmetic to gather/scatter.
-_BINARY_CONST_UFUNCS: dict[str, np.ufunc] = {
+# Entries must match lax semantics, which differ from numpy for integer div/rem.
+_BINARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] = {
     # arithmetic
     "add": np.add,
     "add_any": np.add,
     "sub": np.subtract,
     "mul": np.multiply,
-    "div": np.divide,
+    "div": _lax_div,
     "pow": np.power,
     "max": np.maximum,
     "min": np.minimum,
     "atan2": np.arctan2,
-    "rem": np.remainder,
+    # lax.rem takes the dividend's sign like C fmod,
+    # while np.remainder takes the divisor's sign.
+    "rem": np.fmod,
     "nextafter": np.nextafter,
     # comparison
     "eq": np.equal,

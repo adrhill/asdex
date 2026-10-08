@@ -9,7 +9,7 @@ from ._common import (
     _propagate_const_binary,
     _PropState,
 )
-from ._elementwise import _binary_elementwise
+from ._elementwise import _binary_elementwise, _lax_div
 
 
 def _prop_div(
@@ -33,7 +33,7 @@ def _prop_div(
         invars[1]: denominator
     """
     _binary_elementwise(eqn, state)
-    _propagate_const_binary(eqn, state, np.divide)
+    _propagate_const_binary(eqn, state, _lax_div)
     _clear_where_zero(eqn, state, 0)
     _propagate_bounds_div(eqn, state)
 

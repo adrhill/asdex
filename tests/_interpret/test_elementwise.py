@@ -783,6 +783,37 @@ def test_binary_remainder():
 
 
 @pytest.mark.elementwise
+def test_rem_integer_const_negative_dividend():
+    """Integer rem const propagation follows lax.rem, which takes the dividend's sign.
+
+    lax.rem(-4, 3) = -1, so the gather index is -1 + 2 = 1.
+    np.remainder(-4, 3) = 2 would shift the index to 4,
+    dropping the true dependency on x[1].
+    The const chain sits in a cond branch
+    because top-level arithmetic on concrete arrays
+    is folded away during tracing.
+    """
+
+    def f(x):
+        idx = jnp.array([-4], dtype=jnp.int32)
+
+        def true_branch(ops):
+            i, values = ops
+            j = lax.rem(i, jnp.int32(3)) + jnp.int32(2)  # [-1] + 2 = [1]
+            return values[j] * 1.0
+
+        def false_branch(ops):
+            _, values = ops
+            return values[:1] * 0.0
+
+        return lax.cond(x[0] > 0, true_branch, false_branch, (idx, x))
+
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
+    expected = np.array([[0, 1, 0, 0, 0]], dtype=int)  # out[0] <- x[1]
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
 @pytest.mark.parametrize(
     "op",
     [
