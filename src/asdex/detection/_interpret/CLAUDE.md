@@ -32,10 +32,11 @@ Every handler must uphold these.
 
 - **Index sets track derivatives, not data flow.**
   An output depends on an input only if their partial derivative can be nonzero.
-  Piecewise-constant ops (`floor`, `sign`, comparisons, `argmax`) therefore emit empty sets,
-  and `custom_jvp_call` follows the JVP rule JAX differentiates, not its primal.
-  `custom_vjp_call` still follows its primal, a known gap
-  (see `test_custom_vjp_follows_primal_not_rule`).
+  Piecewise-constant ops (`floor`, `sign`, comparisons, `argmax`) therefore emit empty sets.
+  `custom_jvp_call` and `custom_vjp_call` still follow their primal,
+  not the rule JAX differentiates them with, a known gap
+  (see the `bug` tests in `tests/_interpret/test_custom_jvp.py`
+  and `test_custom_vjp_follows_primal_not_rule`).
 - **Mirror the op on positions.**
   Structural handlers apply the numpy equivalent of the op to a position map
   (`_position_map`, `_transform_indices`, `_join_inputs`)
