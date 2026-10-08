@@ -180,3 +180,70 @@ def test_while_body_closure_captured_index():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.control_flow
+def test_while_traced_cond_const():
+    """while_loop whose cond closes over a traced value.
+
+    JAX binds the while invars as [cond_consts, body_consts, carry],
+    so the handler must seed the body jaxpr from the body const group.
+    The threshold only steers termination and adds no dependencies,
+    while the step flows into the carry on every iteration.
+    """
+
+    def f(x):
+        thresh = x[0]
+        step = x[1:3]
+
+        def cond(carry):
+            return carry[0] < thresh
+
+        def body(carry):
+            return carry + step
+
+        return jax.lax.while_loop(cond, body, x[3:5])
+
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 1, 0, 1, 0],  # out[0] <- step[0] and init[0]
+            [0, 0, 1, 0, 1],  # out[1] <- step[1] and init[1]
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.control_flow
+def test_while_cond_body_const_counts_differ():
+    """while_loop with two cond consts and one body const.
+
+    With cond_nconsts != body_nconsts,
+    mislabeling the const groups also misaligns the seeded index sets,
+    so this pins the eqn.invars slicing exactly.
+    Only the step and the initial carry contribute dependencies.
+    """
+
+    def f(x):
+        lo = x[0]
+        hi = x[1]
+        step = x[2]
+
+        def cond(carry):
+            return (carry[0] > lo) & (carry[0] < hi)
+
+        def body(carry):
+            return carry + step
+
+        return jax.lax.while_loop(cond, body, x[3:5])
+
+    result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 0, 1, 1, 0],  # out[0] <- step and init[0]
+            [0, 0, 1, 0, 1],  # out[1] <- step and init[1]
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
