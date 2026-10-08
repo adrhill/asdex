@@ -23,7 +23,7 @@ def _prop_scan(
     Unlike ``while_loop`` (unknown iteration count, same inputs each iteration),
     scan has a known ``length`` and different ``xs[t]`` per timestep.
     Dependencies are propagated via forward simulation:
-    one ``_prop_jaxpr`` call per timestep, threading carry deps forward.
+    one ``_prop_jaxpr`` call per timestep, threading carry index sets forward.
 
     Layout:
         invars:  [consts..., carry_init..., xs...]
@@ -32,9 +32,9 @@ def _prop_scan(
         body jaxpr outvars: [carry_new..., y_slice...]
         params: jaxpr, ft_in, ft_out, length, reverse, unroll
 
-    ``ft_in`` is a ``jax._src.flattree.FTTuple`` splitting the invars into
-    ``(consts, carry, xs)`` groups; its per-group lengths give the
-    ``num_consts`` / ``num_carry`` counts.
+    ``ft_in`` is a ``jax._src.flattree.FTTuple``
+    splitting the invars into ``(consts, carry, xs)`` groups.
+    Its per-group lengths give the number of consts and carries.
 
     xs arrays have an extra leading dimension of size ``length``
     compared to their body counterparts x_slice.
