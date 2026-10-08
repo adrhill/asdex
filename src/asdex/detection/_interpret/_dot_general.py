@@ -22,20 +22,28 @@ def _fixed_base_positions(
     free_dims: tuple[int, ...],
     strides: tuple[int, ...],
 ) -> np.ndarray:
-    """Flat operand positions of the zero contracting coordinate per fixed coordinate.
+    """Flat position where each contracted slice of an operand starts.
 
-    Returns an array of shape ``(batch_size, free_size)``.
+    For a matrix multiply, the contracted slices are the rows of lhs and the columns of rhs.
+    Each base is the flat position of the first element of one slice.
+    Adding the contracting offsets to a base gives the flat positions of the whole slice.
+
+    Returns an array of shape ``(batch_size, free_size)``,
+    with one row of bases per batch index.
     ``batch_dims`` and ``free_dims`` are listed in the order of the output axes they map to,
-    so each row enumerates the free coordinates of one batch index in output C order.
-    Adding a contracting offset to a base yields a full flat operand position.
+    so the bases come out in the same order as the output elements.
 
-    Example: batched matmul lhs of shape (2, 3, 4)
-        batch_dims=(0,), free_dims=(1,), contracting dim 2, strides=(12, 4, 1)
-        bases[b, i] = 12*b + 4*i, the flat position of lhs[b, i, 0]:
-            [[ 0,  4,  8],
-             [12, 16, 20]]
-        The contracting offsets are [0, 1, 2, 3],
-        so bases[0, 1] + offsets = [4, 5, 6, 7] are the flat positions of lhs[0, 1, :].
+    Example: matrix multiply A(2,3) @ B(3,4) -> C(2,4)
+        Flat positions of A:  [[0, 1, 2],
+                               [3, 4, 5]]
+        Rows of A start at 0 and 3, so bases = [[0, 3]].
+        Row 1 is base 3 plus offsets [0, 1, 2], i.e. positions [3, 4, 5].
+
+        Flat positions of B:  [[0, 1,  2,  3],
+                               [4, 5,  6,  7],
+                               [8, 9, 10, 11]]
+        Columns of B start at 0, 1, 2, and 3, so bases = [[0, 1, 2, 3]].
+        Column 2 is base 2 plus offsets [0, 4, 8], i.e. positions [2, 6, 10].
     """
     dims = batch_dims + free_dims
     sizes = tuple(shape[d] for d in dims)
