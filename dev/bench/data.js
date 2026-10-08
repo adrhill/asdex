@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791490749744,
+  "lastUpdate": 1791493370152,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -20793,6 +20793,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000008915800881501464",
             "extra": "mean: 36.64440632492292 usec\nrounds: 12111"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f1f967ccc488aa1f131dade697fff6b535e7f15b",
+          "message": "perf(detection): speed up dot_general and pass-through handlers (#198)\n\n* perf: factor dot_general propagation into row and column unions\n\nUnion distributes over the contraction sum,\nso each output element now costs a single union\nof a precomputed lhs row set and rhs column set\ninstead of one union per contraction term.\n\nZero-skipping unions only the traced operand\nover the contracting positions where the constant is nonzero,\nso its cost scales with the nonzeros of the constant.\nConstant positions without zeros share one unmasked union\nper traced position.\nA constant operand that unexpectedly carries dependencies\nis treated as traced,\nwhich keeps the pattern conservative instead of dropping dependencies.\n\nDetection of a 200x200 matmul drops from 4.2s to 1.2s\nat unchanged peak memory.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* perf: alias index sets in pass-through handlers instead of copying\n\nIndex sets are shared and never mutated by convention,\nso pass-through handlers can alias the input list outright.\nRemove the O(nnz) deep copies from unary elementwise,\nconvert_element_type, integer_pow, scatter's untouched positions,\nand dynamic_update_slice, which only needs a shallow list copy.\n\nBinary elementwise ops now return the surviving side directly\nwhen the other side has a zero derivative or an empty index set,\navoiding an allocation per element\nfor ops with a constant operand such as x * 2.0.\n\n_clear_where_zero builds a new output list instead of mutating in place,\nso it stays safe on output lists that alias an input's list.\n\nThe copies in cond, scatter combine mode, and the while fixed-point loop\nremain, since those accumulate via |= and must own their targets.\nDocument the list-aliasing rule in the interpreter CLAUDE.md.\n\nA chain of 20 unary ops after cumsum (n=1500) drops from 0.43s to 0.13s.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>\n\n* docs: note the dot_general and aliasing speedups in the changelog\n\n* fix(detection): check zero-derivative flags before the empty-set shortcut\n\n_union_with_zero_derivs returned the second input's index set\nwhenever the first was empty,\neven when the second input's derivative is zero globally.\nCheck the derivative flags first,\nso a zero-derivative side is never returned in place of an empty set.\n\nNo handler passes is_der2_zero_globally today,\nso this was latent, but it would have made patterns overly dense.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(detection): index dot_general bases per batch and test its edge cases\n\n_fixed_base_positions now returns a (batch_size, free_size) array,\nso the both-traced and one-constant paths iterate over batch rows directly\ninstead of slicing flat lists with separately passed sizes.\n_one_const_indices loses its three size arguments,\ntakes the rest keyword-only,\nand reuses _contract_union_sets for its masked and unmasked unions.\n\nAdd tests for a zero-size output,\nbatched zero-skipping with a sparse constant on either side,\ntwo statically known operands,\na scalar const value expanded to the operand size,\nand a known operand that also carries dependencies.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: attribute the dot_general speedup to factoring the contraction\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs(detection): document dot_general zero-skipping helper and base layout\n\nAdd a worked example to `_fixed_base_positions`, rename\n`_one_const_indices` to `_zero_skipping_index_sets`, and document\nits arguments and return value.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs(detection): explain dot_general bases with a matmul example\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-10-08T23:01:35+02:00",
+          "tree_id": "dbec542fed7199830dd52db8f0e498e4bc999206",
+          "url": "https://github.com/adrhill/asdex/commit/f1f967ccc488aa1f131dade697fff6b535e7f15b"
+        },
+        "date": 1791493367585,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 630.1556579000421,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004608022202568206",
+            "extra": "mean: 1.586909499999481 msec\nrounds: 22"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27720.822908550726,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002200034299866497",
+            "extra": "mean: 36.07396516686889 usec\nrounds: 7579"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 91744.26237608644,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013339538486199806",
+            "extra": "mean: 10.899864188789365 usec\nrounds: 28223"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 57603.18851786469,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000020027051401111815",
+            "extra": "mean: 17.360150118944652 usec\nrounds: 15974"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 91307.40198982113,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001210765053244785",
+            "extra": "mean: 10.952014603498183 usec\nrounds: 29308"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 24.498502286104102,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003156226121733319",
+            "extra": "mean: 40.81882183333363 msec\nrounds: 12"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2885.7656568309217,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001687989606496686",
+            "extra": "mean: 346.5284846095839 usec\nrounds: 2664"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1892.5563669915903,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001836973930946515",
+            "extra": "mean: 528.3858475452444 usec\nrounds: 1161"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1813.3107389660981,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003510152121329145",
+            "extra": "mean: 551.4774597155772 usec\nrounds: 1055"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4636.3978741822,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009424930833171908",
+            "extra": "mean: 215.6846817587645 usec\nrounds: 3821"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 153.04017073007796,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013041987624498307",
+            "extra": "mean: 6.534232125000261 msec\nrounds: 64"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27418.17253794695,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000032435835900042285",
+            "extra": "mean: 36.47216088585017 usec\nrounds: 20816"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 59222.073609121646,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003949137341903573",
+            "extra": "mean: 16.88559584387764 usec\nrounds: 15880"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 56566.31646524165,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000030705232749423504",
+            "extra": "mean: 17.678365191314352 usec\nrounds: 14324"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 60367.80294116466,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002545069912814276",
+            "extra": "mean: 16.565121658885193 usec\nrounds: 12683"
           }
         ]
       }
