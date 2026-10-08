@@ -4,17 +4,17 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
-    StateIndices,
     _atom_shape,
     _empty_index_set,
     _flat_to_coords,
     _index_sets,
     _numel,
+    _PropState,
     _row_strides,
 )
 
 
-def _prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_pad(eqn: JaxprEqn, state: _PropState) -> None:
     """Padding inserts constant-valued elements around an array.
 
     Each output element either maps back to exactly one input element
@@ -29,8 +29,8 @@ def _prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     The Jacobian is a selection matrix with at most one 1 per row.
 
     Example: x = [a, b, c], pad(x, (1, 1), constant=0)
-        Input state_indices:  [{0}, {1}, {2}]
-        Output state_indices: [{}, {0}, {1}, {2}, {}]
+        Input index sets:  [{0}, {1}, {2}]
+        Output index sets: [{}, {0}, {1}, {2}, {}]
 
     Jaxpr:
         invars[0]: input array
@@ -39,8 +39,8 @@ def _prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.pad.html
     """
-    in_indices = _index_sets(state_indices, eqn.invars[0])
-    pad_indices = _index_sets(state_indices, eqn.invars[1])
+    in_indices = _index_sets(state, eqn.invars[0])
+    pad_indices = _index_sets(state, eqn.invars[1])
 
     in_shape = _atom_shape(eqn.invars[0])
     padding_config = eqn.params["padding_config"]
@@ -91,4 +91,4 @@ def _prop_pad(eqn: JaxprEqn, state_indices: StateIndices) -> None:
         else:
             out_indices.append(in_indices[in_flat])
 
-    state_indices[eqn.outvars[0]] = out_indices
+    state.indices[eqn.outvars[0]] = out_indices

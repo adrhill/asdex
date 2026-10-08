@@ -21,7 +21,7 @@ from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
 from asdex._docstrings import _fill_doc
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import _prop_jaxpr
-from asdex.detection._interpret._common import _empty_index_sets
+from asdex.detection._interpret._common import _empty_index_sets, _PropState
 
 
 @_fill_doc
@@ -185,11 +185,13 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
     """
     jaxpr = closed_jaxpr.jaxpr
-    state_consts = {
-        var: np.asarray(val)
-        for var, val in zip(jaxpr.constvars, closed_jaxpr.consts, strict=False)
-    }
-    output_indices_list = _prop_jaxpr(jaxpr, input_indices, state_consts)
+    state = _PropState(
+        consts={
+            var: np.asarray(val)
+            for var, val in zip(jaxpr.constvars, closed_jaxpr.consts, strict=False)
+        }
+    )
+    output_indices_list = _prop_jaxpr(jaxpr, input_indices, state)
     flat: list = []
     for out_deps in output_indices_list:
         flat.extend(out_deps)

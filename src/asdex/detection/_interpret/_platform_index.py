@@ -4,7 +4,7 @@
 It takes no inputs and its output is fully determined at runtime,
 so all dependency sets are empty.
 
-No ``state_consts`` tracking is needed,
+No ``state.consts`` tracking is needed,
 because the value is platform-dependent and unknown at trace time.
 
 Jaxpr:
@@ -17,10 +17,13 @@ https://docs.jax.dev/en/latest/_autosummary/jax.lax.platform_dependent.html
 
 from jax._src.core import JaxprEqn
 
-from ._common import StateIndices, _empty_index_sets
+from ._common import (
+    _empty_index_sets,
+    _PropState,
+)
 
 
-def _prop_platform_index(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_platform_index(eqn: JaxprEqn, state: _PropState) -> None:
     """Platform index produces a constant scalar with no input dependencies.
 
     The output is a scalar integer selecting the active platform.
@@ -33,7 +36,7 @@ def _prop_platform_index(eqn: JaxprEqn, state_indices: StateIndices) -> None:
     Example:
         invars: []
         outvars: [c]
-        state_indices[c] = [{}]
+        state.indices[c] = [{}]
 
     Jaxpr:
         invars: [] (no inputs)
@@ -42,4 +45,4 @@ def _prop_platform_index(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.platform_dependent.html
     """
-    state_indices[eqn.outvars[0]] = _empty_index_sets(1)
+    state.indices[eqn.outvars[0]] = _empty_index_sets(1)

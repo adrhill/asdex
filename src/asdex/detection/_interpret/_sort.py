@@ -9,16 +9,16 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
-    StateIndices,
     _atom_numel,
     _atom_shape,
     _empty_index_sets,
     _index_sets,
+    _PropState,
     _union_all,
 )
 
 
-def _prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_sort(eqn: JaxprEqn, state: _PropState) -> None:
     """Sort reorders elements along one dimension.
 
     Each output element depends on all input elements in its slice
@@ -30,11 +30,11 @@ def _prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     For multiple operands (multi-key sort via ``lax.sort``),
     the permutation is determined by all key inputs jointly,
-    so state_indices from all operands in the same slice are unioned.
+    so index sets from all operands in the same slice are unioned.
 
     Example: y = sort(x, dimension=1) where x.shape = (2, 3)
-        Input state_indices:  [{0}, {1}, {2}, {3}, {4}, {5}]
-        Output state_indices: [{0, 1, 2}, {0, 1, 2}, {0, 1, 2},
+        Input index sets:  [{0}, {1}, {2}, {3}, {4}, {5}]
+        Output index sets: [{0, 1, 2}, {0, 1, 2}, {0, 1, 2},
                       {3, 4, 5}, {3, 4, 5}, {3, 4, 5}]
 
     Jaxpr:
@@ -51,7 +51,7 @@ def _prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
 
     if total == 0:
         for outvar in eqn.outvars:
-            state_indices[outvar] = []
+            state.indices[outvar] = []
         return
 
     # groups[b] holds the flat indices for batch slice b.
@@ -59,16 +59,16 @@ def _prop_sort(eqn: JaxprEqn, state_indices: StateIndices) -> None:
         -1, in_shape[dim]
     )
 
-    # Union state_indices from all operands within each batch slice.
-    all_indices = [_index_sets(state_indices, v) for v in eqn.invars]
+    # Union index sets from all operands within each batch slice.
+    all_indices = [_index_sets(state, v) for v in eqn.invars]
     group_indices = [
         _union_all([ids[i] for ids in all_indices for i in g]) for g in groups
     ]
 
-    # Broadcast each slice's state_indices back to every element in the slice.
+    # Broadcast each slice's index sets back to every element in the slice.
     for outvar in eqn.outvars:
         out: list[IndexSet] = _empty_index_sets(total)
         for gd, g in zip(group_indices, groups, strict=True):
             for i in g:
                 out[i] = gd
-        state_indices[outvar] = out
+        state.indices[outvar] = out

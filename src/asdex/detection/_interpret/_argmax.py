@@ -3,19 +3,20 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._common import StateBounds, StateIndices, _atom_shape
+from ._common import (
+    _atom_shape,
+    _PropState,
+)
 from ._elementwise import _prop_zero_derivative
 
 
-def _prop_argmax(
-    eqn: JaxprEqn, state_indices: StateIndices, state_bounds: StateBounds
-) -> None:
+def _prop_argmax(eqn: JaxprEqn, state: _PropState) -> None:
     """argmax/argmin returns the index of the extreme value along an axis.
 
     The output has zero derivative with respect to the input
     (the index is piecewise constant).
     The output value is bounded: it lies in ``[0, axis_size - 1]``.
-    These bounds are stored in ``state_bounds``
+    These bounds are stored in ``state.bounds``
     so that downstream ``gather``/``scatter``/``dynamic_slice`` handlers
     can enumerate possible index values
     instead of falling back to conservative.
@@ -31,7 +32,7 @@ def _prop_argmax(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.argmax.html
     """
-    _prop_zero_derivative(eqn, state_indices)
+    _prop_zero_derivative(eqn, state)
 
     axes = eqn.params["axes"]
     in_shape = _atom_shape(eqn.invars[0])
@@ -39,4 +40,4 @@ def _prop_argmax(
     out_var = eqn.outvars[0]
     lo = np.zeros(_atom_shape(out_var), dtype=np.int64)
     hi = np.full(_atom_shape(out_var), axis_size - 1, dtype=np.int64)
-    state_bounds[out_var] = (lo, hi)
+    state.bounds[out_var] = (lo, hi)
