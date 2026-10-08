@@ -18,6 +18,7 @@ authors:
   - name: Adrian Hill
     orcid: 0009-0009-5977-301X
     corresponding: true
+    email: hill@tu-berlin.de
     affiliation: "1, 2"
   - name: Guillaume Dalle
     orcid: 0000-0003-4866-1687
@@ -29,7 +30,7 @@ affiliations:
     index: 2
   - name: LVMT, ENPC, Institut Polytechnique de Paris, Univ Gustave Eiffel, Marne-la-Vallée, France
     index: 3
-date: 6 October 2026
+date: 8 October 2026
 bibliography: paper.bib
 ---
 
