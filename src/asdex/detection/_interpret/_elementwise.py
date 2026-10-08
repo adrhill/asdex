@@ -20,37 +20,22 @@ from ._common import (
     _union_elementwise,
 )
 
-
-def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
-    """Divide with ``lax.div`` semantics.
-
-    ``lax.div`` truncates toward zero for integer inputs,
-    while ``np.divide`` is true division and returns floats.
-    Using numpy semantics on integer index arithmetic
-    would resolve gather/scatter indices to the wrong positions.
-    """
-    result_dtype = np.result_type(in1_val, in2_val)
-    if np.issubdtype(result_dtype, np.integer):
-        return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
-    return np.true_divide(in1_val, in2_val)
-
-
 # Functions for evaluating constant values during tracing.
 # Used to propagate static index values through arithmetic to gather/scatter.
-# Entries must match lax semantics, which differ from numpy for integer div/rem.
+# Entries must match lax semantics, which differ from numpy for integer rem.
+# div is absent because `_prop_div` propagates its consts with `_lax_div`.
 _BINARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] = {
     # arithmetic
     "add": np.add,
     "add_any": np.add,
     "sub": np.subtract,
     "mul": np.multiply,
-    "div": _lax_div,
     "pow": np.power,
     "max": np.maximum,
     "min": np.minimum,
     "atan2": np.arctan2,
-    # lax.rem takes the dividend's sign like C fmod,
-    # while np.remainder takes the divisor's sign.
+    # lax.rem(-4, 3) = -1 takes the sign of the dividend, as does np.fmod.
+    # np.remainder(-4, 3) = 2 takes the sign of the divisor instead.
     "rem": np.fmod,
     "nextafter": np.nextafter,
     # comparison

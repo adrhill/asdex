@@ -9,7 +9,25 @@ from ._common import (
     _propagate_const_binary,
     _PropState,
 )
-from ._elementwise import _binary_elementwise, _lax_div
+from ._elementwise import _binary_elementwise
+
+
+def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
+    """Divide with ``lax.div`` semantics.
+
+    ``lax.div`` truncates toward zero for integer inputs,
+    while ``np.divide`` is true division and returns floats.
+    Using numpy semantics on integer index arithmetic
+    would resolve gather/scatter indices to the wrong positions.
+
+    Calling ``lax.div`` itself is not an option:
+    detection may run while an outer ``jax.jit`` is tracing,
+    and there ``lax.div`` returns a tracer instead of a concrete array.
+    """
+    result_dtype = np.result_type(in1_val, in2_val)
+    if np.issubdtype(result_dtype, np.integer):
+        return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
+    return np.true_divide(in1_val, in2_val)
 
 
 def _prop_div(
