@@ -3,14 +3,8 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._common import (
-    IndexSet,
-    _atom_const_val,
-    _atom_shape,
-    _index_sets,
-    _numel,
-    _PropState,
-)
+from ._common import _PropState
+from ._concatenate import _join_inputs
 
 
 def _prop_stack(eqn: JaxprEqn, state: _PropState) -> None:
@@ -34,40 +28,9 @@ def _prop_stack(eqn: JaxprEqn, state: _PropState) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.stack.html
     """
-    axis = eqn.params["axis"]
-    out_var = eqn.outvars[0]
-
+    # np.stack requires at least one array, so guard the degenerate case.
     if not eqn.invars:
-        state.indices[out_var] = []
+        state.indices[eqn.outvars[0]] = []
         return
 
-    in_shape = _atom_shape(eqn.invars[0])
-    in_numel = _numel(in_shape)
-    n_inputs = len(eqn.invars)
-    out_numel = in_numel * n_inputs
-
-    if out_numel == 0:
-        state.indices[out_var] = []
-        return
-
-    # Pool all input index sets into one list.
-    # Build position arrays that map to positions in the pool.
-    all_indices: list[IndexSet] = []
-    index_arrays = []
-    for invar in eqn.invars:
-        in_indices = _index_sets(state, invar)
-        offset = len(all_indices)
-        all_indices.extend(in_indices)
-        index_arrays.append(
-            np.arange(offset, offset + len(in_indices)).reshape(in_shape)
-        )
-
-    # np.stack mirrors the primitive's semantics:
-    # stacking along axis inserts a new dimension at that position.
-    permutation_map = np.stack(index_arrays, axis=axis).ravel()
-    state.indices[out_var] = [all_indices[i] for i in permutation_map]
-
-    # Propagate const values for downstream gather/scatter.
-    vals = [_atom_const_val(v, state) for v in eqn.invars]
-    if all(v is not None for v in vals):
-        state.consts[out_var] = np.stack([v for v in vals if v is not None], axis=axis)
+    _join_inputs(eqn, state, np.stack, eqn.params["axis"])
