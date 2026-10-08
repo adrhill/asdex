@@ -1458,3 +1458,32 @@ def test_narrowing_convert_drops_bounds_that_wrap():
     # TODO(convert_element_type): track wrapped values as a union of intervals.
     # The precise pattern reads x[0], x[126], and x[127] only.
     np.testing.assert_array_equal(result, np.ones((1, 130), dtype=int))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    ("offset", "expected_cols"),
+    [
+        pytest.param(-2, [10, 11], id="spans_zero"),
+        pytest.param(1, [11], id="positive"),
+    ],
+)
+def test_convert_to_bool_bounds(offset, expected_cols):
+    """Converting bounds to bool maps an interval around zero to [False, True].
+
+    argmax(x[:5]) + offset is in [offset, offset + 4].
+    Casting the endpoints would turn [-2, 2] into (True, True),
+    although 0 is in range and converts to False.
+    """
+
+    def f(x):
+        i = jnp.argmax(x[:5]) + offset
+        start = i.astype(bool).astype(jnp.int32)
+        return lax.dynamic_slice(x[10:20], (start,), (1,))
+
+    for position in range(5):
+        assert_jacobian_sparsity_conservative(f, _one_hot(20, position))
+    result = jacobian_sparsity(f, np.zeros(20)).todense().astype(int)
+    expected = np.zeros((1, 20), dtype=int)
+    expected[0, expected_cols] = 1
+    np.testing.assert_array_equal(result, expected)

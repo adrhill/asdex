@@ -559,11 +559,15 @@ def _prop_convert_element_type(
     # Propagate value bounds with dtype cast.
     # Integer targets keep the exact endpoints,
     # so ``_set_value_bounds`` drops intervals that would wrap.
+    # Casting to bool is not monotone,
+    # since an interval around zero maps to False inside and True at both ends.
     bounds = _atom_value_bounds(eqn.invars[0], state)
     if bounds is not None:
         lo, hi = bounds
         new_dtype = eqn.params.get("new_dtype")
-        if new_dtype is not None and np.issubdtype(new_dtype, np.integer):
+        if new_dtype is not None and np.dtype(new_dtype) == np.bool_:
+            lo, hi = (lo > 0) | (hi < 0), (lo != 0) | (hi != 0)
+        elif new_dtype is not None and np.issubdtype(new_dtype, np.integer):
             lo, hi = _exact_ints(lo), _exact_ints(hi)
         elif new_dtype is not None:
             lo, hi = lo.astype(new_dtype), hi.astype(new_dtype)
