@@ -17,16 +17,19 @@ from ._common import (
 
 
 def _fixed_base_positions(
-    shape: tuple[int, ...], dims: tuple[int, ...], strides: tuple[int, ...]
+    shape: tuple[int, ...],
+    batch_dims: tuple[int, ...],
+    free_dims: tuple[int, ...],
+    strides: tuple[int, ...],
 ) -> np.ndarray:
     """Flat operand positions of the zero contracting coordinate per fixed coordinate.
 
-    ``dims`` lists the operand's batch and free dimensions
-    in the order of the corresponding output axes,
-    so the result enumerates the fixed coordinates in the same C order
-    as the output axes they map to.
+    Returns an array of shape ``(batch_size, free_size)``.
+    ``batch_dims`` and ``free_dims`` are listed in the order of the output axes they map to,
+    so each row enumerates the free coordinates of one batch index in output C order.
     Adding a contracting offset to a base yields a full flat operand position.
     """
+    dims = batch_dims + free_dims
     sizes = tuple(shape[d] for d in dims)
     coords = (
         np.indices(sizes, dtype=np.int64).reshape(len(dims), -1)
@@ -36,30 +39,32 @@ def _fixed_base_positions(
     bases = np.zeros(_numel(sizes), dtype=np.int64)
     for i, d in enumerate(dims):
         bases += coords[i] * strides[d]
-    return bases
+    batch_size = _numel(tuple(shape[d] for d in batch_dims))
+    return bases.reshape(batch_size, -1)
 
 
 def _contract_union_sets(
-    indices: list[IndexSet], bases: np.ndarray, offsets: list[int]
+    indices: list[IndexSet], bases: np.ndarray, offsets: np.ndarray
 ) -> list[IndexSet]:
     """Union the index sets over the contracting offsets for each base position.
 
     For lhs these are the row sets, the unioned index sets of ``lhs[b, i, :]``.
     For rhs the column sets, the unioned index sets of ``rhs[b, :, j]``.
     """
-    return [_union_all([indices[base + o] for o in offsets]) for base in bases.tolist()]
+    offset_list = offsets.tolist()
+    return [
+        _union_all([indices[base + o] for o in offset_list]) for base in bases.tolist()
+    ]
 
 
 def _one_const_indices(
+    *,
     const_vals: np.ndarray,
     const_bases: np.ndarray,
     const_offsets: np.ndarray,
     traced_indices: list[IndexSet],
     traced_bases: np.ndarray,
     traced_offsets: np.ndarray,
-    batch_size: int,
-    n_const: int,
-    n_traced: int,
     const_is_lhs: bool,
 ) -> list[IndexSet]:
     """Output index sets when exactly one operand is a statically known constant.
@@ -71,32 +76,26 @@ def _one_const_indices(
     one unmasked union per traced fixed position.
     """
     n_contract = len(const_offsets)
-    all_offsets = traced_offsets.tolist()
     out_indices: list[IndexSet] = []
-    for b in range(batch_size):
-        const_bs = const_bases[b * n_const : (b + 1) * n_const].tolist()
-        traced_bs = traced_bases[b * n_traced : (b + 1) * n_traced].tolist()
+    for const_bs, traced_bs in zip(const_bases, traced_bases, strict=True):
         # Unmasked unions for this batch index, built once on first use
         # and shared across all constant positions without zeros.
         full: list[IndexSet] | None = None
         # block[c][t] is the output set for const position c and traced position t.
         block: list[list[IndexSet]] = []
-        for cbase in const_bs:
+        for cbase in const_bs.tolist():
             kept = np.flatnonzero(const_vals[cbase + const_offsets])
             if kept.size == n_contract:
                 if full is None:
-                    full = [
-                        _union_all([traced_indices[tb + o] for o in all_offsets])
-                        for tb in traced_bs
-                    ]
+                    full = _contract_union_sets(
+                        traced_indices, traced_bs, traced_offsets
+                    )
                 block.append(full)
             else:
-                offsets = traced_offsets[kept].tolist()
                 block.append(
-                    [
-                        _union_all([traced_indices[tb + o] for o in offsets])
-                        for tb in traced_bs
-                    ]
+                    _contract_union_sets(
+                        traced_indices, traced_bs, traced_offsets[kept]
+                    )
                 )
         if const_is_lhs:
             # Output axes per batch are (const fixed, traced fixed).
@@ -104,7 +103,7 @@ def _one_const_indices(
                 out_indices.extend(row)
         else:
             # Output axes per batch are (traced fixed, const fixed): transpose.
-            for t in range(n_traced):
+            for t in range(len(traced_bs)):
                 out_indices.extend(row[t] for row in block)
     return out_indices
 
@@ -205,10 +204,6 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     lhs_known = lhs_val_flat is not None and not any(lhs_indices)
     rhs_known = rhs_val_flat is not None and not any(rhs_indices)
 
-    batch_size = _numel(tuple(lhs_shape[d] for d in lhs_batch))
-    lhs_free_size = _numel(tuple(lhs_shape[d] for d in lhs_free))
-    rhs_free_size = _numel(tuple(rhs_shape[d] for d in rhs_free))
-
     lhs_strides = _row_strides(lhs_shape)
     rhs_strides = _row_strides(rhs_shape)
 
@@ -229,52 +224,41 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     for i, d in enumerate(rhs_contract):
         rhs_offsets += contract_coords[i] * rhs_strides[d]
 
-    lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch + lhs_free, lhs_strides)
-    rhs_bases = _fixed_base_positions(rhs_shape, rhs_batch + rhs_free, rhs_strides)
+    # Shape (batch_size, free_size) each, with matching batch rows.
+    lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch, lhs_free, lhs_strides)
+    rhs_bases = _fixed_base_positions(rhs_shape, rhs_batch, rhs_free, rhs_strides)
 
     out_indices: list[IndexSet]
     match (lhs_known, rhs_known):
         case (False, False):
             # Both operands are traced: no zero-skipping possible,
             # every output is one row set unioned with one column set.
-            row_sets = _contract_union_sets(
-                lhs_indices, lhs_bases, lhs_offsets.tolist()
-            )
-            col_sets = _contract_union_sets(
-                rhs_indices, rhs_bases, rhs_offsets.tolist()
-            )
             out_indices = []
-            for b in range(batch_size):
-                rows = row_sets[b * lhs_free_size : (b + 1) * lhs_free_size]
-                cols = col_sets[b * rhs_free_size : (b + 1) * rhs_free_size]
+            for lhs_bs, rhs_bs in zip(lhs_bases, rhs_bases, strict=True):
+                rows = _contract_union_sets(lhs_indices, lhs_bs, lhs_offsets)
+                cols = _contract_union_sets(rhs_indices, rhs_bs, rhs_offsets)
                 for row in rows:
                     out_indices.extend(row | col for col in cols)
         case (True, False):
             assert lhs_val_flat is not None
             out_indices = _one_const_indices(
-                lhs_val_flat,
-                lhs_bases,
-                lhs_offsets,
-                rhs_indices,
-                rhs_bases,
-                rhs_offsets,
-                batch_size,
-                lhs_free_size,
-                rhs_free_size,
+                const_vals=lhs_val_flat,
+                const_bases=lhs_bases,
+                const_offsets=lhs_offsets,
+                traced_indices=rhs_indices,
+                traced_bases=rhs_bases,
+                traced_offsets=rhs_offsets,
                 const_is_lhs=True,
             )
         case (False, True):
             assert rhs_val_flat is not None
             out_indices = _one_const_indices(
-                rhs_val_flat,
-                rhs_bases,
-                rhs_offsets,
-                lhs_indices,
-                lhs_bases,
-                lhs_offsets,
-                batch_size,
-                rhs_free_size,
-                lhs_free_size,
+                const_vals=rhs_val_flat,
+                const_bases=rhs_bases,
+                const_offsets=rhs_offsets,
+                traced_indices=lhs_indices,
+                traced_bases=lhs_bases,
+                traced_offsets=lhs_offsets,
                 const_is_lhs=False,
             )
         case (True, True):
