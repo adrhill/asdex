@@ -10,7 +10,6 @@ from ._common import (
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
-    _check_no_index_sets,
     _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
@@ -208,7 +207,8 @@ def _prop_scatter(
 
     Example with dynamic scatter_indices: arr.at[traced_idx].set(x)
         Cannot determine which position receives the update.
-        Conservative: all outputs depend on all inputs.
+        Conservative: all outputs depend on all inputs,
+        including the scatter_indices' own dependencies.
 
     Jaxpr:
         invars[0]: operand — base array
@@ -225,8 +225,7 @@ def _prop_scatter(
     """
     operand_indices = _index_sets(state, eqn.invars[0])
     indices_atom = eqn.invars[1]
-    # TODO: include scatter_indices index sets in output dependencies.
-    _check_no_index_sets(state, indices_atom, eqn.primitive.name)
+    si_index_sets = _index_sets(state, indices_atom)
     updates_indices = _index_sets(state, eqn.invars[2])
 
     concrete_indices = _atom_const_val(indices_atom, state)
@@ -259,10 +258,15 @@ def _prop_scatter(
 
         result = _enumerate_bounded_patterns(ranges, out_size, _make)
         if result is not None:
+            if any(si_index_sets):
+                combined_si = _union_all(si_index_sets)
+                result = [iset | combined_si for iset in result]
             state.indices[eqn.outvars[0]] = result
             return
 
-    # Dynamic indices - conservative fallback.
+    # Dynamic indices - conservative fallback,
+    # including the indices' own dependencies (mirrors gather).
     state.indices[eqn.outvars[0]] = _conservative_indices(
-        operand_indices + updates_indices, _atom_numel(eqn.outvars[0])
+        operand_indices + updates_indices + si_index_sets,
+        _atom_numel(eqn.outvars[0]),
     )

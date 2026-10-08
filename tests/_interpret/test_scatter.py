@@ -819,6 +819,31 @@ def test_scatter_dynamic_too_many_combinations():
     assert result.sum() == n_out * n_in
 
 
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_scatter_input_dependent_indices_conservative():
+    """Scatter with input-dependent indices falls back to conservative.
+
+    The write targets cannot be resolved statically,
+    so every output must depend on the operand, the updates,
+    and the indices' own dependencies,
+    mirroring the gather fallback in the same situation.
+    Raising is wrong here, this is valid user code.
+
+    TODO(scatter): at any point without ties,
+    the true pattern is a permutation (out[argsort(x)[i]] = 2 x[i]),
+    so one dependency per row.
+    Any conservative superset that does not raise is acceptable.
+    """
+
+    def f(x):
+        return x.at[jnp.argsort(x)].set(x * 2.0)
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.ones((3, 3), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
 # Size-0 dimension
 
 
