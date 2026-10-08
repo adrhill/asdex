@@ -15,6 +15,7 @@
 * ![Bugfix][badge-bugfix] Return a conservative pattern instead of raising for input-dependent indices in `scatter`, `dynamic_slice`, and `dynamic_update_slice` and for input-dependent `conv` kernels, and support zero-length `scan`s over `xs` ([#177])
 * ![Bugfix][badge-bugfix] Treat every update as a possible writer when replace-mode `scatter` has duplicate indices, since XLA does not define which one wins ([#177])
 * ![Bugfix][badge-bugfix] Return the correct number of rows for `bitcast_convert_type` between dtypes of different widths, and raise an error instead of returning a misshapen pattern if a primitive handler ever gets this wrong ([#177])
+* ![Bugfix][badge-bugfix] Raise an error instead of guessing a default when sparsity detection reads a variable whose dependencies were never recorded, since the guess could have the wrong size ([#177])
 
 ## Version `v0.5.2`
 * ![Maintenance][badge-maintenance] Update `scan` sparsity propagation for JAX 0.11's new jaxpr representation, which replaces the `num_consts`/`num_carry` parameters with `ft_in`/`ft_out`.
