@@ -24,6 +24,10 @@ def _intermediate_shape(
 
     Reshaping the input to this shape and then broadcasting to ``out_shape``
     reproduces broadcast_in_dim with numpy semantics.
+
+    Example: in_shape = (3,), out_shape = (2, 3, 4), broadcast_dims = (1,)
+        Input dim 0 lands at output dim 1.
+        Returns (1, 3, 1).
     """
     shape = [1] * len(out_shape)
     for i, out_dim in enumerate(broadcast_dims):

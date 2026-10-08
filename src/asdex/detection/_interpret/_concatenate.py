@@ -31,6 +31,12 @@ def _join_inputs(
     Applying ``join`` to these index arrays mirrors the real op's element shuffling,
     giving a flat mapping from each output element to the pool position it came from.
     Also joins const values so downstream gather/scatter can resolve indices.
+
+    Example: stack([a, b], axis=1) where a, b have shape (2,)
+        Pool:          [a0, a1, b0, b1]
+        Index arrays:  [0, 1], [2, 3]
+        Joined:        [[0, 2], [1, 3]]
+        Output index sets: [a0, b0, a1, b1]
     """
     all_indices: list[IndexSet] = []
     index_arrays = []

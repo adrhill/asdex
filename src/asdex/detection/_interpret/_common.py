@@ -399,6 +399,14 @@ def _broadcast_flat_map(
     and size-1 dims always read index 0.
     Returns a flat integer array of length ``numel(out_shape)``.
     For const values, ``np.ravel(val)[flat_map]`` broadcasts the value itself.
+
+    Example: in_shape = (3,), out_shape = (2, 3)
+        The input is padded to (1, 3) and repeated per row.
+        Returns [0, 1, 2, 0, 1, 2].
+
+    Example: in_shape = (2, 1), out_shape = (2, 3)
+        The size-1 dim always reads index 0.
+        Returns [0, 0, 0, 1, 1, 1].
     """
     padded = (1,) * (len(out_shape) - len(in_shape)) + tuple(in_shape)
     return np.broadcast_to(_position_map(padded), out_shape).ravel()

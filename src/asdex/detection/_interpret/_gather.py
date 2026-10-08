@@ -50,6 +50,11 @@ def _iter_si_starts(
     in row-major order over both batch spaces.
     Starts are not clamped;
     gather (always) and scatter (mode='clip') apply their own OOB policy.
+
+    Example: operand_shape = (5, 4), concrete_indices = [[1], [3]], index_map = (0,)
+        No batching dims, so batching_shape = ().
+        The index vectors [1] and [3] give si_batch_shape = (2,).
+        Starts: ((), (0,), [1, 0]) and ((), (1,), [3, 0]).
     """
     op_ndim = len(operand_shape)
     si_shape = concrete_indices.shape
