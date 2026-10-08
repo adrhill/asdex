@@ -6,6 +6,7 @@ Const values are reinterpreted bit for bit,
 which matters when a bitcast feeds an index.
 """
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -117,3 +118,46 @@ def test_bitcast_zero_size():
 
     result = jacobian_sparsity(f, np.zeros(3, dtype=np.float32)).todense().astype(int)
     assert result.shape == (0, 3)
+
+
+# Bytes 2, 0, 0, 3, 0, 0, 0, 1, least significant first.
+_INT64_WORD = np.int64(0x0100000003000002)
+
+
+def _narrow_float64_to_int32(x):
+    return lax.bitcast_convert_type(x, jnp.int32).astype(jnp.float64).ravel()
+
+
+def _gather_int64_bytes(x):
+    return x[lax.bitcast_convert_type(_INT64_WORD, jnp.int8)]
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    ("f", "n", "expected"),
+    [
+        pytest.param(
+            _narrow_float64_to_int32,
+            3,
+            np.zeros((6, 3), dtype=int),
+            id="narrow_float64_to_int32",
+        ),
+        pytest.param(
+            _gather_int64_bytes,
+            5,
+            np.eye(5, dtype=int)[[2, 0, 0, 3, 0, 0, 0, 1]],
+            id="gather_int64_bytes",
+        ),
+    ],
+)
+def test_bitcast_64_bit(f, n, expected):
+    """Narrowing a 64-bit element gives two 32-bit or eight 8-bit elements.
+
+    x64 is enabled explicitly so the widths do not depend on global JAX config,
+    which other test modules' imports can change.
+    """
+    with jax.enable_x64(True):
+        x = jnp.arange(1.0, n + 1.0, dtype=jnp.float64)
+        assert_jacobian_sparsity_exact(f, x)
+        result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, expected)
