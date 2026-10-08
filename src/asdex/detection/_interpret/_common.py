@@ -627,6 +627,33 @@ def _row_strides(shape: Sequence[int]) -> tuple[int, ...]:
     return tuple(reversed(result))
 
 
+def _dim_offsets(shape: Sequence[int], dims: Sequence[int]) -> np.ndarray:
+    """Flat positions of every coordinate over ``dims``, with all other dims at zero.
+
+    The coordinates over ``dims`` are enumerated in C order,
+    taking ``dims`` in the given order rather than sorted.
+    Adding the offsets of complementary dims yields a full flat position,
+    which is how dot_general and conv split positions into a base and an offset.
+
+    For shape (2, 3), the flat positions are [[0, 1, 2], [3, 4, 5]], so
+
+    - dims (0,) gives [0, 3], down the first column.
+    - dims (1,) gives [0, 1, 2], along the first row.
+    - dims (1, 0) gives [0, 3, 1, 4, 2, 5], the whole array in transposed order.
+    """
+    strides = _row_strides(shape)
+    sizes = tuple(shape[d] for d in dims)
+    coords = (
+        np.indices(sizes, dtype=np.int64).reshape(len(dims), -1)
+        if sizes
+        else np.zeros((0, 1), dtype=np.int64)
+    )
+    offsets = np.zeros(_numel(sizes), dtype=np.int64)
+    for i, d in enumerate(dims):
+        offsets += coords[i] * strides[d]
+    return offsets
+
+
 # Const value propagation
 
 
