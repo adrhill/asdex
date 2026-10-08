@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_conservative
 
 # dynamic_slice
 
@@ -177,6 +178,57 @@ def test_dynamic_update_slice_2d():
     expected[6, 4] = 1  # (1,2) ← x[4]
     expected[7, 5] = 1  # (1,3) ← x[5]
     np.testing.assert_array_equal(result, expected)
+
+
+# Input-dependent start indices
+
+
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_dynamic_slice_input_dependent_start_conservative():
+    """dynamic_slice with an unbounded input-dependent start goes conservative.
+
+    The start index derives from the input without known bounds,
+    so any window is possible and every output
+    must depend on all operand elements and the start's own dependencies.
+    Raising is wrong here, this is valid user code.
+
+    TODO(dynamic_slice): the true pattern selects a single window,
+    one dependency per output element.
+    """
+
+    def f(x):
+        start = x[0].astype(jnp.int32)
+        return lax.dynamic_slice(x, (start,), (2,))
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.ones((2, 4), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0, 4.0]))
+
+
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_dynamic_update_slice_input_dependent_start_conservative():
+    """dynamic_update_slice with an unbounded input-dependent start goes conservative.
+
+    Any window may receive the update,
+    so every output must depend on the operand, the update,
+    and the start's own dependencies.
+    Raising is wrong here, this is valid user code.
+
+    TODO(dynamic_update_slice): the true pattern updates a single window,
+    all other positions keep their identity dependency.
+    """
+
+    def f(x):
+        start = x[0].astype(jnp.int32)
+        return lax.dynamic_update_slice(x, x[2:4], (start,))
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.ones((4, 4), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0, 4.0]))
 
 
 # Size-0 dimension

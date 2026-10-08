@@ -468,31 +468,23 @@ def _seed_const_vals(state: _PropState, constvars, consts) -> None:
         state.consts[var] = np.asarray(val)
 
 
-def _forward_value_bounds(
+def _forward_into_jaxpr(
     state: _PropState, outer_atoms: Sequence[Atom], inner_vars
 ) -> None:
-    """Transfer known value bounds from outer-scope atoms to inner jaxpr variables.
-
-    Same idea as ``_forward_const_vals`` but for value bounds.
-    """
-    for outer, inner in zip(outer_atoms, inner_vars, strict=False):
-        if isinstance(outer, Var) and outer in state.bounds:
-            state.bounds[inner] = state.bounds[outer]
-
-
-def _forward_const_vals(
-    state: _PropState, outer_atoms: Sequence[Atom], inner_vars
-) -> None:
-    """Transfer known const values from outer-scope atoms to inner jaxpr variables.
+    """Transfer const values and value bounds from outer atoms to inner jaxpr variables.
 
     When entering a nested jaxpr (cond branch, while body, jit call),
     the outer equation's invars and the inner jaxpr's invars are different
     ``Var`` objects representing the same values.
-    This copies any concrete values from the outer atoms
+    This copies any concrete values and value bounds from the outer atoms
     to the corresponding inner vars so that downstream handlers
     (gather, scatter, dynamic_slice) can resolve indices precisely.
+    Consts and bounds are forwarded together
+    so a call site cannot forward one and forget the other.
     """
     for outer, inner in zip(outer_atoms, inner_vars, strict=False):
         val = _atom_const_val(outer, state)
         if val is not None:
             state.consts[inner] = val
+        if isinstance(outer, Var) and outer in state.bounds:
+            state.bounds[inner] = state.bounds[outer]

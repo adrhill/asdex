@@ -15,11 +15,11 @@ from ._argmax import _prop_argmax
 from ._broadcast import _prop_broadcast_in_dim
 from ._common import (
     IndexSet,
+    _atom_const_val,
     _atom_numel,
     _conservative_indices,
     _empty_index_sets,
-    _forward_const_vals,
-    _forward_value_bounds,
+    _forward_into_jaxpr,
     _index_sets,
     _PropState,
     _seed_const_vals,
@@ -43,6 +43,7 @@ from ._elementwise import (
     _prop_unary_elementwise,
     _prop_zero_derivative,
     _prop_zero_derivative_const,
+    _prop_zero_derivative_unary_const,
 )
 from ._equinox._select_if_vmap import _prop_select_if_vmap
 from ._gather import _prop_gather
@@ -135,8 +136,7 @@ def _prop_closed_jaxpr(
         _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
         closed = closed.jaxpr
 
-    _forward_const_vals(state, eqn.invars, closed.invars)
-    _forward_value_bounds(state, eqn.invars, closed.invars)
+    _forward_into_jaxpr(state, eqn.invars, closed.invars)
     input_indices = [_index_sets(state, invar) for invar in eqn.invars]
     output_indices = _prop_jaxpr(closed, input_indices, state)
 
@@ -149,6 +149,11 @@ def _prop_closed_jaxpr(
         state.indices[outvar] = indices
         if isinstance(inner_outvar, Var) and inner_outvar in state.bounds:
             state.bounds[outvar] = state.bounds[inner_outvar]
+        # Forward const values symmetrically to bounds,
+        # so indices computed inside the nested jaxpr stay resolvable outside.
+        val = _atom_const_val(inner_outvar, state)
+        if val is not None:
+            state.consts[outvar] = val
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
@@ -157,18 +162,23 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         case "argmax" | "argmin":
             _prop_argmax(eqn, state)
         # Zero derivative (piecewise constant, ∂f/∂x = 0 a.e.)
+        # with const propagation for downstream index resolution
         case (
             "floor"  # ∂⌊x⌋/∂x = 0
             | "ceil"  # ∂⌈x⌉/∂x = 0
             | "round"  # ∂round(x)/∂x = 0
             | "sign"  # ∂sign(x)/∂x = 0
-            | "is_finite"
+            | "not"
+        ):
+            _prop_zero_derivative_unary_const(eqn, state)
+        # Zero derivative (piecewise constant, ∂f/∂x = 0 a.e.)
+        case (
+            "is_finite"
             | "clz"
             | "population_count"
             | "reduce_and"
             | "reduce_or"
             | "reduce_xor"
-            | "not"
             | "shift_left"
             | "shift_right_arithmetic"
             | "shift_right_logical"

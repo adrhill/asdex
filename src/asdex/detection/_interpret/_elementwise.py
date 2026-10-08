@@ -1,8 +1,11 @@
 """Propagation rules for element-wise operations."""
 
 from collections.abc import Callable
+from functools import partial
+from typing import assert_never
 
 import numpy as np
+from jax import lax
 from jax._src.core import JaxprEqn
 
 from ._common import (
@@ -16,6 +19,7 @@ from ._common import (
     _index_sets,
     _numel,
     _propagate_const_binary,
+    _propagate_const_unary,
     _PropState,
     _union_elementwise,
 )
@@ -89,6 +93,37 @@ def _propagate_const(eqn: JaxprEqn, state: _PropState) -> None:
     ufunc = _BINARY_CONST_UFUNCS.get(eqn.primitive.name)
     if ufunc is not None:
         _propagate_const_binary(eqn, state, ufunc)
+
+
+def _lax_round(val: np.ndarray, rounding_method: lax.RoundingMethod) -> np.ndarray:
+    """Round with ``lax.round`` semantics for the given rounding method.
+
+    ``lax.round`` rounds half away from zero by default,
+    while ``np.round`` always rounds half to even.
+    Comparing against the truncated value avoids the ``floor(x + 0.5)`` trick,
+    which rounds the largest float below 0.5 up to 1.
+    """
+    match rounding_method:
+        case lax.RoundingMethod.AWAY_FROM_ZERO:
+            truncated = np.trunc(val)
+            is_half_or_more = np.abs(val - truncated) >= 0.5
+            return truncated + np.where(is_half_or_more, np.sign(val), 0)
+        case lax.RoundingMethod.TO_NEAREST_EVEN:
+            return np.round(val)
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+# Functions for evaluating unary constant values during tracing.
+# Entries must match lax semantics.
+# round is absent because its numpy counterpart depends on ``rounding_method``.
+_UNARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
+    "sign": np.sign,
+    "floor": np.floor,
+    "ceil": np.ceil,
+    # matches lax: bitwise for integers, logical for booleans
+    "not": np.bitwise_not,
+}
 
 
 # Building blocks (private)
@@ -240,6 +275,25 @@ def _prop_zero_derivative_const(eqn: JaxprEqn, state: _PropState) -> None:
     """
     _zero_derivative(eqn, state)
     _propagate_const(eqn, state)
+
+
+def _prop_zero_derivative_unary_const(eqn: JaxprEqn, state: _PropState) -> None:
+    """Unary zero-derivative primitives that also propagate const values.
+
+    Used for sign, floor, ceil, round, and not,
+    which appear in integer index arithmetic
+    (e.g. inside the ``jnp.floor_divide`` expansion).
+    Without const propagation here the chain breaks
+    and downstream gather/scatter falls back to conservative.
+    """
+    _zero_derivative(eqn, state)
+    match eqn.primitive.name:
+        case "round":
+            rounding_method = eqn.params["rounding_method"]
+            transform = partial(_lax_round, rounding_method=rounding_method)
+        case name:
+            transform = _UNARY_CONST_UFUNCS[name]
+    _propagate_const_unary(eqn, state, transform)
 
 
 def _prop_ternary_elementwise(eqn: JaxprEqn, state: _PropState) -> None:
