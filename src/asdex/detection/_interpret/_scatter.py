@@ -53,7 +53,7 @@ def _scatter_flat_map(
     window_shape = tuple(updates_shape[d] for d in dim_nums.update_window_dims)
 
     # Window extent per operand dim: the window size at window dims, 1 elsewhere.
-    # Needed to clamp starts under mode='clip'.
+    # Needed to clamp starts under mode='clip' and to detect OOB windows.
     window_extent = [1] * op_ndim
     for i, d in enumerate(window_operand_dims):
         window_extent[d] = window_shape[i]
@@ -77,19 +77,22 @@ def _scatter_flat_map(
         if is_clip:
             start = list(_clamp_starts(start, operand_shape, window_extent))
 
+        # Scatter drops the whole window if any element of it is OOB
+        # (unlike gather, which clamps).
+        # Dropping only the OOB elements would wrongly overwrite
+        # the in-bounds operand positions that keep their values.
+        if any(
+            start[d] < 0 or start[d] + window_extent[d] > operand_shape[d]
+            for d in range(op_ndim)
+        ):
+            continue
+
         for window_idx in np.ndindex(*window_shape) if window_shape else [()]:
             # Build full operand index: start + window offset at non-removed dims.
             operand_idx = list(start)
             w_iter = iter(window_idx)
             for d in window_operand_dims:
                 operand_idx[d] += next(w_iter)
-
-            # Scatter drops OOB updates (unlike gather which clamps).
-            if any(
-                operand_idx[d] < 0 or operand_idx[d] >= operand_shape[d]
-                for d in range(op_ndim)
-            ):
-                continue
 
             # Build update multi-index from batch and window components.
             update_multi = [0] * update_ndim

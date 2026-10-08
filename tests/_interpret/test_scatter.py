@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from asdex import hessian_sparsity, jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 # Existing basic tests
 
@@ -857,4 +858,48 @@ def test_scatter_zero_size_update():
 
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+_WINDOW_DNUMS = jax.lax.ScatterDimensionNumbers(
+    update_window_dims=(0,), inserted_window_dims=(), scatter_dims_to_operand_dims=(0,)
+)
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize(
+    ("scatter", "start", "written"),
+    [
+        pytest.param(jax.lax.scatter, 3, [3, 4], id="set-fits"),
+        pytest.param(jax.lax.scatter, 4, [], id="set-past_end"),
+        pytest.param(jax.lax.scatter, -1, [], id="set-negative"),
+        pytest.param(jax.lax.scatter_add, 3, [3, 4], id="add-fits"),
+        pytest.param(jax.lax.scatter_add, 4, [], id="add-past_end"),
+    ],
+)
+def test_scatter_drops_partially_oob_window(scatter, start, written):
+    """A window that is partly out of bounds is dropped as a whole.
+
+    The size-2 window starting at 4 covers positions 4 and 5 of a length-5 operand.
+    FILL_OR_DROP discards all of it,
+    so out[4] keeps the operand value instead of taking the update's.
+    """
+
+    def f(x):
+        return scatter(
+            x[:5],
+            jnp.array([start]),
+            x[5:7],
+            _WINDOW_DNUMS,
+            mode=jax.lax.GatherScatterMode.FILL_OR_DROP,
+        )
+
+    x = jnp.arange(1.0, 8.0)
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.eye(5, 7, dtype=int)
+    is_combine = scatter is jax.lax.scatter_add
+    for offset, pos in enumerate(written):
+        expected[pos, pos] = int(is_combine)
+        expected[pos, 5 + offset] = 1
     np.testing.assert_array_equal(result, expected)
