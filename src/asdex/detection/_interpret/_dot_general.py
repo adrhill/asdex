@@ -7,39 +7,13 @@ from ._common import (
     IndexSet,
     _atom_const_val,
     _atom_shape,
+    _dim_offsets,
     _empty_index_sets,
     _index_sets,
     _numel,
     _PropState,
-    _row_strides,
     _union_all,
 )
-
-
-def _fixed_base_positions(
-    shape: tuple[int, ...], dims: tuple[int, ...], strides: tuple[int, ...]
-) -> np.ndarray:
-    """Flat operand positions of the zero contracting coordinate per fixed coordinate.
-
-    ``dims`` lists the operand's batch and free dimensions
-    in the order of the corresponding output axes,
-    so the result enumerates the fixed coordinates in the same C order
-    as the output axes they map to.
-    Adding a contracting offset to a base yields a full flat operand position.
-
-    Passing the contracting dimensions instead yields those contracting offsets:
-    the flat positions of each contracting coordinate at the zero fixed coordinate.
-    """
-    sizes = tuple(shape[d] for d in dims)
-    coords = (
-        np.indices(sizes, dtype=np.int64).reshape(len(dims), -1)
-        if sizes
-        else np.zeros((0, 1), dtype=np.int64)
-    )
-    bases = np.zeros(_numel(sizes), dtype=np.int64)
-    for i, d in enumerate(dims):
-        bases += coords[i] * strides[d]
-    return bases
 
 
 def _contract_union_sets(
@@ -212,17 +186,17 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     lhs_free_size = _numel(tuple(lhs_shape[d] for d in lhs_free))
     rhs_free_size = _numel(tuple(rhs_shape[d] for d in rhs_free))
 
-    lhs_strides = _row_strides(lhs_shape)
-    rhs_strides = _row_strides(rhs_shape)
-
     # Flat offsets of the contracting positions, shared by every fixed position.
     # Both sides enumerate the contracting coordinates in the same C order,
     # since lhs_contract[i] pairs with rhs_contract[i] and has equal size.
-    lhs_offsets = _fixed_base_positions(lhs_shape, lhs_contract, lhs_strides)
-    rhs_offsets = _fixed_base_positions(rhs_shape, rhs_contract, rhs_strides)
+    lhs_offsets = _dim_offsets(lhs_shape, lhs_contract)
+    rhs_offsets = _dim_offsets(rhs_shape, rhs_contract)
 
-    lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch + lhs_free, lhs_strides)
-    rhs_bases = _fixed_base_positions(rhs_shape, rhs_batch + rhs_free, rhs_strides)
+    # Flat positions of the fixed (batch and free) coordinates at contracting zero.
+    # Listing batch dims before free dims enumerates them
+    # in the same C order as the output axes they map to.
+    lhs_bases = _dim_offsets(lhs_shape, lhs_batch + lhs_free)
+    rhs_bases = _dim_offsets(rhs_shape, rhs_batch + rhs_free)
 
     out_indices: list[IndexSet]
     match (lhs_known, rhs_known):

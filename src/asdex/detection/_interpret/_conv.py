@@ -7,6 +7,7 @@ from ._common import (
     IndexSet,
     _atom_shape,
     _conservative_indices,
+    _dim_offsets,
     _index_sets,
     _numel,
     _PropState,
@@ -191,12 +192,7 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
     )
 
     # Flat lhs offsets of the input spatial positions, in spatial row-major order.
-    in_spatial_size = _numel(lhs_spatial_sizes)
-    in_coords = np.indices(lhs_spatial_sizes).reshape(n_spatial, in_spatial_size)
-    spatial_strides = np.asarray(
-        [lhs_strides[d] for d in lhs_spatial_dims], dtype=np.intp
-    ).reshape(n_spatial, 1)
-    spatial_offsets = (in_coords * spatial_strides).sum(axis=0)
+    spatial_offsets = _dim_offsets(lhs_shape, lhs_spatial_dims)
 
     def window_union_table(in_batch: int, group: int) -> list[IndexSet]:
         """Per-output-spatial-position sets for one (input batch, feature group)."""
