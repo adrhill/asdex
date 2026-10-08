@@ -210,17 +210,25 @@ def _union_with_zero_derivs(
 
     The result may alias an input set,
     which is safe since index sets are never mutated.
+    The derivative flags are checked before the emptiness shortcut,
+    so a zero-derivative side is never returned just because the other side is empty.
     Aliasing instead of unioning when one side is empty
     avoids an allocation per element
     for ops with a constant operand (e.g. ``x * 2.0``).
     """
-    if is_der1_zero and is_der2_zero:
-        return _empty_index_set()
-    if is_der1_zero or not s1:
-        return s2
-    if is_der2_zero or not s2:
-        return s1
-    return s1 | s2
+    match (is_der1_zero, is_der2_zero):
+        case (True, True):
+            return _empty_index_set()
+        case (True, False):
+            return s2
+        case (False, True):
+            return s1
+        case (False, False):
+            if not s1:
+                return s2
+            if not s2:
+                return s1
+            return s1 | s2
 
 
 def _propagate_bounds_add(

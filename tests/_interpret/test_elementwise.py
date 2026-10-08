@@ -12,6 +12,7 @@ from asdex.detection._interpret._elementwise import (
     _BINARY_CONST_UFUNCS,
     _lax_round,
     _propagate_bounds_integer_pow,
+    _union_with_zero_derivs,
 )
 from tests._utils import (
     assert_jacobian_sparsity_conservative,
@@ -1119,3 +1120,23 @@ def test_clamp_variable_hi_bound():
     expected = np.array([[1, 1]])  # both x and hi can affect output
     np.testing.assert_array_equal(result, expected)
     assert_jacobian_sparsity_conservative(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    ("s1", "s2", "is_der1_zero", "is_der2_zero", "expected"),
+    [
+        ({0}, {1}, False, False, {0, 1}),
+        (set(), {1}, False, False, {1}),
+        ({0}, set(), False, False, {0}),
+        ({0}, {1}, True, False, {1}),
+        ({0}, {1}, False, True, {0}),
+        ({0}, {1}, True, True, set()),
+        # A zero-derivative side must be dropped even when the other side is empty.
+        (set(), {1}, False, True, set()),
+        ({0}, set(), True, False, set()),
+    ],
+)
+def test_union_with_zero_derivs(s1, s2, is_der1_zero, is_der2_zero, expected):
+    """Only inputs with a nonzero derivative contribute their index sets."""
+    assert _union_with_zero_derivs(s1, s2, is_der1_zero, is_der2_zero) == expected
