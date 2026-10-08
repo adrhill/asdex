@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791484792197,
+  "lastUpdate": 1791487646892,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -20406,6 +20406,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006654660644123973",
             "extra": "mean: 23.95414140997816 usec\nrounds: 14412"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "163d1c5f1a83e56cec558871768fa5bf882d0630",
+          "message": "fix(detection): correct while consts, integer div/rem, and scatter (#196)\n\n* fix: raise for unseeded variables instead of guessing index sets\n\n_index_sets returned a single empty index set for any Var it had not seen.\nEvery Var is either seeded (invars, constvars) or written by a handler,\nso a missing Var means a handler bug upstream,\nand the guessed default silently drops dependencies\nand gets the element count wrong.\nRaise a KeyError that asks the user to report the issue instead.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: slice while body consts after cond consts\n\nJAX binds while_p invars as [cond_consts, body_consts, carry],\nbut the handler sliced body consts from the front,\nso a loop whose condition captures constants\nfed cond consts into the body and shifted the carry.\n\nPin the layout in a contract test, so a JAX upgrade that reorders the groups fails loudly.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: propagate integer div and rem consts with lax semantics\n\nConst propagation evaluated div with np.divide and rem with np.remainder.\nlax.div truncates integers toward zero, while np.divide is true division\nand returns floats, and lax.rem takes the dividend's sign like C fmod,\nwhile np.remainder takes the divisor's sign.\nOn negative integer index arithmetic, both resolved gather and scatter\nindices to the wrong positions and dropped true nonzeros.\n\nAdd _lax_div, use np.fmod for rem,\nand widen the table's type to accept plain functions.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: truncate integer div bounds and skip negative integer_pow bounds\n\nInteger div bounds used np.floor_divide,\nbut lax.div truncates toward zero.\nFor negative intervals, flooring excluded the value the program computes,\nso bounded enumeration never tried it.\n\ninteger_pow bounds treated every odd exponent as increasing,\nbut negative exponents are decreasing on positive inputs\nand undefined at zero, so the interval came out inverted.\nSkip bounds for negative exponents.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: union every candidate writer for replace scatter with duplicate indices\n\nReplace-mode scatter kept only the last update targeting a duplicated index.\nXLA leaves the applied update implementation-defined under duplicate indices,\nso the detected pattern could miss the writer that actually wins on a backend.\nUnion the index sets of every update that targets the position.\n\nThis can add nonzeros where the previous pattern happened to match the backend.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: honor scatter mode='clip' instead of dropping out-of-bounds updates\n\nWith mode='clip', XLA clamps each scatter start\nso the whole window stays in range,\nand the update lands at the clamped position.\nThe handler dropped out-of-bounds updates as under the default mode,\nso the pattern missed the clamped writes.\n\nAlso pin gather's clamping of out-of-bounds reads under mode='fill'.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: note the handler fixes in the changelog\n\n* docs: clarify that dependency-free outputs still record empty index sets\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor: move `_lax_div` into `_div.py` and drop the dead div const entry\n\n`div` dispatches to `_prop_div`, so the `_BINARY_CONST_UFUNCS` entry was never used.\nAlso explains why `lax.div` cannot be called directly\nand states the `rem` sign convention by example.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: pin integer div and rem const semantics against lax\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: give concrete examples for scatter clip and duplicate-index semantics\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: cross-check clip scatter and while const tests against JAX derivatives\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: skip integer div and rem consts that XLA leaves implementation-defined\n\nInteger division or remainder by zero and `INT_MIN / -1` have no defined result,\nso const propagation records no value there and downstream handlers fall back conservatively\ninstead of resolving indices from numpy's arbitrary output.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-08T21:26:52+02:00",
+          "tree_id": "cc386315092379522e814500fa268e4988a9b5e2",
+          "url": "https://github.com/adrhill/asdex/commit/163d1c5f1a83e56cec558871768fa5bf882d0630"
+        },
+        "date": 1791487646031,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 509.1340198855792,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00033753660279299124",
+            "extra": "mean: 1.964119388888482 msec\nrounds: 18"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 26698.347988870024,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004219538887664076",
+            "extra": "mean: 37.45550100766081 usec\nrounds: 7443"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 70053.17835465555,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002981036085025344",
+            "extra": "mean: 14.274869798731158 usec\nrounds: 18433"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 33768.220447688866,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005173642739811274",
+            "extra": "mean: 29.613642257196325 usec\nrounds: 13096"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 70230.31240795318,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003065049874031854",
+            "extra": "mean: 14.238865892995168 usec\nrounds: 13012"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 18.077685098123737,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03568361429605151",
+            "extra": "mean: 55.316817090911094 msec\nrounds: 11"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2770.597676777318,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003764383381085653",
+            "extra": "mean: 360.9329526195128 usec\nrounds: 2596"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1782.1097767210156,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000056078049840601014",
+            "extra": "mean: 561.1326603235101 usec\nrounds: 1051"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1852.7000071000987,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000030009378441517324",
+            "extra": "mean: 539.7527911522113 usec\nrounds: 972"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 3828.8437159046784,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000193380086610377",
+            "extra": "mean: 261.17545509786373 usec\nrounds: 2962"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 106.41597403091818,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014075777677785766",
+            "extra": "mean: 9.397085438596458 msec\nrounds: 57"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26869.785026867186,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003963318425437168",
+            "extra": "mean: 37.21652402503767 usec\nrounds: 16795"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 32656.70120824561,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007652032838004677",
+            "extra": "mean: 30.621586473881397 usec\nrounds: 10720"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 28639.57644471972,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007546395314818495",
+            "extra": "mean: 34.91671749860567 usec\nrounds: 10538"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 35264.709043145594,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007710505007528307",
+            "extra": "mean: 28.35696159513246 usec\nrounds: 10858"
           }
         ]
       }
