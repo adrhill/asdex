@@ -166,6 +166,9 @@ def _index_sets(state: _PropState, atom: Atom) -> list[IndexSet]:
 
     Every ``Var`` is either seeded (invars, constvars) or written by a handler,
     so a missing ``Var`` indicates a handler bug upstream.
+    Handlers for outputs without input dependencies (e.g. zero-derivative ops)
+    still write one empty index set per element,
+    so "no dependencies" is never encoded as a missing entry.
     Guessing a default here would silently drop dependencies
     and get the element count wrong,
     so we raise instead.
