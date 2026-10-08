@@ -6,18 +6,18 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
-    StateIndices,
     _atom_shape,
     _check_no_index_sets,
     _empty_index_set,
     _flat_to_coords,
     _index_sets,
     _numel,
+    _PropState,
     _row_strides,
 )
 
 
-def _prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> None:
+def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
     """Convolution slides a kernel over the input, computing weighted sums.
 
     Each output element depends on a local spatial window of input elements
@@ -37,9 +37,9 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> No
     So out[n, h, w, :] depends on in[n, h·s : h·s+kH, w·s : w·s+kW, :].
 
     Example: 1D conv, kernel size 2, input [a, b, c, d]
-        out[0] = a·w0 + b·w1  →  state_indices {0, 1}
-        out[1] = b·w0 + c·w1  →  state_indices {1, 2}
-        out[2] = c·w0 + d·w1  →  state_indices {2, 3}
+        out[0] = a·w0 + b·w1  →  index set {0, 1}
+        out[1] = b·w0 + c·w1  →  index set {1, 2}
+        out[2] = c·w0 + d·w1  →  index set {2, 3}
 
     Jaxpr:
         invars[0]: lhs — rank n+2 input array
@@ -50,9 +50,9 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> No
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.conv_general_dilated.html
     """
-    lhs_indices = _index_sets(state_indices, eqn.invars[0])  # Input image dependencies
+    lhs_indices = _index_sets(state, eqn.invars[0])  # Input image dependencies
     # TODO: include kernel (rhs) index sets in output dependencies.
-    _check_no_index_sets(state_indices, eqn.invars[1], eqn.primitive.name)
+    _check_no_index_sets(state, eqn.invars[1], eqn.primitive.name)
 
     out_shape = _atom_shape(eqn.outvars[0])
     out_size = _numel(out_shape)
@@ -163,4 +163,4 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state_indices: StateIndices) -> No
 
         out_indices.append(elem_deps)
 
-    state_indices[eqn.outvars[0]] = out_indices
+    state.indices[eqn.outvars[0]] = out_indices

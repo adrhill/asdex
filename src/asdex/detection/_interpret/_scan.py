@@ -5,19 +5,17 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     PropJaxprFn,
-    StateConsts,
-    StateIndices,
     _atom_shape,
     _forward_const_vals,
     _index_sets,
+    _PropState,
     _seed_const_vals,
 )
 
 
 def _prop_scan(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
+    state: _PropState,
     _prop_jaxpr: PropJaxprFn,
 ) -> None:
     """Scan applies a body jaxpr iteratively, threading carry across iterations.
@@ -25,7 +23,7 @@ def _prop_scan(
     Unlike ``while_loop`` (unknown iteration count, same inputs each iteration),
     scan has a known ``length`` and different ``xs[t]`` per timestep.
     Dependencies are propagated via forward simulation:
-    one ``_prop_jaxpr`` call per timestep, threading carry deps forward.
+    one ``_prop_jaxpr`` call per timestep, threading carry index sets forward.
 
     Layout:
         invars:  [consts..., carry_init..., xs...]
@@ -34,9 +32,9 @@ def _prop_scan(
         body jaxpr outvars: [carry_new..., y_slice...]
         params: jaxpr, ft_in, ft_out, length, reverse, unroll
 
-    ``ft_in`` is a ``jax._src.flattree.FTTuple`` splitting the invars into
-    ``(consts, carry, xs)`` groups; its per-group lengths give the
-    ``num_consts`` / ``num_carry`` counts.
+    ``ft_in`` is a ``jax._src.flattree.FTTuple``
+    splitting the invars into ``(consts, carry, xs)`` groups.
+    Its per-group lengths give the number of consts and carries.
 
     xs arrays have an extra leading dimension of size ``length``
     compared to their body counterparts x_slice.
@@ -61,19 +59,17 @@ def _prop_scan(
     carry_final = eqn.outvars[:num_carry]
     ys = eqn.outvars[num_carry:]
 
-    _seed_const_vals(state_consts, body_jaxpr.constvars, body_closed.consts)
-    _forward_const_vals(state_consts, consts, body_jaxpr.invars[:num_consts])
+    _seed_const_vals(state, body_jaxpr.constvars, body_closed.consts)
+    _forward_const_vals(state, consts, body_jaxpr.invars[:num_consts])
 
     # Prepare const index sets for the body
-    const_inputs: list[list[IndexSet]] = [_index_sets(state_indices, v) for v in consts]
+    const_inputs: list[list[IndexSet]] = [_index_sets(state, v) for v in consts]
 
     # Initialize carry from carry_init
-    carry_indices: list[list[IndexSet]] = [
-        _index_sets(state_indices, v) for v in carry_init
-    ]
+    carry_indices: list[list[IndexSet]] = [_index_sets(state, v) for v in carry_init]
 
     # Pre-compute xs index sets and per-slice sizes
-    xs_all_indices: list[list[IndexSet]] = [_index_sets(state_indices, v) for v in xs]
+    xs_all_indices: list[list[IndexSet]] = [_index_sets(state, v) for v in xs]
     xs_slice_numels: list[int] = []
     for i, x_var in enumerate(xs):
         x_shape = _atom_shape(x_var)
@@ -103,7 +99,7 @@ def _prop_scan(
             xs_slice_inputs.append(xs_all_indices[i][t * sn : (t + 1) * sn])
 
         body_output = _prop_jaxpr(
-            body_jaxpr, const_inputs + carry_indices + xs_slice_inputs, state_consts
+            body_jaxpr, const_inputs + carry_indices + xs_slice_inputs, state
         )
 
         # Thread carry forward
@@ -116,7 +112,7 @@ def _prop_scan(
 
     # Write carry_final
     for outvar, out_indices in zip(carry_final, carry_indices, strict=True):
-        state_indices[outvar] = out_indices
+        state.indices[outvar] = out_indices
 
     # Write ys by concatenating per-timestep slices in time order.
     # When reverse=True, iteration order is [n-1, n-2, ..., 0],
@@ -128,4 +124,4 @@ def _prop_scan(
         full_indices: list[IndexSet] = []
         for s in slices:
             full_indices.extend(s)
-        state_indices[outvar] = full_indices
+        state.indices[outvar] = full_indices

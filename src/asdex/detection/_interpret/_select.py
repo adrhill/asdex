@@ -5,30 +5,26 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     IndexSet,
-    StateBounds,
-    StateConsts,
-    StateIndices,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
     _empty_index_set,
     _index_sets,
+    _PropState,
 )
 
 
 def _prop_select_n(
     eqn: JaxprEqn,
-    state_indices: StateIndices,
-    state_consts: StateConsts,
-    state_bounds: StateBounds | None = None,
+    state: _PropState,
 ) -> None:
     """select_n(which, *cases) picks case values element-wise.
 
     ``which`` is a boolean or integer selector (scalar or array).
     All cases must have identical shapes.
     The selector has zero derivative,
-    so only value-case state_indices contribute to the sparsity pattern.
+    so only value-case index sets contribute to the sparsity pattern.
 
     Also propagates value bounds through the selected branch
     when the predicate is a known constant.
@@ -43,12 +39,12 @@ def _prop_select_n(
     out_size = _atom_numel(out_var)
     cases = eqn.invars[1:]  # value cases (which is invars[0])
 
-    case_indices = [_index_sets(state_indices, c) for c in cases]
+    case_indices = [_index_sets(state, c) for c in cases]
 
     # When the selector is a known constant,
     # each output element takes index sets from exactly one branch.
     which_atom = eqn.invars[0]
-    which_val = _atom_const_val(which_atom, state_consts)
+    which_val = _atom_const_val(which_atom, state)
 
     if which_val is not None:
         flat_which = (
@@ -64,35 +60,34 @@ def _prop_select_n(
                 merged |= c_idx[i]
             out_indices.append(merged)
 
-    state_indices[out_var] = out_indices
+    state.indices[out_var] = out_indices
 
     # When all inputs are statically known, compute the concrete result
-    # so state_consts tracking isn't broken by this op.
-    case_vals = [_atom_const_val(c, state_consts) for c in cases]
+    # so state.consts tracking isn't broken by this op.
+    case_vals = [_atom_const_val(c, state) for c in cases]
     if which_val is not None and all(v is not None for v in case_vals):
-        state_consts[out_var] = np.choose(
+        state.consts[out_var] = np.choose(
             which_val, [v for v in case_vals if v is not None]
         )
 
     # Propagate value bounds.
-    if state_bounds is not None:
-        case_bounds = [_atom_value_bounds(c, state_consts, state_bounds) for c in cases]
+    case_bounds = [_atom_value_bounds(c, state) for c in cases]
 
-        # Const predicate uniformly selects one branch → use its bounds exactly.
-        if which_val is not None and len(cases) == 2 and which_val.dtype == bool:
-            if not np.any(which_val) and case_bounds[0] is not None:
-                state_bounds[out_var] = case_bounds[0]
-                return
-            if np.all(which_val) and case_bounds[1] is not None:
-                state_bounds[out_var] = case_bounds[1]
-                return
+    # Const predicate uniformly selects one branch → use its bounds exactly.
+    if which_val is not None and len(cases) == 2 and which_val.dtype == bool:
+        if not np.any(which_val) and case_bounds[0] is not None:
+            state.bounds[out_var] = case_bounds[0]
+            return
+        if np.all(which_val) and case_bounds[1] is not None:
+            state.bounds[out_var] = case_bounds[1]
+            return
 
-        # Dynamic or mixed predicate → merge bounds across all branches.
-        if all(b is not None for b in case_bounds):
-            los, his = zip(*(b for b in case_bounds if b is not None), strict=True)
-            lo = los[0]
-            hi = his[0]
-            for lo_i, hi_i in zip(los[1:], his[1:], strict=True):
-                lo = np.minimum(lo, lo_i)
-                hi = np.maximum(hi, hi_i)
-            state_bounds[out_var] = (lo, hi)
+    # Dynamic or mixed predicate → merge bounds across all branches.
+    if all(b is not None for b in case_bounds):
+        los, his = zip(*(b for b in case_bounds if b is not None), strict=True)
+        lo = los[0]
+        hi = his[0]
+        for lo_i, hi_i in zip(los[1:], his[1:], strict=True):
+            lo = np.minimum(lo, lo_i)
+            hi = np.maximum(hi, hi_i)
+        state.bounds[out_var] = (lo, hi)

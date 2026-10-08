@@ -4,19 +4,16 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    StateConsts,
-    StateIndices,
     _atom_const_val,
     _atom_shape,
     _index_sets,
     _numel,
     _permute_indices,
+    _PropState,
 )
 
 
-def _prop_unstack(
-    eqn: JaxprEqn, state_indices: StateIndices, state_consts: StateConsts
-) -> None:
+def _prop_unstack(eqn: JaxprEqn, state: _PropState) -> None:
     """Unstack splits an array along an axis into multiple sub-arrays.
 
     Each output element maps to exactly one input element,
@@ -37,7 +34,7 @@ def _prop_unstack(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.unstack.html
     """
-    in_indices = _index_sets(state_indices, eqn.invars[0])
+    in_indices = _index_sets(state, eqn.invars[0])
     in_shape = _atom_shape(eqn.invars[0])
     axis = eqn.params.get("axis", 0)
 
@@ -47,7 +44,7 @@ def _prop_unstack(
     out_numel = _numel(in_shape) // len(eqn.outvars) if eqn.outvars else 0
     if out_numel == 0:
         for out_var in eqn.outvars:
-            state_indices[out_var] = []
+            state.indices[out_var] = []
         return
 
     # Build a position map and use np.moveaxis to reorder so the unstacked axis is first.
@@ -57,11 +54,11 @@ def _prop_unstack(
 
     for k, out_var in enumerate(eqn.outvars):
         flat_map = pos_map[k].ravel()
-        state_indices[out_var] = _permute_indices(in_indices, flat_map)
+        state.indices[out_var] = _permute_indices(in_indices, flat_map)
 
     # Propagate const values for downstream gather/scatter.
-    in_val = _atom_const_val(eqn.invars[0], state_consts)
+    in_val = _atom_const_val(eqn.invars[0], state)
     if in_val is not None:
         slices = np.moveaxis(in_val, axis, 0)
         for k, out_var in enumerate(eqn.outvars):
-            state_consts[out_var] = slices[k]
+            state.consts[out_var] = slices[k]
