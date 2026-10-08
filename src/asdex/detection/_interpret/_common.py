@@ -90,11 +90,17 @@ class _PropState:
     ``_forward_across_jaxpr_boundary`` clears what it cannot forward,
     ``_forget_value_info`` clears inputs that are never forwarded,
     and ``_prop_jaxpr`` clears each equation's outvars before dispatch.
+
+    ``custom_jvp_rules`` holds the custom JVP rules currently being propagated,
+    shared across nested scopes like ``consts`` and ``bounds``.
+    It lets ``_prop_custom_jvp_call`` stop a rule that calls its own function,
+    which would otherwise unfold forever.
     """
 
     indices: StateIndices = field(default_factory=dict)
     consts: StateConsts = field(default_factory=dict)
     bounds: StateBounds = field(default_factory=dict)
+    custom_jvp_rules: set[str] = field(default_factory=set)
 
 
 PropJaxprFn = Callable[
@@ -321,13 +327,17 @@ def _set_value_bounds(
     Bounds outside that range mean the computation may wrap around,
     so the real values are not an interval and nothing is stored.
     """
-    lo, hi = np.asarray(lo), np.asarray(hi)
-    if not np.all(lo <= hi):
-        return
     aval_dtype = getattr(var.aval, "dtype", None)
     if aval_dtype is None:
         return
     dtype = np.dtype(aval_dtype)
+    # float0, the tangent dtype of integer values inside custom_jvp rules,
+    # is a structured void dtype with no order.
+    if dtype.kind == "V":
+        return
+    lo, hi = np.asarray(lo), np.asarray(hi)
+    if not np.all(lo <= hi):
+        return
     if np.issubdtype(dtype, np.integer):
         info = np.iinfo(dtype.type)
         if not (np.all(lo >= info.min) and np.all(hi <= info.max)):

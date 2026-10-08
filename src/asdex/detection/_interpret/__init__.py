@@ -30,6 +30,7 @@ from ._concatenate import _prop_concatenate
 from ._cond import _prop_cond
 from ._conv import _prop_conv_general_dilated
 from ._cumsum import _prop_cumsum
+from ._custom_jvp import _prop_custom_jvp_call
 from ._div import _prop_div
 from ._dot_general import _prop_dot_general
 from ._dynamic_slice import _prop_dynamic_slice, _prop_dynamic_update_slice
@@ -91,6 +92,7 @@ def _prop_jaxpr(
         parent: Optional propagation state of the enclosing scope.
             Its const values and value bounds carry over into this jaxpr,
             so handlers can resolve indices seeded outside it.
+            So do the custom JVP rules in progress.
 
     Returns:
         List of per-element index set lists, one per output variable
@@ -98,7 +100,11 @@ def _prop_jaxpr(
     if parent is None:
         state = _PropState()
     else:
-        state = _PropState(consts=parent.consts, bounds=parent.bounds)
+        state = _PropState(
+            consts=parent.consts,
+            bounds=parent.bounds,
+            custom_jvp_rules=parent.custom_jvp_rules,
+        )
 
     # Initialize input variables
     for var, indices in zip(jaxpr.invars, input_indices, strict=False):
@@ -148,7 +154,7 @@ def _prop_closed_jaxpr(
     """Recursively trace a closed jaxpr stored in ``eqn.params[param_key]``.
 
     Shared implementation for ``prop_nested_jaxpr`` (param ``"jaxpr"``)
-    and ``prop_custom_call`` (param ``"call_jaxpr"``).
+    and ``custom_vjp_call`` (param ``"call_jaxpr"``).
     """
     closed = eqn.params.get(param_key)
     if closed is None:
@@ -315,7 +321,9 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_bitcast_convert_type(eqn, state)
         case "conv_general_dilated":
             _prop_conv_general_dilated(eqn, state)
-        case "custom_jvp_call" | "custom_vjp_call":
+        case "custom_jvp_call":
+            _prop_custom_jvp_call(eqn, state, _prop_jaxpr)
+        case "custom_vjp_call":
             _prop_closed_jaxpr(eqn, state, "call_jaxpr")
         case "gather":
             _prop_gather(eqn, state)

@@ -35,6 +35,19 @@ through primitives to determine Jacobian sparsity patterns.
   `_forward_across_jaxpr_boundary` clears destinations it cannot forward,
   `_forget_value_info` clears never-forwarded inputs such as loop carries,
   and `_prop_jaxpr` clears each equation's outvars before dispatch.
+  A fourth field, `custom_jvp_rules`, is also shared across scopes.
+  It holds the source locations of the custom JVP rules being propagated,
+  so a rule that calls its own function, as a linear function's rule does,
+  falls back to the primal instead of unfolding forever.
+
+## Custom Derivative Rules
+
+JAX differentiates a `custom_jvp` function with its rule, never its primal,
+so `_prop_custom_jvp_call` follows the rule's tangent outputs
+and propagates the primal only for const values and bounds.
+`custom_vjp_call` still follows its primal,
+which misses nonzeros the backward rule adds
+(see `test_custom_vjp_follows_primal_not_rule`).
 
 ## Naming Conventions
 
