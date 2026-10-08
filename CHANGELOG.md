@@ -2,8 +2,6 @@
 
 ## Unreleased
 * ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity`
-* ![Maintenance][badge-maintenance] Cross-validate the greedy colorings and their validators against [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl), the Julia package they were ported from.
-  The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
 * ![Feature][badge-feature] Support the `one_minus_square` primitive that JAX 0.11.2 emits in the derivatives of `tanh`, `arcsin`, `arccos`, and `arctanh` ([#192])
 * ![Enhancement][badge-enhancement] Propagate value bounds through `max`, `min`, and `clamp`, so clipping a data-dependent index into range (e.g. `jnp.clip(idx, 0, n)`) keeps it bounded.
   Previously `jnp.clip` erased the bounds and downstream `gather`, `scatter`, and `dynamic_slice` fell back to a dense pattern ([#177])
@@ -18,6 +16,8 @@
 * ![Bugfix][badge-bugfix] Treat every update as a possible writer when replace-mode `scatter` has duplicate indices, since XLA does not define which one wins ([#177])
 * ![Bugfix][badge-bugfix] Return the correct number of rows for `bitcast_convert_type` between dtypes of different widths, and raise an error instead of returning a misshapen pattern if a primitive handler ever gets this wrong ([#177])
 * ![Bugfix][badge-bugfix] Raise an error instead of guessing a default when sparsity detection reads a variable whose dependencies were never recorded, since the guess could have the wrong size ([#177])
+* ![Maintenance][badge-maintenance] Cross-validate the greedy colorings and their validators against [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl), the Julia package they were ported from.
+  The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
 
 ## Version `v0.5.2`
 * ![Maintenance][badge-maintenance] Update `scan` sparsity propagation for JAX 0.11's new jaxpr representation, which replaces the `num_consts`/`num_carry` parameters with `ft_in`/`ft_out`.
@@ -77,8 +77,8 @@ J = asdex.jacobian(f, x, chunk_size=128)(x)
 * ![Bugfix][badge-bugfix] Handle data-dependent indices in `gather` ([#132])
 * ![Bugfix][badge-bugfix] Handle empty `axis=()` as identity in `reduce` ([#130])
 * ![Bugfix][badge-bugfix] Handle `clamp` primitive with non-zero derivative ([#129])
-* ![Maintenance][badge-maintenance] Add parametrized tests for elementwise handlers ([#128])
 * ![Documentation][badge-docs] Add Zenodo citation request and funding acknowledgment ([#135])
+* ![Maintenance][badge-maintenance] Add parametrized tests for elementwise handlers ([#128])
 
 ## Version `v0.3.0`
 * ![BREAKING][badge-breaking] API now requires sample inputs instead of `input_shape` parameter ([#105])
@@ -144,12 +144,12 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 ## Version `v0.1.1`
 * ![Feature][badge-feature] Add `cumsum` primitive handler ([#76])
 * ![Feature][badge-feature] Add `erf` to unary elementwise dispatch ([#75])
+* ![Enhancement][badge-enhancement] Factor out primal computation in `fwd_over_rev` and `rev_over_rev` ([#72])
 * ![Bugfix][badge-bugfix] Fix `dot_general` handler for scalar operands ([#75])
 * ![Bugfix][badge-bugfix] Fix `gather` handler for wrong ndim in single-dim path ([#75])
 * ![Bugfix][badge-bugfix] Handle `batch_group_count > 1` in conv handler ([#73])
-* ![Enhancement][badge-enhancement] Factor out primal computation in `fwd_over_rev` and `rev_over_rev` ([#72])
-* ![Maintenance][badge-maintenance] Suppress expected warnings for clean pytest output ([#74])
 * ![Documentation][badge-docs] Update for PyPI release ([#71])
+* ![Maintenance][badge-maintenance] Suppress expected warnings for clean pytest output ([#74])
 
 ## Version `v0.1.0`
 * ![Feature][badge-feature] Initial release ([#70])
