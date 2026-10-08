@@ -12,6 +12,7 @@ import pytest
 from flax import nnx
 
 from asdex import jacobian_sparsity
+from tests._utils import numerical_jacobian_sparsity
 
 
 def check_conv_sparsity(
@@ -601,7 +602,8 @@ def test_conv_input_dependent_kernel_conservative():
     every output must depend on both the data and the kernel dependencies.
 
     TODO(conv_general_dilated): the precise pattern is
-    the data window plus the full kernel per output element.
+    the full kernel plus the 2x2 data window per output element,
+    as pinned by ``precise`` below against ``jax.jacobian``.
     Any conservative superset that does not raise is acceptable.
     """
 
@@ -619,3 +621,16 @@ def test_conv_input_dependent_kernel_conservative():
     result = jacobian_sparsity(f, np.zeros(13)).todense().astype(int)
     expected = np.ones((4, 13), dtype=int)
     np.testing.assert_array_equal(result, expected)
+
+    # x[0:4] is the kernel, x[4:13] the row-major 3x3 data
+    precise = np.array(
+        [
+            [1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0],  # out[0,0] <- k, d[0:2, 0:2]
+            [1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0],  # out[0,1] <- k, d[0:2, 1:3]
+            [1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0],  # out[1,0] <- k, d[1:3, 0:2]
+            [1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1],  # out[1,1] <- k, d[1:3, 1:3]
+        ],
+        dtype=int,
+    )
+    x = np.arange(1.0, 14.0)
+    np.testing.assert_array_equal(numerical_jacobian_sparsity(f, x), precise)

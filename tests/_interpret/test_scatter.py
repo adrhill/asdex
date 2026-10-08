@@ -9,7 +9,10 @@ import numpy as np
 import pytest
 
 from asdex import hessian_sparsity, jacobian_sparsity
-from tests._utils import assert_jacobian_sparsity_exact
+from tests._utils import (
+    assert_jacobian_sparsity_conservative,
+    assert_jacobian_sparsity_exact,
+)
 
 # Existing basic tests
 
@@ -842,6 +845,7 @@ def test_scatter_input_dependent_indices_conservative():
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.ones((3, 3), dtype=int)
     np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, np.array([3.0, 1.0, 2.0]))
 
 
 # Size-0 dimension

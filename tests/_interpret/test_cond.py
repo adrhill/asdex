@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import numerical_jacobian_sparsity
 
 
 @pytest.mark.control_flow
@@ -182,6 +183,14 @@ def test_cond_bounds_forwarded_into_branch():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+    # The pattern is the union over both windows,
+    # so evaluate jax.jacobian once per argmax and union the results.
+    x_start0 = np.array([2.0, 1.0, 3.0, 4.0])  # true branch, start = 0
+    x_start1 = np.array([1.0, 2.0, 3.0, 4.0])  # true branch, start = 1
+    numerical = numerical_jacobian_sparsity(f, x_start0) | numerical_jacobian_sparsity(
+        f, x_start1
+    )
+    np.testing.assert_array_equal(numerical, expected)
 
 
 # Size-0 dimension

@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_conservative
 
 # dynamic_slice
 
@@ -203,6 +204,7 @@ def test_dynamic_slice_input_dependent_start_conservative():
     result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.ones((2, 4), dtype=int)
     np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0, 4.0]))
 
 
 @pytest.mark.array_ops
@@ -226,6 +228,7 @@ def test_dynamic_update_slice_input_dependent_start_conservative():
     result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.ones((4, 4), dtype=int)
     np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0, 4.0]))
 
 
 # Size-0 dimension

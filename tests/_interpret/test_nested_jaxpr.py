@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian, jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 @pytest.mark.array_ops
@@ -212,6 +213,7 @@ def test_jit_const_output_escapes_to_outer_consumer():
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0]))
 
 
 @pytest.mark.array_ops
@@ -243,3 +245,4 @@ def test_jit_const_index_chain_resolves_outer_gather():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0]))
