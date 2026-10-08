@@ -121,7 +121,10 @@ def _prop_dynamic_slice(
             state.indices[eqn.outvars[0]] = result
             return
 
-    # Unresolvable starts - conservative fallback,
+    # Unresolvable starts: some start is neither a known const nor value-bounded
+    # (e.g. ``x[0].astype(int)`` depends on input values),
+    # or the bounded start combinations exceed ``_MAX_ENUM_COMBINATIONS``.
+    # Any window may then be selected, so fall back to conservative,
     # including the starts' own dependencies (mirrors gather).
     state.indices[eqn.outvars[0]] = _conservative_indices(
         in_indices + start_index_sets, _numel(slice_sizes)
@@ -202,7 +205,10 @@ def _prop_dynamic_update_slice(
             state.indices[eqn.outvars[0]] = result
             return
 
-    # Unresolvable starts - conservative fallback,
+    # Unresolvable starts: some start is neither a known const nor value-bounded
+    # (e.g. ``x[0].astype(int)`` depends on input values),
+    # or the bounded start combinations exceed ``_MAX_ENUM_COMBINATIONS``.
+    # Any window may then receive the update, so fall back to conservative,
     # including the starts' own dependencies (mirrors gather).
     state.indices[eqn.outvars[0]] = _conservative_indices(
         operand_indices + upd_indices + start_index_sets, _numel(operand_shape)
