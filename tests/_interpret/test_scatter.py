@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from asdex import hessian_sparsity, jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 # Existing basic tests
 
@@ -593,6 +594,7 @@ def test_scatter_clip_mode():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, np.arange(1.0, 5.0))
 
 
 @pytest.mark.array_ops

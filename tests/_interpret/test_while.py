@@ -213,6 +213,10 @@ def test_while_traced_cond_const():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+    # jax.jacobian is reverse mode, which while_loop does not support.
+    x = np.array([3.0, 1.0, 2.0, 0.0, 0.0])  # runs three iterations
+    numerical = (np.abs(jax.jacfwd(f)(x)) > 1e-10).astype(int)
+    np.testing.assert_array_equal(numerical, expected)
 
 
 @pytest.mark.control_flow
@@ -247,3 +251,7 @@ def test_while_cond_body_const_counts_differ():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+    # jax.jacobian is reverse mode, which while_loop does not support.
+    x = np.array([-1.0, 3.0, 1.0, 0.0, 5.0])  # runs three iterations
+    numerical = (np.abs(jax.jacfwd(f)(x)) > 1e-10).astype(int)
+    np.testing.assert_array_equal(numerical, expected)

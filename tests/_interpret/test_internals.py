@@ -351,9 +351,8 @@ def test_index_sets_unknown_var_raises():
 def test_while_invars_layout():
     """JAX binds while_p invars as [cond_consts, body_consts, carry].
 
-    The while handler slices eqn.invars by cond_nconsts and body_nconsts,
-    so this ordering is a load-bearing contract with JAX internals.
-    This test fails loudly if a JAX upgrade reorders the groups.
+    The while handler slices eqn.invars in this order,
+    so a JAX release that reorders the groups would break it.
     """
 
     def f(c, b, init):
