@@ -2,6 +2,7 @@
 
 import numpy as np
 from jax._src.core import JaxprEqn
+from jax.lax import GatherScatterMode
 
 from ._common import (
     IndexSet,
@@ -56,6 +57,13 @@ def _scatter_flat_map(
     window_operand_dims = [d for d in range(op_ndim) if d not in removed]
     window_shape = tuple(updates_shape[d] for d in dim_nums.update_window_dims)
 
+    # Window extent per operand dim: the window size at window dims, 1 elsewhere.
+    # Needed to clamp starts under mode='clip'.
+    window_extent = [1] * op_ndim
+    for i, d in enumerate(window_operand_dims):
+        window_extent[d] = window_shape[i]
+    is_clip = eqn.params.get("mode") == GatherScatterMode.CLIP
+
     updates_size = _numel(updates_shape)
     update_ndim = len(updates_shape)
     flat_map = np.full(updates_size, -1, dtype=np.intp)
@@ -77,6 +85,14 @@ def _scatter_flat_map(
                 start[d] = int(index_vector[i])
             for i, d in enumerate(operand_batching_dims):
                 start[d] = int(batch_idx[i])
+
+            # mode='clip' clamps the start so the whole window stays in range,
+            # so the update lands at the clamped position instead of being dropped.
+            if is_clip:
+                start = [
+                    max(0, min(start[d], operand_shape[d] - window_extent[d]))
+                    for d in range(op_ndim)
+                ]
 
             for window_idx in np.ndindex(*window_shape) if window_shape else [()]:
                 # Build full operand index: start + window offset at non-removed dims.
@@ -198,6 +214,8 @@ def _prop_scatter(
         dimension_numbers: ScatterDimensionNumbers specifying axis mapping
         update_jaxpr: combination function (e.g., add for scatter-add),
             absent for plain scatter (replace)
+        mode: GatherScatterMode; 'clip' clamps out-of-bounds updates in place,
+            the default drops them
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scatter.html
     """

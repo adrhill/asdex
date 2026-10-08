@@ -570,6 +570,32 @@ def test_scatter_oob_indices():
 
 
 @pytest.mark.array_ops
+def test_scatter_clip_mode():
+    """Scatter with mode='clip' lands out-of-bounds updates at the clamped position.
+
+    Unlike the default drop semantics,
+    ``mode='clip'`` writes the update at the clamped index 2,
+    so out[2] depends on the update value instead of the operand.
+    """
+
+    def f(x):
+        arr = x[:3]
+        # Index 5 clamps to 2 under mode='clip'.
+        return arr.at[jnp.array([5])].set(x[3], mode="clip")
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 0, 0, 0],  # out[0] <- x[0]
+            [0, 1, 0, 0],  # out[1] <- x[1]
+            [0, 0, 0, 1],  # out[2] <- x[3] (clipped write)
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
 def test_scatter_replace_all():
     """Scatter that replaces every position: output depends only on updates."""
 
