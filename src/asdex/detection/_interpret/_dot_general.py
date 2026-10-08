@@ -28,6 +28,14 @@ def _fixed_base_positions(
     ``batch_dims`` and ``free_dims`` are listed in the order of the output axes they map to,
     so each row enumerates the free coordinates of one batch index in output C order.
     Adding a contracting offset to a base yields a full flat operand position.
+
+    Example: batched matmul lhs of shape (2, 3, 4)
+        batch_dims=(0,), free_dims=(1,), contracting dim 2, strides=(12, 4, 1)
+        bases[b, i] = 12*b + 4*i, the flat position of lhs[b, i, 0]:
+            [[ 0,  4,  8],
+             [12, 16, 20]]
+        The contracting offsets are [0, 1, 2, 3],
+        so bases[0, 1] + offsets = [4, 5, 6, 7] are the flat positions of lhs[0, 1, :].
     """
     dims = batch_dims + free_dims
     sizes = tuple(shape[d] for d in dims)
@@ -57,7 +65,7 @@ def _contract_union_sets(
     ]
 
 
-def _one_const_indices(
+def _zero_skipping_index_sets(
     *,
     const_vals: np.ndarray,
     const_bases: np.ndarray,
@@ -67,13 +75,30 @@ def _one_const_indices(
     traced_offsets: np.ndarray,
     const_is_lhs: bool,
 ) -> list[IndexSet]:
-    """Output index sets when exactly one operand is a statically known constant.
+    """Output index sets of dot_general when exactly one operand is a known constant.
 
     The constant operand carries no input dependencies,
     so each output element unions the traced operand's index sets
     over the contracting positions where the constant is nonzero (zero-skipping).
     Fixed positions where the constant has no zeros share
     one unmasked union per traced fixed position.
+
+    Args:
+        const_vals: Flat values of the constant operand.
+        const_bases: Constant operand bases from `_fixed_base_positions`,
+            of shape ``(batch_size, const_free_size)``.
+        const_offsets: Flat contracting offsets into the constant operand.
+        traced_indices: Flat index sets of the traced operand.
+        traced_bases: Traced operand bases from `_fixed_base_positions`,
+            of shape ``(batch_size, traced_free_size)``.
+        traced_offsets: Flat contracting offsets into the traced operand,
+            paired elementwise with ``const_offsets``.
+        const_is_lhs: Whether the constant is the lhs operand.
+            The output axes are always (batch, lhs free, rhs free),
+            so this decides whether the constant's free axes come first.
+
+    Returns:
+        Flat output index sets in C order of the dot_general output.
     """
     n_contract = len(const_offsets)
     out_indices: list[IndexSet] = []
@@ -241,7 +266,7 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
                     out_indices.extend(row | col for col in cols)
         case (True, False):
             assert lhs_val_flat is not None
-            out_indices = _one_const_indices(
+            out_indices = _zero_skipping_index_sets(
                 const_vals=lhs_val_flat,
                 const_bases=lhs_bases,
                 const_offsets=lhs_offsets,
@@ -252,7 +277,7 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
             )
         case (False, True):
             assert rhs_val_flat is not None
-            out_indices = _one_const_indices(
+            out_indices = _zero_skipping_index_sets(
                 const_vals=rhs_val_flat,
                 const_bases=rhs_bases,
                 const_offsets=rhs_offsets,
