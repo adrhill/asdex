@@ -14,7 +14,7 @@ from ._common import (
     _atom_shape,
     _atom_value_bounds,
     _clear_where_zero,
-    _copy_index_sets,
+    _empty_index_set,
     _empty_index_sets,
     _index_sets,
     _numel,
@@ -206,14 +206,29 @@ def _union_with_zero_derivs(
     is_der1_zero: bool,
     is_der2_zero: bool,
 ) -> set[int]:
-    """Union index sets, excluding inputs with zero derivatives."""
-    if is_der1_zero and is_der2_zero:
-        return set()
-    if is_der1_zero:
-        return s2.copy()
-    if is_der2_zero:
-        return s1.copy()
-    return s1 | s2
+    """Union index sets, excluding inputs with zero derivatives.
+
+    The result may alias an input set,
+    which is safe since index sets are never mutated.
+    The derivative flags are checked before the emptiness shortcut,
+    so a zero-derivative side is never returned just because the other side is empty.
+    Aliasing instead of unioning when one side is empty
+    avoids an allocation per element
+    for ops with a constant operand (e.g. ``x * 2.0``).
+    """
+    match (is_der1_zero, is_der2_zero):
+        case (True, True):
+            return _empty_index_set()
+        case (True, False):
+            return s2
+        case (False, True):
+            return s1
+        case (False, False):
+            if not s1:
+                return s2
+            if not s2:
+                return s1
+            return s1 | s2
 
 
 def _propagate_bounds_add(
@@ -409,7 +424,9 @@ def _prop_integer_pow(
     if y == 0:
         state.indices[eqn.outvars[0]] = _empty_index_sets(len(in_indices))
     else:
-        state.indices[eqn.outvars[0]] = _copy_index_sets(in_indices)
+        # Aliasing the input list is safe: index sets are never mutated,
+        # and _clear_where_zero below builds a new list.
+        state.indices[eqn.outvars[0]] = in_indices
 
     # Const propagation.
     in_val = _atom_const_val(eqn.invars[0], state)
@@ -484,7 +501,7 @@ def _prop_unary_elementwise(eqn: JaxprEqn, state: _PropState) -> None:
     Jaxpr:
         invars[0]: input array
     """
-    state.indices[eqn.outvars[0]] = _copy_index_sets(_index_sets(state, eqn.invars[0]))
+    state.indices[eqn.outvars[0]] = _index_sets(state, eqn.invars[0])
 
 
 def _prop_convert_element_type(
@@ -513,7 +530,7 @@ def _prop_convert_element_type(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.convert_element_type.html
     """
-    state.indices[eqn.outvars[0]] = _copy_index_sets(_index_sets(state, eqn.invars[0]))
+    state.indices[eqn.outvars[0]] = _index_sets(state, eqn.invars[0])
 
     in_val = _atom_const_val(eqn.invars[0], state)
     if in_val is not None:

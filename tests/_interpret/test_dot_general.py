@@ -8,8 +8,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from jax import lax
 
 from asdex import jacobian_sparsity
+from asdex.detection._interpret._common import _identity_index_sets, _PropState
+from asdex.detection._interpret._dot_general import _prop_dot_general
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 def _dot_general_jacobian(f, n):
@@ -718,3 +722,129 @@ def test_dot_zero_contraction():
     result = jacobian_sparsity(f, np.zeros(3))
     assert result.shape == (2, 3)
     assert result.nnz == 0
+
+
+@pytest.mark.array_ops
+def test_dot_zero_size_output():
+    """A free dimension of size 0 produces a zero-element output.
+
+    The handler must return an empty index set list
+    before building any coordinate maps.
+    """
+
+    def f(x):
+        return (x[:0].reshape(0, 1) @ x.reshape(1, 3)).ravel()
+
+    result = jacobian_sparsity(f, np.zeros(3))
+    assert result.shape == (0, 3)
+    assert result.nnz == 0
+
+
+# Zero-skipping with one constant operand
+
+
+_SPARSE_W = np.array(
+    [
+        [[1.0, 0.0, 2.0, 0.0], [0.0, 0.0, 0.0, 0.0], [3.0, 4.0, 5.0, 6.0]],
+        [[0.0, 7.0, 0.0, 0.0], [8.0, 9.0, 1.0, 2.0], [0.0, 0.0, 0.0, 3.0]],
+    ]
+)  # shape (2, 3, 4): batch 2, free 3, contract 4
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize(
+    ("desc", "f"),
+    [
+        (
+            "const_lhs_batched",
+            lambda x: jnp.einsum("bik,bkj->bij", _SPARSE_W, x.reshape(2, 4, 5)).ravel(),
+        ),
+        (
+            "const_rhs_batched",
+            lambda x: jnp.einsum("bjk,bik->bij", _SPARSE_W, x.reshape(2, 5, 4)).ravel(),
+        ),
+        (
+            "const_rhs_contract_first",
+            lambda x: jnp.einsum(
+                "kbj,bik->bij", _SPARSE_W.transpose(2, 0, 1), x.reshape(2, 5, 4)
+            ).ravel(),
+        ),
+    ],
+)
+def test_batched_const_zero_skipping(desc, f):
+    """Zero-skipping on a batched contraction with a sparse constant operand.
+
+    The constant has an all-zero row, a fully dense row, and partially sparse rows,
+    so the shared unmasked union, the masked unions, and the empty union all occur.
+    With the constant on the rhs, the output is transposed relative to the constant,
+    which exercises the reordering of the per-batch blocks.
+    The constant entries are the exact Jacobian entries, so the pattern must be exact.
+    """
+    assert_jacobian_sparsity_exact(f, jnp.arange(40.0) + 1.0)
+
+
+@pytest.mark.array_ops
+def test_both_operands_known():
+    """Dot product of two statically known operands carries no dependencies.
+
+    ``ones_like(x) · ones_like(x)`` is the known constant 3,
+    so ``3 * x`` keeps the diagonal pattern of ``x`` and nothing else.
+    """
+
+    def f(x):
+        return jnp.dot(jnp.ones_like(x), jnp.ones_like(x)) * x
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    np.testing.assert_array_equal(result, np.eye(3, dtype=int))
+
+
+# Handler internals
+
+
+def _dot_eqn():
+    """Jaxpr equation for a length-3 vector dot product ``w · x``."""
+    dn = (((0,), (0,)), ((), ()))
+    jaxpr = jax.make_jaxpr(lambda w, x: lax.dot_general(w, x, dn))(
+        jnp.zeros(3), jnp.zeros(3)
+    ).jaxpr
+    return jaxpr.eqns[0]
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize("const_side", [0, 1])
+@pytest.mark.parametrize(("value", "expected"), [(0.0, set()), (2.0, {0, 1, 2})])
+def test_scalar_const_value_broadcasts_to_operand_size(const_side, value, expected):
+    """A scalar const value recorded for a vector operand is expanded to full size.
+
+    The handler reads each contracting position of the constant,
+    so a scalar stored for a shape ``(3,)`` operand must broadcast,
+    letting a scalar zero still skip every term.
+    """
+    eqn = _dot_eqn()
+    const_var = eqn.invars[const_side]
+    traced_var = eqn.invars[1 - const_side]
+    state = _PropState(consts={const_var: np.array(value)})
+    state.indices[const_var] = [set(), set(), set()]
+    state.indices[traced_var] = _identity_index_sets(3)
+
+    _prop_dot_general(eqn, state)
+
+    assert state.indices[eqn.outvars[0]] == [expected]
+
+
+@pytest.mark.array_ops
+def test_const_operand_with_dependencies_is_treated_as_traced():
+    """An operand with both a known value and dependencies is not zero-skipped.
+
+    Skipping its zero positions would drop the dependencies it carries,
+    so the handler ignores the value and keeps the full union instead.
+    """
+    eqn = _dot_eqn()
+    w, x = eqn.invars
+    state = _PropState(consts={w: np.array([1.0, 0.0, 1.0])})
+    state.indices[w] = [{5}, {6}, {7}]
+    state.indices[x] = _identity_index_sets(3)
+
+    _prop_dot_general(eqn, state)
+
+    assert state.indices[eqn.outvars[0]] == [{0, 1, 2, 5, 6, 7}]

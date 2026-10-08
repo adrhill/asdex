@@ -7,11 +7,138 @@ from ._common import (
     IndexSet,
     _atom_const_val,
     _atom_shape,
-    _empty_index_set,
     _empty_index_sets,
     _index_sets,
+    _numel,
     _PropState,
+    _row_strides,
+    _union_all,
 )
+
+
+def _fixed_base_positions(
+    shape: tuple[int, ...],
+    batch_dims: tuple[int, ...],
+    free_dims: tuple[int, ...],
+    strides: tuple[int, ...],
+) -> np.ndarray:
+    """Flat position where each contracted slice of an operand starts.
+
+    For a matrix multiply, the contracted slices are the rows of lhs and the columns of rhs.
+    Each base is the flat position of the first element of one slice.
+    Adding the contracting offsets to a base gives the flat positions of the whole slice.
+
+    Returns an array of shape ``(batch_size, free_size)``,
+    with one row of bases per batch index.
+    ``batch_dims`` and ``free_dims`` are listed in the order of the output axes they map to,
+    so the bases come out in the same order as the output elements.
+
+    Example: matrix multiply A(2,3) @ B(3,4) -> C(2,4)
+        Flat positions of A:  [[0, 1, 2],
+                               [3, 4, 5]]
+        Rows of A start at 0 and 3, so bases = [[0, 3]].
+        Row 1 is base 3 plus offsets [0, 1, 2], i.e. positions [3, 4, 5].
+
+        Flat positions of B:  [[0, 1,  2,  3],
+                               [4, 5,  6,  7],
+                               [8, 9, 10, 11]]
+        Columns of B start at 0, 1, 2, and 3, so bases = [[0, 1, 2, 3]].
+        Column 2 is base 2 plus offsets [0, 4, 8], i.e. positions [2, 6, 10].
+    """
+    dims = batch_dims + free_dims
+    sizes = tuple(shape[d] for d in dims)
+    coords = (
+        np.indices(sizes, dtype=np.int64).reshape(len(dims), -1)
+        if sizes
+        else np.zeros((0, 1), dtype=np.int64)
+    )
+    bases = np.zeros(_numel(sizes), dtype=np.int64)
+    for i, d in enumerate(dims):
+        bases += coords[i] * strides[d]
+    batch_size = _numel(tuple(shape[d] for d in batch_dims))
+    return bases.reshape(batch_size, -1)
+
+
+def _contract_union_sets(
+    indices: list[IndexSet], bases: np.ndarray, offsets: np.ndarray
+) -> list[IndexSet]:
+    """Union the index sets over the contracting offsets for each base position.
+
+    For lhs these are the row sets, the unioned index sets of ``lhs[b, i, :]``.
+    For rhs the column sets, the unioned index sets of ``rhs[b, :, j]``.
+    """
+    offset_list = offsets.tolist()
+    return [
+        _union_all([indices[base + o] for o in offset_list]) for base in bases.tolist()
+    ]
+
+
+def _zero_skipping_index_sets(
+    *,
+    const_vals: np.ndarray,
+    const_bases: np.ndarray,
+    const_offsets: np.ndarray,
+    traced_indices: list[IndexSet],
+    traced_bases: np.ndarray,
+    traced_offsets: np.ndarray,
+    const_is_lhs: bool,
+) -> list[IndexSet]:
+    """Output index sets of dot_general when exactly one operand is a known constant.
+
+    The constant operand carries no input dependencies,
+    so each output element unions the traced operand's index sets
+    over the contracting positions where the constant is nonzero (zero-skipping).
+    Fixed positions where the constant has no zeros share
+    one unmasked union per traced fixed position.
+
+    Args:
+        const_vals: Flat values of the constant operand.
+        const_bases: Constant operand bases from `_fixed_base_positions`,
+            of shape ``(batch_size, const_free_size)``.
+        const_offsets: Flat contracting offsets into the constant operand.
+        traced_indices: Flat index sets of the traced operand.
+        traced_bases: Traced operand bases from `_fixed_base_positions`,
+            of shape ``(batch_size, traced_free_size)``.
+        traced_offsets: Flat contracting offsets into the traced operand,
+            paired elementwise with ``const_offsets``.
+        const_is_lhs: Whether the constant is the lhs operand.
+            The output axes are always (batch, lhs free, rhs free),
+            so this decides whether the constant's free axes come first.
+
+    Returns:
+        Flat output index sets in C order of the dot_general output.
+    """
+    n_contract = len(const_offsets)
+    out_indices: list[IndexSet] = []
+    for const_bs, traced_bs in zip(const_bases, traced_bases, strict=True):
+        # Unmasked unions for this batch index, built once on first use
+        # and shared across all constant positions without zeros.
+        full: list[IndexSet] | None = None
+        # block[c][t] is the output set for const position c and traced position t.
+        block: list[list[IndexSet]] = []
+        for cbase in const_bs.tolist():
+            kept = np.flatnonzero(const_vals[cbase + const_offsets])
+            if kept.size == n_contract:
+                if full is None:
+                    full = _contract_union_sets(
+                        traced_indices, traced_bs, traced_offsets
+                    )
+                block.append(full)
+            else:
+                block.append(
+                    _contract_union_sets(
+                        traced_indices, traced_bs, traced_offsets[kept]
+                    )
+                )
+        if const_is_lhs:
+            # Output axes per batch are (const fixed, traced fixed).
+            for row in block:
+                out_indices.extend(row)
+        else:
+            # Output axes per batch are (traced fixed, const fixed): transpose.
+            for t in range(len(traced_bs)):
+                out_indices.extend(row[t] for row in block)
+    return out_indices
 
 
 def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
@@ -26,12 +153,25 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     where b are batch dims, i are lhs-free dims, j are rhs-free dims,
     and k are contracting dims.
 
+    Because union distributes over the sum of products,
+    the union over contraction terms factors into
+    a row union of lhs and a column union of rhs.
+    Both are precomputed once per fixed (batch and free) position,
+    so each output element costs a single union of two sets
+    instead of one union per contraction term.
+
     Example: matrix multiply A(2,3) @ B(3,4) -> C(2,4)
         contracting: lhs_dim=1, rhs_dim=0
         out[i,j] depends on lhs[i,:] and rhs[:,j]
         Input lhs index sets:  [{0},{1},{2},{3},{4},{5}]  (shape 2x3)
         Input rhs index sets:  [{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17}]
         Output state.indices[0,0] = {0,1,2} | {6,10,14} = {0,1,2,6,10,14}
+
+    Zero-skipping: when an operand is a statically known constant with zeros,
+    the contracting positions where that factor is zero contribute nothing
+    to the derivative and are dropped from the pattern.
+    A statically known operand carries no input dependencies itself,
+    so only the other operand contributes index sets in that case.
 
     Jaxpr:
         invars[0]: lhs array
@@ -67,6 +207,12 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
         + tuple(lhs_shape[d] for d in lhs_free)
         + tuple(rhs_shape[d] for d in rhs_free)
     )
+    out_size = _numel(out_shape)
+
+    if out_size == 0:
+        # Zero-sized output has no elements to depend on anything.
+        state.indices[eqn.outvars[0]] = []
+        return
 
     # Get constant values for zero-skipping.
     # When an operand is a known constant with zeros,
@@ -79,87 +225,78 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     # When a constant was scalar-broadcast to a larger shape
     # (e.g. jnp.dot(jnp.array(2.0), x)), expand it to full size
     # so zero-skipping still works for scalar constants like 0.0.
-    if lhs_val_flat is not None and len(lhs_val_flat) != int(np.prod(lhs_shape)):
-        lhs_val_flat = np.broadcast_to(lhs_val_flat, int(np.prod(lhs_shape)))
-    if rhs_val_flat is not None and len(rhs_val_flat) != int(np.prod(rhs_shape)):
-        rhs_val_flat = np.broadcast_to(rhs_val_flat, int(np.prod(rhs_shape)))
+    if lhs_val_flat is not None and len(lhs_val_flat) != _numel(lhs_shape):
+        lhs_val_flat = np.broadcast_to(lhs_val_flat, _numel(lhs_shape))
+    if rhs_val_flat is not None and len(rhs_val_flat) != _numel(rhs_shape):
+        rhs_val_flat = np.broadcast_to(rhs_val_flat, _numel(rhs_shape))
 
-    if not out_shape:
-        # Scalar output (e.g., vector dot product).
-        # Skip terms where either factor is a known zero.
-        result: IndexSet = _empty_index_set()
-        for i in range(len(lhs_indices)):
-            lhs_zero = lhs_val_flat is not None and lhs_val_flat[i] == 0
-            rhs_zero = rhs_val_flat is not None and rhs_val_flat[i] == 0
-            if lhs_zero or rhs_zero:
-                continue
-            result |= lhs_indices[i]
-            result |= rhs_indices[i]
-        state.indices[eqn.outvars[0]] = [result]
-        return
+    # A statically known operand carries no input dependencies.
+    # Should an operand ever have both a known value and dependencies,
+    # ignore the value and treat the operand as traced,
+    # which keeps the pattern conservative instead of dropping dependencies.
+    lhs_known = lhs_val_flat is not None and not any(lhs_indices)
+    rhs_known = rhs_val_flat is not None and not any(rhs_indices)
 
-    n_batch = len(lhs_batch)
-    n_lhs_free = len(lhs_free)
-    out_coords = np.indices(out_shape)
-    out_size = int(np.prod(out_shape))
+    lhs_strides = _row_strides(lhs_shape)
+    rhs_strides = _row_strides(rhs_shape)
 
-    # Map output coordinates to lhs/rhs fixed (non-contracting) coordinates.
-    lhs_fixed = {}
-    for i, d in enumerate(lhs_batch):
-        lhs_fixed[d] = out_coords[i]
-    for i, d in enumerate(lhs_free):
-        lhs_fixed[d] = out_coords[n_batch + i]
-
-    rhs_fixed = {}
-    for i, d in enumerate(rhs_batch):
-        rhs_fixed[d] = out_coords[i]
-    for i, d in enumerate(rhs_free):
-        rhs_fixed[d] = out_coords[n_batch + n_lhs_free + i]
-
-    # Iterate over all contracting index combinations.
-    # For each, compute lhs and rhs flat indices for every output element.
+    # Flat offsets of the contracting positions, shared by every fixed position.
+    # contract_coords[i] runs over the i-th contracting axis, shared by lhs and
+    # rhs since lhs_contract[i] pairs with rhs_contract[i] and has equal size.
     contract_sizes = tuple(lhs_shape[d] for d in lhs_contract)
-    n_contract = int(np.prod(contract_sizes)) if contract_sizes else 1
+    n_contract = _numel(contract_sizes)
     contract_coords = (
-        np.indices(contract_sizes).reshape(len(contract_sizes), -1)
+        np.indices(contract_sizes, dtype=np.int64).reshape(len(contract_sizes), -1)
         if contract_sizes
-        else np.empty((0, 1), dtype=int)
+        else np.zeros((0, 1), dtype=np.int64)
     )
+    lhs_offsets = np.zeros(n_contract, dtype=np.int64)
+    for i, d in enumerate(lhs_contract):
+        lhs_offsets += contract_coords[i] * lhs_strides[d]
+    rhs_offsets = np.zeros(n_contract, dtype=np.int64)
+    for i, d in enumerate(rhs_contract):
+        rhs_offsets += contract_coords[i] * rhs_strides[d]
 
-    out_indices: list[IndexSet] = _empty_index_sets(out_size)
+    # Shape (batch_size, free_size) each, with matching batch rows.
+    lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch, lhs_free, lhs_strides)
+    rhs_bases = _fixed_base_positions(rhs_shape, rhs_batch, rhs_free, rhs_strides)
 
-    for c_idx in range(n_contract):
-        lhs_coord = tuple(
-            lhs_fixed[d]
-            if d in lhs_fixed
-            else np.full(out_shape, contract_coords[lhs_contract.index(d), c_idx])
-            for d in range(len(lhs_shape))
-        )
-        rhs_coord = tuple(
-            rhs_fixed[d]
-            if d in rhs_fixed
-            else np.full(out_shape, contract_coords[rhs_contract.index(d), c_idx])
-            for d in range(len(rhs_shape))
-        )
-        # When out_shape has axes from both batch and contraction dimensions,
-        # ravel_multi_index may return an array whose shape is a prefix of out_shape
-        # (only the contraction axes). Broadcast to full out_shape before raveling
-        # so that lhs_flat/rhs_flat have length == out_size.
-        lhs_flat = np.broadcast_to(
-            np.ravel_multi_index(lhs_coord, lhs_shape), out_shape
-        ).ravel()
-        rhs_flat = np.broadcast_to(
-            np.ravel_multi_index(rhs_coord, rhs_shape), out_shape
-        ).ravel()
-
-        for o in range(out_size):
-            # Skip this contraction term if either factor is a known zero,
-            # since the product contributes nothing to the derivative.
-            lhs_zero = lhs_val_flat is not None and lhs_val_flat[lhs_flat[o]] == 0
-            rhs_zero = rhs_val_flat is not None and rhs_val_flat[rhs_flat[o]] == 0
-            if lhs_zero or rhs_zero:
-                continue
-            out_indices[o] |= lhs_indices[lhs_flat[o]]
-            out_indices[o] |= rhs_indices[rhs_flat[o]]
+    out_indices: list[IndexSet]
+    match (lhs_known, rhs_known):
+        case (False, False):
+            # Both operands are traced: no zero-skipping possible,
+            # every output is one row set unioned with one column set.
+            out_indices = []
+            for lhs_bs, rhs_bs in zip(lhs_bases, rhs_bases, strict=True):
+                rows = _contract_union_sets(lhs_indices, lhs_bs, lhs_offsets)
+                cols = _contract_union_sets(rhs_indices, rhs_bs, rhs_offsets)
+                for row in rows:
+                    out_indices.extend(row | col for col in cols)
+        case (True, False):
+            assert lhs_val_flat is not None
+            out_indices = _zero_skipping_index_sets(
+                const_vals=lhs_val_flat,
+                const_bases=lhs_bases,
+                const_offsets=lhs_offsets,
+                traced_indices=rhs_indices,
+                traced_bases=rhs_bases,
+                traced_offsets=rhs_offsets,
+                const_is_lhs=True,
+            )
+        case (False, True):
+            assert rhs_val_flat is not None
+            out_indices = _zero_skipping_index_sets(
+                const_vals=rhs_val_flat,
+                const_bases=rhs_bases,
+                const_offsets=rhs_offsets,
+                traced_indices=lhs_indices,
+                traced_bases=lhs_bases,
+                traced_offsets=lhs_offsets,
+                const_is_lhs=False,
+            )
+        case (True, True):
+            # Both operands are statically known,
+            # so no output element depends on the traced inputs.
+            out_indices = _empty_index_sets(out_size)
 
     state.indices[eqn.outvars[0]] = out_indices
