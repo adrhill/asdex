@@ -114,9 +114,30 @@ def _prop_jaxpr(
     for eqn in jaxpr.eqns:
         _forget_value_info(state, eqn.outvars)
         _prop_dispatch(eqn, state)
+        _check_index_set_counts(eqn, state)
 
     # Return output dependencies
     return [_index_sets(state, outvar) for outvar in jaxpr.outvars]
+
+
+def _check_index_set_counts(eqn: JaxprEqn, state: _PropState) -> None:
+    """Raise if a handler recorded the wrong number of index sets for an output.
+
+    Each output element needs exactly one index set.
+    A wrong count would silently shift or drop rows of the sparsity pattern,
+    since rows are assigned by position.
+    """
+    for outvar in eqn.outvars:
+        if outvar not in state.indices:
+            continue
+        actual = len(state.indices[outvar])
+        expected = _atom_numel(outvar)
+        if actual != expected:
+            msg = _report_issue(
+                f"Handler for '{eqn.primitive.name}' recorded {actual} index sets "
+                f"for an output with {expected} elements."
+            )
+            raise RuntimeError(msg)
 
 
 def _prop_closed_jaxpr(

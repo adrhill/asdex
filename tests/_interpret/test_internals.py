@@ -52,6 +52,21 @@ class FakeEqn:
         self.outvars = []
 
 
+def test_wrong_index_set_count_raises(monkeypatch):
+    """A handler that records too few index sets raises instead of shifting rows."""
+
+    def drop_last_index_set(eqn, state):
+        state.indices[eqn.outvars[0]] = _index_sets(state, eqn.invars[0])[:-1]
+
+    monkeypatch.setattr(
+        "asdex.detection._interpret._prop_unary_elementwise", drop_last_index_set
+    )
+    with pytest.raises(
+        RuntimeError, match=r"'sin' recorded 2 index sets .* 3 elements"
+    ):
+        jacobian_sparsity(jnp.sin, np.zeros(3))
+
+
 def test_nested_jaxpr_missing_param_raises():
     """Error is raised when nested jaxpr primitive has no 'jaxpr' parameter."""
     eqn = FakeEqn("pjit", params={})
