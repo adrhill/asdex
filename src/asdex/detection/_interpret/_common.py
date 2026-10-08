@@ -162,10 +162,24 @@ def _atom_numel(atom: Atom) -> int:
 
 
 def _index_sets(state: _PropState, atom: Atom) -> list[IndexSet]:
-    """Get the index sets for a variable or literal."""
+    """Get the index sets for a variable or literal.
+
+    Every ``Var`` is either seeded (invars, constvars) or written by a handler,
+    so a missing ``Var`` indicates a handler bug upstream.
+    Guessing a default here would silently drop dependencies
+    and get the element count wrong,
+    so we raise instead.
+    """
     if isinstance(atom, Literal):
         return _empty_index_sets(_atom_numel(atom))
-    return state.indices.get(atom, [_empty_index_set()])
+    if atom not in state.indices:
+        msg = (
+            f"No index sets recorded for variable '{atom}'. "
+            "Please help out asdex's development by reporting this at "
+            "https://github.com/adrhill/asdex/issues"
+        )
+        raise KeyError(msg)
+    return state.indices[atom]
 
 
 def _copy_index_sets(src: list[IndexSet]) -> list[IndexSet]:

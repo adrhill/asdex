@@ -18,6 +18,7 @@ from asdex.detection._interpret import (
 )
 from asdex.detection._interpret._common import (
     _atom_shape,
+    _index_sets,
     _PropState,
     _singleton_index_set,
 )
@@ -325,3 +326,20 @@ def test_custom_vjp_user_defined():
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)  # Element-wise operation
     np.testing.assert_array_equal(result, expected)
+
+
+# Internal invariants
+
+
+def test_index_sets_unknown_var_raises():
+    """_index_sets raises for a Var that was never seeded or written.
+
+    Every Var is either seeded (invars, constvars) or written by a handler,
+    so a missing Var indicates a handler bug upstream.
+    Returning a guessed default silently drops dependencies
+    and gets the element count wrong.
+    """
+    var = jax.make_jaxpr(lambda x: x + 1)(jnp.zeros(2)).jaxpr.invars[0]
+
+    with pytest.raises(KeyError):
+        _index_sets(_PropState(), var)
