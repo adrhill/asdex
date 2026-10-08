@@ -8,7 +8,10 @@ from jax import lax
 
 from asdex import jacobian_sparsity
 from asdex.detection._interpret._common import _PropState
-from asdex.detection._interpret._elementwise import _propagate_bounds_integer_pow
+from asdex.detection._interpret._elementwise import (
+    _BINARY_CONST_UFUNCS,
+    _propagate_bounds_integer_pow,
+)
 from tests._utils import (
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
@@ -812,6 +815,25 @@ def test_rem_integer_const_negative_dividend():
 
     result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.array([[0, 1, 0, 0, 0]], dtype=int)  # out[0] <- x[1]
+    np.testing.assert_array_equal(result, expected)
+    # x[0] > 0 takes the true branch, so jax.jacobian sees the gather.
+    assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("dtype", [jnp.int32, jnp.float32])
+def test_rem_const_matches_lax(dtype):
+    """The const function for ``rem`` agrees with ``lax.rem`` on every sign combination.
+
+    Guards against the numpy stand-in drifting from JAX's semantics.
+    """
+    num = np.array([-7, -6, -5, -1, 0, 1, 5, 6, 7], dtype=dtype)
+    den = np.array([-3, -2, 2, 3], dtype=dtype)
+    num, den = np.meshgrid(num, den)
+
+    expected = np.asarray(lax.rem(num, den))
+    result = _BINARY_CONST_UFUNCS["rem"](num, den)
+    assert result.dtype == expected.dtype
     np.testing.assert_array_equal(result, expected)
 
 

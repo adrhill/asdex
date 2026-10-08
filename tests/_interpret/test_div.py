@@ -17,7 +17,8 @@ from jax import lax
 
 from asdex import jacobian_sparsity
 from asdex.detection._interpret._common import _PropState
-from asdex.detection._interpret._div import _propagate_bounds_div
+from asdex.detection._interpret._div import _lax_div, _propagate_bounds_div
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 @pytest.mark.elementwise
@@ -55,6 +56,25 @@ def test_div_integer_const_truncation():
         ],
         dtype=int,
     )
+    np.testing.assert_array_equal(result, expected)
+    # x[0] > 0 takes the true branch, so jax.jacobian sees the gather.
+    assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0]))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("dtype", [jnp.int32, jnp.float32])
+def test_lax_div_matches_lax(dtype):
+    """``_lax_div`` agrees with ``lax.div`` on every sign combination.
+
+    Guards against the numpy reimplementation drifting from JAX's semantics.
+    """
+    num = np.array([-7, -6, -5, -1, 0, 1, 5, 6, 7], dtype=dtype)
+    den = np.array([-3, -2, 2, 3], dtype=dtype)
+    num, den = np.meshgrid(num, den)
+
+    expected = np.asarray(lax.div(num, den))
+    result = _lax_div(num, den)
+    assert result.dtype == expected.dtype
     np.testing.assert_array_equal(result, expected)
 
 
