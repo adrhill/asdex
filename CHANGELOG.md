@@ -6,7 +6,15 @@
   The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
 * ![Feature][badge-feature] Support the `one_minus_square` primitive that JAX 0.11.2 emits in the derivatives of `tanh`, `arcsin`, `arccos`, and `arctanh` ([#192])
 * ![Enhancement][badge-enhancement] Propagate value bounds through `max`, `min`, and `clamp`, so clipping a data-dependent index into range (e.g. `jnp.clip(idx, 0, n)`) keeps it bounded.
-  Previously `jnp.clip` erased the bounds and downstream `gather`, `scatter`, and `dynamic_slice` fell back to a dense pattern ([#181])
+  Previously `jnp.clip` erased the bounds and downstream `gather`, `scatter`, and `dynamic_slice` fell back to a dense pattern ([#177])
+* ![Enhancement][badge-enhancement] Track constant values across nested jaxprs (`jit`, `cond`, `while`, `scan`) and through `sign`, `floor`, `ceil`, and `not`, so index arithmetic such as `jnp.floor_divide` stays static and yields sparser patterns ([#177])
+* ![Enhancement][badge-enhancement] Speed up sparsity detection: vectorize `conv_general_dilated`, stop propagating through a `scan` once its carry stops changing, share index sets instead of copying them, and only copy closure constants such as network weights to the host when their values are needed ([#177])
+* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `while` loops whose condition and body both capture constants, integer `div` and `rem` of constants, `scatter` with `mode='clip'` or with windows that are partly out of bounds, `dynamic_slice` and `dynamic_update_slice` with out-of-bounds constant starts, and `bitcast_convert_type` and `reduce_precision` of constants ([#177])
+* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros when a `jit`-wrapped helper is called more than once, for example `jnp.clip` on both a constant and a data-dependent index ([#177])
+* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros when a bounded integer index overflows its dtype or is converted to `bool` ([#177])
+* ![Bugfix][badge-bugfix] Return a conservative pattern instead of raising for input-dependent indices in `scatter`, `dynamic_slice`, and `dynamic_update_slice` and for input-dependent `conv` kernels, and support zero-length `scan`s over `xs` ([#177])
+* ![Bugfix][badge-bugfix] Treat every update as a possible writer when replace-mode `scatter` has duplicate indices, since XLA does not define which one wins ([#177])
+* ![Bugfix][badge-bugfix] Return the correct number of rows for `bitcast_convert_type` between dtypes of different widths, and raise an error instead of returning a misshapen pattern if a primitive handler ever gets this wrong ([#177])
 
 ## Version `v0.5.2`
 * ![Maintenance][badge-maintenance] Update `scan` sparsity propagation for JAX 0.11's new jaxpr representation, which replaces the `num_consts`/`num_carry` parameters with `ft_in`/`ft_out`.
@@ -146,8 +154,8 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 
 [#192]: https://github.com/adrhill/asdex/pull/192
 [#187]: https://github.com/adrhill/asdex/pull/187
-[#181]: https://github.com/adrhill/asdex/pull/181
 [#180]: https://github.com/adrhill/asdex/pull/180
+[#177]: https://github.com/adrhill/asdex/pull/177
 [#176]: https://github.com/adrhill/asdex/pull/176
 [#169]: https://github.com/adrhill/asdex/pull/169
 [#168]: https://github.com/adrhill/asdex/pull/168
