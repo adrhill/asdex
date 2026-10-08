@@ -15,6 +15,7 @@ from ._common import (
     _index_sets,
     _numel,
     _PropState,
+    _union_all,
 )
 
 
@@ -146,9 +147,12 @@ def _scatter_for_indices(
                     combined |= updates_indices[u_flat]
                 out_indices.append(combined)
             else:
-                # Replace semantics: last writer wins.
-                last_u = scatter_positions[i][-1]
-                out_indices.append(updates_indices[last_u].copy())
+                # Replace semantics: XLA leaves the applied update
+                # implementation-defined under duplicate indices,
+                # so union all candidate writers.
+                out_indices.append(
+                    _union_all([updates_indices[u] for u in scatter_positions[i]])
+                )
         else:
             out_indices.append(operand_indices[i].copy())
 

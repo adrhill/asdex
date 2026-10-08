@@ -506,22 +506,23 @@ def test_scatter_after_reshape():
 
 @pytest.mark.array_ops
 def test_scatter_duplicate_indices_set():
-    """Duplicate indices with set: last write wins.
+    """Duplicate indices with set: union of all updates targeting the position.
 
-    When two updates target the same position,
-    only the last update's dependencies survive (replace semantics).
+    XLA leaves the applied update implementation-defined
+    when scatter (replace) receives duplicate indices,
+    so the pattern must cover every candidate writer.
     """
 
     def f(x):
         arr = jnp.zeros(3)
-        # Both x[0] and x[1] target position 1; x[1] wins.
+        # Both x[0] and x[1] target position 1. The winner is backend-defined.
         return arr.at[jnp.array([1, 1])].set(x[:2])
 
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.array(
         [
             [0, 0, 0],  # out[0] <- constant 0
-            [0, 1, 0],  # out[1] <- x[1] (last write wins)
+            [1, 1, 0],  # out[1] <- x[0] or x[1], backend-defined
             [0, 0, 0],  # out[2] <- constant 0
         ],
         dtype=int,
@@ -591,9 +592,10 @@ def test_scatter_replace_all():
 
 @pytest.mark.array_ops
 def test_scatter_multi_index_duplicate_set():
-    """Multi-index scatter with duplicate coordinates: last write wins.
+    """Multi-index scatter with duplicate coordinates unions all writers.
 
-    Two updates target ``(0, 1)``; the second update's dep survives.
+    Two updates target ``(0, 1)`` and the applied one is backend-defined,
+    so the pattern must cover both.
     """
 
     def f(x):
@@ -604,11 +606,12 @@ def test_scatter_multi_index_duplicate_set():
         return mat.at[rows, cols].set(vals).reshape(-1)
 
     result = jacobian_sparsity(f, np.zeros(6)).todense().astype(int)
-    # Position (0,1) = flat 1 gets x[1] (last write wins).
+    # Position (0,1) = flat 1 receives x[0] or x[1], backend-defined.
     # All other positions keep their original identity state_indices.
     expected = np.eye(6, dtype=int)
     expected[1, :] = 0
-    expected[1, 1] = 1  # out[1] <- x[1]
+    expected[1, 0] = 1  # out[1] <- x[0] or x[1], backend-defined
+    expected[1, 1] = 1
     np.testing.assert_array_equal(result, expected)
 
 
