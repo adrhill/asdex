@@ -4,7 +4,7 @@
 * ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity`
 * ![Feature][badge-feature] Support the `one_minus_square` primitive that JAX 0.11.2 emits in the derivatives of `tanh`, `arcsin`, `arccos`, and `arctanh` ([#192])
 * ![Enhancement][badge-enhancement] Track constant values across nested jaxprs (`jit`, `cond`, `while`, `scan`) and through `sign`, `floor`, `ceil`, `round`, and `not`, and forward value bounds into `cond`, `while`, and `scan` bodies, so index arithmetic such as `jnp.floor_divide` stays static and yields sparser patterns ([#197])
-* ![Enhancement][badge-enhancement] Speed up sparsity detection of `dot_general` and of pass-through primitives by sharing index sets instead of copying them ([#198])
+* ![Enhancement][badge-enhancement] Speed up sparsity detection of `dot_general` by factoring the contraction into row and column unions, and of pass-through primitives by sharing index sets instead of copying them ([#198])
 * ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `while` loops whose condition and body both capture constants, integer `div` and `rem` of constants, and `scatter` with `mode='clip'` ([#196])
 * ![Bugfix][badge-bugfix] Treat every update as a possible writer when replace-mode `scatter` has duplicate indices, since XLA does not define which one wins ([#196])
 * ![Bugfix][badge-bugfix] Raise an error instead of guessing a default when sparsity detection reads a variable whose dependencies were never recorded, since the guess could have the wrong size ([#196])
