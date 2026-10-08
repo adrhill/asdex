@@ -7,7 +7,7 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     PropJaxprFn,
-    _forward_const_vals,
+    _forward_into_jaxpr,
     _index_sets,
     _PropState,
     _seed_const_vals,
@@ -53,7 +53,7 @@ def _prop_while(
 
     _seed_const_vals(state, body_jaxpr.constvars, body_closed.consts)
     # Only forward const values for body consts, not carry (carry changes each iteration)
-    _forward_const_vals(state, body_consts, body_jaxpr.invars[:body_nconsts])
+    _forward_into_jaxpr(state, body_consts, body_jaxpr.invars[:body_nconsts])
 
     # Initialize carry index sets from the initial values
     carry_indices: list[list[IndexSet]] = [_index_sets(state, v) for v in carry_init]

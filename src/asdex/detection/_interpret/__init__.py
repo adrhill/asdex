@@ -19,8 +19,7 @@ from ._common import (
     _atom_numel,
     _conservative_indices,
     _empty_index_sets,
-    _forward_const_vals,
-    _forward_value_bounds,
+    _forward_into_jaxpr,
     _index_sets,
     _PropState,
     _seed_const_vals,
@@ -137,8 +136,7 @@ def _prop_closed_jaxpr(
         _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
         closed = closed.jaxpr
 
-    _forward_const_vals(state, eqn.invars, closed.invars)
-    _forward_value_bounds(state, eqn.invars, closed.invars)
+    _forward_into_jaxpr(state, eqn.invars, closed.invars)
     input_indices = [_index_sets(state, invar) for invar in eqn.invars]
     output_indices = _prop_jaxpr(closed, input_indices, state)
 

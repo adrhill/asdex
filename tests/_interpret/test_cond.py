@@ -150,6 +150,40 @@ def test_cond_closure_captured_index():
     np.testing.assert_array_equal(result, expected)
 
 
+@pytest.mark.control_flow
+def test_cond_bounds_forwarded_into_branch():
+    """Value bounds cross the cond boundary into branch jaxprs.
+
+    The argmax over two elements is bounded by (0, 1),
+    so the dynamic_slice inside the branch selects one of two windows.
+    Forwarding the bounds keeps the union of both windows
+    instead of a conservative all-inputs pattern.
+    """
+
+    def f(x):
+        start = jnp.argmax(x[:2])
+
+        def true_branch(ops):
+            i, values = ops
+            return jax.lax.dynamic_slice(values, (i,), (2,))
+
+        def false_branch(ops):
+            _, values = ops
+            return values[:2] * 0.0
+
+        return jax.lax.cond(x[0] > 0, true_branch, false_branch, (start, x))
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 1, 0, 0],  # out[0] <- x[0] or x[1]
+            [0, 1, 1, 0],  # out[1] <- x[1] or x[2]
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
 # Size-0 dimension
 
 
