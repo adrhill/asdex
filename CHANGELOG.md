@@ -17,6 +17,8 @@
 * ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros when a bounded integer index overflows its dtype ([#205])
 * ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `dynamic_slice` and `dynamic_update_slice` with out-of-bounds constant starts, for integer `div` of constants above 2**53, and when a bounded integer index is converted to `bool` ([#206])
 * ![Bugfix][badge-bugfix] Support zero-length `scan`s over `xs` ([#206])
+* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `scatter` with windows that are partly out of bounds and for `bitcast_convert_type` and `reduce_precision` of constants ([#207])
+* ![Bugfix][badge-bugfix] Return the correct number of rows for `bitcast_convert_type` between dtypes of different widths, and raise an error instead of returning a misshapen pattern if a primitive handler ever gets this wrong ([#207])
 * ![Documentation][badge-docs] Cite the [arXiv preprint](https://arxiv.org/abs/2610.12336) in the README, docs landing page, and `CITATION.cff` ([#212])
 * ![Maintenance][badge-maintenance] Cross-validate the greedy colorings and their validators against [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl), the Julia package they were ported from.
   The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
@@ -158,6 +160,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 
 
 [#212]: https://github.com/adrhill/asdex/pull/212
+[#207]: https://github.com/adrhill/asdex/pull/207
 [#206]: https://github.com/adrhill/asdex/pull/206
 [#205]: https://github.com/adrhill/asdex/pull/205
 [#203]: https://github.com/adrhill/asdex/pull/203
