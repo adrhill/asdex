@@ -87,12 +87,19 @@ _OPERAND_CASES = [
 
 
 def _select_on(op, lhs, rhs):
-    """Build ``f(x) = where(op(lhs, rhs), x[6], x[7])`` with bounded a and b."""
+    """Build ``f(x) = where(op(lhs, rhs), x[6], x[7])`` with bounded a and b.
+
+    ``lax`` comparisons require equal dtypes,
+    and argmax returns int64 when x64 is enabled,
+    so both operands are promoted to their common dtype first.
+    """
 
     def f(x):
         a = jnp.argmax(x[0:3])
         b = jnp.argmax(x[3:6])
-        pred = op(lhs(a, b), rhs(a, b))
+        lhs_val, rhs_val = lhs(a, b), rhs(a, b)
+        dtype = jnp.result_type(lhs_val, rhs_val)
+        pred = op(jnp.asarray(lhs_val, dtype), jnp.asarray(rhs_val, dtype))
         return jnp.where(pred, x[6:7], x[7:8])
 
     return f
