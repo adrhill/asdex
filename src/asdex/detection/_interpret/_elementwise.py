@@ -16,7 +16,7 @@ from ._common import (
     _index_sets,
     _numel,
     _propagate_const_binary,
-    _propagate_const_unary,
+    _propagate_const_lax,
     _PropState,
     _union_elementwise,
 )
@@ -76,18 +76,6 @@ _BINARY_CONST_UFUNCS: dict[
     "and": np.bitwise_and,
     "or": np.bitwise_or,
     "xor": np.bitwise_xor,
-}
-
-# Unary zero-derivative primitives whose const values feed integer index arithmetic
-# (e.g. ``jnp.floor_divide`` expands to div/sign/rem/select_n).
-# ``round`` is excluded: ``lax.round`` rounding methods differ from
-# numpy's round-half-to-even, and a mismatched const yields a wrong pattern.
-_UNARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
-    "sign": np.sign,
-    "floor": np.floor,
-    "ceil": np.ceil,
-    # matches lax: bitwise for integers, logical for booleans
-    "not": np.bitwise_not,
 }
 
 
@@ -258,16 +246,16 @@ def _prop_zero_derivative_const(eqn: JaxprEqn, state: _PropState) -> None:
 def _prop_zero_derivative_unary_const(eqn: JaxprEqn, state: _PropState) -> None:
     """Unary zero-derivative primitives that also propagate const values.
 
-    Used for sign, floor, ceil, and not,
+    Used for sign, floor, ceil, round, and not,
     which appear in integer index arithmetic
     (e.g. inside the ``jnp.floor_divide`` expansion).
     Without const propagation here the chain breaks
     and downstream gather/scatter falls back to conservative.
+    Consts are computed by the lax primitive itself,
+    so their semantics cannot drift from what the program computes.
     """
     _zero_derivative(eqn, state)
-    ufunc = _UNARY_CONST_UFUNCS.get(eqn.primitive.name)
-    if ufunc is not None:
-        _propagate_const_unary(eqn, state, ufunc)
+    _propagate_const_lax(eqn, state)
 
 
 def _prop_ternary_elementwise(eqn: JaxprEqn, state: _PropState) -> None:

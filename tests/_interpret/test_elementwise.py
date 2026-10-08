@@ -868,6 +868,47 @@ def test_rem_const_integer_undefined_is_unknown(num, den):
 
 
 @pytest.mark.elementwise
+@pytest.mark.parametrize(
+    ("op", "idx", "expected_idx"),
+    [
+        (jnp.floor, [0.5, 1.5, 2.5], [0, 1, 2]),
+        (jnp.ceil, [0.5, 1.5, 2.5], [1, 2, 3]),
+        (jnp.sign, [-2.0, 0.0, 3.0], [-1, 0, 1]),
+        (jnp.invert, [-1, -2, -3], [0, 1, 2]),
+        # lax.round defaults to rounding half away from zero,
+        # unlike np.round, which rounds half to even.
+        (lax.round, [0.5, 1.5, 2.5], [1, 2, 3]),
+        (jnp.round, [0.5, 1.5, 2.5], [0, 2, 2]),
+    ],
+    ids=["floor", "ceil", "sign", "not", "round_away", "round_even"],
+)
+def test_unary_const_resolves_gather(op, idx, expected_idx):
+    """Unary const propagation follows the lax primitive, resolving a gather index.
+
+    The const chain sits in a cond branch
+    because top-level arithmetic on concrete arrays
+    is folded away during tracing.
+    Negative indices wrap, as in numpy.
+    """
+
+    def f(x):
+        def true_branch(ops):
+            i, values = ops
+            return values[op(i).astype(jnp.int32)] * 1.0
+
+        def false_branch(ops):
+            _, values = ops
+            return values[:3] * 0.0
+
+        return lax.cond(x[0] > 0, true_branch, false_branch, (jnp.array(idx), x))
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.eye(4, dtype=int)[expected_idx]  # out[k] <- x[expected_idx[k]]
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0, 4.0]))
+
+
+@pytest.mark.elementwise
 def test_integer_pow_bounds_negative_odd_exponent():
     """Bounds through a negative odd exponent must not be inverted.
 

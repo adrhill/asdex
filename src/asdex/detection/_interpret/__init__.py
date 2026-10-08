@@ -166,14 +166,14 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         case (
             "floor"  # ∂⌊x⌋/∂x = 0
             | "ceil"  # ∂⌈x⌉/∂x = 0
+            | "round"  # ∂round(x)/∂x = 0
             | "sign"  # ∂sign(x)/∂x = 0
             | "not"
         ):
             _prop_zero_derivative_unary_const(eqn, state)
         # Zero derivative (piecewise constant, ∂f/∂x = 0 a.e.)
         case (
-            "round"  # ∂round(x)/∂x = 0
-            | "is_finite"
+            "is_finite"
             | "clz"
             | "population_count"
             | "reduce_and"
