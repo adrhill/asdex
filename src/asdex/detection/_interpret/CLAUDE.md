@@ -118,6 +118,11 @@ is what lets a backend without cheap ordered iteration stay viable.
   the result is raveled and passed to ``_permute_indices``.
   Used by handlers where each output reads exactly one input element
   (transpose, rev, slice, reshape, split, dynamic_slice).
+- **`_join_inputs(eqn, state, join, axis)`** —
+  shared core for stack and concatenate.
+  Pools all inputs' index sets and applies ``join`` (``np.stack`` or ``np.concatenate``)
+  to arrays of pool positions, mirroring the real op's element shuffling.
+  Joins const values the same way.
 - **`_propagate_const_unary(eqn, state, transform)`** —
   propagates a const value through a unary op by applying `transform`.
   Mirrors `_propagate_const_binary` for the single-input case.
