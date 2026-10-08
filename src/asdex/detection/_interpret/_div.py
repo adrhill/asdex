@@ -9,11 +9,17 @@ from ._common import (
     _propagate_const_binary,
     _PropState,
 )
-from ._elementwise import _binary_elementwise
+from ._elementwise import _binary_elementwise, _is_integer_division_undefined
 
 
-def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
-    """Divide with ``lax.div`` semantics.
+def _trunc_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
+    """Integer division truncating toward zero, like ``lax.div`` on integers."""
+    result_dtype = np.result_type(in1_val, in2_val)
+    return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
+
+
+def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray | None:
+    """Divide with ``lax.div`` semantics, or return None where it is undefined.
 
     ``lax.div`` truncates toward zero for integer inputs,
     while ``np.divide`` is true division and returns floats.
@@ -24,9 +30,10 @@ def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
     detection may run while an outer ``jax.jit`` is tracing,
     and there ``lax.div`` returns a tracer instead of a concrete array.
     """
-    result_dtype = np.result_type(in1_val, in2_val)
-    if np.issubdtype(result_dtype, np.integer):
-        return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
+    if _is_integer_division_undefined(in1_val, in2_val):
+        return None
+    if np.issubdtype(np.result_type(in1_val, in2_val), np.integer):
+        return _trunc_div(in1_val, in2_val)
     return np.true_divide(in1_val, in2_val)
 
 
@@ -81,7 +88,7 @@ def _propagate_bounds_div(
         return
 
     out_dtype = getattr(eqn.outvars[0].aval, "dtype", np.float64)
-    divide = _lax_div if np.issubdtype(out_dtype, np.integer) else np.true_divide
+    divide = _trunc_div if np.issubdtype(out_dtype, np.integer) else np.true_divide
 
     # All four endpoint combinations.
     c1 = divide(lo1, lo2)

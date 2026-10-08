@@ -18,7 +18,10 @@ from jax import lax
 from asdex import jacobian_sparsity
 from asdex.detection._interpret._common import _PropState
 from asdex.detection._interpret._div import _lax_div, _propagate_bounds_div
-from tests._utils import assert_jacobian_sparsity_exact
+from tests._utils import (
+    assert_jacobian_sparsity_conservative,
+    assert_jacobian_sparsity_exact,
+)
 
 
 @pytest.mark.elementwise
@@ -74,8 +77,65 @@ def test_lax_div_matches_lax(dtype):
 
     expected = np.asarray(lax.div(num, den))
     result = _lax_div(num, den)
+    assert result is not None
     assert result.dtype == expected.dtype
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_lax_div_float_zero_divisor_matches_lax():
+    """Float division by zero is well defined and matches ``lax.div``."""
+    num = np.array([-1, 0, 1], dtype=np.float32)
+    den = np.zeros(3, dtype=np.float32)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        result = _lax_div(num, den)
+    assert result is not None
+    np.testing.assert_array_equal(result, np.asarray(lax.div(num, den)))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    ("num", "den"),
+    [
+        ([5, 6], [2, 0]),  # division by zero
+        ([np.iinfo(np.int32).min], [-1]),  # signed overflow
+    ],
+    ids=["zero_divisor", "int_min_by_minus_one"],
+)
+def test_lax_div_integer_undefined_is_unknown(num, den):
+    """Integer div results that XLA leaves implementation-defined are not guessed."""
+    result = _lax_div(np.array(num, dtype=np.int32), np.array(den, dtype=np.int32))
+    assert result is None
+
+
+@pytest.mark.elementwise
+def test_div_integer_zero_divisor_index_conservative():
+    """An index computed by integer division by zero falls back to conservative.
+
+    lax.div(i, 0) is implementation-defined in XLA,
+    so the gather index is unknown
+    and every output may read any input.
+    """
+
+    def f(x):
+        idx = jnp.arange(3, dtype=jnp.int32)
+
+        def true_branch(ops):
+            i, values = ops
+            j = lax.div(i, jnp.zeros(3, dtype=jnp.int32))
+            return values[j] * 1.0
+
+        def false_branch(ops):
+            _, values = ops
+            return values[:3] * 0.0
+
+        return lax.cond(x[0] > 0, true_branch, false_branch, (idx, x))
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.ones((3, 3), dtype=int)  # out[i] <- any x[j]
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0]))
 
 
 @pytest.mark.elementwise

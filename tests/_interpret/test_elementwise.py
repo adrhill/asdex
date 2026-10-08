@@ -833,8 +833,38 @@ def test_rem_const_matches_lax(dtype):
 
     expected = np.asarray(lax.rem(num, den))
     result = _BINARY_CONST_UFUNCS["rem"](num, den)
+    assert result is not None
     assert result.dtype == expected.dtype
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_rem_const_float_zero_divisor_matches_lax():
+    """Float remainder by zero is well defined (NaN) and matches ``lax.rem``."""
+    num = np.array([-1, 0, 1], dtype=np.float32)
+    den = np.zeros(3, dtype=np.float32)
+
+    with np.errstate(invalid="ignore"):
+        result = _BINARY_CONST_UFUNCS["rem"](num, den)
+    assert result is not None
+    np.testing.assert_array_equal(result, np.asarray(lax.rem(num, den)))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    ("num", "den"),
+    [
+        ([5, 6], [2, 0]),  # remainder by zero
+        ([np.iinfo(np.int32).min], [-1]),  # signed overflow
+    ],
+    ids=["zero_divisor", "int_min_by_minus_one"],
+)
+def test_rem_const_integer_undefined_is_unknown(num, den):
+    """Integer rem results that XLA leaves implementation-defined are not guessed."""
+    result = _BINARY_CONST_UFUNCS["rem"](
+        np.array(num, dtype=np.int32), np.array(den, dtype=np.int32)
+    )
+    assert result is None
 
 
 @pytest.mark.elementwise

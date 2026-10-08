@@ -245,19 +245,25 @@ def _propagate_const_unary(
 def _propagate_const_binary(
     eqn: JaxprEqn,
     state: _PropState,
-    transform: Callable[[np.ndarray, np.ndarray], np.ndarray],
+    transform: Callable[[np.ndarray, np.ndarray], np.ndarray | None],
 ) -> None:
     """Propagate a const value through a binary op.
 
     If both inputs are statically known,
     apply ``transform`` and store the result.
+    ``transform`` returns None when the result is unknown,
+    e.g. because XLA leaves it implementation-defined,
+    and then no const is recorded.
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
     static index arrays and fall back to conservative.
     """
     in1 = _atom_const_val(eqn.invars[0], state)
     in2 = _atom_const_val(eqn.invars[1], state)
-    if in1 is not None and in2 is not None:
-        state.consts[eqn.outvars[0]] = transform(in1, in2)
+    if in1 is None or in2 is None:
+        return
+    out = transform(in1, in2)
+    if out is not None:
+        state.consts[eqn.outvars[0]] = out
 
 
 # Zero-skipping

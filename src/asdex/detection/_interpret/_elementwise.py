@@ -20,11 +20,43 @@ from ._common import (
     _union_elementwise,
 )
 
+
+def _is_integer_division_undefined(in1_val: np.ndarray, in2_val: np.ndarray) -> bool:
+    """Whether integer ``lax.div`` or ``lax.rem`` has an implementation-defined result.
+
+    XLA leaves integer division and remainder by zero implementation-defined,
+    as well as the signed overflow case ``INT_MIN / -1``.
+    E.g. on CPU, ``lax.div(5, 0) = -1`` and ``lax.rem(5, 0) = 5``.
+    """
+    result_dtype = np.result_type(in1_val, in2_val)
+    if not np.issubdtype(result_dtype, np.integer):
+        return False
+    if np.any(in2_val == 0):
+        return True
+    if np.issubdtype(result_dtype, np.signedinteger):
+        int_min = np.iinfo(result_dtype).min
+        return bool(np.any((in1_val == int_min) & (in2_val == -1)))
+    return False
+
+
+def _lax_rem(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray | None:
+    """Remainder with ``lax.rem`` semantics, or None where it is undefined.
+
+    ``lax.rem(-4, 3) = -1`` takes the sign of the dividend, as does ``np.fmod``.
+    ``np.remainder(-4, 3) = 2`` takes the sign of the divisor instead.
+    """
+    if _is_integer_division_undefined(in1_val, in2_val):
+        return None
+    return np.fmod(in1_val, in2_val)
+
+
 # Functions for evaluating constant values during tracing.
 # Used to propagate static index values through arithmetic to gather/scatter.
 # Entries must match lax semantics, which differ from numpy for integer rem.
 # div is absent because `_prop_div` propagates its consts with `_lax_div`.
-_BINARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] = {
+_BINARY_CONST_UFUNCS: dict[
+    str, Callable[[np.ndarray, np.ndarray], np.ndarray | None]
+] = {
     # arithmetic
     "add": np.add,
     "add_any": np.add,
@@ -34,9 +66,7 @@ _BINARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray, np.ndarray], np.ndarray]] 
     "max": np.maximum,
     "min": np.minimum,
     "atan2": np.arctan2,
-    # lax.rem(-4, 3) = -1 takes the sign of the dividend, as does np.fmod.
-    # np.remainder(-4, 3) = 2 takes the sign of the divisor instead.
-    "rem": np.fmod,
+    "rem": _lax_rem,
     "nextafter": np.nextafter,
     # comparison
     "eq": np.equal,
