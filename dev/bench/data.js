@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791487646892,
+  "lastUpdate": 1791487794009,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -20535,6 +20535,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000007710505007528307",
             "extra": "mean: 28.35696159513246 usec\nrounds: 10858"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "adrhill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "adrhill",
+            "username": "adrhill"
+          },
+          "distinct": true,
+          "id": "27d10f819e93ed3933d9d4c65d70b5bd8782dad4",
+          "message": "ci: serialize gh-pages pushes from docs and benchmarks workflows\n\nBoth workflows push to gh-pages on every push to main and now finish\nwithin seconds of each other, so the docs deploy was rejected with\n'cannot lock ref'. A shared concurrency group makes them take turns.\nPR docs builds use a separate per-ref group.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-08T21:29:18+02:00",
+          "tree_id": "61bdcfa67b14a0fced2a6c1fce6c973ff83a4662",
+          "url": "https://github.com/adrhill/asdex/commit/27d10f819e93ed3933d9d4c65d70b5bd8782dad4"
+        },
+        "date": 1791487791895,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 982.7418436977654,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002911121871854024",
+            "extra": "mean: 1.017561230767683 msec\nrounds: 26"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 35700.774818425605,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000019248412870816478",
+            "extra": "mean: 28.010596551083474 usec\nrounds: 9047"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 115921.45230858304,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013683173378055603",
+            "extra": "mean: 8.626530983566346 usec\nrounds: 31097"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 80521.33058063191,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001444220031663523",
+            "extra": "mean: 12.419069491140943 usec\nrounds: 18434"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 116543.63903018308,
+            "unit": "iter/sec",
+            "range": "stddev: 8.932152997166948e-7",
+            "extra": "mean: 8.580476878201946 usec\nrounds: 37454"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 25.16289278325843,
+            "unit": "iter/sec",
+            "range": "stddev: 0.023248848444611683",
+            "extra": "mean: 39.741058733331634 msec\nrounds: 15"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3734.084593628012,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006589938295544278",
+            "extra": "mean: 267.80325269182146 usec\nrounds: 2972"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2542.986757222228,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000013540190162625983",
+            "extra": "mean: 393.23838284251485 usec\nrounds: 1562"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2558.9493508685046,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009943616806821213",
+            "extra": "mean: 390.7853821571736 usec\nrounds: 1502"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5907.1684541103305,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001096938977576303",
+            "extra": "mean: 169.28584443942498 usec\nrounds: 4307"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 163.96994809718538,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010231637586893568",
+            "extra": "mean: 6.098678517647012 msec\nrounds: 85"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 35522.81491893148,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001705219864358437",
+            "extra": "mean: 28.150922225115146 usec\nrounds: 26821"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 80144.1895183563,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000020025389766245397",
+            "extra": "mean: 12.477510921374519 usec\nrounds: 18862"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 71276.9177389302,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000205568525613034",
+            "extra": "mean: 14.029787366265664 usec\nrounds: 17683"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 81554.56928851864,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017205238893506573",
+            "extra": "mean: 12.261728664917138 usec\nrounds: 19393"
           }
         ]
       }
