@@ -120,7 +120,9 @@ def test_bitcast_zero_size():
     assert result.shape == (0, 3)
 
 
-# Bytes 2, 0, 0, 3, 0, 0, 0, 1, least significant first.
+# Read as 8 bytes, most significant first: 01 00 00 00 03 00 00 02.
+# Bitcasting to int8 yields them least significant first,
+# giving the gather indices [2, 0, 0, 3, 0, 0, 0, 1].
 _INT64_WORD = np.int64(0x0100000003000002)
 
 
