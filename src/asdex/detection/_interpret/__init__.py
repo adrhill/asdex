@@ -284,8 +284,12 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_ternary_elementwise(eqn, state)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
             _prop_reduce(eqn, state)
-        case "convert_element_type" | "reduce_precision" | "stop_gradient":
+        case "convert_element_type" | "stop_gradient":
             _prop_convert_element_type(eqn, state)
+        case "reduce_precision":
+            # Rounding changes const values,
+            # so only the elementwise dependencies carry over.
+            _prop_unary_elementwise(eqn, state)
         case "bitcast_convert_type":
             _prop_bitcast_convert_type(eqn, state)
         case "conv_general_dilated":

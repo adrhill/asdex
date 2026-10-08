@@ -1625,3 +1625,36 @@ def test_convert_to_bool_bounds(offset, expected_cols):
     expected = np.zeros((1, 20), dtype=int)
     expected[0, expected_cols] = 1
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_reduce_precision_does_not_keep_unrounded_const():
+    """A rounded const index must not keep its value from before rounding.
+
+    With one mantissa bit, 1.9 rounds to 2.0, so the gather reads x[2].
+    Keeping the unrounded 1.9 would resolve the index to x[1].
+    """
+
+    def f(x):
+        v = lax.reduce_precision(jnp.float32(1.9), exponent_bits=8, mantissa_bits=1)
+        return x[v.astype(jnp.int32)][None]
+
+    x = jnp.arange(5.0)
+    assert_jacobian_sparsity_conservative(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # TODO(reduce_precision): round const values like XLA does.
+    # The precise pattern reads x[2] only.
+    np.testing.assert_array_equal(result, np.ones((1, 5), dtype=int))
+
+
+@pytest.mark.elementwise
+def test_reduce_precision_is_elementwise():
+    """reduce_precision keeps elementwise dependencies."""
+
+    def f(x):
+        return lax.reduce_precision(x, exponent_bits=5, mantissa_bits=10)
+
+    x = jnp.arange(1.0, 4.0)
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.eye(3, dtype=int))
