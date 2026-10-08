@@ -9,12 +9,15 @@ and floor division on negative operands.
 https://docs.jax.dev/en/latest/_autosummary/jax.lax.div.html
 """
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 from jax import lax
 
 from asdex import jacobian_sparsity
+from asdex.detection._interpret._common import _PropState
+from asdex.detection._interpret._div import _propagate_bounds_div
 
 
 @pytest.mark.elementwise
@@ -53,3 +56,28 @@ def test_div_integer_const_truncation():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_div_bounds_integer_truncation():
+    """Integer bounds through div follow lax.div truncation toward zero.
+
+    lax.div(-5, 2) = -2, while flooring gives -3.
+    A floored bound excludes the value the program actually computes,
+    so bounded enumeration would never try the true index.
+    """
+    jaxpr = jax.make_jaxpr(lambda a, b: lax.div(a, b))(
+        jnp.zeros(1, jnp.int32), jnp.zeros(1, jnp.int32)
+    ).jaxpr
+    eqn = jaxpr.eqns[0]
+    numerator, denominator = eqn.invars
+
+    state = _PropState(
+        consts={denominator: np.array([2], dtype=np.int32)},
+        bounds={numerator: (np.array([-5]), np.array([-5]))},
+    )
+    _propagate_bounds_div(eqn, state)
+
+    lo, hi = state.bounds[eqn.outvars[0]]
+    np.testing.assert_array_equal(lo, [-2])
+    np.testing.assert_array_equal(hi, [-2])

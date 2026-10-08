@@ -46,7 +46,9 @@ def _propagate_bounds_div(
 
     Only propagates when divisor bounds have constant sign (no zero crossing),
     since division by an interval spanning zero is undefined.
-    Uses ``floor_divide`` for integer dtypes and ``true_divide`` for floats.
+    Integer division matches ``lax.div``, which truncates toward zero.
+    Flooring instead would exclude the value the program actually computes
+    for negative intervals, and bounded enumeration would never try it.
     """
     in1_bounds = _atom_value_bounds(eqn.invars[0], state)
     in2_bounds = _atom_value_bounds(eqn.invars[1], state)
@@ -61,7 +63,7 @@ def _propagate_bounds_div(
         return
 
     out_dtype = getattr(eqn.outvars[0].aval, "dtype", np.float64)
-    divide = np.floor_divide if np.issubdtype(out_dtype, np.integer) else np.true_divide
+    divide = _lax_div if np.issubdtype(out_dtype, np.integer) else np.true_divide
 
     # All four endpoint combinations.
     c1 = divide(lo1, lo2)

@@ -7,6 +7,8 @@ import pytest
 from jax import lax
 
 from asdex import jacobian_sparsity
+from asdex.detection._interpret._common import _PropState
+from asdex.detection._interpret._elementwise import _propagate_bounds_integer_pow
 from tests._utils import (
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
@@ -811,6 +813,30 @@ def test_rem_integer_const_negative_dividend():
     result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
     expected = np.array([[0, 1, 0, 0, 0]], dtype=int)  # out[0] <- x[1]
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_integer_pow_bounds_negative_odd_exponent():
+    """Bounds through a negative odd exponent must not be inverted.
+
+    x^(-3) is decreasing on positive inputs,
+    so mapping (lo, hi) to (lo^y, hi^y) flips the interval.
+    Propagated bounds must either be skipped
+    or stay ordered and contain the true output values.
+    """
+    jaxpr = jax.make_jaxpr(lambda a: lax.integer_pow(a, -3))(jnp.zeros(1)).jaxpr
+    eqn = jaxpr.eqns[0]
+
+    state = _PropState(bounds={eqn.invars[0]: (np.array([2.0]), np.array([3.0]))})
+    _propagate_bounds_integer_pow(eqn, -3, state)
+
+    bounds = state.bounds.get(eqn.outvars[0])
+    if bounds is not None:
+        lo, hi = bounds
+        assert np.all(lo <= hi)
+        # True output values 3^-3 and 2^-3 must lie inside the bounds.
+        assert np.all(lo <= 3.0**-3)
+        assert np.all(hi >= 2.0**-3)
 
 
 @pytest.mark.elementwise

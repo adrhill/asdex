@@ -363,10 +363,14 @@ def _propagate_bounds_integer_pow(
 ) -> None:
     """Propagate value bounds through ``integer_pow``.
 
+    - n < 0: no bounds propagated.
+      Negative powers are decreasing (not increasing) on positive inputs,
+      so the monotone mapping below would invert (lo, hi),
+      and they are undefined at zero.
     - n == 0: bounds are (1, 1).
     - n even: [0, max(|a|,|b|)^n] if interval spans zero,
       else [min(|a|,|b|)^n, max(|a|,|b|)^n].
-    - n odd (monotone): [a^n, b^n].
+    - n odd (increasing): [a^n, b^n].
     """
     in_bounds = _atom_value_bounds(eqn.invars[0], state)
     if in_bounds is None:
@@ -374,6 +378,8 @@ def _propagate_bounds_integer_pow(
 
     lo, hi = in_bounds
 
+    if y < 0:
+        return
     if y == 0:
         ones = np.ones_like(lo)
         state.bounds[eqn.outvars[0]] = (ones, ones)
