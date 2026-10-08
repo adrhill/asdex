@@ -194,7 +194,8 @@ as `_fixed_point_loop` in `_while.py` does for the loop carries.
 
 ## Const Value Tracking
 
-Handlers like `broadcast_in_dim`, `select_n`, and `propagate_const_elementwise`
+Handlers like `broadcast_in_dim`, `select_n`, and the element-wise ops
+(through `_propagate_const_unary` and `_propagate_const_binary`)
 propagate concrete values through `state.consts`.
 This lets downstream handlers resolve static indices precisely.
 
@@ -227,6 +228,10 @@ Propagators only fire when **every** operand is bounded.
 An operand with no bounds could be anything,
 and the `(lo, hi)` representation cannot express a half-open interval,
 so the result is dropped rather than widened.
+The one exception is `select_n` with a constant boolean predicate
+that picks the same branch for every element.
+Only that branch can reach the output,
+so its bounds are used even if the other branch has none.
 
 Every bounds write goes through `_set_value_bounds(state, var, lo, hi)`,
 which stores nothing unless `lo <= hi`
