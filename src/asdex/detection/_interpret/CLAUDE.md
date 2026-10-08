@@ -77,9 +77,6 @@ not every handler.
 - **`_propagate_const_unary(eqn, state, transform)`** —
   propagates a const value through a unary op by applying `transform`.
   Mirrors `_propagate_const_binary` for the single-input case.
-- **`_propagate_const_lax(eqn, state)`** —
-  propagates a const value by binding the equation's own primitive on the concrete inputs,
-  so the result follows lax semantics exactly (e.g. the `rounding_method` of `round`).
 - **`_enumerate_bounded_patterns(ranges, out_size, make_pattern)`** —
   enumerates all candidate index combinations from ``ranges``
   (capped at ``_MAX_ENUM_COMBINATIONS``),

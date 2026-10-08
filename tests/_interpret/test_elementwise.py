@@ -10,6 +10,7 @@ from asdex import jacobian_sparsity
 from asdex.detection._interpret._common import _PropState
 from asdex.detection._interpret._elementwise import (
     _BINARY_CONST_UFUNCS,
+    _lax_round,
     _propagate_bounds_integer_pow,
 )
 from tests._utils import (
@@ -906,6 +907,29 @@ def test_unary_const_resolves_gather(op, idx, expected_idx):
     expected = np.eye(4, dtype=int)[expected_idx]  # out[k] <- x[expected_idx[k]]
     np.testing.assert_array_equal(result, expected)
     assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0, 4.0]))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    "rounding_method",
+    [lax.RoundingMethod.AWAY_FROM_ZERO, lax.RoundingMethod.TO_NEAREST_EVEN],
+)
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_lax_round_matches_lax(rounding_method, dtype):
+    """The numpy ``round`` used for const propagation matches ``lax.round``.
+
+    Covers ties of both signs and the largest float below 0.5,
+    which the naive ``floor(x + 0.5)`` rounds up to 1.
+    """
+    below_half = np.nextafter(dtype(0.5), dtype(0.0))
+    val = np.array(
+        [-2.5, -1.5, -0.5, -below_half, 0.0, below_half, 0.5, 1.5, 2.5, 3.7],
+        dtype=dtype,
+    )
+    with jax.enable_x64(dtype == np.float64):
+        expected = np.asarray(lax.round(val, rounding_method))
+    assert expected.dtype == dtype
+    np.testing.assert_array_equal(_lax_round(val, rounding_method), expected)
 
 
 @pytest.mark.elementwise

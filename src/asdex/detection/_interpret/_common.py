@@ -5,7 +5,6 @@ import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
-import jax
 import numpy as np
 from jax._src.core import Jaxpr, JaxprEqn, Literal, Var
 
@@ -241,25 +240,6 @@ def _propagate_const_unary(
     in_val = _atom_const_val(eqn.invars[0], state)
     if in_val is not None:
         state.consts[eqn.outvars[0]] = transform(in_val)
-
-
-def _propagate_const_lax(eqn: JaxprEqn, state: _PropState) -> None:
-    """Propagate a const value by evaluating the primitive itself.
-
-    If every input is statically known,
-    bind ``eqn.primitive`` with the equation's params on the concrete values.
-    This reproduces lax semantics exactly,
-    e.g. the ``rounding_method`` of ``round``,
-    which a hand-picked numpy counterpart could silently get wrong.
-    ``ensure_compile_time_eval`` keeps the evaluation eager
-    when detection itself runs under an outer ``jit`` trace.
-    """
-    in_vals = [_atom_const_val(atom, state) for atom in eqn.invars]
-    if any(val is None for val in in_vals):
-        return
-    with jax.ensure_compile_time_eval():
-        out_val = eqn.primitive.bind(*in_vals, **eqn.params)
-    state.consts[eqn.outvars[0]] = np.asarray(out_val)
 
 
 def _propagate_const_binary(
