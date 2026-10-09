@@ -17,9 +17,12 @@ from asdex.detection._interpret import (
     _prop_jaxpr,
 )
 from asdex.detection._interpret._common import (
+    _atom_const_val,
     _atom_shape,
+    _forward_across_jaxpr_boundary,
     _index_sets,
     _PropState,
+    _seed_const_vals,
     _singleton_index_set,
 )
 from asdex.detection._interpret._reshape import _prop_reshape
@@ -111,6 +114,70 @@ def test_prop_jaxpr_default_const_vals():
     result = _prop_jaxpr(jaxpr, input_indices)
     assert len(result) == 1
     assert result[0] == [_singleton_index_set(0), _singleton_index_set(1)]
+
+
+def test_seed_const_vals_is_lazy():
+    """Seeded closure constants are stored as-is and materialized on first read.
+
+    Eager ``np.asarray`` would copy every closure constant
+    (e.g. all NN weights) device-to-host,
+    even when its value is never consulted during propagation.
+    """
+    w = jnp.arange(3.0)
+    closed = jax.make_jaxpr(lambda x: x * w)(jnp.zeros(3))
+    assert len(closed.jaxpr.constvars) == 1
+    var = closed.jaxpr.constvars[0]
+
+    state = _PropState()
+    _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
+    assert state.consts[var] is closed.consts[0]  # stored unconverted
+
+    val = _atom_const_val(var, state)
+    assert isinstance(val, np.ndarray)
+    assert state.consts[var] is val  # materialization is cached
+    np.testing.assert_array_equal(val, np.arange(3.0))
+
+
+def test_forward_across_jaxpr_boundary_preserves_laziness():
+    """Forwarding consts across a jaxpr boundary must not materialize them."""
+    w = jnp.arange(4.0)
+    closed = jax.make_jaxpr(lambda x: x * w)(jnp.zeros(4))
+    assert len(closed.jaxpr.constvars) == 1
+    outer = closed.jaxpr.constvars[0]
+    inner = jax.make_jaxpr(lambda x: x + 1.0)(jnp.zeros(4)).jaxpr.invars[0]
+
+    state = _PropState()
+    _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
+    _forward_across_jaxpr_boundary(state, [outer], [inner])
+    assert state.consts[inner] is closed.consts[0]  # still unconverted
+
+
+def test_prop_closed_jaxpr_forwards_consts_out_lazily():
+    """Consts leaving a nested jaxpr must not be materialized on the way out.
+
+    A jit-wrapped model that threads a large closure constant through
+    (e.g. NN weights) would otherwise pay a device-to-host copy
+    at every nested-jaxpr boundary,
+    even when no handler ever reads the value.
+    """
+    w = jnp.arange(5.0)
+
+    @jax.jit
+    def g(x):
+        return jnp.sin(x), w  # second output is the captured const
+
+    outer = jax.make_jaxpr(g)(jnp.zeros(5))
+    eqn = outer.jaxpr.eqns[0]
+    assert eqn.primitive.name == "jit"
+    inner = eqn.params["jaxpr"]
+    assert len(inner.consts) == 1
+
+    state = _PropState()
+    state.indices[outer.jaxpr.invars[0]] = [_singleton_index_set(i) for i in range(5)]
+    _prop_closed_jaxpr(eqn, state, "jaxpr")
+
+    # The const reaches the outer scope as the original array, unconverted.
+    assert state.consts[eqn.outvars[1]] is inner.consts[0]
 
 
 @pytest.mark.elementwise

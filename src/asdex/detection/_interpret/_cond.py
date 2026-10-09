@@ -6,7 +6,7 @@ from ._common import (
     IndexSet,
     PropJaxprFn,
     _copy_index_sets,
-    _forward_into_jaxpr,
+    _forward_across_jaxpr_boundary,
     _index_sets,
     _PropState,
     _seed_const_vals,
@@ -45,7 +45,7 @@ def _prop_cond(
     branch_outputs: list[list[list[IndexSet]]] = []
     for branch in branches:
         _seed_const_vals(state, branch.jaxpr.constvars, branch.consts)
-        _forward_into_jaxpr(state, operands, branch.jaxpr.invars)
+        _forward_across_jaxpr_boundary(state, operands, branch.jaxpr.invars)
         out = _prop_jaxpr(branch.jaxpr, operand_indices, state)
         branch_outputs.append(out)
 

@@ -17,7 +17,10 @@ through primitives to determine Jacobian sparsity patterns.
 - `IndexSet` = `set[int]` — a single per-element dependency set
 - `list[IndexSet]` — per-element dependency sets for one array
 - `StateIndices` = `dict[Var, list[IndexSet]]` — maps jaxpr variables to their index sets
-- `StateConsts` = `dict[Var, np.ndarray]` — statically-known values for precise gather/scatter
+- `StateConsts` = `dict[Var, ArrayLike]` — statically-known values for precise gather/scatter.
+  Seeded closure constants stay in their original array type
+  and are materialized to numpy by `_atom_const_val` on first read,
+  so never-read constants (e.g. conv kernels) are never copied to host.
 - `StateBounds` = `dict[Var, tuple[np.ndarray, np.ndarray]]` — per-element inclusive (lo, hi) integer bounds
 - `_PropState` — bundles the three dicts above as `state.indices`, `state.consts`, and `state.bounds`.
   Every handler takes `(eqn, state)`,
@@ -98,10 +101,18 @@ not every handler.
 - **`_atom_value_bounds(atom, state)`** —
   returns `(lo, hi)` bounds for an atom:
   exact `(val, val)` for constants, tracked bounds for bounded variables, or `None`.
-- **`_forward_into_jaxpr(state, outer_atoms, inner_vars)`** —
+- **`_binary_value_bounds(eqn, state)`** —
+  returns both operands' bounds for a binary op, or `None` if either is unknown.
+  Checks the first operand before reading the second,
+  so an input-dependent first operand does not force materializing
+  a large second-operand const whose bounds would be discarded.
+- **`_forward_across_jaxpr_boundary(state, src_atoms, dst_vars)`** —
   transfers known const values and value bounds together
-  from outer-scope atoms to inner jaxpr variables,
+  across a nested-jaxpr boundary,
   so a call site cannot forward one and forget the other.
+  Direction-neutral: callers pass outer invars to inner invars going in,
+  and inner outvars to outer outvars coming back out.
+  Consts are forwarded as stored, never materialized.
 
 ## Index Set Aliasing
 

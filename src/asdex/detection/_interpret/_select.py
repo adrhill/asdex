@@ -1,9 +1,12 @@
 """Propagation rule for select_n operations."""
 
+from collections.abc import Sequence
+
 import numpy as np
-from jax._src.core import JaxprEqn
+from jax._src.core import JaxprEqn, Var
 
 from ._common import (
+    Atom,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
@@ -12,6 +15,45 @@ from ._common import (
     _PropState,
     _union_elementwise,
 )
+
+
+def _all_const_vals(
+    atoms: Sequence[Atom], state: _PropState
+) -> list[np.ndarray] | None:
+    """Const values for every atom, or ``None`` as soon as one is unknown.
+
+    Stops at the first unknown so a runtime-dependent case
+    does not force materializing the remaining cases' consts.
+    """
+    vals: list[np.ndarray] = []
+    for atom in atoms:
+        val = _atom_const_val(atom, state)
+        if val is None:
+            return None
+        vals.append(val)
+    return vals
+
+
+def _merged_case_bounds(
+    atoms: Sequence[Atom], state: _PropState
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Element-wise ``(min lo, max hi)`` envelope of every atom's bounds.
+
+    Returns ``None`` as soon as one atom has no bounds,
+    since the envelope needs all of them.
+    Stopping early keeps the remaining cases' consts unmaterialized.
+    """
+    merged: tuple[np.ndarray, np.ndarray] | None = None
+    for atom in atoms:
+        bounds = _atom_value_bounds(atom, state)
+        if bounds is None:
+            return None
+        merged = (
+            bounds
+            if merged is None
+            else (np.minimum(merged[0], bounds[0]), np.maximum(merged[1], bounds[1]))
+        )
+    return merged
 
 
 def _prop_select_n(
@@ -58,30 +100,34 @@ def _prop_select_n(
 
     # When all inputs are statically known, compute the concrete result
     # so state.consts tracking isn't broken by this op.
-    case_vals = [_atom_const_val(c, state) for c in cases]
-    if which_val is not None and all(v is not None for v in case_vals):
-        state.consts[out_var] = np.choose(
-            which_val, [v for v in case_vals if v is not None]
-        )
+    # A dynamic selector can never store a const result,
+    # so the cases are only read once the selector is known.
+    if which_val is not None:
+        case_vals = _all_const_vals(cases, state)
+        if case_vals is not None:
+            state.consts[out_var] = np.choose(which_val, case_vals)
 
-    # Propagate value bounds.
-    case_bounds = [_atom_value_bounds(c, state) for c in cases]
-
-    # Const predicate uniformly selects one branch → use its bounds exactly.
+    # Const boolean predicate uniformly selects one branch → use its bounds exactly.
+    # Only the selected branch is read.
+    # Falling through to the merge when it has no bounds would be pointless:
+    # the merge needs every branch's bounds, including this one,
+    # so it would bail after materializing the other branches' consts.
     if which_val is not None and len(cases) == 2 and which_val.dtype == bool:
-        if not np.any(which_val) and case_bounds[0] is not None:
-            state.bounds[out_var] = case_bounds[0]
+        if not np.any(which_val):
+            _store_branch_bounds(state, out_var, cases[0])
             return
-        if np.all(which_val) and case_bounds[1] is not None:
-            state.bounds[out_var] = case_bounds[1]
+        if np.all(which_val):
+            _store_branch_bounds(state, out_var, cases[1])
             return
 
     # Dynamic or mixed predicate → merge bounds across all branches.
-    if all(b is not None for b in case_bounds):
-        los, his = zip(*(b for b in case_bounds if b is not None), strict=True)
-        lo = los[0]
-        hi = his[0]
-        for lo_i, hi_i in zip(los[1:], his[1:], strict=True):
-            lo = np.minimum(lo, lo_i)
-            hi = np.maximum(hi, hi_i)
-        state.bounds[out_var] = (lo, hi)
+    bounds = _merged_case_bounds(cases, state)
+    if bounds is not None:
+        state.bounds[out_var] = bounds
+
+
+def _store_branch_bounds(state: _PropState, out_var: Var, case: Atom) -> None:
+    """Store one branch's value bounds as the output's, if that branch has any."""
+    bounds = _atom_value_bounds(case, state)
+    if bounds is not None:
+        state.bounds[out_var] = bounds

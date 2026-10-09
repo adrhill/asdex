@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from jax._src.core import Jaxpr, JaxprEqn, Literal, Var
+from numpy.typing import ArrayLike
 
 IndexSet = set[int]
 """A single per-element dependency set.
@@ -40,8 +41,15 @@ def _identity_index_sets(n: int) -> list[IndexSet]:
 StateIndices = dict[Var, list[IndexSet]]
 """Maps each variable to its per-element dependency index sets."""
 
-StateConsts = dict[Var, np.ndarray]
-"""Maps variables to their concrete numpy array values (for static index tracking)."""
+StateConsts = dict[Var, ArrayLike]
+"""Maps variables to their concrete array values (for static index tracking).
+
+Handlers write computed ``np.ndarray`` values.
+Seeded closure constants stay in their original array type
+(e.g. JAX device arrays)
+until ``_atom_const_val`` materializes them to numpy on first read,
+so constants that are never read as values are never copied to host.
+"""
 
 StateBounds = dict[Var, tuple[np.ndarray, np.ndarray]]
 """Maps variables to per-element inclusive (lo, hi) integer bounds.
@@ -212,12 +220,19 @@ def _atom_const_val(atom: Atom, state: _PropState) -> np.ndarray | None:
     - **Tracked vars**: variables in ``state.consts``, whose values were
       computed from constants through earlier operations.
 
+    Lazily seeded consts (see ``_seed_const_vals``)
+    are materialized to numpy on first read and cached.
+
     Returns ``None`` when the value depends on runtime inputs.
     """
     if isinstance(atom, Literal):
         return np.asarray(atom.val)
     if isinstance(atom, Var) and atom in state.consts:
-        return state.consts[atom]
+        val = state.consts[atom]
+        if not isinstance(val, np.ndarray):
+            val = np.asarray(val)
+            state.consts[atom] = val
+        return val
     return None
 
 
@@ -237,6 +252,27 @@ def _atom_value_bounds(
     if isinstance(atom, Var) and atom in state.bounds:
         return state.bounds[atom]
     return None
+
+
+def _binary_value_bounds(
+    eqn: JaxprEqn,
+    state: _PropState,
+) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]] | None:
+    """Get value bounds for both operands of a binary op, or ``None`` if either is unknown.
+
+    The first operand is checked before the second is read,
+    so an input-dependent first operand (e.g. ``x + bias``)
+    does not force materializing a large second-operand const
+    whose bounds would be discarded anyway.
+    Mirrors the same early return in ``_propagate_const_binary``.
+    """
+    b1 = _atom_value_bounds(eqn.invars[0], state)
+    if b1 is None:
+        return None
+    b2 = _atom_value_bounds(eqn.invars[1], state)
+    if b2 is None:
+        return None
+    return b1, b2
 
 
 def _propagate_const_unary(
@@ -272,8 +308,13 @@ def _propagate_const_binary(
     static index arrays and fall back to conservative.
     """
     in1 = _atom_const_val(eqn.invars[0], state)
+    if in1 is None:
+        # Skip reading the second operand,
+        # so an input-dependent operand (e.g. x + bias)
+        # does not force materializing a large const.
+        return
     in2 = _atom_const_val(eqn.invars[1], state)
-    if in1 is None or in2 is None:
+    if in2 is None:
         return
     out = transform(in1, in2)
     if out is not None:
@@ -477,28 +518,47 @@ def _seed_const_vals(state: _PropState, constvars, consts) -> None:
     Without this, gather/scatter inside nested jaxprs (cond branches,
     while bodies, jit-wrapped calls) cannot resolve closure-captured
     index arrays and fall back to conservative.
+
+    Values are stored as-is rather than converted with ``np.asarray``:
+    conversion copies device arrays to host and keeps the copies alive
+    for the whole analysis,
+    which is wasted work for constants that are never read as values
+    (e.g. convolution kernels, whose values do not affect the pattern).
+    ``_atom_const_val`` materializes on first read and caches.
     """
     for var, val in zip(constvars, consts, strict=True):
-        state.consts[var] = np.asarray(val)
+        state.consts[var] = val
 
 
-def _forward_into_jaxpr(
-    state: _PropState, outer_atoms: Sequence[Atom], inner_vars
+def _forward_across_jaxpr_boundary(
+    state: _PropState, src_atoms: Sequence[Atom], dst_vars
 ) -> None:
-    """Transfer const values and value bounds from outer atoms to inner jaxpr variables.
+    """Transfer const values and value bounds across a nested-jaxpr boundary.
 
-    When entering a nested jaxpr (cond branch, while body, jit call),
-    the outer equation's invars and the inner jaxpr's invars are different
+    At a nested jaxpr (cond branch, while body, jit call),
+    the outer equation's atoms and the inner jaxpr's variables are different
     ``Var`` objects representing the same values.
-    This copies any concrete values and value bounds from the outer atoms
-    to the corresponding inner vars so that downstream handlers
+    This copies any concrete values and value bounds from the source atoms
+    to the corresponding destination vars so that downstream handlers
     (gather, scatter, dynamic_slice) can resolve indices precisely.
     Consts and bounds are forwarded together
     so a call site cannot forward one and forget the other.
+
+    The direction is set by the caller:
+    inward maps outer invars to inner invars,
+    outward maps inner outvars to outer outvars.
+    Both are the same operation, atoms mapped to fresh vars.
+
+    Tracked const values are forwarded as stored, without materializing:
+    reading them here would force the host copies
+    that ``_seed_const_vals`` deliberately defers
+    at every nested-jaxpr boundary.
     """
-    for outer, inner in zip(outer_atoms, inner_vars, strict=False):
-        val = _atom_const_val(outer, state)
-        if val is not None:
-            state.consts[inner] = val
-        if isinstance(outer, Var) and outer in state.bounds:
-            state.bounds[inner] = state.bounds[outer]
+    for src, dst in zip(src_atoms, dst_vars, strict=False):
+        if isinstance(src, Literal):
+            state.consts[dst] = np.asarray(src.val)
+        elif isinstance(src, Var):
+            if src in state.consts:
+                state.consts[dst] = state.consts[src]
+            if src in state.bounds:
+                state.bounds[dst] = state.bounds[src]
