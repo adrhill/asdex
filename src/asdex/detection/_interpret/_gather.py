@@ -73,8 +73,13 @@ def _si_batch_axes(
         JAX again appends a dim of size 1 to ``idx``, so si_shape = (2, 3, 1).
         ``vmap`` maps over dim 0 of ``idx``, so si_batching_dims = (0,).
         The last dim (dim 2, of size 1) holds the index vectors.
+        Dim 0 is excluded because it is a batching dim.
+        Its position ``b`` picks row ``b`` of ``idx``,
+        whose index vectors may only address row ``b`` of ``x``,
+        so it is looped over in lockstep with operand dim 0
+        rather than as an independent list of index vectors.
         That leaves dim 1,
-        which enumerates the three index vectors in each row of ``idx``.
+        which enumerates the three index vectors within one row of ``idx``.
         Returns [1].
     """
     index_vector_dim = len(si_shape) - 1
@@ -123,7 +128,10 @@ def _si_batch_shapes(
         ``vmap`` maps over dim 0 of both ``x`` and ``idx``,
         so operand_batching_dims = (0,) and si_batching_dims = (0,).
         Dim 0 of ``x`` has size 2, so batching_shape = (2,).
-        The only si batch axis is dim 1 of concrete_indices, of size 3,
+        Dim 0 of concrete_indices is the matching batching dim,
+        already counted in batching_shape,
+        and dim 2 holds the index vectors.
+        That leaves dim 1, of size 3, as the only si batch axis,
         so si_batch_shape = (3,).
         Returns ((2,), (3,)).
     """
