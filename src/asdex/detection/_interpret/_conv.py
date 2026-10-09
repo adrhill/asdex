@@ -33,24 +33,46 @@ def _window_target_lists(
     A tap is valid when that position is in bounds
     and lands on an actual input element rather than in a dilation gap.
 
-    Returns one list of flat input spatial positions per flat output spatial position,
-    both row-major over the respective spatial sizes.
+    Args:
+        out_spatial_sizes: Output size along each spatial dimension.
+        kernel_spatial_sizes: Kernel size along each spatial dimension.
+        lhs_spatial_sizes: Input size along each spatial dimension,
+            before lhs dilation.
+        window_strides: Step between consecutive windows per spatial dimension.
+        lhs_dilation: Input dilation factor per spatial dimension.
+            A factor ``d`` inserts ``d - 1`` gaps between adjacent input elements.
+        rhs_dilation: Kernel dilation factor per spatial dimension.
+            A factor ``d`` spaces adjacent taps ``d`` positions apart.
+        padding: ``(lo, hi)`` padding per spatial dimension,
+            applied to the lhs-dilated input.
+            Only ``lo`` matters, since ``out_spatial_sizes`` already accounts for ``hi``.
+
+    Returns:
+        One list of flat input spatial positions per flat output spatial position,
+        both row-major over the respective spatial sizes.
     """
     n_spatial = len(out_spatial_sizes)
     out_spatial_size = _numel(out_spatial_sizes)
     kernel_size = _numel(kernel_spatial_sizes)
 
+    # Lay per-dimension parameters along axis 0,
+    # so they broadcast against (dim, output position, tap) arrays.
     def per_dim(values) -> np.ndarray:
         return np.asarray(list(values), dtype=np.intp).reshape(n_spatial, 1, 1)
 
+    # Coordinates of every output position and kernel tap, shape (dim, count).
     out_coords = np.indices(out_spatial_sizes).reshape(n_spatial, out_spatial_size)
     tap_coords = np.indices(kernel_spatial_sizes).reshape(n_spatial, kernel_size)
 
+    # Position in the lhs-dilated, padded input, shape (dim, output position, tap).
     pos = (
         out_coords[:, :, None] * per_dim(window_strides)
         + tap_coords[:, None, :] * per_dim(rhs_dilation)
         - per_dim(lo for lo, _ in padding)
     )
+    # Undo lhs dilation to get coordinates in the original input.
+    # Positions in a dilation gap or in the padding read zeros,
+    # so they contribute no dependencies and are masked out.
     in_coords = pos // per_dim(lhs_dilation)
     valid = (
         (pos >= 0)
@@ -58,6 +80,7 @@ def _window_target_lists(
         & (pos % per_dim(lhs_dilation) == 0)
     ).all(axis=0)
 
+    # Flatten the input coordinates and keep only the valid taps of each window.
     targets = (in_coords * per_dim(_row_strides(lhs_spatial_sizes))).sum(axis=0)
     return [targets[o, valid[o]].tolist() for o in range(out_spatial_size)]
 
