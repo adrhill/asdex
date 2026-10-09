@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791555222229,
+  "lastUpdate": 1791555769040,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -21954,6 +21954,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000011895885780538233",
             "extra": "mean: 24.213398645691694 usec\nrounds: 13734"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "05f530894c9d32033bd14601c3f6973229ae9436",
+          "message": "fix(detection): clamp dynamic_slice starts, divide integers exactly, and support zero-length scans (#206)\n\n* fix: divide integer consts exactly instead of through float64\n\n`_lax_div` truncated a float64 true-division quotient, which drops the\nlow bits of int64 operands above 2**53, so an index derived from such a\nquotient resolved to the wrong position. Integer quotients now use floor\ndivision plus a sign correction, matching `lax.div` exactly. Bounds\ndivision widens its endpoints first, so an `INT_MIN / -1` overflow drops\nthe bounds instead of wrapping.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: support zero-length scans over xs\n\nThe per-timestep xs slice size was computed as `numel // length`,\nwhich raised `ZeroDivisionError` for `length=0`. The slice sizes now come\nfrom the body's xs invars, which are single timesteps.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: clamp static out-of-bounds starts in dynamic_slice and dynamic_update_slice\n\nJAX clamps every start into `[0, dim - size]`, but the static-start path\nsliced at the raw start. `dynamic_slice` then returned too few rows or\nthe wrong columns, and `dynamic_update_slice` raised on out-of-range\ncoordinates. Static starts now resolve to `(val, val)` bounds and share\nthe clamped enumeration path with bounded starts.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: compute value bounds of int to bool conversion correctly\n\nCasting the interval endpoints to bool is not monotone:\n[-2, 2] became (True, True) although 0 converts to False.\nA dynamic_slice start derived from such a value then missed the False branch.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: note the dynamic_slice, div, bool, and scan fixes in the changelog\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T16:22:09+02:00",
+          "tree_id": "6f5985457516c3626c992b6b1b863faf8544cee8",
+          "url": "https://github.com/adrhill/asdex/commit/05f530894c9d32033bd14601c3f6973229ae9436"
+        },
+        "date": 1791555767347,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 765.8345873867146,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00028126858845224043",
+            "extra": "mean: 1.3057650000012884 msec\nrounds: 21"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 26915.420935008304,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004343579065438915",
+            "extra": "mean: 37.153422285858504 usec\nrounds: 8364"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 70529.84051115194,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000028624538022139025",
+            "extra": "mean: 14.178395878293292 usec\nrounds: 19943"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 37397.531761491424,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006723594958855234",
+            "extra": "mean: 26.73973262133061 usec\nrounds: 14889"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 71038.52895689642,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029453670333505733",
+            "extra": "mean: 14.076868069815514 usec\nrounds: 20526"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 166.3184381660829,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002347285049043144",
+            "extra": "mean: 6.012562473689274 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2880.8020667025758,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004773378442005749",
+            "extra": "mean: 347.1255493594602 usec\nrounds: 2654"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1848.8885963169234,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000628339292181416",
+            "extra": "mean: 540.8654702030447 usec\nrounds: 1376"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1888.1192941456143,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004040432526774535",
+            "extra": "mean: 529.6275521894427 usec\nrounds: 297"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 3820.1616424947842,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000019336450590996307",
+            "extra": "mean: 261.76902801079973 usec\nrounds: 3570"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 135.0291598962645,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00031390652990409367",
+            "extra": "mean: 7.40580775862225 msec\nrounds: 58"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26876.687771252655,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003788255718444751",
+            "extra": "mean: 37.20696569871238 usec\nrounds: 18629"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 40896.208772755635,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007396195368380787",
+            "extra": "mean: 24.45214434317401 usec\nrounds: 13364"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 35070.11664961285,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000852446880918178",
+            "extra": "mean: 28.514304927783563 usec\nrounds: 11242"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 42420.1298723716,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000611618184188562",
+            "extra": "mean: 23.5737137771307 usec\nrounds: 14604"
           }
         ]
       }
