@@ -219,7 +219,9 @@ matrix with one AD pass per color, and finally \emph{decompression} into
 the original sparsity pattern. The number of colors, and hence of AD
 passes, is often independent of the problem dimension: a banded Jacobian
 with \(b\) contiguous bands, for instance, only ever requires \(b\)
-colors, regardless of its size. \texttt{asdex} offers the first
+colors, regardless of its size.
+\texttt{asdex}\footnote{\url{https://github.com/adrhill/asdex}} offers
+the first
 standalone ASD toolkit in the popular JAX
 (\citeproc{ref-bradbury2018jax}{Bradbury et al., 2018}) ecosystem. With
 \texttt{asdex.jacobian} and \texttt{asdex.hessian}, it provides sparse

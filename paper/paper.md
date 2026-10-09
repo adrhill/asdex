@@ -47,8 +47,10 @@ Automatic sparse differentiation (ASD) exploits this structure in four steps [@h
 and finally *decompression* into the original sparsity pattern.
 The number of colors, and hence of AD passes, is often independent of the problem dimension:
 a banded Jacobian with $b$ contiguous bands, for instance, only ever requires $b$ colors, regardless of its size.
-`asdex` offers the first standalone ASD toolkit in the popular JAX [@bradbury2018jax] ecosystem.
+`asdex`[^gh-asdex] offers the first standalone ASD toolkit in the popular JAX [@bradbury2018jax] ecosystem.
 With `asdex.jacobian` and `asdex.hessian`, it provides sparse drop-in replacements for `jax.jacobian` and `jax.hessian`.
+
+[^gh-asdex]: <https://github.com/adrhill/asdex>
 
 # Statement of need
 
