@@ -6,7 +6,6 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     ValueBounds,
-    _atom_const_val,
     _atom_shape,
     _atom_value_bounds,
     _bounded_ranges,
@@ -21,22 +20,6 @@ from ._common import (
 )
 
 
-def _resolve_starts(
-    eqn: JaxprEqn, start_offset: int, state: _PropState
-) -> list[int] | None:
-    """Try to resolve start indices as static ints.
-
-    Returns None if any start depends on runtime values.
-    """
-    starts: list[int] = []
-    for atom in eqn.invars[start_offset:]:
-        val = _atom_const_val(atom, state)
-        if val is None:
-            return None
-        starts.append(int(val.flat[0]))
-    return starts
-
-
 def _resolve_start_bounds(
     eqn: JaxprEqn,
     start_offset: int,
@@ -44,6 +27,8 @@ def _resolve_start_bounds(
 ) -> ValueBounds | None:
     """Try to resolve per-dimension (lo, hi) bounds for start indices.
 
+    Static starts resolve to ``(val, val)``,
+    so they share the clamped enumeration path with bounded starts.
     Returns None if any start has no bounds information.
     """
     los: list[int] = []
@@ -67,6 +52,7 @@ def _prop_dynamic_slice(
     With static start indices, each output element maps to exactly one input element.
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
+    Like JAX, starts are clamped into ``[0, dim - size]`` first.
     Otherwise falls back to conservative,
     including the start indices' own dependencies.
 
@@ -92,18 +78,7 @@ def _prop_dynamic_slice(
     for start_atom in eqn.invars[1:]:
         start_index_sets.extend(_index_sets(state, start_atom))
 
-    starts = _resolve_starts(eqn, 1, state)
-    if starts is not None:
-        in_shape = _atom_shape(operand)
-        slices = tuple(
-            slice(s, s + sz) for s, sz in zip(starts, slice_sizes, strict=True)
-        )
-        state.indices[eqn.outvars[0]] = _transform_indices(
-            in_indices, in_shape, lambda p: p[slices]
-        )
-        return
-
-    # Try bounded enumeration.
+    # Static or bounded starts: enumerate every clamped start position.
     start_bounds = _resolve_start_bounds(eqn, 1, state)
     if start_bounds is not None:
         in_shape = _atom_shape(operand)
@@ -143,6 +118,7 @@ def _prop_dynamic_update_slice(
     the rest keep operand index sets.
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
+    Like JAX, starts are clamped into ``[0, dim - size]`` first.
     Otherwise falls back to conservative,
     including the start indices' own dependencies.
 
@@ -171,18 +147,7 @@ def _prop_dynamic_update_slice(
     for start_atom in eqn.invars[2:]:
         start_index_sets.extend(_index_sets(state, start_atom))
 
-    starts = _resolve_starts(eqn, 2, state)
-    if starts is not None:
-        state.indices[eqn.outvars[0]] = _dynamic_update_for_starts(
-            starts,
-            operand_indices,
-            upd_indices,
-            operand_shape,
-            upd_shape,
-        )
-        return
-
-    # Try bounded enumeration.
+    # Static or bounded starts: enumerate every clamped start position.
     start_bounds = _resolve_start_bounds(eqn, 2, state)
     if start_bounds is not None:
         ranges = _bounded_ranges(start_bounds)

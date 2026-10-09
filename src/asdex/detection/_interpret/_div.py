@@ -6,6 +6,7 @@ from jax._src.core import JaxprEqn
 from ._common import (
     _binary_value_bounds,
     _clear_where_zero,
+    _exact_ints,
     _propagate_const_binary,
     _PropState,
     _set_value_bounds,
@@ -14,9 +15,21 @@ from ._elementwise import _binary_elementwise, _is_integer_division_undefined
 
 
 def _trunc_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray:
-    """Integer division truncating toward zero, like ``lax.div`` on integers."""
+    """Integer division truncating toward zero, like ``lax.div`` on integers.
+
+    Quotients stay in integer arithmetic,
+    since a float64 round trip loses the low bits of int64 operands above 2**53.
+    Also accepts the object arrays of Python ints that ``_exact_ints`` produces.
+    """
+    in1_val, in2_val = np.asarray(in1_val), np.asarray(in2_val)
     result_dtype = np.result_type(in1_val, in2_val)
-    return np.trunc(np.true_divide(in1_val, in2_val)).astype(result_dtype)
+    with np.errstate(divide="ignore", over="ignore"):
+        quotient = np.floor_divide(in1_val, in2_val)
+    # Floor and truncation differ when the division is inexact
+    # and the operands have opposite signs.
+    inexact = quotient * in2_val != in1_val
+    opposite_signs = (in1_val < 0) != (in2_val < 0)
+    return quotient + (inexact & opposite_signs & (in2_val != 0)).astype(result_dtype)
 
 
 def _lax_div(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray | None:
@@ -88,6 +101,7 @@ def _propagate_bounds_div(
 
     out_dtype = getattr(eqn.outvars[0].aval, "dtype", np.float64)
     divide = _trunc_div if np.issubdtype(out_dtype, np.integer) else np.true_divide
+    lo1, hi1, lo2, hi2 = map(_exact_ints, (lo1, hi1, lo2, hi2))
 
     # All four endpoint combinations.
     c1 = divide(lo1, lo2)
