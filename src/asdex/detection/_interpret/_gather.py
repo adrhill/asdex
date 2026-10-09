@@ -5,23 +5,23 @@ Also hosts the index-vector iteration machinery shared with ``_scatter.py``.
 
 Start-indices layout:
 ``start_indices`` is an array of index vectors.
-Its trailing dim holds the components of one index vector,
-and each index vector gives the operand position where one gathered slice starts.
-Its other dims fall into two groups:
+Each index vector gives the operand position where one gathered slice starts.
+Dims are numbered from 0, like numpy axes.
+
+The last dim holds the components of one index vector,
+so its size is the number of operand dims being indexed.
+``x[idx]`` indexes a single dim of ``x``,
+so JAX appends a dim of size 1 to ``idx`` to form ``start_indices``:
+``idx = [1, 3]`` becomes ``start_indices = [[1], [3]]``,
+two index vectors with one component each.
+
+The other dims fall into two groups:
 
 - Batching dims (``start_indices_batching_dims``) come from ``vmap``.
   Each pairs with an operand batching dim (``operand_batching_dims``) of the same size,
   and the index vectors at position ``b`` along it only address operand slice ``b``.
 - All remaining dims, the "si batch axes", enumerate index vectors,
   like the dims of ``idx`` in ``x[idx]``.
-
-For example, ``vmap(lambda row, i: row[i])(x, idx)``
-with ``x.shape = (2, 5)`` and ``idx.shape = (2, 3)``
-gathers with ``start_indices`` of shape (2, 3, 1).
-Dim 0 is the vmapped axis, a batching dim paired with operand dim 0,
-so row ``b`` of ``idx`` only indexes into row ``b`` of ``x``.
-Dim 1 is an si batch axis enumerating the three index vectors of each row.
-Dim 2 holds the index vectors, each with a single component.
 """
 
 from collections.abc import Iterator, Sequence
@@ -60,19 +60,21 @@ def _si_batch_axes(
         si_shape: Shape of the start indices.
         si_batching_dims: Start-indices dims that pair with operand batching dims.
 
-    Example: ``x[idx]`` with ``idx.shape = (2,)``
-        si_shape = (2, 1), si_batching_dims = ()
-        Dim 1 holds the index vectors, so dim 0 enumerates them.
+    Example: ``x[idx]`` with ``idx = [1, 3]``
+        JAX appends a dim of size 1 to ``idx``,
+        so start_indices = [[1], [3]] and si_shape = (2, 1).
+        Without ``vmap`` there are no batching dims, so si_batching_dims = ().
+        The last dim (dim 1, of size 1) holds the index vectors [1] and [3].
+        That leaves dim 0, which enumerates them.
         Returns [0].
 
-    Example: ``x[idx]`` with ``idx.shape = (2, 2)``
-        si_shape = (2, 2, 1), si_batching_dims = ()
-        Dim 2 holds the index vectors, so dims 0 and 1 enumerate them.
-        Returns [0, 1].
-
-    Example: ``vmap(lambda row, i: row[i])(x, idx)`` with ``idx.shape = (2, 3)``
-        si_shape = (2, 3, 1), si_batching_dims = (0,)
-        Dim 0 is the vmapped axis and dim 2 holds the index vectors.
+    Example: ``vmap(lambda row, i: row[i])(x, idx)``
+        with ``idx = [[4, 0, 2], [1, 1, 3]]``
+        JAX again appends a dim of size 1 to ``idx``, so si_shape = (2, 3, 1).
+        ``vmap`` maps over dim 0 of ``idx``, so si_batching_dims = (0,).
+        The last dim (dim 2, of size 1) holds the index vectors.
+        That leaves dim 1,
+        which enumerates the three index vectors in each row of ``idx``.
         Returns [1].
     """
     index_vector_dim = len(si_shape) - 1
@@ -107,23 +109,22 @@ def _si_batch_shapes(
         ``batching_shape`` holds the sizes of the batching dims,
         and ``si_batch_shape`` the sizes of the ``_si_batch_axes``.
 
-    Example: ``x[idx]`` with ``x.shape = (5, 4)`` and ``idx.shape = (2,)``
-        concrete_indices.shape = (2, 1), no batching dims
-        Without ``vmap`` there are no batching dims, so batching_shape = ().
-        ``idx`` holds two index vectors, so si_batch_shape = (2,).
+    Example: ``x[idx]`` with ``x.shape = (5, 4)`` and ``idx = [1, 3]``
+        concrete_indices = [[1], [3]], as in ``_si_batch_axes``.
+        Without ``vmap`` there are no batching dims,
+        so operand_batching_dims = (), si_batching_dims = (), and batching_shape = ().
+        The only si batch axis is dim 0 of concrete_indices, of size 2,
+        so si_batch_shape = (2,), one entry per index vector.
         Returns ((), (2,)).
 
-    Example: ``x[idx]`` with ``x.shape = (5, 4)`` and ``idx.shape = (2, 2)``
-        concrete_indices.shape = (2, 2, 1), no batching dims
-        ``idx`` holds a (2, 2) grid of index vectors.
-        Returns ((), (2, 2)).
-
     Example: ``vmap(lambda row, i: row[i])(x, idx)``
-        with ``x.shape = (2, 5)`` and ``idx.shape = (2, 3)``
-        concrete_indices.shape = (2, 3, 1),
-        operand_batching_dims = (0,), si_batching_dims = (0,)
-        The vmapped axis has size 2, so batching_shape = (2,).
-        Each row of ``idx`` holds three index vectors, so si_batch_shape = (3,).
+        with ``x.shape = (2, 5)`` and ``idx = [[4, 0, 2], [1, 1, 3]]``
+        concrete_indices has shape (2, 3, 1), as in ``_si_batch_axes``.
+        ``vmap`` maps over dim 0 of both ``x`` and ``idx``,
+        so operand_batching_dims = (0,) and si_batching_dims = (0,).
+        Dim 0 of ``x`` has size 2, so batching_shape = (2,).
+        The only si batch axis is dim 1 of concrete_indices, of size 3,
+        so si_batch_shape = (3,).
         Returns ((2,), (3,)).
     """
     batching_shape = tuple(operand_shape[d] for d in operand_batching_dims)
@@ -169,15 +170,17 @@ def _iter_si_starts(
         apply their own out-of-bounds policy.
 
     Example: ``x[idx]`` with ``x.shape = (5, 4)`` and ``idx = [1, 3]``
-        concrete_indices = [[1], [3]], index_map = (0,), no batching dims
-        Each index vector has one component, which addresses operand dim 0.
+        concrete_indices = [[1], [3]], no batching dims
+        ``x[idx]`` indexes dim 0 of ``x``, so index_map = (0,).
         The index vector [1] selects row 1 of ``x``, which starts at [1, 0].
         Yields ((), (0,), [1, 0]) and ((), (1,), [3, 0]).
 
     Example: ``vmap(lambda row, i: row[i])(x, idx)``
         with ``x.shape = (2, 5)`` and ``idx = [[4, 0, 2], [1, 1, 3]]``
-        concrete_indices = [[[4], [0], [2]], [[1], [1], [3]]], index_map = (1,),
+        concrete_indices = [[[4], [0], [2]], [[1], [1], [3]]],
         operand_batching_dims = (0,), si_batching_dims = (0,)
+        ``row[i]`` indexes what is dim 1 of ``x`` outside ``vmap``,
+        so index_map = (1,).
         ``batch_idx = (b,)`` selects row ``b`` of both ``x`` and ``idx``,
         so ``start[0] = b`` and ``start[1]`` comes from the index vector.
         For b = 0, the index vectors [4], [0], [2] yield
