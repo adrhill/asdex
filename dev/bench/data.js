@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791546573961,
+  "lastUpdate": 1791547720269,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -21180,6 +21180,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000007201173632990409",
             "extra": "mean: 23.387005328741512 usec\nrounds: 13887"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "61d16d1159217b287f7ac2fd20f60baa05273425",
+          "message": "refactor(detection): simplify detection handlers and API (#200)\n\n* refactor: move iota to its own module and tighten conventions\n\n- Move _prop_iota from __init__.py to _iota.py,\n  matching the one-module-per-primitive structure.\n- Import _common relatively in _linalg.py and replace np.prod with _numel.\n- Replace qr's bare tuple unpacking with an explicit outvars check\n  that rejects pivoting=True loudly, with a regression test.\n- Use _empty_index_sets in top_k instead of a raw set comprehension.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* refactor: simplify detection handlers and API\n\n- Vectorize _prop_pad with per-dimension reverse maps combined by\n  broadcasting, replacing the per-element Python loop\n  while keeping negative-padding (crop) support.\n- Accumulate _prop_cumsum with a running union per lane:\n  O(n) set unions instead of re-unioning the full prefix per position,\n  cutting the cumsum detection benchmark (n=1500) from 119 ms to 65 ms.\n- Read scan's iteration count from params[\"length\"] directly.\n- Drop the second trace in jacobian_sparsity:\n  the row count is the length of the propagated index sets.\n- Use _seed_const_vals (strict zip) and the index-set factory helpers\n  in _api.py instead of a hand-built const dict and raw sets.\n- Straighten _fixed_point_loop's for-else into a plain raise after the loop.\n- Turn conv's silent OOB skip into an assertion.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T14:07:28+02:00",
+          "tree_id": "62ef6d7fdfb3c565655baa67f7bbe4ea326ee12b",
+          "url": "https://github.com/adrhill/asdex/commit/61d16d1159217b287f7ac2fd20f60baa05273425"
+        },
+        "date": 1791547719386,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 801.9582654359208,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00023965438061772392",
+            "extra": "mean: 1.246947681817868 msec\nrounds: 22"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 26555.017350405742,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000423764516485679",
+            "extra": "mean: 37.657666978881515 usec\nrounds: 8540"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 71643.66978055892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000033018691183352193",
+            "extra": "mean: 13.957967299315508 usec\nrounds: 21498"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 39232.97039072388,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004517475113369287",
+            "extra": "mean: 25.488765954780646 usec\nrounds: 15826"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 71808.26909292975,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002835981003198002",
+            "extra": "mean: 13.925972769318012 usec\nrounds: 24017"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 23.90878016160321,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003010862417839252",
+            "extra": "mean: 41.82563866666733 msec\nrounds: 12"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2935.7926719640936,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010067989543799456",
+            "extra": "mean: 340.6235084478849 usec\nrounds: 2545"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1892.1872677555602,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004514778813191492",
+            "extra": "mean: 528.4889170542626 usec\nrounds: 1290"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1944.2345362690367,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000046655372792304296",
+            "extra": "mean: 514.3412388502204 usec\nrounds: 1009"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 3913.5877054670445,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002021619286663333",
+            "extra": "mean: 255.52001775840128 usec\nrounds: 3435"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 144.14685947273324,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00012047076485723022",
+            "extra": "mean: 6.937369316666656 msec\nrounds: 60"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26403.82859920226,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003851544433848132",
+            "extra": "mean: 37.87329539134385 usec\nrounds: 18335"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 27893.0954004045,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011073816520101853",
+            "extra": "mean: 35.85116623469112 usec\nrounds: 13890"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 27970.958365724302,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009038471127830964",
+            "extra": "mean: 35.751367075981314 usec\nrounds: 13030"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 39810.947063311665,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007699450652504453",
+            "extra": "mean: 25.118719190721386 usec\nrounds: 8155"
           }
         ]
       }
