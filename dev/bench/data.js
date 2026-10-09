@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791550738344,
+  "lastUpdate": 1791551435848,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -21567,6 +21567,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000001620725936404406",
             "extra": "mean: 8.86846745606591 usec\nrounds: 22293"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "521efa0734628359d3249d8800201038781186d3",
+          "message": "perf(detection): materialize closure constants lazily (#203)\n\n* perf: materialize closure constants lazily\n\n_seed_const_vals converted every closure constant with np.asarray,\ncopying e.g. all NN weights device-to-host and keeping the copies alive\nin state.consts for the whole analysis, even when their values are\nnever consulted. Store the original arrays instead and let\n_atom_const_val materialize and cache on first read.\n\n_forward_into_jaxpr forwards tracked consts as stored, so jit and\ncontrol-flow boundaries no longer force the deferred copies, and\n_propagate_const_binary skips reading its second operand when the\nfirst is input-dependent (the x + bias case).\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* perf: forward nested-jaxpr consts outward without materializing\n\n_prop_closed_jaxpr read every nested-jaxpr outvar through _atom_const_val,\nwhich copies a lazily seeded device array to host and caches it.\nA jit-wrapped model threading a large closure constant through a nested\njaxpr paid that copy at every boundary, even when no handler read the value.\n\n_forward_into_jaxpr already implemented the needed logic for the inward\ndirection, so reuse it and rename it to _forward_across_jaxpr_boundary\nto reflect that both directions map atoms to fresh vars.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* perf: check the first operand before reading the second in bounds helpers\n\nFive bounds helpers read both operands' bounds up front and only then\nchecked for None. _atom_value_bounds materializes a lazily seeded const\nto host numpy, so `x < big_const`, `x + bias`, `x - c`, `x * c` and `x / c`\ncopied the constant device-to-host and kept it alive for the whole\nanalysis, even though the result was discarded because the traced operand\nhad no bounds.\n\nConsolidate the ordering into _binary_value_bounds so the five call sites\nshare one early return, mirroring _propagate_const_binary.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* perf: stop select_n fetching case consts and bounds it cannot use\n\ncase_vals was built before the `which_val is not None` guard, so\njnp.where(traced_mask, x, big_const) materialized every case constant\ndevice-to-host even though a dynamic selector can never store a const\nresult. case_bounds had the same problem: it read all cases up front,\nincluding when the first case already forced the merge path to bail.\n\nThe const path now runs only under a known selector, the const-predicate\nbranch reads only the branch it selects, and the merge stops at the first\ncase without bounds. Observable results are unchanged.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* docs: note lazy closure constants in the changelog\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T15:09:57+02:00",
+          "tree_id": "3de2156d341ef32d87c6e300a27d15b34e68ff14",
+          "url": "https://github.com/adrhill/asdex/commit/521efa0734628359d3249d8800201038781186d3"
+        },
+        "date": 1791551434257,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 722.7292332054382,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004285751843585591",
+            "extra": "mean: 1.3836440454536683 msec\nrounds: 22"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 24646.290540855352,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001284975673160084",
+            "extra": "mean: 40.57405711185351 usec\nrounds: 8282"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 72202.85455846952,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000462584416636109",
+            "extra": "mean: 13.849867932717325 usec\nrounds: 9215"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 39135.18435576474,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004497931019084299",
+            "extra": "mean: 25.55245405028217 usec\nrounds: 15604"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 73436.00754407566,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002716753880802131",
+            "extra": "mean: 13.617298018275415 usec\nrounds: 22455"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 171.92872009002076,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00018707448194033428",
+            "extra": "mean: 5.8163638947373455 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2936.538268285973,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001082285749006653",
+            "extra": "mean: 340.5370230654919 usec\nrounds: 2688"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1890.8876258718726,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000034190318594245715",
+            "extra": "mean: 528.8521572184429 usec\nrounds: 1323"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1884.0792414165833,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000032488862631872676",
+            "extra": "mean: 530.7632386247883 usec\nrounds: 989"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 3760.4315978661643,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000022409308517492554",
+            "extra": "mean: 265.9269219435994 usec\nrounds: 3869"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 137.67446721017765,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003272993699513495",
+            "extra": "mean: 7.2635109491535 msec\nrounds: 59"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27250.19934698276,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003993939540444678",
+            "extra": "mean: 36.69697925019854 usec\nrounds: 18699"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 38775.84044631807,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009068433038248138",
+            "extra": "mean: 25.789254042975983 usec\nrounds: 11687"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 33264.73140530362,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010005321174406721",
+            "extra": "mean: 30.061869065341778 usec\nrounds: 8699"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 38085.28871897239,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009727263597628234",
+            "extra": "mean: 26.25685753307273 usec\nrounds: 10985"
           }
         ]
       }
