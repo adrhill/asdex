@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791548349477,
+  "lastUpdate": 1791550738344,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -21438,6 +21438,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000015977378685908725",
             "extra": "mean: 8.734347308071685 usec\nrounds: 24759"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "80fb1562975e0bba83c1ca0de537c880a62e7a1b",
+          "message": "perf(detection): vectorize conv and stop scan propagation once the carry saturates (#202)\n\n* perf: vectorize conv sparsity propagation\n\nReplace the per-output-element nested Python loops with a factored\nconstruction: the kernel window map is built with numpy, the group's\nchannels are pre-unioned once per input spatial position, windows are\nunioned once per output spatial position, and all output channels of a\nfeature/batch group alias the resulting sets. This drops the set-union\ncount from O(out_size * window * channels) to O(input size + windows),\nabout 10x on a 32x32x16 conv layer and far more for wider layers.\n\nSingle-channel groups and single-tap windows alias sets instead of\ncopying them, and a dependency-free input returns one shared empty set.\n\nRemove _flat_to_coords, whose last user was the old conv loop.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* perf: stop scan propagation once the carry saturates\n\nWhen no xs slice carries input dependencies (constant xs or no xs),\nbody propagation is a deterministic function of the carry index sets\nalone, so once the carry repeats between consecutive steps every\nremaining step reproduces the same carry and ys slices. Detect that\nfixed point, stop the forward simulation, and replicate the last ys\nslice for the skipped timesteps by aliasing.\n\nThis turns e.g. a length-100_000 solver loop into a handful of body\npropagations while keeping the detected pattern exact. Scans whose xs\ncarry per-timestep dependencies still simulate every step.\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>\n\n* docs: note the conv and scan speedups in the changelog\n\n* docs: document conv window-map arguments and comment its steps\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Fable 5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T14:57:48+02:00",
+          "tree_id": "7dbe46c6301da50ec3642d6aa1e407d62878e6b1",
+          "url": "https://github.com/adrhill/asdex/commit/80fb1562975e0bba83c1ca0de537c880a62e7a1b"
+        },
+        "date": 1791550737142,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1761.1963532862917,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001577585333008293",
+            "extra": "mean: 567.7958611111459 usec\nrounds: 36"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 49909.93716624972,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010147492017428996",
+            "extra": "mean: 20.036090141107685 usec\nrounds: 9352"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 165945.93228214045,
+            "unit": "iter/sec",
+            "range": "stddev: 7.486042508356994e-7",
+            "extra": "mean: 6.026059128100862 usec\nrounds: 52141"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 114005.60839410208,
+            "unit": "iter/sec",
+            "range": "stddev: 9.05249019598368e-7",
+            "extra": "mean: 8.771498298076128 usec\nrounds: 21740"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 164139.7929194659,
+            "unit": "iter/sec",
+            "range": "stddev: 6.044851116427411e-7",
+            "extra": "mean: 6.092367866521212 usec\nrounds: 53340"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 323.9158751601378,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00029323096256556286",
+            "extra": "mean: 3.0872213333342162 msec\nrounds: 27"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 5244.590179224083,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000040278834059300674",
+            "extra": "mean: 190.67266761117 usec\nrounds: 4588"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 4019.332976593594,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010569499326066265",
+            "extra": "mean: 248.79750093447228 usec\nrounds: 3210"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 4000.4701909538776,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007664881173033811",
+            "extra": "mean: 249.9706165193444 usec\nrounds: 2034"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 9591.998874221628,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009023800961274402",
+            "extra": "mean: 104.25355685638027 usec\nrounds: 6235"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 283.72696397016904,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009563270289876631",
+            "extra": "mean: 3.524515210000061 msec\nrounds: 100"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 48175.526580876955,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015844402803959663",
+            "extra": "mean: 20.757427494252763 usec\nrounds: 40052"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 116178.31104268966,
+            "unit": "iter/sec",
+            "range": "stddev: 9.160352806207674e-7",
+            "extra": "mean: 8.607458578327503 usec\nrounds: 24142"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 99552.17872603283,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015209069194099052",
+            "extra": "mean: 10.04498357340823 usec\nrounds: 15341"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 112759.05391252394,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001620725936404406",
+            "extra": "mean: 8.86846745606591 usec\nrounds: 22293"
           }
         ]
       }
