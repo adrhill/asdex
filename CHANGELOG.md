@@ -1,25 +1,28 @@
 # asdex
 
-## Unreleased
-* ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity`
+## Version `v0.6.0`
+* ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity` ([#186])
+* ![BREAKING][badge-breaking] Remove the undocumented `forced_colors` keyword from `color_symmetric` ([#188])
 * ![Feature][badge-feature] Support the `one_minus_square` primitive that JAX 0.11.2 emits in the derivatives of `tanh`, `arcsin`, `arccos`, and `arctanh` ([#192])
-* ![Enhancement][badge-enhancement] Track constant values across nested jaxprs (`jit`, `cond`, `while`, `scan`) and through `sign`, `floor`, `ceil`, `round`, and `not`, and forward value bounds into `cond`, `while`, and `scan` bodies, so index arithmetic such as `jnp.floor_divide` stays static and yields sparser patterns ([#197])
 * ![Enhancement][badge-enhancement] Speed up sparsity detection of `dot_general` by factoring the contraction into row and column unions, and of pass-through primitives by sharing index sets instead of copying them ([#198])
 * ![Enhancement][badge-enhancement] Speed up sparsity detection: vectorize `conv_general_dilated` and stop propagating through a `scan` once its carry stops changing ([#202])
 * ![Enhancement][badge-enhancement] Only copy closure constants such as network weights to the host during sparsity detection when their values are needed ([#203])
+* ![Enhancement][badge-enhancement] Track constant values across nested jaxprs (`jit`, `cond`, `while`, `scan`) and through `sign`, `floor`, `ceil`, `round`, and `not`, and forward value bounds into `cond`, `while`, and `scan` bodies, so index arithmetic such as `jnp.floor_divide` stays static and yields sparser patterns ([#197])
+* ![Enhancement][badge-enhancement] Speed up sparsity detection of `cumsum` and `pad`, and trace the function only once in `jacobian_sparsity` ([#200])
 * ![Enhancement][badge-enhancement] Propagate value bounds through `max`, `min`, and `clamp`, so clipping a data-dependent index into range (e.g. `jnp.clip(idx, 0, n)`) keeps it bounded.
   Previously `jnp.clip` erased the bounds and downstream `gather`, `scatter`, and `dynamic_slice` fell back to a dense pattern ([#205])
+* ![Bugfix][badge-bugfix] Raise an error instead of guessing a default when sparsity detection reads a variable whose dependencies were never recorded, since the guess could have the wrong size ([#196])
 * ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `while` loops whose condition and body both capture constants, integer `div` and `rem` of constants, and `scatter` with `mode='clip'` ([#196])
 * ![Bugfix][badge-bugfix] Treat every update as a possible writer when replace-mode `scatter` has duplicate indices, since XLA does not define which one wins ([#196])
-* ![Bugfix][badge-bugfix] Raise an error instead of guessing a default when sparsity detection reads a variable whose dependencies were never recorded, since the guess could have the wrong size ([#196])
 * ![Bugfix][badge-bugfix] Return a conservative pattern instead of raising for input-dependent indices in `scatter`, `dynamic_slice`, and `dynamic_update_slice` and for input-dependent `conv` kernels ([#197])
 * ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros when a `jit`-wrapped helper is called more than once, for example `jnp.clip` on both a constant and a data-dependent index ([#205])
-* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros when a bounded integer index overflows its dtype ([#205])
+* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `scatter` with windows that are partly out of bounds and for `bitcast_convert_type` and `reduce_precision` of constants ([#207])
 * ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `dynamic_slice` and `dynamic_update_slice` with out-of-bounds constant starts, for integer `div` of constants above 2**53, and when a bounded integer index is converted to `bool` ([#206])
 * ![Bugfix][badge-bugfix] Support zero-length `scan`s over `xs` ([#206])
-* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `scatter` with windows that are partly out of bounds and for `bitcast_convert_type` and `reduce_precision` of constants ([#207])
+* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros when a bounded integer index overflows its dtype ([#205])
 * ![Bugfix][badge-bugfix] Return the correct number of rows for `bitcast_convert_type` between dtypes of different widths, and raise an error instead of returning a misshapen pattern if a primitive handler ever gets this wrong ([#207])
 * ![Documentation][badge-docs] Cite the [arXiv preprint](https://arxiv.org/abs/2610.12336) in the README, docs landing page, and `CITATION.cff` ([#212])
+* ![Documentation][badge-docs] Correct and clarify the explanation of the coloring algorithms and highlight their references ([#190])
 * ![Maintenance][badge-maintenance] Cross-validate the greedy colorings and their validators against [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl), the Julia package they were ported from.
   The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
 
@@ -165,11 +168,15 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 [#205]: https://github.com/adrhill/asdex/pull/205
 [#203]: https://github.com/adrhill/asdex/pull/203
 [#202]: https://github.com/adrhill/asdex/pull/202
+[#200]: https://github.com/adrhill/asdex/pull/200
 [#198]: https://github.com/adrhill/asdex/pull/198
 [#197]: https://github.com/adrhill/asdex/pull/197
 [#196]: https://github.com/adrhill/asdex/pull/196
 [#192]: https://github.com/adrhill/asdex/pull/192
+[#190]: https://github.com/adrhill/asdex/pull/190
+[#188]: https://github.com/adrhill/asdex/pull/188
 [#187]: https://github.com/adrhill/asdex/pull/187
+[#186]: https://github.com/adrhill/asdex/pull/186
 [#180]: https://github.com/adrhill/asdex/pull/180
 [#176]: https://github.com/adrhill/asdex/pull/176
 [#169]: https://github.com/adrhill/asdex/pull/169
