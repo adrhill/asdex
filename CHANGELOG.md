@@ -9,6 +9,7 @@
 * ![Bugfix][badge-bugfix] Treat every update as a possible writer when replace-mode `scatter` has duplicate indices, since XLA does not define which one wins ([#196])
 * ![Bugfix][badge-bugfix] Raise an error instead of guessing a default when sparsity detection reads a variable whose dependencies were never recorded, since the guess could have the wrong size ([#196])
 * ![Bugfix][badge-bugfix] Return a conservative pattern instead of raising for input-dependent indices in `scatter`, `dynamic_slice`, and `dynamic_update_slice` and for input-dependent `conv` kernels ([#197])
+* ![Documentation][badge-docs] Cite the [arXiv preprint](https://arxiv.org/abs/2610.12336) in the README, docs landing page, and `CITATION.cff` ([#212])
 * ![Maintenance][badge-maintenance] Cross-validate the greedy colorings and their validators against [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl), the Julia package they were ported from.
   The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
 
@@ -148,6 +149,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#212]: https://github.com/adrhill/asdex/pull/212
 [#198]: https://github.com/adrhill/asdex/pull/198
 [#197]: https://github.com/adrhill/asdex/pull/197
 [#196]: https://github.com/adrhill/asdex/pull/196
