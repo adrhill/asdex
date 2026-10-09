@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791554603569,
+  "lastUpdate": 1791555222229,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -21825,6 +21825,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000017666364669101617",
             "extra": "mean: 37.75882096071785 usec\nrounds: 16259"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d193151ba93d4ab505c2aa65756672329b8d2d92",
+          "message": "feat(detection): propagate value bounds through max, min, and clamp (#205)\n\n* feat: propagate value bounds through max, min, and clamp\n\n`jnp.clip` on a data-dependent index lowers to `max` followed by `min`,\nnot to `clamp`,\nso clipping an index into range erased its bounds\nand left `gather`, `scatter`, and `dynamic_slice` with a dense pattern.\nAll three primitives are monotone increasing in every operand,\nso evaluating at the interval endpoints is exact.\n\nBounds still only propagate when every operand is bounded,\nsince the `(lo, hi)` representation cannot express the half-open interval\nthat a missing operand would produce.\n\nAdd `_ternary_value_bounds` beside `_binary_value_bounds`\nso clamp's three-operand rule shares the same short-circuit order,\nand name the `(lo, hi)` pair `ValueBounds`\ninstead of respelling `tuple[np.ndarray, np.ndarray]` at seven sites.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* fix: clear stale const values and bounds when a jaxpr is reused\n\nJAX caches traced jaxprs, so one inner jaxpr and its `Var`s can be\npropagated from several call sites while `state.consts` and\n`state.bounds` are shared across scopes. Handlers only record value info\nthey can derive, so a reused jaxpr kept consts and bounds from an earlier\ncall. Forwarding them out of jit calls let outer gathers and dynamic\nslices resolve a data-dependent index as static and drop true nonzeros.\n\nBoundary forwarding now clears destinations it cannot forward,\n`_prop_jaxpr` clears each equation's outvars before dispatch,\nand while/scan clear their never-forwarded carry and xs invars.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: drop value bounds that overflow the output dtype\n\nBounds arithmetic ran in the operand dtype, so an overflowing int8 sum\nwrapped into an inverted interval. Bounded enumeration happened to treat\nthat as empty and fell back to conservative, but the new `max`, `min`,\nand `clamp` rules turned it into a non-empty wrong interval, and `mul`\ncorner products wrapped into wrong but non-inverted intervals.\nDownstream `dynamic_slice` and comparisons then dropped true nonzeros.\n\nArithmetic propagators now widen integer endpoints to exact Python ints,\nand every bounds write goes through `_set_value_bounds`, which stores\nnothing unless `lo <= hi` and both endpoints fit the output's integer\ndtype. Narrowing `convert_element_type` is covered by the same check.\n\nThe tests compare against JAX's Jacobian at every reachable `argmax`\nposition, so each wrapped branch is exercised.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: note value bounds through max, min, and clamp in the changelog\n\n---------\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T16:13:03+02:00",
+          "tree_id": "75316539199afe8db97f8580913ba4dc5d7c35bc",
+          "url": "https://github.com/adrhill/asdex/commit/d193151ba93d4ab505c2aa65756672329b8d2d92"
+        },
+        "date": 1791555220466,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 791.8459695718741,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00023419541611142725",
+            "extra": "mean: 1.2628718695640622 msec\nrounds: 23"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27001.059164065362,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000039937925370967135",
+            "extra": "mean: 37.03558419407711 usec\nrounds: 8326"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 69886.27011717996,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029674290538847945",
+            "extra": "mean: 14.30896223712149 usec\nrounds: 11175"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 39540.76684950704,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004468246226382235",
+            "extra": "mean: 25.29035422620963 usec\nrounds: 14694"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 71417.50435187608,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027977871221560703",
+            "extra": "mean: 14.002169483170002 usec\nrounds: 24262"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 171.57853548059924,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00019605835178081825",
+            "extra": "mean: 5.828234850000058 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2907.3051123268283,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011932624490510385",
+            "extra": "mean: 343.9611466165178 usec\nrounds: 2660"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1875.4893000794873,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003306482437205021",
+            "extra": "mean: 533.194190954658 usec\nrounds: 1791"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1876.4840873313824,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003290565220632311",
+            "extra": "mean: 532.9115268023068 usec\nrounds: 1082"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4155.0684618686855,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015469242446202817",
+            "extra": "mean: 240.6699213688199 usec\nrounds: 3828"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 141.10882724704882,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00021884724346591256",
+            "extra": "mean: 7.086728870967313 msec\nrounds: 62"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26850.89402713849,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000038226667053319536",
+            "extra": "mean: 37.242707784302794 usec\nrounds: 18897"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 42265.26998960867,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007673137860717416",
+            "extra": "mean: 23.66008782733104 usec\nrounds: 15428"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 37365.9752657395,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007846673673357109",
+            "extra": "mean: 26.762314990795655 usec\nrounds: 12521"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 41299.44807140614,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011895885780538233",
+            "extra": "mean: 24.213398645691694 usec\nrounds: 13734"
           }
         ]
       }
