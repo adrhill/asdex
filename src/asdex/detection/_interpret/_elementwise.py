@@ -594,7 +594,7 @@ def _prop_convert_element_type(
         if new_dtype is not None:
             state.consts[eqn.outvars[0]] = in_val.astype(new_dtype)
         else:
-            # stop_gradient, bitcast_convert_type, etc. — pass through as-is.
+            # stop_gradient keeps the dtype.
             state.consts[eqn.outvars[0]] = in_val
 
     # Propagate value bounds with dtype cast.

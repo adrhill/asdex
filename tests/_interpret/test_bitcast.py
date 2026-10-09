@@ -1,0 +1,135 @@
+"""Tests for the _prop_bitcast_convert_type handler.
+
+JAX defines the derivative of a bitcast as zero,
+so outputs have no dependencies.
+Const values are reinterpreted bit for bit,
+which matters when a bitcast feeds an index.
+"""
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+import pytest
+from jax import lax
+
+from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
+
+
+@pytest.mark.elementwise
+def test_bitcast_same_width_has_zero_derivative():
+    """A same-width bitcast has no dependencies, like its JAX derivative."""
+
+    def f(x):
+        return lax.bitcast_convert_type(x, jnp.int32).astype(jnp.float32)
+
+    x = jnp.arange(1.0, 4.0, dtype=jnp.float32)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_bitcast_narrowing_adds_trailing_axis():
+    """Narrowing f32[3] to i8[3, 4] gives one row per output byte."""
+
+    def f(x):
+        return lax.bitcast_convert_type(x, jnp.int8).astype(jnp.float32).ravel()
+
+    x = jnp.arange(1.0, 4.0, dtype=jnp.float32)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_bitcast_widening_consumes_trailing_axis():
+    """Widening f16[3, 2] to f32[3] gives one row per output element."""
+
+    def f(x):
+        halves = x.reshape(3, 2).astype(jnp.float16)
+        return lax.bitcast_convert_type(halves, jnp.float32)
+
+    x = jnp.arange(1.0, 7.0, dtype=jnp.float32)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_bitcast_reinterprets_const_bits():
+    """A bitcast const index keeps its bits instead of converting its value.
+
+    The smallest positive float32 subnormal has the bit pattern of int32 1.
+    Converting the value instead would give index 0.
+    """
+
+    def f(x):
+        i = lax.bitcast_convert_type(jnp.float32(1.4e-45), jnp.int32)
+        return x[i][None]
+
+    x = jnp.arange(5.0, dtype=jnp.float32)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_bitcast_narrowing_const_keeps_byte_order():
+    """Narrowing a const index splits it into bytes, least significant first."""
+    word = np.int32(0x01000302)
+
+    def f(x):
+        return x[lax.bitcast_convert_type(word, jnp.int8)]
+
+    x = jnp.arange(5.0, dtype=jnp.float32)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_bitcast_widening_const_joins_bytes():
+    """Widening a const index joins each trailing row of bytes into one word."""
+    data = np.array([[3, 0, 0, 0], [1, 0, 0, 0]], dtype=np.int8)
+
+    def f(x):
+        return x[lax.bitcast_convert_type(data, jnp.int32)]
+
+    x = jnp.arange(5.0, dtype=jnp.float32)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_bitcast_zero_size():
+    """A bitcast of an empty array gives an empty output."""
+
+    def f(x):
+        empty = lax.bitcast_convert_type(x[:0], jnp.int8)
+        return empty.astype(jnp.float32).ravel()
+
+    result = jacobian_sparsity(f, np.zeros(3, dtype=np.float32)).todense().astype(int)
+    assert result.shape == (0, 3)
+
+
+# Read as 8 bytes, most significant first: 01 00 00 00 03 00 00 02.
+# Bitcasting to int8 yields them least significant first,
+# giving the gather indices [2, 0, 0, 3, 0, 0, 0, 1].
+_INT64_WORD = np.int64(0x0100000003000002)
+
+
+def _narrow_float64_to_int32(x):
+    return lax.bitcast_convert_type(x, jnp.int32).astype(jnp.float64).ravel()
+
+
+def _gather_int64_bytes(x):
+    return x[lax.bitcast_convert_type(_INT64_WORD, jnp.int8)]
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize(
+    ("f", "n"),
+    [
+        pytest.param(_narrow_float64_to_int32, 3, id="narrow_float64_to_int32"),
+        pytest.param(_gather_int64_bytes, 5, id="gather_int64_bytes"),
+    ],
+)
+def test_bitcast_64_bit(f, n):
+    """Narrowing a 64-bit element gives two 32-bit or eight 8-bit elements.
+
+    x64 is enabled explicitly so the widths do not depend on global JAX config,
+    which other test modules' imports can change.
+    """
+    with jax.enable_x64(True):
+        x = jnp.arange(1.0, n + 1.0, dtype=jnp.float64)
+        assert_jacobian_sparsity_exact(f, x)

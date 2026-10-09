@@ -864,3 +864,40 @@ def test_scatter_zero_size_update():
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
+
+
+_WINDOW_DNUMS = jax.lax.ScatterDimensionNumbers(
+    update_window_dims=(0,), inserted_window_dims=(), scatter_dims_to_operand_dims=(0,)
+)
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize(
+    ("scatter", "start"),
+    [
+        pytest.param(jax.lax.scatter, 3, id="set-fits"),
+        pytest.param(jax.lax.scatter, 4, id="set-past_end"),
+        pytest.param(jax.lax.scatter, -1, id="set-negative"),
+        pytest.param(jax.lax.scatter_add, 3, id="add-fits"),
+        pytest.param(jax.lax.scatter_add, 4, id="add-past_end"),
+    ],
+)
+def test_scatter_drops_partially_oob_window(scatter, start):
+    """A window that is partly out of bounds is dropped as a whole.
+
+    The size-2 window starting at 4 covers positions 4 and 5 of a length-5 operand.
+    FILL_OR_DROP discards all of it,
+    so out[4] keeps the operand value instead of taking the update's.
+    """
+
+    def f(x):
+        return scatter(
+            x[:5],
+            jnp.array([start]),
+            x[5:7],
+            _WINDOW_DNUMS,
+            mode=jax.lax.GatherScatterMode.FILL_OR_DROP,
+        )
+
+    x = jnp.arange(1.0, 8.0)
+    assert_jacobian_sparsity_exact(f, x)

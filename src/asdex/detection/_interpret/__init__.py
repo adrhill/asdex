@@ -11,6 +11,7 @@ and applies the appropriate handler for each equation.
 from jax._src.core import Jaxpr, JaxprEqn
 
 from ._argmax import _prop_argmax
+from ._bitcast import _prop_bitcast_convert_type
 from ._broadcast import _prop_broadcast_in_dim
 from ._common import (
     IndexSet,
@@ -113,9 +114,36 @@ def _prop_jaxpr(
     for eqn in jaxpr.eqns:
         _forget_value_info(state, eqn.outvars)
         _prop_dispatch(eqn, state)
+        _check_index_set_counts(eqn, state)
 
     # Return output dependencies
     return [_index_sets(state, outvar) for outvar in jaxpr.outvars]
+
+
+def _check_index_set_counts(eqn: JaxprEqn, state: _PropState) -> None:
+    """Raise if a handler recorded the wrong number of index sets for an output.
+
+    Each output element needs exactly one index set.
+    A wrong count would silently shift or drop rows of the sparsity pattern,
+    since rows are assigned by position.
+
+    Example: y = sin(x) where x is f32[3], handler records [{0}, {1}]
+        y has 3 elements but only 2 index sets.
+        Without this check, y[2] would get no row,
+        and every later row would move up by one.
+        Raises RuntimeError naming 'sin'.
+    """
+    for outvar in eqn.outvars:
+        if outvar not in state.indices:
+            continue
+        actual = len(state.indices[outvar])
+        expected = _atom_numel(outvar)
+        if actual != expected:
+            msg = _report_issue(
+                f"Handler for '{eqn.primitive.name}' recorded {actual} index sets "
+                f"for an output with {expected} elements."
+            )
+            raise RuntimeError(msg)
 
 
 def _prop_closed_jaxpr(
@@ -283,13 +311,14 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_ternary_elementwise(eqn, state)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
             _prop_reduce(eqn, state)
-        case (
-            "convert_element_type"
-            | "bitcast_convert_type"
-            | "reduce_precision"
-            | "stop_gradient"
-        ):
+        case "convert_element_type" | "stop_gradient":
             _prop_convert_element_type(eqn, state)
+        case "reduce_precision":
+            # Rounding changes const values,
+            # so only the elementwise dependencies carry over.
+            _prop_unary_elementwise(eqn, state)
+        case "bitcast_convert_type":
+            _prop_bitcast_convert_type(eqn, state)
         case "conv_general_dilated":
             _prop_conv_general_dilated(eqn, state)
         case "custom_jvp_call" | "custom_vjp_call":
