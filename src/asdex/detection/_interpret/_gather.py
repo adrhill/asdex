@@ -2,6 +2,26 @@
 
 Naming: ``si_`` is short for ``start_indices``, the second input to ``lax.gather``.
 Also hosts the index-vector iteration machinery shared with ``_scatter.py``.
+
+Start-indices layout:
+``start_indices`` is an array of index vectors.
+Its trailing dim holds the components of one index vector,
+and each index vector gives the operand position where one gathered slice starts.
+Its other dims fall into two groups:
+
+- Batching dims (``start_indices_batching_dims``) come from ``vmap``.
+  Each pairs with an operand batching dim (``operand_batching_dims``) of the same size,
+  and the index vectors at position ``b`` along it only address operand slice ``b``.
+- All remaining dims, the "si batch axes", enumerate index vectors,
+  like the dims of ``idx`` in ``x[idx]``.
+
+For example, ``vmap(lambda row, i: row[i])(x, idx)``
+with ``x.shape = (2, 5)`` and ``idx.shape = (2, 3)``
+gathers with ``start_indices`` of shape (2, 3, 1).
+Dim 0 is the vmapped axis, a batching dim paired with operand dim 0,
+so row ``b`` of ``idx`` only indexes into row ``b`` of ``x``.
+Dim 1 is an si batch axis enumerating the three index vectors of each row.
+Dim 2 holds the index vectors, each with a single component.
 """
 
 from collections.abc import Iterator, Sequence
@@ -30,14 +50,29 @@ from ._common import (
 def _si_batch_axes(
     si_shape: tuple[int, ...], si_batching_dims: tuple[int, ...]
 ) -> list[int]:
-    """Start-indices axes that enumerate the batch.
+    """Start-indices dims that enumerate index vectors.
 
-    Excludes the trailing index-vector dim,
-    which holds the components of one index vector rather than a batch position,
-    and the explicit batching dims, which pair with operand batch positions.
+    These are all dims except the trailing index-vector dim
+    and the batching dims, which ``vmap`` pairs with operand dims.
+    See the module docstring for the start-indices layout.
 
-    Example: si_shape = (2, 3, 1), si_batching_dims = (0,)
-        Dim 0 is a batching dim and dim 2 is the index-vector dim.
+    Args:
+        si_shape: Shape of the start indices.
+        si_batching_dims: Start-indices dims that pair with operand batching dims.
+
+    Example: ``x[idx]`` with ``idx.shape = (2,)``
+        si_shape = (2, 1), si_batching_dims = ()
+        Dim 1 holds the index vectors, so dim 0 enumerates them.
+        Returns [0].
+
+    Example: ``x[idx]`` with ``idx.shape = (2, 2)``
+        si_shape = (2, 2, 1), si_batching_dims = ()
+        Dim 2 holds the index vectors, so dims 0 and 1 enumerate them.
+        Returns [0, 1].
+
+    Example: ``vmap(lambda row, i: row[i])(x, idx)`` with ``idx.shape = (2, 3)``
+        si_shape = (2, 3, 1), si_batching_dims = (0,)
+        Dim 0 is the vmapped axis and dim 2 holds the index vectors.
         Returns [1].
     """
     index_vector_dim = len(si_shape) - 1
@@ -54,22 +89,41 @@ def _si_batch_shapes(
     operand_batching_dims: tuple[int, ...],
     si_batching_dims: tuple[int, ...],
 ) -> tuple[tuple[int, ...], tuple[int, ...]]:
-    """The operand batch shape and the start-indices batch shape.
+    """Shapes of the two nested loops in ``_iter_si_starts``.
 
-    Together these are the leading axes of the intermediate gather result,
-    in the order ``_iter_si_starts`` walks them.
+    The outer loop runs over the batching dims (from ``vmap``),
+    the inner loop over the index vectors within one batch.
+    Together, these shapes are the leading axes of the intermediate gather result.
+    See the module docstring for the start-indices layout.
 
     Args:
-        concrete_indices: Start indices, with the index vector in the trailing dim.
+        concrete_indices: Start indices, with the index vectors in the trailing dim.
         operand_shape: Shape of the operand that is gathered from or scattered into.
-        operand_batching_dims: Operand dims that are batch dims.
+        operand_batching_dims: Operand dims that pair with ``si_batching_dims``.
         si_batching_dims: Start-indices dims that pair with ``operand_batching_dims``.
 
-    Example: operand_shape = (2, 5), operand_batching_dims = (0,),
-        concrete_indices.shape = (2, 3, 1), si_batching_dims = (0,)
-        Operand dim 0 gives batching_shape = (2,).
-        Start-indices dim 1 is the only remaining batch axis,
-        giving si_batch_shape = (3,).
+    Returns:
+        ``(batching_shape, si_batch_shape)``.
+        ``batching_shape`` holds the sizes of the batching dims,
+        and ``si_batch_shape`` the sizes of the ``_si_batch_axes``.
+
+    Example: ``x[idx]`` with ``x.shape = (5, 4)`` and ``idx.shape = (2,)``
+        concrete_indices.shape = (2, 1), no batching dims
+        Without ``vmap`` there are no batching dims, so batching_shape = ().
+        ``idx`` holds two index vectors, so si_batch_shape = (2,).
+        Returns ((), (2,)).
+
+    Example: ``x[idx]`` with ``x.shape = (5, 4)`` and ``idx.shape = (2, 2)``
+        concrete_indices.shape = (2, 2, 1), no batching dims
+        ``idx`` holds a (2, 2) grid of index vectors.
+        Returns ((), (2, 2)).
+
+    Example: ``vmap(lambda row, i: row[i])(x, idx)``
+        with ``x.shape = (2, 5)`` and ``idx.shape = (2, 3)``
+        concrete_indices.shape = (2, 3, 1),
+        operand_batching_dims = (0,), si_batching_dims = (0,)
+        The vmapped axis has size 2, so batching_shape = (2,).
+        Each row of ``idx`` holds three index vectors, so si_batch_shape = (3,).
         Returns ((2,), (3,)).
     """
     batching_shape = tuple(operand_shape[d] for d in operand_batching_dims)
@@ -87,32 +141,48 @@ def _iter_si_starts(
     si_batching_dims: tuple[int, ...],
     index_map: Sequence[int],
 ) -> Iterator[tuple[tuple[int, ...], tuple[int, ...], list[int]]]:
-    """Shared index-vector iteration for gather and scatter.
+    """Operand start position of every index vector, for gather and scatter.
 
-    Walks every combination of operand batch position and start-indices batch position,
-    extracts the corresponding index vector from ``concrete_indices``,
-    and assembles the operand start position it addresses.
-    ``index_map`` maps index-vector components to operand dims
-    (``start_index_map`` for gather, ``scatter_dims_to_operand_dims`` for scatter).
+    Loops over the batching dims (from ``vmap``) on the outside
+    and over the index vectors within one batch on the inside,
+    with the loop shapes given by ``_si_batch_shapes``.
+    See the module docstring for the start-indices layout.
 
-    Yields ``(batch_idx, si_batch_idx, start)`` triples
-    in row-major order over both batch spaces.
-    Starts are not clamped;
-    gather (always) and scatter (mode='clip') apply their own OOB policy.
+    Args:
+        concrete_indices: Start indices, with the index vectors in the trailing dim.
+        operand_shape: Shape of the operand that is gathered from or scattered into.
+        operand_batching_dims: Operand dims that pair with ``si_batching_dims``.
+        si_batching_dims: Start-indices dims that pair with ``operand_batching_dims``.
+        index_map: Operand dim addressed by each index-vector component
+            (``start_index_map`` for gather,
+            ``scatter_dims_to_operand_dims`` for scatter).
 
-    Example: operand_shape = (5, 4), concrete_indices = [[1], [3]], index_map = (0,)
-        No batching dims, so batching_shape = ().
-        The index vectors [1] and [3] give si_batch_shape = (2,).
-        Starts: ((), (0,), [1, 0]) and ((), (1,), [3, 0]).
+    Yields:
+        ``(batch_idx, si_batch_idx, start)`` triples in row-major order.
+        ``batch_idx`` is the position along the batching dims,
+        which is ``()`` without ``vmap``.
+        ``si_batch_idx`` is the index vector's position along ``_si_batch_axes``.
+        ``start`` is the operand position the index vector addresses.
+        Its operand batching dims are set to ``batch_idx``,
+        and dims addressed by neither are 0.
+        Starts are not clamped, since gather (always) and scatter (mode='clip')
+        apply their own out-of-bounds policy.
 
-    Example: operand_shape = (2, 5), operand_batching_dims = (0,),
-        concrete_indices = [[[4], [0], [2]], [[1], [1], [3]]],
-        si_batching_dims = (0,), index_map = (1,)
-        Batch position b reads its index vectors from concrete_indices[b]
-        and pins operand dim 0 to b.
-        Starts for b = 0:
+    Example: ``x[idx]`` with ``x.shape = (5, 4)`` and ``idx = [1, 3]``
+        concrete_indices = [[1], [3]], index_map = (0,), no batching dims
+        Each index vector has one component, which addresses operand dim 0.
+        The index vector [1] selects row 1 of ``x``, which starts at [1, 0].
+        Yields ((), (0,), [1, 0]) and ((), (1,), [3, 0]).
+
+    Example: ``vmap(lambda row, i: row[i])(x, idx)``
+        with ``x.shape = (2, 5)`` and ``idx = [[4, 0, 2], [1, 1, 3]]``
+        concrete_indices = [[[4], [0], [2]], [[1], [1], [3]]], index_map = (1,),
+        operand_batching_dims = (0,), si_batching_dims = (0,)
+        ``batch_idx = (b,)`` selects row ``b`` of both ``x`` and ``idx``,
+        so ``start[0] = b`` and ``start[1]`` comes from the index vector.
+        For b = 0, the index vectors [4], [0], [2] yield
             ((0,), (0,), [0, 4]), ((0,), (1,), [0, 0]), ((0,), (2,), [0, 2]).
-        Starts for b = 1:
+        For b = 1, the index vectors [1], [1], [3] yield
             ((1,), (0,), [1, 1]), ((1,), (1,), [1, 1]), ((1,), (2,), [1, 3]).
     """
     op_ndim = len(operand_shape)
