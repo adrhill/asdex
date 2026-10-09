@@ -123,12 +123,16 @@ def _lax_round(val: np.ndarray, rounding_method: lax.RoundingMethod) -> np.ndarr
 #
 # These keys plus round must stay in sync with the _prop_zero_derivative_unary_const case
 # in _prop_dispatch, which a match statement cannot derive from this dict.
-# _prop_zero_derivative_unary_const indexes directly rather than using .get,
-# so a desync raises KeyError instead of silently breaking the const chain
+# _prop_zero_derivative_unary_const indexes directly rather than using .get.
+# Its dispatch case exists only to propagate consts for exactly these primitives,
+# so a missing key can only mean the dict and the case drifted apart.
+# Raising KeyError surfaces that, instead of silently breaking the const chain
 # and degrading downstream gather/scatter to a conservative pattern.
-# _BINARY_CONST_UFUNCS is deliberately the opposite:
-# it covers only a subset of a broad dispatch group,
-# so a miss there means "no const propagation for this primitive", not a desync.
+# _BINARY_CONST_UFUNCS is looked up with .get instead,
+# because its handlers are shared with primitives it deliberately leaves out.
+# For example, _prop_binary_const also handles complex and polygamma,
+# which never appear in index arithmetic,
+# so a miss there is expected and just skips const propagation.
 _UNARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
     "sign": np.sign,
     "floor": np.floor,

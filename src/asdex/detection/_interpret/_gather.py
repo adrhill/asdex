@@ -35,6 +35,10 @@ def _si_batch_axes(
     Excludes the trailing index-vector dim,
     which holds the components of one index vector rather than a batch position,
     and the explicit batching dims, which pair with operand batch positions.
+
+    Example: si_shape = (2, 3, 1), si_batching_dims = (0,)
+        Dim 0 is a batching dim and dim 2 is the index-vector dim.
+        Returns [1].
     """
     index_vector_dim = len(si_shape) - 1
     return [
@@ -54,6 +58,19 @@ def _si_batch_shapes(
 
     Together these are the leading axes of the intermediate gather result,
     in the order ``_iter_si_starts`` walks them.
+
+    Args:
+        concrete_indices: Start indices, with the index vector in the trailing dim.
+        operand_shape: Shape of the operand that is gathered from or scattered into.
+        operand_batching_dims: Operand dims that are batch dims.
+        si_batching_dims: Start-indices dims that pair with ``operand_batching_dims``.
+
+    Example: operand_shape = (2, 5), operand_batching_dims = (0,),
+        concrete_indices.shape = (2, 3, 1), si_batching_dims = (0,)
+        Operand dim 0 gives batching_shape = (2,).
+        Start-indices dim 1 is the only remaining batch axis,
+        giving si_batch_shape = (3,).
+        Returns ((2,), (3,)).
     """
     batching_shape = tuple(operand_shape[d] for d in operand_batching_dims)
     si_shape = concrete_indices.shape
@@ -87,6 +104,16 @@ def _iter_si_starts(
         No batching dims, so batching_shape = ().
         The index vectors [1] and [3] give si_batch_shape = (2,).
         Starts: ((), (0,), [1, 0]) and ((), (1,), [3, 0]).
+
+    Example: operand_shape = (2, 5), operand_batching_dims = (0,),
+        concrete_indices = [[[4], [0], [2]], [[1], [1], [3]]],
+        si_batching_dims = (0,), index_map = (1,)
+        Batch position b reads its index vectors from concrete_indices[b]
+        and pins operand dim 0 to b.
+        Starts for b = 0:
+            ((0,), (0,), [0, 4]), ((0,), (1,), [0, 0]), ((0,), (2,), [0, 2]).
+        Starts for b = 1:
+            ((1,), (0,), [1, 1]), ((1,), (1,), [1, 1]), ((1,), (2,), [1, 3]).
     """
     op_ndim = len(operand_shape)
     si_shape = concrete_indices.shape

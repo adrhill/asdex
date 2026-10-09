@@ -215,6 +215,10 @@ def _coo_from_index_sets(
     This is the only place an ``IndexSet`` is iterated to recover concrete indices.
     Keeping it the sole iteration site is what lets the backend be swapped
     for one without cheap ordered iteration.
+
+    Example: out_indices = [{2, 0}, {}, {1}]
+        Row 1 has no dependencies and contributes no entries.
+        Returns rows = [0, 0, 2], cols = [0, 2, 1].
     """
     rows: list[int] = []
     cols: list[int] = []
