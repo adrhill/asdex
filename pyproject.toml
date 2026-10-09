@@ -57,6 +57,7 @@ Changelog = "https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"
 Issues = "https://github.com/adrhill/asdex/issues"
 Contributing = "https://adrianhill.de/asdex/contributing"
 PyPI = "https://pypi.org/project/asdex/"
+arXiv = "https://arxiv.org/abs/2610.12336"
 Zenodo = "https://doi.org/10.5281/zenodo.18788242"
 
 [dependency-groups]

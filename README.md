@@ -23,6 +23,7 @@
   <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><img src="https://img.shields.io/badge/news-changelog-yellow" alt="Changelog"></a>
 </p>
 <p align="center">
+  <a href="https://arxiv.org/abs/2610.12336"><img src="https://img.shields.io/badge/arXiv-2610.12336-b31b1b.svg" alt="arXiv"></a>
   <a href="https://doi.org/10.5281/zenodo.18788242"><img src="https://img.shields.io/badge/DOI-10.5281/zenodo.18788242-blue.svg" alt="DOI"></a>
 </p>
 
@@ -164,13 +165,19 @@ The asdex logo was designed by [@overripemango](https://instagram.com/overripema
 
 ## Citation
 
-If you use asdex in your research, please cite:
+If you use asdex in your research, please cite our [preprint](https://arxiv.org/abs/2610.12336):
 
 ```bibtex
-@software{asdex2026,
+@misc{hill2026asdex,
   author = {Hill, Adrian and Dalle, Guillaume},
   title = {asdex: Automatic Sparse Differentiation in JAX},
-  url = {https://github.com/adrhill/asdex},
-  doi = {10.5281/zenodo.18788242}
+  year = {2026},
+  eprint = {2610.12336},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.MS},
+  doi = {10.48550/arXiv.2610.12336},
+  url = {https://arxiv.org/abs/2610.12336}
 }
 ```
+
+To cite a specific version of the software, use its [Zenodo DOI](https://doi.org/10.5281/zenodo.18788242).

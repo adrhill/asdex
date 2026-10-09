@@ -12,6 +12,7 @@
 [![Benchmarks](https://img.shields.io/badge/benchmarks-view-blue)](https://adrianhill.de/asdex/dev/bench/)
 [![Changelog](https://img.shields.io/badge/news-changelog-yellow)](https://github.com/adrhill/asdex/blob/main/CHANGELOG.md)
 
+[![arXiv](https://img.shields.io/badge/arXiv-2610.12336-b31b1b.svg)](https://arxiv.org/abs/2610.12336)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18788242.svg)](https://doi.org/10.5281/zenodo.18788242)
 
 **Automatic Sparse Differentiation in JAX.**
@@ -136,13 +137,19 @@ These works in turn stand on the shoulders of giants, notably Andreas Griewank, 
 
 ## Citation
 
-If you use asdex in your research, please cite:
+If you use asdex in your research, please cite our [preprint](https://arxiv.org/abs/2610.12336):
 
 ```bibtex
-@software{asdex2026,
+@misc{hill2026asdex,
   author = {Hill, Adrian and Dalle, Guillaume},
   title = {asdex: Automatic Sparse Differentiation in JAX},
-  url = {https://github.com/adrhill/asdex},
-  doi = {10.5281/zenodo.18788242}
+  year = {2026},
+  eprint = {2610.12336},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.MS},
+  doi = {10.48550/arXiv.2610.12336},
+  url = {https://arxiv.org/abs/2610.12336}
 }
 ```
+
+To cite a specific version of the software, use its [Zenodo DOI](https://doi.org/10.5281/zenodo.18788242).
