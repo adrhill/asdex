@@ -11,6 +11,7 @@ from ._common import (
     _forward_into_jaxpr,
     _index_sets,
     _PropState,
+    _report_issue,
     _seed_const_vals,
 )
 
@@ -103,11 +104,12 @@ def _fixed_point_loop(
 
         if not changed:
             return
-    else:  # pragma: no cover
-        msg = (
+
+    # Unreachable: index sets grow monotonically on a finite lattice,
+    # so the loop always converges well within the iteration budget.
+    raise RuntimeError(  # pragma: no cover
+        _report_issue(
             f"Fixed-point iteration did not converge after "
-            f"{_MAX_FIXED_POINT_ITERS} iterations. "
-            "Please help out asdex's development by reporting this at "
-            "https://github.com/adrhill/asdex/issues"
+            f"{_MAX_FIXED_POINT_ITERS} iterations."
         )
-        raise RuntimeError(msg)
+    )

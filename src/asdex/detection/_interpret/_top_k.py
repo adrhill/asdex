@@ -11,6 +11,7 @@ from jax._src.core import JaxprEqn
 from ._common import (
     _atom_numel,
     _atom_shape,
+    _empty_index_sets,
     _index_sets,
     _PropState,
     _union_all,
@@ -57,4 +58,4 @@ def _prop_top_k(eqn: JaxprEqn, state: _PropState) -> None:
     state.indices[eqn.outvars[0]] = [
         group_indices[b] for b in range(n_batches) for _ in range(k)
     ]
-    state.indices[eqn.outvars[1]] = [set() for _ in range(_atom_numel(eqn.outvars[1]))]
+    state.indices[eqn.outvars[1]] = _empty_index_sets(_atom_numel(eqn.outvars[1]))
