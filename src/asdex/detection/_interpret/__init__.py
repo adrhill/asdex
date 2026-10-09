@@ -126,6 +126,12 @@ def _check_index_set_counts(eqn: JaxprEqn, state: _PropState) -> None:
     Each output element needs exactly one index set.
     A wrong count would silently shift or drop rows of the sparsity pattern,
     since rows are assigned by position.
+
+    Example: y = sin(x) where x is f32[3], handler records [{0}, {1}]
+        y has 3 elements but only 2 index sets.
+        Without this check, y[2] would get no row,
+        and every later row would move up by one.
+        Raises RuntimeError naming 'sin'.
     """
     for outvar in eqn.outvars:
         if outvar not in state.indices:
