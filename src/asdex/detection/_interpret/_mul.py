@@ -6,8 +6,10 @@ from jax._src.core import JaxprEqn
 from ._common import (
     _binary_value_bounds,
     _clear_where_zero,
+    _exact_ints,
     _propagate_const_binary,
     _PropState,
+    _set_value_bounds,
 )
 from ._elementwise import _binary_elementwise
 
@@ -53,6 +55,7 @@ def _propagate_bounds_mul(
         return
 
     (lo1, hi1), (lo2, hi2) = bounds
+    lo1, hi1, lo2, hi2 = map(_exact_ints, (lo1, hi1, lo2, hi2))
 
     c1 = lo1 * lo2
     c2 = lo1 * hi2
@@ -61,4 +64,4 @@ def _propagate_bounds_mul(
 
     lo = np.minimum(np.minimum(c1, c2), np.minimum(c3, c4))
     hi = np.maximum(np.maximum(c1, c2), np.maximum(c3, c4))
-    state.bounds[eqn.outvars[0]] = (lo, hi)
+    _set_value_bounds(state, eqn.outvars[0], lo, hi)

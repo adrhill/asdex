@@ -12,6 +12,7 @@ from ._common import (
     _numel,
     _permute_indices,
     _PropState,
+    _set_value_bounds,
 )
 
 
@@ -120,7 +121,9 @@ def _propagate_bounds_broadcast(eqn: JaxprEqn, state: _PropState) -> None:
     broadcast_dims = eqn.params["broadcast_dimensions"]
     intermediate_shape = _intermediate_shape(lo.shape, out_shape, broadcast_dims)
 
-    state.bounds[eqn.outvars[0]] = (
+    _set_value_bounds(
+        state,
+        eqn.outvars[0],
         np.broadcast_to(np.reshape(lo, intermediate_shape), out_shape),
         np.broadcast_to(np.reshape(hi, intermediate_shape), out_shape),
     )

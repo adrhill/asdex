@@ -7,10 +7,14 @@
 * ![Enhancement][badge-enhancement] Speed up sparsity detection of `dot_general` by factoring the contraction into row and column unions, and of pass-through primitives by sharing index sets instead of copying them ([#198])
 * ![Enhancement][badge-enhancement] Speed up sparsity detection: vectorize `conv_general_dilated` and stop propagating through a `scan` once its carry stops changing ([#202])
 * ![Enhancement][badge-enhancement] Only copy closure constants such as network weights to the host during sparsity detection when their values are needed ([#203])
+* ![Enhancement][badge-enhancement] Propagate value bounds through `max`, `min`, and `clamp`, so clipping a data-dependent index into range (e.g. `jnp.clip(idx, 0, n)`) keeps it bounded.
+  Previously `jnp.clip` erased the bounds and downstream `gather`, `scatter`, and `dynamic_slice` fell back to a dense pattern ([#205])
 * ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros for `while` loops whose condition and body both capture constants, integer `div` and `rem` of constants, and `scatter` with `mode='clip'` ([#196])
 * ![Bugfix][badge-bugfix] Treat every update as a possible writer when replace-mode `scatter` has duplicate indices, since XLA does not define which one wins ([#196])
 * ![Bugfix][badge-bugfix] Raise an error instead of guessing a default when sparsity detection reads a variable whose dependencies were never recorded, since the guess could have the wrong size ([#196])
 * ![Bugfix][badge-bugfix] Return a conservative pattern instead of raising for input-dependent indices in `scatter`, `dynamic_slice`, and `dynamic_update_slice` and for input-dependent `conv` kernels ([#197])
+* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros when a `jit`-wrapped helper is called more than once, for example `jnp.clip` on both a constant and a data-dependent index ([#205])
+* ![Bugfix][badge-bugfix] Fix sparsity patterns that missed nonzeros when a bounded integer index overflows its dtype ([#205])
 * ![Documentation][badge-docs] Cite the [arXiv preprint](https://arxiv.org/abs/2610.12336) in the README, docs landing page, and `CITATION.cff` ([#212])
 * ![Maintenance][badge-maintenance] Cross-validate the greedy colorings and their validators against [SparseMatrixColorings.jl](https://github.com/JuliaDiff/SparseMatrixColorings.jl), the Julia package they were ported from.
   The new `tests/smc/` suite calls Julia through `juliacall` and runs in its own CI job, so the core test suite never loads Julia ([#187])
@@ -152,6 +156,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 
 
 [#212]: https://github.com/adrhill/asdex/pull/212
+[#205]: https://github.com/adrhill/asdex/pull/205
 [#203]: https://github.com/adrhill/asdex/pull/203
 [#202]: https://github.com/adrhill/asdex/pull/202
 [#198]: https://github.com/adrhill/asdex/pull/198

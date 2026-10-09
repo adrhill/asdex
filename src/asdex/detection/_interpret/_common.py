@@ -51,7 +51,10 @@ until ``_atom_const_val`` materializes them to numpy on first read,
 so constants that are never read as values are never copied to host.
 """
 
-StateBounds = dict[Var, tuple[np.ndarray, np.ndarray]]
+ValueBounds = tuple[np.ndarray, np.ndarray]
+"""Per-element inclusive ``(lo, hi)`` bounds for the elements of one array."""
+
+StateBounds = dict[Var, ValueBounds]
 """Maps variables to per-element inclusive (lo, hi) integer bounds.
 
 Used to track bounded-but-not-constant values
@@ -80,8 +83,13 @@ class _PropState:
     ``indices`` is scoped to a single jaxpr:
     each nested jaxpr (cond branch, while body, jit call) gets a fresh dict,
     so intermediate index sets can be freed when the scope ends.
-    ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
-    which is safe because jaxpr variables are globally unique objects.
+    ``consts`` and ``bounds`` are shared across nested scopes by aliasing.
+    JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
+    can be propagated from several call sites.
+    Value info on a jaxpr's vars is therefore overwritten on every entry:
+    ``_forward_across_jaxpr_boundary`` clears what it cannot forward,
+    ``_forget_value_info`` clears inputs that are never forwarded,
+    and ``_prop_jaxpr`` clears each equation's outvars before dispatch.
     """
 
     indices: StateIndices = field(default_factory=dict)
@@ -117,7 +125,7 @@ or two indices each with up to 8 possible values).
 """
 
 
-def _bounded_ranges(bounds: tuple[np.ndarray, np.ndarray]) -> list[range]:
+def _bounded_ranges(bounds: ValueBounds) -> list[range]:
     """Build per-element inclusive candidate ranges from (lo, hi) bounds.
 
     Feeds ``_enumerate_bounded_patterns``:
@@ -282,7 +290,7 @@ def _atom_const_val(atom: Atom, state: _PropState) -> np.ndarray | None:
 def _atom_value_bounds(
     atom: Atom,
     state: _PropState,
-) -> tuple[np.ndarray, np.ndarray] | None:
+) -> ValueBounds | None:
     """Get per-element inclusive (lo, hi) bounds for an atom.
 
     Returns exact ``(val, val)`` for constants,
@@ -297,10 +305,54 @@ def _atom_value_bounds(
     return None
 
 
+def _exact_ints(a: np.ndarray) -> np.ndarray:
+    """Widen an integer array to Python ints so bounds arithmetic cannot wrap.
+
+    Interval arithmetic in the operand dtype silently wraps on overflow
+    (e.g. int8 ``120 + 15`` gives ``-121``),
+    yielding bounds that exclude values the program computes.
+    Arbitrary-precision ints keep the endpoints exact,
+    and ``_set_value_bounds`` then drops any interval
+    that does not fit the output dtype.
+    Non-integer arrays are returned unchanged.
+    """
+    a = np.asarray(a)
+    if np.issubdtype(a.dtype, np.integer):
+        return a.astype(object)
+    return a
+
+
+def _set_value_bounds(
+    state: _PropState, var: Var, lo: np.ndarray, hi: np.ndarray
+) -> None:
+    """Store ``(lo, hi)`` as the value bounds of ``var`` if they are sound.
+
+    Every bounds write goes through here,
+    so stored bounds always satisfy ``lo <= hi``
+    and, for integer outputs, lie within the output dtype's range.
+    Bounds outside that range mean the computation may wrap around,
+    so the real values are not an interval and nothing is stored.
+    """
+    lo, hi = np.asarray(lo), np.asarray(hi)
+    if not np.all(lo <= hi):
+        return
+    aval_dtype = getattr(var.aval, "dtype", None)
+    if aval_dtype is None:
+        return
+    dtype = np.dtype(aval_dtype)
+    if np.issubdtype(dtype, np.integer):
+        info = np.iinfo(dtype.type)
+        if not (np.all(lo >= info.min) and np.all(hi <= info.max)):
+            return
+        lo = lo.astype(dtype, copy=False)
+        hi = hi.astype(dtype, copy=False)
+    state.bounds[var] = (lo, hi)
+
+
 def _binary_value_bounds(
     eqn: JaxprEqn,
     state: _PropState,
-) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]] | None:
+) -> tuple[ValueBounds, ValueBounds] | None:
     """Get value bounds for both operands of a binary op, or ``None`` if either is unknown.
 
     The first operand is checked before the second is read,
@@ -316,6 +368,29 @@ def _binary_value_bounds(
     if b2 is None:
         return None
     return b1, b2
+
+
+def _ternary_value_bounds(
+    eqn: JaxprEqn,
+    state: _PropState,
+) -> tuple[ValueBounds, ValueBounds, ValueBounds] | None:
+    """Get value bounds for all three operands of a ternary op.
+
+    Returns ``None`` as soon as an operand's bounds are unknown,
+    for the same reason as in ``_binary_value_bounds``:
+    a later operand's const is never materialized
+    once the result is known to be discarded.
+    """
+    b1 = _atom_value_bounds(eqn.invars[0], state)
+    if b1 is None:
+        return None
+    b2 = _atom_value_bounds(eqn.invars[1], state)
+    if b2 is None:
+        return None
+    b3 = _atom_value_bounds(eqn.invars[2], state)
+    if b3 is None:
+        return None
+    return b1, b2, b3
 
 
 def _propagate_const_unary(
@@ -596,8 +671,12 @@ def _forward_across_jaxpr_boundary(
     reading them here would force the host copies
     that ``_seed_const_vals`` deliberately defers
     at every nested-jaxpr boundary.
+
+    Destinations whose source has no const value or bounds are cleared,
+    so a reused jaxpr does not keep value info from an earlier call site.
     """
     for src, dst in zip(src_atoms, dst_vars, strict=False):
+        _forget_value_info(state, [dst])
         if isinstance(src, Literal):
             state.consts[dst] = np.asarray(src.val)
         elif isinstance(src, Var):
@@ -605,3 +684,17 @@ def _forward_across_jaxpr_boundary(
                 state.consts[dst] = state.consts[src]
             if src in state.bounds:
                 state.bounds[dst] = state.bounds[src]
+
+
+def _forget_value_info(state: _PropState, variables: Sequence[Var]) -> None:
+    """Drop any const values and value bounds stored on ``variables``.
+
+    Used for nested-jaxpr inputs that are never forwarded
+    (e.g. loop carries, whose values change every iteration)
+    and for equation outputs before they are recomputed.
+    Without it, a jaxpr reused from an earlier call site
+    would still carry that call's value info.
+    """
+    for var in variables:
+        state.consts.pop(var, None)
+        state.bounds.pop(var, None)

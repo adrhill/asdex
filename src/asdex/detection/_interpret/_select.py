@@ -7,12 +7,14 @@ from jax._src.core import JaxprEqn, Var
 
 from ._common import (
     Atom,
+    ValueBounds,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
     _atom_value_bounds,
     _index_sets,
     _PropState,
+    _set_value_bounds,
     _union_elementwise,
 )
 
@@ -34,16 +36,14 @@ def _all_const_vals(
     return vals
 
 
-def _merged_case_bounds(
-    atoms: Sequence[Atom], state: _PropState
-) -> tuple[np.ndarray, np.ndarray] | None:
+def _merged_case_bounds(atoms: Sequence[Atom], state: _PropState) -> ValueBounds | None:
     """Element-wise ``(min lo, max hi)`` envelope of every atom's bounds.
 
     Returns ``None`` as soon as one atom has no bounds,
     since the envelope needs all of them.
     Stopping early keeps the remaining cases' consts unmaterialized.
     """
-    merged: tuple[np.ndarray, np.ndarray] | None = None
+    merged: ValueBounds | None = None
     for atom in atoms:
         bounds = _atom_value_bounds(atom, state)
         if bounds is None:
@@ -123,11 +123,11 @@ def _prop_select_n(
     # Dynamic or mixed predicate → merge bounds across all branches.
     bounds = _merged_case_bounds(cases, state)
     if bounds is not None:
-        state.bounds[out_var] = bounds
+        _set_value_bounds(state, out_var, *bounds)
 
 
 def _store_branch_bounds(state: _PropState, out_var: Var, case: Atom) -> None:
     """Store one branch's value bounds as the output's, if that branch has any."""
     bounds = _atom_value_bounds(case, state)
     if bounds is not None:
-        state.bounds[out_var] = bounds
+        _set_value_bounds(state, out_var, *bounds)

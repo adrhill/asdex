@@ -6,6 +6,7 @@ from jax._src.core import JaxprEqn
 from ._common import (
     _atom_shape,
     _PropState,
+    _set_value_bounds,
 )
 from ._elementwise import _prop_zero_derivative
 
@@ -40,4 +41,4 @@ def _prop_argmax(eqn: JaxprEqn, state: _PropState) -> None:
     out_var = eqn.outvars[0]
     lo = np.zeros(_atom_shape(out_var), dtype=np.int64)
     hi = np.full(_atom_shape(out_var), axis_size - 1, dtype=np.int64)
-    state.bounds[out_var] = (lo, hi)
+    _set_value_bounds(state, out_var, lo, hi)

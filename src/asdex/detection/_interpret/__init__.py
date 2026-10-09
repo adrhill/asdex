@@ -17,6 +17,7 @@ from ._common import (
     _atom_numel,
     _conservative_indices,
     _empty_index_sets,
+    _forget_value_info,
     _forward_across_jaxpr_boundary,
     _index_sets,
     _PropState,
@@ -37,6 +38,8 @@ from ._elementwise import (
     _prop_clamp,
     _prop_convert_element_type,
     _prop_integer_pow,
+    _prop_max,
+    _prop_min,
     _prop_sub,
     _prop_ternary_elementwise,
     _prop_unary_elementwise,
@@ -104,8 +107,11 @@ def _prop_jaxpr(
     for var in jaxpr.constvars:
         state.indices[var] = _empty_index_sets(_atom_numel(var))
 
-    # Process each equation
+    # Process each equation.
+    # Handlers only record value info they can derive,
+    # so clear what a reused jaxpr's outvars kept from an earlier call site.
     for eqn in jaxpr.eqns:
+        _forget_value_info(state, eqn.outvars)
         _prop_dispatch(eqn, state)
 
     # Return output dependencies
@@ -215,11 +221,15 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_sub(eqn, state)
         case "div":
             _prop_div(eqn, state)
+        # ∂max/∂x = 1 if x>y else 0, ∂max/∂y = 1 if y>x else 0
+        case "max":
+            _prop_max(eqn, state)
+        # ∂min/∂x = 1 if x<y else 0, ∂min/∂y = 1 if y<x else 0
+        case "min":
+            _prop_min(eqn, state)
         # Binary elementwise with nonzero partials wrt both operands
         case (
             "pow"  # ∂(x^y)/∂x = y·x^(y-1), ∂(x^y)/∂y = x^y·ln(x)
-            | "max"  # ∂max/∂x = 1 if x>y else 0, ∂max/∂y = 1 if y>x else 0
-            | "min"  # ∂min/∂x = 1 if x<y else 0, ∂min/∂y = 1 if y<x else 0
             | "atan2"  # ∂atan2(y,x)/∂y = x/(x²+y²), ∂/∂x = -y/(x²+y²)
             | "rem"  # ∂(x mod y)/∂x = 1, ∂(x mod y)/∂y = -⌊x/y⌋
             | "nextafter"
