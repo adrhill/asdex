@@ -873,16 +873,16 @@ _WINDOW_DNUMS = jax.lax.ScatterDimensionNumbers(
 
 @pytest.mark.array_ops
 @pytest.mark.parametrize(
-    ("scatter", "start", "written"),
+    ("scatter", "start"),
     [
-        pytest.param(jax.lax.scatter, 3, [3, 4], id="set-fits"),
-        pytest.param(jax.lax.scatter, 4, [], id="set-past_end"),
-        pytest.param(jax.lax.scatter, -1, [], id="set-negative"),
-        pytest.param(jax.lax.scatter_add, 3, [3, 4], id="add-fits"),
-        pytest.param(jax.lax.scatter_add, 4, [], id="add-past_end"),
+        pytest.param(jax.lax.scatter, 3, id="set-fits"),
+        pytest.param(jax.lax.scatter, 4, id="set-past_end"),
+        pytest.param(jax.lax.scatter, -1, id="set-negative"),
+        pytest.param(jax.lax.scatter_add, 3, id="add-fits"),
+        pytest.param(jax.lax.scatter_add, 4, id="add-past_end"),
     ],
 )
-def test_scatter_drops_partially_oob_window(scatter, start, written):
+def test_scatter_drops_partially_oob_window(scatter, start):
     """A window that is partly out of bounds is dropped as a whole.
 
     The size-2 window starting at 4 covers positions 4 and 5 of a length-5 operand.
@@ -901,10 +901,3 @@ def test_scatter_drops_partially_oob_window(scatter, start, written):
 
     x = jnp.arange(1.0, 8.0)
     assert_jacobian_sparsity_exact(f, x)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    expected = np.eye(5, 7, dtype=int)
-    is_combine = scatter is jax.lax.scatter_add
-    for offset, pos in enumerate(written):
-        expected[pos, pos] = int(is_combine)
-        expected[pos, 5 + offset] = 1
-    np.testing.assert_array_equal(result, expected)
