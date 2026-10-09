@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791551435848,
+  "lastUpdate": 1791554603569,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -21696,6 +21696,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000009727263597628234",
             "extra": "mean: 26.25685753307273 usec\nrounds: 10985"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "755c95c18dfc4b76c6cdc39e56de472df55caca5",
+          "message": "refactor(detection): small cleanups in the interpreter (#204)\n\n* refactor: raise on a _UNARY_CONST_UFUNCS desync instead of no-oping\n\n_prop_zero_derivative_unary_const looked the ufunc up with .get and\nsilently skipped const propagation on a miss, so a primitive added to the\n_prop_dispatch case but not to the dict would quietly break the const\nchain and degrade downstream gather/scatter to a conservative pattern.\n\nIndex the dict directly so a desync raises KeyError, and document why the\nbinary sibling deliberately keeps .get: _BINARY_CONST_UFUNCS covers only a\nsubset of a broad dispatch group, where a miss is not a desync.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* refactor: extract _merge_index_dependencies for bounded enumeration\n\nThe three-line block unioning the index operand's own index sets into\nevery enumerated pattern was copy-pasted verbatim after each\n_enumerate_bounded_patterns success path in gather, scatter,\ndynamic_slice, and dynamic_update_slice.\n\nFour sites had to move in lockstep when the merge rule changed, and the\nnext handler gaining bounded enumeration could silently miss it.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* refactor: reuse _fixed_base_positions for dot_general contracting offsets\n\nThe contracting-offset loops were element-for-element the body of\n_fixed_base_positions, defined in the same module. Contract sizes pair up\nby dot_general's contract, so passing the contracting dims gives the same\noffsets, and contract_coords/contract_sizes/n_contract fall away.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* refactor: split _iter_si_starts' batch shapes from its iterator\n\nThe helper bundled two independent concerns into one return value, and\neach caller discarded a different half: _gather_flat_map used the shapes\nand ignored the per-item batch indices, while _scatter_flat_map used the\nbatch indices and ignored the shapes.\n\n_si_batch_shapes now computes the shapes, _iter_si_starts is a plain\ngenerator, and the shared axis derivation lives in _si_batch_axes.\nGather calls both, scatter calls only the iterator.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* refactor: confine the IndexSet backend to its factory helpers\n\nSeven handler annotations spelled `set[int]` directly,\nand `_scatter_for_indices` copied an individual index set,\nboth of which hard-code the current backend outside `_common`.\n\nReplace the annotations with `IndexSet`,\nand build the combine-semantics result with `_union_all`\ninstead of `.copy()` followed by `|=`,\nwhich drops an indirection and makes both scatter branches read the same way.\n\nDocument the guaranteed operation surface in the interpreter's CLAUDE.md:\nconstruction, union, emptiness, copying, and annotations,\nplus the single site where an index set is iterated\nto recover concrete indices.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* refactor: name broadcast_in_dim's intermediate shape for what it is\n\n`intermediate` reads as a value in a file\nwhere every other shape-valued local ends in `_shape`.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\n\n* docs: add examples to interpreter helper docstrings\n\nAdd examples to _merge_index_dependencies, _si_batch_axes, _si_batch_shapes,\n_iter_si_starts (batched case), and _coo_from_index_sets,\nand document _si_batch_shapes' arguments.\nExplain why _UNARY_CONST_UFUNCS is indexed directly\nwhile _BINARY_CONST_UFUNCS is looked up with .get.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: explain the start-indices layout behind the gather helpers\n\nDescribe how start_indices splits into the index-vector dim,\nvmap batching dims, and the dims that enumerate index vectors,\nand tie the _si_batch_axes, _si_batch_shapes, and _iter_si_starts examples\nto the x[idx] and vmapped row[i] calls that produce them.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: show where the gather helpers' start-indices arguments come from\n\nTrim the _si_batch_axes and _si_batch_shapes docstrings to two examples each,\nand spell out how x[idx] and vmap produce si_shape, the batching dims,\nand index_map.\nName every dim by its 0-based position and state its size separately.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: explain why vmap's batching dim is not an si batch axis\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T16:02:51+02:00",
+          "tree_id": "15c9bd8c8f0e28df6a8a771fc8bd922c87fa1bcc",
+          "url": "https://github.com/adrhill/asdex/commit/755c95c18dfc4b76c6cdc39e56de472df55caca5"
+        },
+        "date": 1791554602372,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1119.7139354798892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00014614753102709532",
+            "extra": "mean: 893.0852500030894 usec\nrounds: 32"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 43117.58576023659,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001913048323549213",
+            "extra": "mean: 23.192393135383032 usec\nrounds: 10139"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 124303.73139619618,
+            "unit": "iter/sec",
+            "range": "stddev: 9.153873355139506e-7",
+            "extra": "mean: 8.04481079343207 usec\nrounds: 38820"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 85480.71279294747,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013175552353051555",
+            "extra": "mean: 11.698545406637091 usec\nrounds: 20867"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 123604.38037459196,
+            "unit": "iter/sec",
+            "range": "stddev: 9.535735546761778e-7",
+            "extra": "mean: 8.090328166116995 usec\nrounds: 41738"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 279.8270996027576,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00019038064971323943",
+            "extra": "mean: 3.5736352962940314 msec\nrounds: 27"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 4741.477600151525,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011104159979762047",
+            "extra": "mean: 210.9047188091836 usec\nrounds: 3695"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2746.487033515794,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000052427727188923306",
+            "extra": "mean: 364.1014822924156 usec\nrounds: 2513"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2825.877420506206,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000018789115990075586",
+            "extra": "mean: 353.872391188457 usec\nrounds: 1498"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 6053.8214724458885,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012483559229161375",
+            "extra": "mean: 165.18491741976925 usec\nrounds: 4868"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 224.09754796936926,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006248895833691727",
+            "extra": "mean: 4.462342444446044 msec\nrounds: 90"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 43464.077791761614,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001803045029747895",
+            "extra": "mean: 23.007505296466793 usec\nrounds: 33135"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 27575.53981216484,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001617732487963862",
+            "extra": "mean: 36.264022637876124 usec\nrounds: 18288"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 26960.600098373212,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000013850910934970021",
+            "extra": "mean: 37.09116252424736 usec\nrounds: 19474"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 26483.877794816308,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017666364669101617",
+            "extra": "mean: 37.75882096071785 usec\nrounds: 16259"
           }
         ]
       }
