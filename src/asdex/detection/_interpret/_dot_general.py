@@ -16,6 +16,41 @@ from ._common import (
 )
 
 
+def _fixed_base_positions(
+    shape: tuple[int, ...],
+    batch_dims: tuple[int, ...],
+    free_dims: tuple[int, ...],
+) -> np.ndarray:
+    """Flat position where each contracted slice of an operand starts.
+
+    For a matrix multiply, the contracted slices are the rows of lhs and the columns of rhs.
+    Each base is the flat position of the first element of one slice.
+    Adding the contracting offsets to a base gives the flat positions of the whole slice.
+
+    Returns an array of shape ``(batch_size, free_size)``,
+    with one row of bases per batch index.
+    ``batch_dims`` and ``free_dims`` are listed in the order of the output axes they map to,
+    so the bases come out in the same order as the output elements.
+
+    The contracting offsets themselves are `_dim_offsets` over the contracting dims:
+    the flat positions of each contracting coordinate at the zero fixed coordinate.
+
+    Example: matrix multiply A(2,3) @ B(3,4) -> C(2,4)
+        Flat positions of A:  [[0, 1, 2],
+                               [3, 4, 5]]
+        Rows of A start at 0 and 3, so bases = [[0, 3]].
+        Row 1 is base 3 plus offsets [0, 1, 2], i.e. positions [3, 4, 5].
+
+        Flat positions of B:  [[0, 1,  2,  3],
+                               [4, 5,  6,  7],
+                               [8, 9, 10, 11]]
+        Columns of B start at 0, 1, 2, and 3, so bases = [[0, 1, 2, 3]].
+        Column 2 is base 2 plus offsets [0, 4, 8], i.e. positions [2, 6, 10].
+    """
+    batch_size = _numel(tuple(shape[d] for d in batch_dims))
+    return _dim_offsets(shape, batch_dims + free_dims).reshape(batch_size, -1)
+
+
 def _contract_union_sets(
     indices: list[IndexSet], bases: np.ndarray, offsets: np.ndarray
 ) -> list[IndexSet]:
@@ -50,11 +85,11 @@ def _zero_skipping_index_sets(
 
     Args:
         const_vals: Flat values of the constant operand.
-        const_bases: Constant operand bases from `_dim_offsets` over its batch and free dims,
+        const_bases: Constant operand bases from `_fixed_base_positions`,
             of shape ``(batch_size, const_free_size)``.
         const_offsets: Flat contracting offsets into the constant operand.
         traced_indices: Flat index sets of the traced operand.
-        traced_bases: Traced operand bases from `_dim_offsets` over its batch and free dims,
+        traced_bases: Traced operand bases from `_fixed_base_positions`,
             of shape ``(batch_size, traced_free_size)``.
         traced_offsets: Flat contracting offsets into the traced operand,
             paired elementwise with ``const_offsets``.
@@ -200,13 +235,9 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     lhs_offsets = _dim_offsets(lhs_shape, lhs_contract)
     rhs_offsets = _dim_offsets(rhs_shape, rhs_contract)
 
-    # Flat positions of the fixed (batch and free) coordinates at contracting zero.
-    # Listing batch dims before free dims enumerates them
-    # in the same C order as the output axes they map to.
     # Shape (batch_size, free_size) each, with matching batch rows.
-    batch_size = _numel(tuple(lhs_shape[d] for d in lhs_batch))
-    lhs_bases = _dim_offsets(lhs_shape, lhs_batch + lhs_free).reshape(batch_size, -1)
-    rhs_bases = _dim_offsets(rhs_shape, rhs_batch + rhs_free).reshape(batch_size, -1)
+    lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch, lhs_free)
+    rhs_bases = _fixed_base_positions(rhs_shape, rhs_batch, rhs_free)
 
     out_indices: list[IndexSet]
     match (lhs_known, rhs_known):
