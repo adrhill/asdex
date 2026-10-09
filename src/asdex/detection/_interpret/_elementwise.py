@@ -9,6 +9,7 @@ from jax import lax
 from jax._src.core import JaxprEqn
 
 from ._common import (
+    IndexSet,
     _atom_const_val,
     _atom_numel,
     _atom_shape,
@@ -119,6 +120,19 @@ def _lax_round(val: np.ndarray, rounding_method: lax.RoundingMethod) -> np.ndarr
 # Functions for evaluating unary constant values during tracing.
 # Entries must match lax semantics.
 # round is absent because its numpy counterpart depends on ``rounding_method``.
+#
+# These keys plus round must stay in sync with the _prop_zero_derivative_unary_const case
+# in _prop_dispatch, which a match statement cannot derive from this dict.
+# _prop_zero_derivative_unary_const indexes directly rather than using .get.
+# Its dispatch case exists only to propagate consts for exactly these primitives,
+# so a missing key can only mean the dict and the case drifted apart.
+# Raising KeyError surfaces that, instead of silently breaking the const chain
+# and degrading downstream gather/scatter to a conservative pattern.
+# _BINARY_CONST_UFUNCS is looked up with .get instead,
+# because its handlers are shared with primitives it deliberately leaves out.
+# For example, _prop_binary_const also handles complex and polygamma,
+# which never appear in index arithmetic,
+# so a miss there is expected and just skips const propagation.
 _UNARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
     "sign": np.sign,
     "floor": np.floor,
@@ -193,11 +207,11 @@ def _binary_elementwise(
 
 
 def _union_with_zero_derivs(
-    s1: set[int],
-    s2: set[int],
+    s1: IndexSet,
+    s2: IndexSet,
     is_der1_zero: bool,
     is_der2_zero: bool,
-) -> set[int]:
+) -> IndexSet:
     """Union index sets, excluding inputs with zero derivatives.
 
     The result may alias an input set,
@@ -247,6 +261,27 @@ def _propagate_bounds_sub(
     state.bounds[eqn.outvars[0]] = (lo1 - hi2, hi1 - lo2)
 
 
+def _propagate_bounds_extremum(
+    eqn: JaxprEqn,
+    state: _PropState,
+    combine: np.ufunc,
+) -> None:
+    """Propagate value bounds through ``max`` or ``min`` via interval arithmetic.
+
+    Both are monotone increasing in each operand,
+    so evaluating at the interval endpoints is exact:
+    ``max([a,b], [c,d]) = [max(a,c), max(b,d)]``.
+
+    This is what keeps ``jnp.clip`` on an index from erasing its bounds,
+    since ``clip`` lowers to ``max`` followed by ``min``, not to ``clamp``.
+    """
+    bounds = _binary_value_bounds(eqn, state)
+    if bounds is None:
+        return
+    (lo1, hi1), (lo2, hi2) = bounds
+    state.bounds[eqn.outvars[0]] = (combine(lo1, lo2), combine(hi1, hi2))
+
+
 # Composite handlers (public)
 # Each corresponds to exactly one dispatch case in _prop_dispatch.
 
@@ -288,6 +323,10 @@ def _prop_zero_derivative_unary_const(eqn: JaxprEqn, state: _PropState) -> None:
     (e.g. inside the ``jnp.floor_divide`` expansion).
     Without const propagation here the chain breaks
     and downstream gather/scatter falls back to conservative.
+
+    Indexes ``_UNARY_CONST_UFUNCS`` directly,
+    so a primitive added to the dispatch case but not to the dict
+    raises instead of silently skipping const propagation.
     """
     _zero_derivative(eqn, state)
     match eqn.primitive.name:

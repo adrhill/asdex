@@ -21,6 +21,7 @@ from asdex._docstrings import _fill_doc
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import _prop_jaxpr
 from asdex.detection._interpret._common import (
+    IndexSet,
     _empty_index_sets,
     _PropState,
     _seed_const_vals,
@@ -202,7 +203,7 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
 
 
 def _coo_from_index_sets(
-    out_indices: list,
+    out_indices: list[IndexSet],
 ) -> tuple[list[int], list[int]]:
     """Flatten per-output dependency sets into COO rows/cols.
 
@@ -210,6 +211,14 @@ def _coo_from_index_sets(
     so detected patterns are row-major sorted and deterministic
     (set iteration order is not guaranteed)
     and ``SparsityPattern.to_bcoo`` can mark its output as sorted.
+
+    This is the only place an ``IndexSet`` is iterated to recover concrete indices.
+    Keeping it the sole iteration site is what lets the backend be swapped
+    for one without cheap ordered iteration.
+
+    Example: out_indices = [{2, 0}, {}, {1}]
+        Row 1 has no dependencies and contributes no entries.
+        Returns rows = [0, 0, 2], cols = [0, 2, 1].
     """
     rows: list[int] = []
     cols: list[int] = []
