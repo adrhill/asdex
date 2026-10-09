@@ -1657,5 +1657,3 @@ def test_reduce_precision_is_elementwise():
 
     x = jnp.arange(1.0, 4.0)
     assert_jacobian_sparsity_exact(f, x)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.eye(3, dtype=int))

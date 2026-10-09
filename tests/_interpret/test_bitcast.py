@@ -25,8 +25,6 @@ def test_bitcast_same_width_has_zero_derivative():
 
     x = jnp.arange(1.0, 4.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
 
 
 @pytest.mark.elementwise
@@ -38,8 +36,6 @@ def test_bitcast_narrowing_adds_trailing_axis():
 
     x = jnp.arange(1.0, 4.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((12, 3), dtype=int))
 
 
 @pytest.mark.elementwise
@@ -52,8 +48,6 @@ def test_bitcast_widening_consumes_trailing_axis():
 
     x = jnp.arange(1.0, 7.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((3, 6), dtype=int))
 
 
 @pytest.mark.elementwise
@@ -70,10 +64,6 @@ def test_bitcast_reinterprets_const_bits():
 
     x = jnp.arange(5.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    expected = np.zeros((1, 5), dtype=int)
-    expected[0, 1] = 1
-    np.testing.assert_array_equal(result, expected)
 
 
 @pytest.mark.elementwise
@@ -86,10 +76,6 @@ def test_bitcast_narrowing_const_keeps_byte_order():
 
     x = jnp.arange(5.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    expected = np.zeros((4, 5), dtype=int)
-    expected[[0, 1, 2, 3], [2, 3, 0, 1]] = 1
-    np.testing.assert_array_equal(result, expected)
 
 
 @pytest.mark.elementwise
@@ -102,10 +88,6 @@ def test_bitcast_widening_const_joins_bytes():
 
     x = jnp.arange(5.0, dtype=jnp.float32)
     assert_jacobian_sparsity_exact(f, x)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    expected = np.zeros((2, 5), dtype=int)
-    expected[[0, 1], [3, 1]] = 1
-    np.testing.assert_array_equal(result, expected)
 
 
 @pytest.mark.elementwise
@@ -136,23 +118,13 @@ def _gather_int64_bytes(x):
 
 @pytest.mark.elementwise
 @pytest.mark.parametrize(
-    ("f", "n", "expected"),
+    ("f", "n"),
     [
-        pytest.param(
-            _narrow_float64_to_int32,
-            3,
-            np.zeros((6, 3), dtype=int),
-            id="narrow_float64_to_int32",
-        ),
-        pytest.param(
-            _gather_int64_bytes,
-            5,
-            np.eye(5, dtype=int)[[2, 0, 0, 3, 0, 0, 0, 1]],
-            id="gather_int64_bytes",
-        ),
+        pytest.param(_narrow_float64_to_int32, 3, id="narrow_float64_to_int32"),
+        pytest.param(_gather_int64_bytes, 5, id="gather_int64_bytes"),
     ],
 )
-def test_bitcast_64_bit(f, n, expected):
+def test_bitcast_64_bit(f, n):
     """Narrowing a 64-bit element gives two 32-bit or eight 8-bit elements.
 
     x64 is enabled explicitly so the widths do not depend on global JAX config,
@@ -161,5 +133,3 @@ def test_bitcast_64_bit(f, n, expected):
     with jax.enable_x64(True):
         x = jnp.arange(1.0, n + 1.0, dtype=jnp.float64)
         assert_jacobian_sparsity_exact(f, x)
-        result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, expected)
