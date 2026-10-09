@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791555801146,
+  "lastUpdate": 1791559752259,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -22212,6 +22212,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000009197936879370733",
             "extra": "mean: 33.47060232482778 usec\nrounds: 12646"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c86fd30b9c8252d528d0690329ab48c8bb207460",
+          "message": "fix(detection): handle bitcast, reduce_precision, and partial scatter windows (#207)\n\n* fix: give bitcast_convert_type its own handler\n\nbitcast_convert_type shared the convert_element_type handler,\nwhich got two things wrong:\n\n- Const values were converted instead of reinterpreted,\n  so bitcasting the float32 subnormal 1.4e-45 to int32 gave index 0 instead of 1.\n- Bitcasts that change the element width change the shape,\n  but index sets were passed through unchanged.\n  Narrowing f32[3] to i8[3, 4] produced 3 rows instead of 12,\n  and widening f16[3, 2] to f32[3] produced 6 rows instead of 3.\n\nThe new handler matches JAX, which defines the derivative of a bitcast as zero,\nso every output gets an empty index set of the right count.\nConsts are reinterpreted with a numpy view in the input aval's dtype.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: do not propagate unrounded consts through reduce_precision\n\nreduce_precision shared the convert_element_type handler,\nwhich passed const values through unchanged.\nreduce_precision(1.9, exponent_bits=8, mantissa_bits=1) is 2.0,\nbut asdex kept 1.9 and resolved x[int(.)] to x[1] instead of x[2].\nIt now only propagates elementwise index sets.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: drop whole scatter windows that are partially out of bounds\n\nFILL_OR_DROP discards a scatter window if any element of it is out of bounds.\nThe handler dropped only the out-of-bounds elements,\nso in replace mode the in-bounds part of such a window\ntook the update's dependencies instead of keeping the operand's.\nOnly raw lax.scatter produces such windows,\nsince jnp .at[] windows are always fully in or fully out of bounds.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: correct const and bounds notes in the interpreter guide\n\nThe guide named a nonexistent propagate_const_elementwise helper\nand claimed bounds propagators always need every operand bounded,\nwhich select_n with a uniform constant predicate does not.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix: raise when a handler records the wrong number of index sets\n\nRows of the sparsity pattern are assigned by position,\nso a handler that records too few or too many index sets for an output\nsilently shifts or drops rows instead of failing.\nThe width-changing bitcast bug was one example.\n_prop_jaxpr now checks every equation's outputs after dispatch\nand raises an error naming the primitive.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: note the bitcast, reduce_precision, and scatter window fixes in the changelog\n\n* docs: explain bitcast's zero derivative, shape change, and const byte order\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: add an example to _check_index_set_counts\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: rely on the exact check in the partial scatter window test\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: mark the unrounded reduce_precision const test as fallback\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: rely on the exact check in the bitcast and reduce_precision tests\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T17:28:40+02:00",
+          "tree_id": "9ef9a5548b536886716b30c41cac12308b9f5404",
+          "url": "https://github.com/adrhill/asdex/commit/c86fd30b9c8252d528d0690329ab48c8bb207460"
+        },
+        "date": 1791559750878,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1582.5062555388079,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00024411094317189848",
+            "extra": "mean: 631.909034482472 usec\nrounds: 29"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 47923.757997938876,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027514280282647123",
+            "extra": "mean: 20.8664771248325 usec\nrounds: 9224"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 164102.38292182455,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001037732141724586",
+            "extra": "mean: 6.093756727934793 usec\nrounds: 51576"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 112726.07636838665,
+            "unit": "iter/sec",
+            "range": "stddev: 8.98762809036763e-7",
+            "extra": "mean: 8.871061889283002 usec\nrounds: 26402"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 166881.82036699285,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010306439721367621",
+            "extra": "mean: 5.992264452777912 usec\nrounds: 54384"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 325.64298600592866,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00015254785934434983",
+            "extra": "mean: 3.070847655173491 msec\nrounds: 29"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 5152.424514020537,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007585852454706257",
+            "extra": "mean: 194.08338681699203 usec\nrounds: 4612"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 3784.403150976963,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011722955087437352",
+            "extra": "mean: 264.24246046350663 usec\nrounds: 2719"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 3808.733633971683,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008667178082884419",
+            "extra": "mean: 262.5544593301519 usec\nrounds: 1881"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 8966.461837512217,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008280531312234045",
+            "extra": "mean: 111.52671121806216 usec\nrounds: 5402"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 273.59602240801155,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005378929990877453",
+            "extra": "mean: 3.655023896907054 msec\nrounds: 97"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 47740.909478368354,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013004002065942878",
+            "extra": "mean: 20.946396097734688 usec\nrounds: 36953"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 111814.29367163587,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015210218736315947",
+            "extra": "mean: 8.943400411191543 usec\nrounds: 23346"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 96699.74847439861,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013535375770948576",
+            "extra": "mean: 10.341288532562745 usec\nrounds: 18958"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 111393.9990936098,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000040769954554849545",
+            "extra": "mean: 8.97714426393518 usec\nrounds: 24067"
           }
         ]
       }
