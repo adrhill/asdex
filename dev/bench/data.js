@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791559752259,
+  "lastUpdate": 1791561131612,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -22341,6 +22341,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000040769954554849545",
             "extra": "mean: 8.97714426393518 usec\nrounds: 24067"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c042ef728e4a58c9cd0f1c254017f5db41771915",
+          "message": "refactor(detection): share offset and join helpers, move `_lax_div` into `_div.py` (#208)\n\n* refactor: share the flat offset computation between dot_general and conv\n\nBoth handlers turned a subset of dims into flat operand offsets,\ndot_general through _fixed_base_positions and conv with an inline copy.\nMove it into _common.py as _dim_offsets,\nwhich derives the row-major strides itself.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor: move the stack/concatenate join core into _common\n\n_stack.py imported _join_inputs from _concatenate.py,\nalthough neither primitive owns the other.\nMove it into _common.py so both handlers are symmetric clients.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor: drop the dead mul entry from _BINARY_CONST_UFUNCS\n\nmul dispatches to its own handler,\nwhich passes np.multiply to _propagate_const_binary directly,\nso its entry in _BINARY_CONST_UFUNCS was never read.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor: keep _fixed_base_positions and its docstring on top of _dim_offsets\n\nThe generic _dim_offsets docstring and the call-site comment\nlost the dot_general-specific explanation of bases and offsets,\nincluding the matrix multiply example.\nRestore _fixed_base_positions as a thin wrapper with its original docstring.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T17:51:40+02:00",
+          "tree_id": "71c85343f8e9ae3184403274d219808e5faef932",
+          "url": "https://github.com/adrhill/asdex/commit/c042ef728e4a58c9cd0f1c254017f5db41771915"
+        },
+        "date": 1791561130493,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1232.3223794786727,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001573210962139288",
+            "extra": "mean: 811.4759714280646 usec\nrounds: 35"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 43491.122672467565,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000016977413277445978",
+            "extra": "mean: 22.993198118407246 usec\nrounds: 9141"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 123646.3111583468,
+            "unit": "iter/sec",
+            "range": "stddev: 9.023877347076137e-7",
+            "extra": "mean: 8.087584584058936 usec\nrounds: 39310"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 86058.9273266594,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000123455710734521",
+            "extra": "mean: 11.61994497333479 usec\nrounds: 26260"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 123778.96096972944,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010660540018846301",
+            "extra": "mean: 8.078917387620933 usec\nrounds: 43577"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 276.2835497282229,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00015382344173186824",
+            "extra": "mean: 3.619469928570445 msec\nrounds: 28"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 4685.150465878382,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001044505993530925",
+            "extra": "mean: 213.4403168655796 usec\nrounds: 3522"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2798.0549636040546,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004790632756015569",
+            "extra": "mean: 357.3911209778177 usec\nrounds: 2455"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2607.068716400093,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010080351985232868",
+            "extra": "mean: 383.57255169738124 usec\nrounds: 1296"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 6142.475118481889,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009614863215004328",
+            "extra": "mean: 162.80082225992794 usec\nrounds: 4726"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 222.23254426352537,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005988037987667739",
+            "extra": "mean: 4.499790988372031 msec\nrounds: 86"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 42780.64520042087,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000018480228094070677",
+            "extra": "mean: 23.375056531175506 usec\nrounds: 30638"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 26333.73963468512,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001454600764466508",
+            "extra": "mean: 37.97409763567586 usec\nrounds: 13704"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 30182.479819783788,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015013238183860229",
+            "extra": "mean: 33.131803813698816 usec\nrounds: 16887"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 33548.67004615657,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001625049000777245",
+            "extra": "mean: 29.807440909704937 usec\nrounds: 21941"
           }
         ]
       }
