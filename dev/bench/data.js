@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791561131612,
+  "lastUpdate": 1791562003757,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -22470,6 +22470,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00001625049000777245",
             "extra": "mean: 29.807440909704937 usec\nrounds: 21941"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e12fa8ed67dff2e64106caf941f2e4abcf795a0d",
+          "message": "test(detection): pin custom_jvp rules that detection does not follow (#209)\n\n* test: pin custom_jvp rules that detection does not follow\n\nJAX differentiates a custom_jvp function with its JVP rule, never its primal,\nbut detection propagates through the primal call_jaxpr.\nDependencies that exist only in the rule are lost:\nfor a straight-through estimator (round in the primal, identity JVP)\nthe true Jacobian is 2·I but the detected pattern is empty,\nand decompression silently returns an all-zero Jacobian.\n\nAdd tests for rule-following behavior,\nmarked as known bugs where the rule and primal disagree,\nplus passing tests for cases where they agree.\nSupport for custom_jvp and custom_vjp rules is tracked in #194.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: compact the _interpret CLAUDE.md around invariants and design decisions\n\nLead with the two invariants every handler must uphold\n(never miss a nonzero, patterns are global)\nand the design decisions shared across handlers.\nDrop content that duplicated docstrings in _common.py and the handlers,\nmerge rules that were stated several times,\nand remove handler lists that drift as handlers are added.\nNote that custom_jvp_call and custom_vjp_call still follow their primal.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-09T18:05:27+02:00",
+          "tree_id": "eca980bef19c97ff85b4c44cccea288ee1928b32",
+          "url": "https://github.com/adrhill/asdex/commit/e12fa8ed67dff2e64106caf941f2e4abcf795a0d"
+        },
+        "date": 1791562001810,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1063.7954880993505,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00026223908700418716",
+            "extra": "mean: 940.03030769257 usec\nrounds: 26"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 35852.60323284857,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000016840571026239994",
+            "extra": "mean: 27.891977425053152 usec\nrounds: 8948"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 115561.54269383299,
+            "unit": "iter/sec",
+            "range": "stddev: 9.78697430615833e-7",
+            "extra": "mean: 8.653397805958551 usec\nrounds: 23974"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 70867.01696817476,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000214589760402884",
+            "extra": "mean: 14.110936833267354 usec\nrounds: 17905"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 114204.4052297995,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000011250336113043625",
+            "extra": "mean: 8.756229656709152 usec\nrounds: 29248"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 226.6159680164254,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00017530970415190544",
+            "extra": "mean: 4.412751708332922 msec\nrounds: 24"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3686.9824180317537,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001900679282920384",
+            "extra": "mean: 271.22451007885104 usec\nrounds: 3423"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2461.2810315922748,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008572093722361531",
+            "extra": "mean: 406.2924904406673 usec\nrounds: 2406"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2518.5191085894803,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005372703210100551",
+            "extra": "mean: 397.0587305013775 usec\nrounds: 1436"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5363.316780152243,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003960981433850806",
+            "extra": "mean: 186.45178739034208 usec\nrounds: 4219"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 187.89968233700625,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012045942336374182",
+            "extra": "mean: 5.3219887738099345 msec\nrounds: 84"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 35392.15360205635,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000021485268807709003",
+            "extra": "mean: 28.25485024855617 usec\nrounds: 26958"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 70095.06436621664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029239983815202292",
+            "extra": "mean: 14.266339706536668 usec\nrounds: 17312"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 69407.9113807861,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022971403371473106",
+            "extra": "mean: 14.40757948346542 usec\nrounds: 15217"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 73629.5454895559,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023806105035303496",
+            "extra": "mean: 13.581504453831602 usec\nrounds: 14931"
           }
         ]
       }
