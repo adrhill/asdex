@@ -7,11 +7,11 @@ from ._common import (
     IndexSet,
     _atom_const_val,
     _atom_shape,
+    _dim_offsets,
     _empty_index_sets,
     _index_sets,
     _numel,
     _PropState,
-    _row_strides,
     _union_all,
 )
 
@@ -20,7 +20,6 @@ def _fixed_base_positions(
     shape: tuple[int, ...],
     batch_dims: tuple[int, ...],
     free_dims: tuple[int, ...],
-    strides: tuple[int, ...],
 ) -> np.ndarray:
     """Flat position where each contracted slice of an operand starts.
 
@@ -33,8 +32,7 @@ def _fixed_base_positions(
     ``batch_dims`` and ``free_dims`` are listed in the order of the output axes they map to,
     so the bases come out in the same order as the output elements.
 
-    Passing no batch dimensions and the contracting dimensions as ``free_dims``
-    instead yields those contracting offsets as a single row:
+    The contracting offsets themselves are `_dim_offsets` over the contracting dims:
     the flat positions of each contracting coordinate at the zero fixed coordinate.
 
     Example: matrix multiply A(2,3) @ B(3,4) -> C(2,4)
@@ -49,18 +47,8 @@ def _fixed_base_positions(
         Columns of B start at 0, 1, 2, and 3, so bases = [[0, 1, 2, 3]].
         Column 2 is base 2 plus offsets [0, 4, 8], i.e. positions [2, 6, 10].
     """
-    dims = batch_dims + free_dims
-    sizes = tuple(shape[d] for d in dims)
-    coords = (
-        np.indices(sizes, dtype=np.int64).reshape(len(dims), -1)
-        if sizes
-        else np.zeros((0, 1), dtype=np.int64)
-    )
-    bases = np.zeros(_numel(sizes), dtype=np.int64)
-    for i, d in enumerate(dims):
-        bases += coords[i] * strides[d]
     batch_size = _numel(tuple(shape[d] for d in batch_dims))
-    return bases.reshape(batch_size, -1)
+    return _dim_offsets(shape, batch_dims + free_dims).reshape(batch_size, -1)
 
 
 def _contract_union_sets(
@@ -241,18 +229,15 @@ def _prop_dot_general(eqn: JaxprEqn, state: _PropState) -> None:
     lhs_known = lhs_val_flat is not None and not any(lhs_indices)
     rhs_known = rhs_val_flat is not None and not any(rhs_indices)
 
-    lhs_strides = _row_strides(lhs_shape)
-    rhs_strides = _row_strides(rhs_shape)
-
     # Flat offsets of the contracting positions, shared by every fixed position.
     # Both sides enumerate the contracting coordinates in the same C order,
     # since lhs_contract[i] pairs with rhs_contract[i] and has equal size.
-    lhs_offsets = _fixed_base_positions(lhs_shape, (), lhs_contract, lhs_strides)[0]
-    rhs_offsets = _fixed_base_positions(rhs_shape, (), rhs_contract, rhs_strides)[0]
+    lhs_offsets = _dim_offsets(lhs_shape, lhs_contract)
+    rhs_offsets = _dim_offsets(rhs_shape, rhs_contract)
 
     # Shape (batch_size, free_size) each, with matching batch rows.
-    lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch, lhs_free, lhs_strides)
-    rhs_bases = _fixed_base_positions(rhs_shape, rhs_batch, rhs_free, rhs_strides)
+    lhs_bases = _fixed_base_positions(lhs_shape, lhs_batch, lhs_free)
+    rhs_bases = _fixed_base_positions(rhs_shape, rhs_batch, rhs_free)
 
     out_indices: list[IndexSet]
     match (lhs_known, rhs_known):

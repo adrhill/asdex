@@ -3,8 +3,7 @@
 import numpy as np
 from jax._src.core import JaxprEqn
 
-from ._common import _PropState
-from ._concatenate import _join_inputs
+from ._common import _join_inputs, _PropState
 
 
 def _prop_stack(eqn: JaxprEqn, state: _PropState) -> None:

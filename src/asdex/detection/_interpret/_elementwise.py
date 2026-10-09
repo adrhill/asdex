@@ -63,7 +63,7 @@ def _lax_rem(in1_val: np.ndarray, in2_val: np.ndarray) -> np.ndarray | None:
 # Functions for evaluating constant values during tracing.
 # Used to propagate static index values through arithmetic to gather/scatter.
 # Entries must match lax semantics, which differ from numpy for integer rem.
-# div is absent because `_prop_div` propagates its consts with `_lax_div`.
+# mul and div have their own handlers, which pass their ufunc directly.
 _BINARY_CONST_UFUNCS: dict[
     str, Callable[[np.ndarray, np.ndarray], np.ndarray | None]
 ] = {
@@ -71,7 +71,6 @@ _BINARY_CONST_UFUNCS: dict[
     "add": np.add,
     "add_any": np.add,
     "sub": np.subtract,
-    "mul": np.multiply,
     "pow": np.power,
     "max": np.maximum,
     "min": np.minimum,
@@ -371,7 +370,7 @@ def _prop_binary_const(
     is_der1_zero_globally: bool = False,
     is_der2_zero_globally: bool = False,
 ) -> None:
-    """Binary elementwise primitives (div, pow, max, min, ...) with const propagation.
+    """Binary elementwise primitives (pow, max, min, ...) with const propagation.
 
     Each output element depends on the corresponding elements from both inputs.
     Also propagates const values for downstream index resolution.
