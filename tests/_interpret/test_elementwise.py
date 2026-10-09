@@ -1628,6 +1628,7 @@ def test_convert_to_bool_bounds(offset, expected_cols):
 
 
 @pytest.mark.elementwise
+@pytest.mark.fallback
 def test_reduce_precision_does_not_keep_unrounded_const():
     """A rounded const index must not keep its value from before rounding.
 
