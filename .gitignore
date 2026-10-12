@@ -18,6 +18,15 @@ site/
 # Written by the executed save/load example in docs/index.md
 colored.npz
 
+# Paper
+*.pdf
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+
 # Virtual environments
 .venv
 .claude/settings.local.json
