@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791562380436,
+  "lastUpdate": 1791803024011,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -22728,6 +22728,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000005371044219751014",
             "extra": "mean: 23.217814033226286 usec\nrounds: 15449"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "24502fbc3230b081624e66445f01e633df418454",
+          "message": "docs: add paper for JOSS submission (#191)\n\n* docs: add paper for JOSS submission\n\n* feat: add PDF generator workflow\n\n* ci: add writing permission to PDF generator\n\n* (auto) Paper PDF Draft\n\n* ci: don't commit PDF to repo\n\n* feat: compile preprint\n\n* feat: add mail\n\n* fix: add clearpage for refs\n\n* fix: tweak odd sentence\n\n* feat: add asdex repo URL\n\n---------\n\nCo-authored-by: adrhill <adrhill@users.noreply.github.com>",
+          "timestamp": "2026-10-12T13:02:25+02:00",
+          "tree_id": "8fada34248695a4c15fb5fb8a5d64e1a60f08433",
+          "url": "https://github.com/adrhill/asdex/commit/24502fbc3230b081624e66445f01e633df418454"
+        },
+        "date": 1791803022107,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1017.0877788210897,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002971266706493977",
+            "extra": "mean: 983.1993076930919 usec\nrounds: 26"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 35965.33917938347,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001924096534434836",
+            "extra": "mean: 27.804548012527388 usec\nrounds: 8956"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 115429.43068359014,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000011627502274640664",
+            "extra": "mean: 8.663301846659488 usec\nrounds: 31029"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 70491.86746799626,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000030702861785364557",
+            "extra": "mean: 14.186033593932041 usec\nrounds: 16372"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 110799.92353059942,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002125521874310169",
+            "extra": "mean: 9.02527698698124 usec\nrounds: 31052"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 220.02527998787855,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00033608757188093415",
+            "extra": "mean: 4.544932291667081 msec\nrounds: 24"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3689.689013652301,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001860755473521883",
+            "extra": "mean: 271.0255515572932 usec\nrounds: 3307"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2491.524464688914,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000545052760478937",
+            "extra": "mean: 401.36069870975865 usec\nrounds: 1550"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2477.3201035077896,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025312950842096466",
+            "extra": "mean: 403.66200499646317 usec\nrounds: 1401"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5355.5039745018985,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017083001533407657",
+            "extra": "mean: 186.72379009727229 usec\nrounds: 4726"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 206.29913736311553,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013921020663803022",
+            "extra": "mean: 4.8473300120487615 msec\nrounds: 83"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 35912.09050819887,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002000952318891223",
+            "extra": "mean: 27.845775220790788 usec\nrounds: 27289"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 73094.45955323552,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002968842246095984",
+            "extra": "mean: 13.680927475381205 usec\nrounds: 17139"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 65860.89520312379,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000032643597482737307",
+            "extra": "mean: 15.183516666693743 usec\nrounds: 17940"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 77153.34067316816,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000024048779699051217",
+            "extra": "mean: 12.96120156658068 usec\nrounds: 14809"
           }
         ]
       }
