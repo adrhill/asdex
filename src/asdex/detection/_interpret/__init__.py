@@ -272,6 +272,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             "neg"  # ∂(-x)/∂x = -1
             | "exp"  # ∂eˣ/∂x = eˣ
             | "log"  # ∂log(x)/∂x = 1/x
+            | "log2"  # ∂log₂(x)/∂x = 1/(x·ln(2))
             | "sin"  # ∂sin(x)/∂x = cos(x)
             | "cos"  # ∂cos(x)/∂x = -sin(x)
             | "tan"  # ∂tan(x)/∂x = sec²(x)

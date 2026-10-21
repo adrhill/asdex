@@ -1,6 +1,7 @@
 # asdex
 
 ## Unreleased
+* ![Maintenance][badge-maintenance] Support the `log2` primitive, which `jnp.log2` emits since JAX 0.11.2
 * ![Maintenance][badge-maintenance] Require JAX 0.11.2, the first release with the `one_minus_square` primitive
 * ![Maintenance][badge-maintenance] Pin JAX to 0.11 in CI while JAX 0.12 support is worked on ([#216])
 
