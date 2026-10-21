@@ -17,9 +17,8 @@ def _prop_empty(eqn: JaxprEqn, state: _PropState) -> None:
     JAX emits this primitive for ``jnp.empty`` and ``jnp.empty_like`` since 0.11,
     which used to lower to a broadcast of zeros.
 
-    Example: y = jnp.empty((2,)).at[1].set(x[0])
-        empty output index sets:   [{}, {}]
-        scatter output index sets: [{}, {0}]
+    Example: y = jnp.empty((2,))
+        Output index sets: [{}, {}]
 
     Jaxpr:
         invars: [] (no inputs, even for ``jnp.empty_like``)

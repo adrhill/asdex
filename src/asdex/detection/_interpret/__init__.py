@@ -189,32 +189,28 @@ def _prop_call(eqn: JaxprEqn, state: _PropState, closed) -> None:
 
 
 def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
-    """Propagate through a HiJax primitive, identified by its ``HiPrim`` class.
+    """Propagate through a HiJax primitive, identified by its class.
 
-    ``call_hi_primitive`` stores the actual operation as a ``HiPrim`` object
+    ``call_hi_primitive`` stores the actual operation as a HiJax primitive object
+    (a ``HiPrim``, called ``VJPHiPrimitive`` before JAX 0.11.2)
     in ``eqn.params["_prim"]``.
-    Under ``jax_remat3``, ``jax.checkpoint`` emits ``RematTraced``
-    and ``jax.custom_remat`` emits ``CustomRemat``.
-    Both evaluate their wrapped ``jaxpr`` on the equation's operands,
-    so the pattern is that of the wrapped jaxpr.
-    ``custom_remat`` follows its primal, not its custom backward rule,
-    like ``custom_vjp_call``.
-    ``checkpoint_name`` emits ``CheckpointName``,
-    which returns its operand unchanged.
-
-    Any other ``HiPrim`` raises, since its semantics are unknown.
+    Any HiJax primitive without a case raises, since its semantics are unknown.
 
     Jaxpr:
         invars: operands, aligned with ``_prim.jaxpr.invars``
             (closure consts hoisted to the front)
-        _prim: the ``HiPrim``, whose ``jaxpr`` maps invars to outvars
+        _prim: the HiJax primitive, whose ``jaxpr`` maps invars to outvars
 
     https://docs.jax.dev/en/latest/_autosummary/jax.checkpoint.html
     """
     prim = eqn.params["_prim"]
     match type(prim).__name__:
+        # jax.checkpoint under jax_remat3 emits RematTraced, and jax.custom_remat emits CustomRemat.
+        # Both evaluate their wrapped jaxpr on the operands, so the pattern is that of the jaxpr.
+        # Like custom_vjp_call, custom_remat follows its primal, not its custom backward rule.
         case "RematTraced" | "CustomRemat":
             _prop_call(eqn, state, prim.jaxpr)
+        # checkpoint_name under jax_remat3 emits CheckpointName, which returns its operand unchanged.
         case "CheckpointName":
             _prop_pass_through(eqn, state)
         case name:
