@@ -14,6 +14,8 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version: ["3.12", "3.14"]
+        # The oldest supported JAX release and the latest 0.11 release.
+        jax-version: ["0.11.0", "0.11"]
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
@@ -21,11 +23,13 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --group dev --extra matplotlib
+        run: |
+          uv sync --group dev --extra matplotlib
+          uv pip install "jax==${{ matrix.jax-version }}.*"
       - name: Test with coverage
-        run: uv run pytest -m "" --cov=src/asdex --cov-report=xml  # -m "" overrides default marker filter to include slow and benchmark tests
+        run: uv run --no-sync pytest -m "" --cov=src/asdex --cov-report=xml  # -m "" overrides default marker filter to include slow and benchmark tests
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14' && matrix.jax-version == '0.11'
         uses: codecov/codecov-action@v7
         with:
           files: coverage.xml
