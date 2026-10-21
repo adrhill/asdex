@@ -4,11 +4,14 @@ Every FFT mixes all elements along the transformed trailing axes,
 leaving the leading batch axes independent.
 
 Real inputs are compared through their magnitude (``jnp.abs``),
-so the imaginary part of the complex output contributes to the numerical Jacobian too,
-and complex inputs are compared holomorphically.
-Detection is the only thing tested here:
-sparse Jacobian decompression takes real- or holomorphic inputs,
-not a complex transform output.
+so the imaginary part of the complex output contributes to the numerical Jacobian too.
+Complex inputs are compared holomorphically.
+Detection is all that is tested here:
+sparse Jacobian decompression rejects complex-valued outputs
+unless differentiation is holomorphic,
+so a complex transform output is reachable only through
+``jnp.abs`` / ``jnp.real`` for real inputs
+or through ``holomorphic=True`` for complex ones.
 """
 
 import jax.numpy as jnp
@@ -54,7 +57,7 @@ def test_fft_1d(transform, n, complex_input):
     ],
 )
 def test_fft_complex_input(transform):
-    """Complex inputs couple every real and imaginary component in a batch block."""
+    """Complex inputs are block dense too, with one variable per complex element."""
     rng = np.random.default_rng(0)
     z = (rng.normal(size=8) + 1j * rng.normal(size=8)).astype(np.complex64)
 
