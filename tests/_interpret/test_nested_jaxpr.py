@@ -13,11 +13,15 @@ import numpy as np
 import pytest
 from jax import lax
 from jax._src import config
-from jax._src.hijax import HiPrim
 from jax.ad_checkpoint import checkpoint_name
 
 from asdex import hessian, hessian_sparsity, jacobian, jacobian_sparsity
 from tests._utils import assert_jacobian_sparsity_exact
+
+try:
+    from jax._src.hijax import HiPrim
+except ImportError:  # JAX < 0.11.2 names the HiJax primitive base class differently
+    from jax._src.hijax import VJPHiPrimitive as HiPrim  # ty: ignore[unresolved-import]
 
 
 @pytest.mark.array_ops

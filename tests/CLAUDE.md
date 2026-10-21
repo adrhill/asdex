@@ -73,6 +73,7 @@ Use these fixtures in test function signatures to automatically run tests across
 - `numerical_jacobian_sparsity(f, x, atol=1e-10, holomorphic=False)`: Reference sparsity pattern from `jax.jacobian`, thresholded by `atol` and flattened to `(output size, input size)`, so it works for inputs and outputs of any shape.
 - `assert_jacobian_sparsity_exact(f, x, holomorphic=False)`: Assert the detected pattern equals the numerical pattern.
 - `assert_jacobian_sparsity_conservative(f, x)`: Assert the detected pattern is a conservative superset of the numerical pattern.
+- `assert_hessian_sparsity_exact(f, x)`: Assert the detected Hessian pattern equals the numerical pattern of `jax.hessian`.
 
 ## Conventions
 

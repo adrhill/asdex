@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 from asdex import hessian, hessian_sparsity, jacobian_sparsity
+from tests._utils import assert_hessian_sparsity_exact
 
 
 @pytest.mark.fallback
@@ -237,17 +238,46 @@ def test_triangular_solve_conservative():
     np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.fallback
 @pytest.mark.hessian
+@pytest.mark.skipif(
+    jax.__version_info__ >= (0, 11, 1),
+    reason="det of small matrices emits triangular_solve since JAX 0.11.1",
+)
 @pytest.mark.parametrize("n", [2, 3])
 def test_det_hessian_small_matrix(n):
-    """The Hessian of det for 2x2 and 3x3 matrices goes through triangular_solve.
+    """Before JAX 0.11.1, det of 2x2 and 3x3 matrices expands into products of entries.
+
+    The Hessian pattern is therefore precise:
+    ∂²det/∂A[i,j]∂A[k,l] is nonzero only for i ≠ k and j ≠ l.
+    """
+
+    def f(x):
+        return jnp.linalg.det(x.reshape(n, n))
+
+    x = jnp.arange(1.0, n * n + 1.0) + jnp.eye(n).flatten()
+    assert_hessian_sparsity_exact(f, x)
+
+
+@pytest.mark.fallback
+@pytest.mark.hessian
+@pytest.mark.skipif(
+    jax.__version_info__ < (0, 11, 1),
+    reason="det of small matrices emits triangular_solve since JAX 0.11.1",
+)
+@pytest.mark.parametrize("n", [2, 3])
+def test_det_hessian_small_matrix_conservative(n):
+    """The Hessian of det for 2x2 and 3x3 matrices is currently fully dense.
 
     Since JAX 0.11.1, ``jnp.linalg.det`` computes small determinants
     from a closed-form LU decomposition
-    whose derivative emits ``triangular_solve``.
-    TODO(triangular_solve): the 2x2 Hessian of ad - bc is antidiagonal,
-    but the conservative fallback makes the detected pattern dense.
+    whose derivative emits ``triangular_solve``,
+    which uses the conservative fallback.
+    TODO(triangular_solve): ∂²det/∂A[i,j]∂A[k,l] is nonzero only for i ≠ k and j ≠ l.
+    For A = [[a, b], [c, d]], det = a·d - b·c, so the Hessian is antidiagonal:
+        [0, 0, 0, 1],  # ∂²det/∂a∂d = 1
+        [0, 0, 1, 0],  # ∂²det/∂b∂c = -1
+        [0, 1, 0, 0],
+        [1, 0, 0, 0],
     """
 
     def f(x):

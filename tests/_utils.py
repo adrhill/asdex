@@ -3,7 +3,7 @@
 import jax
 import numpy as np
 
-from asdex import jacobian_sparsity
+from asdex import hessian_sparsity, jacobian_sparsity
 
 
 def numerical_jacobian_sparsity(f, x, atol=1e-10, holomorphic=False):
@@ -35,3 +35,10 @@ def assert_jacobian_sparsity_conservative(f, x):
     detected = jacobian_sparsity(f, x).todense().astype(int)
     numerical = numerical_jacobian_sparsity(f, x)
     assert np.all(detected >= numerical), "Detected pattern must cover numerical"
+
+
+def assert_hessian_sparsity_exact(f, x):
+    """Assert detected Hessian sparsity matches the numerical Hessian exactly."""
+    detected = hessian_sparsity(f, x).todense().astype(int)
+    expected = numerical_jacobian_sparsity(jax.grad(f), x)
+    np.testing.assert_array_equal(detected, expected)
