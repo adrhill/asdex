@@ -155,8 +155,8 @@ def _prop_closed_jaxpr(
 ) -> None:
     """Recursively trace a closed jaxpr stored in ``eqn.params[param_key]``.
 
-    Shared implementation for ``prop_nested_jaxpr`` (param ``"jaxpr"``)
-    and ``prop_custom_call`` (param ``"call_jaxpr"``).
+    Used for call-like primitives such as ``jit`` and ``remat2`` (param ``"jaxpr"``)
+    and ``custom_jvp_call`` / ``custom_vjp_call`` (param ``"call_jaxpr"``).
     """
     closed = eqn.params.get(param_key)
     if closed is None:
@@ -164,7 +164,14 @@ def _prop_closed_jaxpr(
             f"Primitive '{eqn.primitive.name}' has no '{param_key}' parameter."
         )
         raise ValueError(msg)
+    _prop_call(eqn, state, closed)
 
+
+def _prop_call(eqn: JaxprEqn, state: _PropState, closed) -> None:
+    """Trace ``closed`` as the body of ``eqn``.
+
+    The jaxpr's invars and outvars must align with the equation's.
+    """
     # Unwrap ClosedJaxpr, seeding state.consts for captured constants
     if hasattr(closed, "jaxpr"):
         _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
@@ -179,6 +186,40 @@ def _prop_closed_jaxpr(
     _forward_across_jaxpr_boundary(state, closed.outvars, eqn.outvars)
     for outvar, indices in zip(eqn.outvars, output_indices, strict=False):
         state.indices[outvar] = indices
+
+
+def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
+    """Propagate through a HiJax primitive, identified by its ``HiPrim`` class.
+
+    ``call_hi_primitive`` stores the actual operation as a ``HiPrim`` object
+    in ``eqn.params["_prim"]``.
+    Under ``jax_remat3``, ``jax.checkpoint`` emits ``RematTraced``
+    and ``jax.custom_remat`` emits ``CustomRemat``.
+    Both evaluate their wrapped ``jaxpr`` on the equation's operands,
+    so the pattern is that of the wrapped jaxpr.
+    ``custom_remat`` follows its primal, not its custom backward rule,
+    like ``custom_vjp_call``.
+    ``checkpoint_name`` emits ``CheckpointName``,
+    which returns its operand unchanged.
+
+    Any other ``HiPrim`` raises, since its semantics are unknown.
+
+    Jaxpr:
+        invars: operands, aligned with ``_prim.jaxpr.invars``
+            (closure consts hoisted to the front)
+        _prim: the ``HiPrim``, whose ``jaxpr`` maps invars to outvars
+
+    https://docs.jax.dev/en/latest/_autosummary/jax.checkpoint.html
+    """
+    prim = eqn.params["_prim"]
+    match type(prim).__name__:
+        case "RematTraced" | "CustomRemat":
+            _prop_call(eqn, state, prim.jaxpr)
+        case "CheckpointName":
+            _prop_pass_through(eqn, state)
+        case name:
+            msg = _report_issue(f"No handler for HiJax primitive '{name}'.")
+            raise NotImplementedError(msg)
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
@@ -225,6 +266,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_zero_derivative_const(eqn, state)
         case "jit" | "pjit" | "xla_call" | "named_call" | "remat2":
             _prop_closed_jaxpr(eqn, state, "jaxpr")
+        case "call_hi_primitive":
+            _prop_call_hi_primitive(eqn, state)
         case "optimization_barrier" | "device_put":
             _prop_pass_through(eqn, state)
         case "slice":

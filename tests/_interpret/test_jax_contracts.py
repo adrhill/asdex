@@ -18,8 +18,10 @@ https://docs.jax.dev/en/latest/jaxpr.html
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax._src import config
 from jax._src.core import ClosedJaxpr, Jaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
+from jax.ad_checkpoint import checkpoint_name
 
 
 def _iter_eqns(jaxpr):
@@ -535,6 +537,72 @@ def test_custom_vjp_call_jaxpr_alignment():
     inner = eqn.params["call_jaxpr"]
     assert [v.aval for v in inner.jaxpr.invars] == [v.aval for v in eqn.invars]
     assert len(inner.jaxpr.outvars) == len(eqn.outvars) == 1
+
+
+def test_remat3_jaxpr_alignment():
+    """Under remat3, ``jax.checkpoint`` emits ``call_hi_primitive`` with an aligned jaxpr.
+
+    ``_prop_call_hi_primitive`` reads the jaxpr from ``eqn.params["_prim"].jaxpr``
+    and zips its invars and outvars with the eqn's,
+    including the closure const that remat3 hoists to a leading operand.
+    """
+    c = jnp.arange(2.0)
+
+    def f(a, b):
+        return a * c, jnp.sum(b)
+
+    with config.remat3(True):
+        jaxpr = jax.make_jaxpr(jax.checkpoint(f))(jnp.zeros(2), jnp.zeros(3)).jaxpr
+    eqn = _unique_eqn(jaxpr, "call_hi_primitive")
+
+    prim = eqn.params["_prim"]
+    assert type(prim).__name__ == "RematTraced"
+    assert list(eqn.invars) == [*jaxpr.constvars, *jaxpr.invars]
+    assert [v.aval for v in prim.jaxpr.invars] == [v.aval for v in eqn.invars]
+    assert [v.aval for v in prim.jaxpr.outvars] == [v.aval for v in eqn.outvars]
+
+
+def test_custom_remat_jaxpr_alignment():
+    """``jax.custom_remat`` emits ``call_hi_primitive`` whose jaxpr is the aligned primal.
+
+    The closure consts are hoisted to leading operands of both the eqn and the jaxpr.
+    """
+    c = jnp.arange(2.0)
+
+    def g(a):
+        return a * c
+
+    f = jax.custom_remat(
+        g,
+        lambda policy, a: (g(a), None),
+        lambda res, a: (g(a), a),
+        lambda res, ct: (ct * c,),
+    )
+
+    with config.remat3(True):
+        jaxpr = jax.make_jaxpr(f)(jnp.zeros(2)).jaxpr
+    eqn = _unique_eqn(jaxpr, "call_hi_primitive")
+
+    prim = eqn.params["_prim"]
+    assert type(prim).__name__ == "CustomRemat"
+    assert list(eqn.invars) == [*jaxpr.constvars, *jaxpr.invars]
+    assert [v.aval for v in prim.jaxpr.invars] == [v.aval for v in eqn.invars]
+    assert [v.aval for v in prim.jaxpr.outvars] == [v.aval for v in eqn.outvars]
+
+
+def test_checkpoint_name_layout():
+    """Under remat3, ``checkpoint_name`` emits a one-operand ``CheckpointName``.
+
+    ``_prop_call_hi_primitive`` treats it as a pass-through,
+    so its single operand must map to its single output.
+    """
+    with config.remat3(True):
+        jaxpr = jax.make_jaxpr(lambda a: checkpoint_name(a, "a"))(jnp.zeros(2)).jaxpr
+    eqn = _unique_eqn(jaxpr, "call_hi_primitive")
+
+    assert type(eqn.params["_prim"]).__name__ == "CheckpointName"
+    assert list(eqn.invars) == list(jaxpr.invars)
+    assert [v.aval for v in eqn.outvars] == [v.aval for v in eqn.invars]
 
 
 # Dead code elimination
