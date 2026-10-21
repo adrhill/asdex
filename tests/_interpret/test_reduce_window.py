@@ -282,6 +282,16 @@ def test_reduce_window_degenerate(shape, padding, window_dimensions):
     assert_flat_jacobian_sparsity_exact(f, x)
 
 
+def test_reduce_window_scalar_operand():
+    """A rank-0 operand is a single empty window that reads the scalar itself."""
+    x = jnp.float32(2.0)
+
+    def f(x):
+        return lax.reduce_window(x, jnp.asarray(0.0, x.dtype), lax.add, (), ())
+
+    assert_flat_jacobian_sparsity_exact(f, x)
+
+
 def test_reduce_window_sum_hessian():
     """Hessians through reduce_window_sum reuse the window dependency structure."""
     x = jnp.arange(6.0)
