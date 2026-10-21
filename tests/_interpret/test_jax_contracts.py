@@ -390,6 +390,22 @@ def test_empty_layout():
     assert list(eqn.invars) == []
 
 
+def test_pass_through_layouts():
+    """optimization_barrier and device_put map each operand to the outvar at its position.
+
+    ``_prop_pass_through`` pairs eqn.invars with eqn.outvars positionally.
+    """
+
+    def f(a, b):
+        return jax.lax.optimization_barrier((a, b)), jax.device_put((a, b))
+
+    jaxpr = jax.make_jaxpr(f)(jnp.zeros(2), jnp.zeros((3, 1), dtype=jnp.int32)).jaxpr
+    for name in ("optimization_barrier", "device_put"):
+        eqn = _unique_eqn(jaxpr, name)
+        assert list(eqn.invars) == list(jaxpr.invars)
+        assert [v.aval for v in eqn.outvars] == [v.aval for v in eqn.invars]
+
+
 # Contractions
 
 

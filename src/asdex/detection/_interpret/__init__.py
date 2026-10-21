@@ -55,6 +55,7 @@ from ._iota import _prop_iota
 from ._linalg import _prop_qr
 from ._mul import _prop_mul
 from ._pad import _prop_pad
+from ._pass_through import _prop_pass_through
 from ._platform_index import _prop_platform_index
 from ._random import _prop_random
 from ._reduce import _prop_reduce
@@ -224,6 +225,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_zero_derivative_const(eqn, state)
         case "jit" | "pjit" | "xla_call" | "named_call" | "remat2":
             _prop_closed_jaxpr(eqn, state, "jaxpr")
+        case "optimization_barrier" | "device_put":
+            _prop_pass_through(eqn, state)
         case "slice":
             _prop_slice(eqn, state)
         case "pad":
