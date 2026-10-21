@@ -116,17 +116,17 @@ def test_cumulative_size_one(cumulative, reverse):
 @pytest.mark.array_ops
 @pytest.mark.parametrize("cumulative", _CUMULATIVE)
 @pytest.mark.parametrize(
-    ("shape", "axis"),
+    "shape",
     [
-        pytest.param((0, 3), 0, id="empty_scan_axis"),
-        pytest.param((3, 0), 0, id="empty_other_axis"),
+        pytest.param((0, 3), id="empty_scan_axis"),
+        pytest.param((3, 0), id="empty_other_axis"),
     ],
 )
-def test_cumulative_zero_size(cumulative, shape, axis):
+def test_cumulative_zero_size(cumulative, shape):
     """Empty inputs produce an empty pattern without crashing."""
 
     def f(x):
-        return cumulative(x, axis=axis)
+        return cumulative(x, axis=0)
 
     assert_flat_jacobian_sparsity_exact(f, np.zeros(shape))
 

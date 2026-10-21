@@ -581,18 +581,18 @@ def test_scatter_duplicate_indices_add():
 
 @pytest.mark.array_ops
 def test_scatter_duplicate_indices_sub():
-    """Duplicate indices with subtract: both updates contribute.
+    """Duplicate indices with subtract: the operand and both updates contribute.
 
-    XLA applies the combines in an unspecified order,
-    but subtraction still reads every update targeting the position.
+    Both x[3] and x[4] are subtracted from position 1,
+    which also keeps reading its operand value x[1].
     """
 
     def f(x):
-        arr = jnp.zeros(3)
-        # Both x[0] and x[1] are subtracted from position 1.
-        return arr.at[jnp.array([1, 1])].subtract(x[:2])
+        arr = x[:3]
+        # Both x[3] and x[4] are subtracted from position 1.
+        return arr.at[jnp.array([1, 1])].subtract(x[3:])
 
-    x = jnp.array([2.0, 3.0, 4.0])
+    x = jnp.array([1.0, 2.0, 3.0, 0.5, 1.5])
     assert_jacobian_sparsity_exact(f, x)
 
 
