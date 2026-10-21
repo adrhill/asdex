@@ -105,7 +105,7 @@ def test_scatter_dynamic_indices():
 
 
 @pytest.mark.array_ops
-@pytest.mark.parametrize("method", ["mul", "min", "max"])
+@pytest.mark.parametrize("method", ["mul", "min", "max", "subtract"])
 def test_scatter_combine(method):
     """Scatter combine variants union dependencies from operand and updates.
 
@@ -557,6 +557,71 @@ def test_scatter_duplicate_indices_add():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_scatter_duplicate_indices_sub():
+    """Duplicate indices with subtract: both updates contribute.
+
+    XLA applies the combines in an unspecified order,
+    but subtraction still reads every update targeting the position.
+    """
+
+    def f(x):
+        arr = jnp.zeros(3)
+        # Both x[0] and x[1] are subtracted from position 1.
+        return arr.at[jnp.array([1, 1])].subtract(x[:2])
+
+    x = jnp.array([2.0, 3.0, 4.0])
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 0, 0],  # out[0] <- constant 0
+            [1, 1, 0],  # out[1] <- -(x[0] + x[1])
+            [0, 0, 0],  # out[2] <- constant 0
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize("mode", ["drop", "clip"])
+def test_scatter_sub_oob(mode):
+    """Scatter-sub with an out-of-bounds index, under drop and clip modes.
+
+    ``drop`` ignores the update, so out[2] keeps its operand dependency.
+    ``clip`` writes it at position 2, which then depends on both
+    the operand value x[2] and the update x[3].
+    """
+
+    def f(x):
+        arr = x[:3]
+        return arr.at[jnp.array([5])].subtract(x[3], mode=mode)
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    if mode == "drop":
+        expected = np.array(
+            [
+                [1, 0, 0, 0],  # out[0] <- x[0]
+                [0, 1, 0, 0],  # out[1] <- x[1]
+                [0, 0, 1, 0],  # out[2] <- x[2]
+            ],
+            dtype=int,
+        )
+    else:
+        expected = np.array(
+            [
+                [1, 0, 0, 0],  # out[0] <- x[0]
+                [0, 1, 0, 0],  # out[1] <- x[1]
+                [0, 0, 1, 1],  # out[2] <- x[2] - x[3] (clipped write)
+            ],
+            dtype=int,
+        )
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, x)
 
 
 @pytest.mark.array_ops
