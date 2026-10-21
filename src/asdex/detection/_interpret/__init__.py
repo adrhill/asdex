@@ -53,6 +53,7 @@ from ._equinox._select_if_vmap import _prop_select_if_vmap
 from ._gather import _prop_gather
 from ._iota import _prop_iota
 from ._linalg import _prop_qr
+from ._linear_solve import _prop_custom_linear_solve
 from ._mul import _prop_mul
 from ._pad import _prop_pad
 from ._pass_through import _prop_pass_through
@@ -420,6 +421,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_cumsum(eqn, state)
         case "qr":
             _prop_qr(eqn, state)
+        case "custom_linear_solve":
+            _prop_custom_linear_solve(eqn, state, _prop_jaxpr)
         # Conservative fallback: all outputs depend on all inputs.
         case (
             "nonbatchable"
