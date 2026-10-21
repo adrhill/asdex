@@ -10,6 +10,7 @@ import pytest
 
 from asdex import hessian_sparsity, jacobian_sparsity
 from tests._utils import (
+    assert_flat_jacobian_sparsity_exact,
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
 )
@@ -600,12 +601,12 @@ def test_scatter_sub_row_window():
     """Scatter-sub with a 2D row window updates every element of one row."""
 
     def f(x):
-        mat = x[:12].reshape(3, 4)
-        updates = x[12:16].reshape(1, 4)
-        return mat.at[jnp.array([1])].subtract(updates).reshape(-1)
+        mat = x[:3]
+        updates = x[3:4]
+        return mat.at[jnp.array([1])].subtract(updates)
 
-    x = jnp.arange(1.0, 17.0)
-    assert_jacobian_sparsity_exact(f, x)
+    x = jnp.arange(1.0, 17.0).reshape(4, 4)
+    assert_flat_jacobian_sparsity_exact(f, x)
 
 
 @pytest.mark.array_ops
