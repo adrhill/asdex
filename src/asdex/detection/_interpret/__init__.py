@@ -50,6 +50,7 @@ from ._elementwise import (
 )
 from ._empty import _prop_empty
 from ._equinox._select_if_vmap import _prop_select_if_vmap
+from ._fft import _prop_fft
 from ._gather import _prop_gather
 from ._iota import _prop_iota
 from ._linalg import _prop_qr
@@ -365,6 +366,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_bitcast_convert_type(eqn, state)
         case "conv_general_dilated":
             _prop_conv_general_dilated(eqn, state)
+        case "fft":
+            _prop_fft(eqn, state)
         case "custom_jvp_call" | "custom_vjp_call":
             _prop_closed_jaxpr(eqn, state, "call_jaxpr")
         case "gather":
