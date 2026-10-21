@@ -367,6 +367,14 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_conv_general_dilated(eqn, state)
         case "custom_jvp_call" | "custom_vjp_call":
             _prop_closed_jaxpr(eqn, state, "call_jaxpr")
+        # JAX absorbs the decomposition's constvars into the jaxpr's leading invars
+        # and passes the same consts as the equation's leading operands,
+        # so the operands align with the jaxpr's invars exactly as for a call.
+        # JAX 0.11.0 stores the decomposition under "jaxpr";
+        # JAX 0.11.2 stores it under "call_jaxpr".
+        case "composite":
+            param_key = "call_jaxpr" if "call_jaxpr" in eqn.params else "jaxpr"
+            _prop_closed_jaxpr(eqn, state, param_key)
         case "gather":
             _prop_gather(eqn, state)
         case "scatter" | "scatter-add" | "scatter-mul" | "scatter-min" | "scatter-max":
