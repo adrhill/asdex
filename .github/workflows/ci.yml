@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  # Versions for single-version jobs and the coverage upload.
+  LATEST_PYTHON: &latest-python "3.14"
+  LATEST_JAX: &latest-jax "0.11"
+
 jobs:
   Tests:
     runs-on: ${{ matrix.os }}
@@ -13,7 +18,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.12", "3.14"]
+        python-version: ["3.12", *latest-python]
+        # The oldest supported JAX release and the latest 0.11 release.
+        jax-version: ["0.11.0", *latest-jax]
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
@@ -21,11 +28,13 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --group dev --extra matplotlib
+        run: |
+          uv sync --group dev --extra matplotlib
+          uv pip install "jax==${{ matrix.jax-version }}.*"
       - name: Test with coverage
-        run: uv run pytest -m "" --cov=src/asdex --cov-report=xml  # -m "" overrides default marker filter to include slow and benchmark tests
+        run: uv run --no-sync pytest -m "" --cov=src/asdex --cov-report=xml  # -m "" overrides default marker filter to include slow and benchmark tests
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == env.LATEST_PYTHON && matrix.jax-version == env.LATEST_JAX
         uses: codecov/codecov-action@v7
         with:
           files: coverage.xml
@@ -40,7 +49,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
       - name: Set up Python
-        run: uv python install 3.14
+        run: uv python install ${{ env.LATEST_PYTHON }}
       # juliapkg reuses this Julia (found on PATH) instead of downloading its own.
       - name: Set up Julia
         uses: julia-actions/setup-julia@v2
@@ -60,7 +69,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
       - name: Set up Python
-        run: uv python install 3.14
+        run: uv python install ${{ env.LATEST_PYTHON }}
       - name: Install dependencies
         run: uv sync --group dev --extra matplotlib
       - name: Lint

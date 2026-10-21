@@ -12,9 +12,16 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from jax import lax
+from jax._src import config
+from jax.ad_checkpoint import checkpoint_name
 
-from asdex import jacobian, jacobian_sparsity
-from tests._utils import assert_jacobian_sparsity_exact
+from asdex import hessian, jacobian, jacobian_sparsity
+from tests._utils import assert_hessian_sparsity_exact, assert_jacobian_sparsity_exact
+
+try:
+    from jax._src.hijax import HiPrim
+except ImportError:  # JAX < 0.11.2 names the HiJax primitive base class differently
+    from jax._src.hijax import VJPHiPrimitive as HiPrim  # ty: ignore[unresolved-import]
 
 
 @pytest.mark.array_ops
@@ -213,6 +220,232 @@ def test_remat2_differentiated():
     # d/dx[cos(x_i)] only depends on x_i
     expected = np.eye(3, dtype=int)
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.fixture
+def remat3():
+    """Trace ``jax.checkpoint`` and ``checkpoint_name`` with JAX's ``jax_remat3`` flag enabled.
+
+    ``jax_remat3`` switches to a new implementation of rematerialization built on HiJax.
+    It is off by default in JAX 0.11,
+    and users opt in with ``jax.config.update("jax_remat3", True)``.
+    Instead of a ``remat2`` equation, ``jax.checkpoint`` then emits ``call_hi_primitive``
+    wrapping a ``RematTraced``, and ``checkpoint_name`` one wrapping a ``CheckpointName``.
+    ``jax.custom_remat``, which emits a ``CustomRemat``, requires the flag.
+    The remat3 tests below use this fixture to cover those equations,
+    so asdex keeps working for users who opt in,
+    and once JAX makes the new implementation the default.
+    """
+    with config.remat3(True):
+        yield
+
+
+@pytest.mark.elementwise
+@pytest.mark.usefixtures("remat3")
+def test_remat3_checkpoint():
+    """call_hi_primitive with RematTraced traces through the wrapped jaxpr."""
+
+    @jax.checkpoint
+    def f(x):
+        return jnp.cos(jnp.sin(x)) * x[::-1]
+
+    assert_jacobian_sparsity_exact(f, jnp.array([1.0, 2.0, 3.0, 4.0]))
+
+
+@pytest.mark.array_ops
+@pytest.mark.usefixtures("remat3")
+def test_remat3_closure_captured_index():
+    """A closure-captured index enters RematTraced as an operand and resolves the gather.
+
+    remat3 hoists the captured index array to a const of the outer jaxpr,
+    so its value must be forwarded into the wrapped jaxpr.
+    """
+    indices = jnp.array([2, 0, 1])
+
+    @jax.checkpoint
+    def f(x):
+        return x[indices]
+
+    assert_jacobian_sparsity_exact(f, jnp.array([1.0, 2.0, 3.0]))
+
+
+@pytest.mark.array_ops
+@pytest.mark.usefixtures("remat3")
+def test_remat3_multiple_operands_and_outputs():
+    """Pytree inputs and outputs of RematTraced stay aligned with the flat eqn variables."""
+
+    @jax.checkpoint
+    def g(d):
+        return {"prod": d["a"] * d["b"][:2], "sum": jnp.sum(d["b"])}
+
+    def f(x):
+        out = g({"a": x[:2], "b": x[2:]})
+        return jnp.concatenate([out["prod"], out["sum"][None]])
+
+    assert_jacobian_sparsity_exact(f, jnp.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+
+
+@pytest.mark.elementwise
+@pytest.mark.usefixtures("remat3")
+def test_remat3_nested():
+    """Nested checkpoints produce nested RematTraced primitives, both traced through."""
+
+    @jax.checkpoint
+    def inner(x):
+        return jnp.sin(x)
+
+    @jax.checkpoint
+    def outer(x):
+        return jnp.cos(inner(x))
+
+    assert_jacobian_sparsity_exact(outer, jnp.array([1.0, 2.0, 3.0]))
+
+
+@pytest.mark.hessian
+@pytest.mark.usefixtures("remat3")
+def test_remat3_differentiated():
+    """The gradient of a remat3 checkpoint traces through RematTraced and optimization_barrier.
+
+    Under remat3, the backward pass pins the rematerialized inputs
+    with ``optimization_barrier`` before calling RematTraced again.
+    """
+
+    def f(x):
+        return jnp.sum(jax.checkpoint(lambda z: jnp.sin(z) * jnp.roll(z, 1))(x))
+
+    assert_hessian_sparsity_exact(f, jnp.array([1.0, 2.0, 3.0, 4.0]))
+
+
+@pytest.mark.hessian
+@pytest.mark.usefixtures("remat3")
+def test_remat3_hessian_decompression():
+    """The sparse Hessian of a remat3 checkpoint matches the dense JAX Hessian."""
+
+    def f(x):
+        return jnp.sum(jax.checkpoint(lambda z: jnp.sin(z) * jnp.roll(z, 1))(x))
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    H = hessian(f, x, output_format="dense")(x)
+    np.testing.assert_allclose(H, jax.hessian(f)(x), rtol=1e-6)
+
+
+@pytest.mark.elementwise
+@pytest.mark.usefixtures("remat3")
+def test_custom_remat_follows_primal():
+    """call_hi_primitive with CustomRemat traces the wrapped primal function.
+
+    The closure-captured weights are hoisted to leading operands,
+    so the zero weight at position 0 clears that row.
+    Like ``custom_vjp_call``, the custom backward rule is not followed.
+    """
+    w = jnp.array([0.0, 1.0, 2.0])
+
+    def g(x):
+        return jnp.sin(x) * w
+
+    def g_fwd(policy, x):
+        return g(x), None
+
+    def g_rem(res, x):
+        return g(x), x
+
+    def g_bwd(res, ct):
+        return (ct * jnp.cos(res) * w,)
+
+    f = jax.custom_remat(g, g_fwd, g_rem, g_bwd)
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # Not compared with assert_jacobian_sparsity_exact,
+    # since custom_remat has no reverse mode outside of jax.checkpoint.
+    expected = np.array(
+        [
+            [0, 0, 0],  # out[0] = sin(x[0]) * 0
+            [0, 1, 0],  # out[1] = sin(x[1]) * 1
+            [0, 0, 1],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+_NAME_POLICIES = [
+    pytest.param(None, id="no_policy"),
+    pytest.param(jax.checkpoint_policies.save_only_these_names("a"), id="save_names"),
+    pytest.param(
+        jax.checkpoint_policies.save_and_offload_only_these_names(
+            names_which_can_be_saved=[],
+            names_which_can_be_offloaded=["a"],
+            offload_src="device",
+            offload_dst="pinned_host",
+        ),
+        id="offload_names",
+    ),
+]
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("policy", _NAME_POLICIES)
+def test_checkpoint_name(policy):
+    """checkpoint_name emits a ``name`` primitive that passes its operand through.
+
+    The Hessian traces the gradient,
+    where name-based policies save or offload the named residual.
+    """
+
+    def g(x):
+        return jnp.sin(checkpoint_name(jnp.sin(x) * x[::-1], "a"))
+
+    def f(x):
+        return jnp.sum(jax.checkpoint(g, policy=policy)(x))
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    assert_jacobian_sparsity_exact(g, x)
+    assert_hessian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.usefixtures("remat3")
+@pytest.mark.parametrize("policy", _NAME_POLICIES)
+def test_remat3_checkpoint_name(policy):
+    """checkpoint_name emits a CheckpointName HiJax primitive that passes its operand through.
+
+    The Hessian traces the gradient,
+    where name-based policies save or offload the named residual,
+    the latter through ``device_put``.
+    """
+
+    def g(x):
+        return jnp.sin(checkpoint_name(jnp.sin(x) * x[::-1], "a"))
+
+    def f(x):
+        return jnp.sum(jax.checkpoint(g, policy=policy)(x))
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    assert_jacobian_sparsity_exact(g, x)
+    assert_hessian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_unknown_hi_primitive_raises():
+    """HiJax primitives without a handler raise instead of guessing a pattern."""
+
+    class Double(HiPrim):
+        def __init__(self, aval):
+            self.in_avals = (aval,)
+            self.out_aval = aval
+            self.params = {}
+            super().__init__()
+
+        def expand(self, *args):
+            (x,) = args
+            return 2 * x
+
+    def f(x):
+        return Double(jax.typeof(x))(x)
+
+    with pytest.raises(NotImplementedError, match="HiJax primitive 'Double'"):
+        jacobian_sparsity(f, np.zeros(3))
 
 
 @pytest.mark.array_ops

@@ -48,12 +48,14 @@ from ._elementwise import (
     _prop_zero_derivative_const,
     _prop_zero_derivative_unary_const,
 )
+from ._empty import _prop_empty
 from ._equinox._select_if_vmap import _prop_select_if_vmap
 from ._gather import _prop_gather
 from ._iota import _prop_iota
 from ._linalg import _prop_qr
 from ._mul import _prop_mul
 from ._pad import _prop_pad
+from ._pass_through import _prop_pass_through
 from ._platform_index import _prop_platform_index
 from ._random import _prop_random
 from ._reduce import _prop_reduce
@@ -153,8 +155,8 @@ def _prop_closed_jaxpr(
 ) -> None:
     """Recursively trace a closed jaxpr stored in ``eqn.params[param_key]``.
 
-    Shared implementation for ``prop_nested_jaxpr`` (param ``"jaxpr"``)
-    and ``prop_custom_call`` (param ``"call_jaxpr"``).
+    Used for call-like primitives such as ``jit`` and ``remat2`` (param ``"jaxpr"``)
+    and ``custom_jvp_call`` / ``custom_vjp_call`` (param ``"call_jaxpr"``).
     """
     closed = eqn.params.get(param_key)
     if closed is None:
@@ -162,7 +164,14 @@ def _prop_closed_jaxpr(
             f"Primitive '{eqn.primitive.name}' has no '{param_key}' parameter."
         )
         raise ValueError(msg)
+    _prop_call(eqn, state, closed)
 
+
+def _prop_call(eqn: JaxprEqn, state: _PropState, closed) -> None:
+    """Trace ``closed`` as the body of ``eqn``.
+
+    The jaxpr's invars and outvars must align with the equation's.
+    """
     # Unwrap ClosedJaxpr, seeding state.consts for captured constants
     if hasattr(closed, "jaxpr"):
         _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
@@ -177,6 +186,36 @@ def _prop_closed_jaxpr(
     _forward_across_jaxpr_boundary(state, closed.outvars, eqn.outvars)
     for outvar, indices in zip(eqn.outvars, output_indices, strict=False):
         state.indices[outvar] = indices
+
+
+def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
+    """Propagate through a HiJax primitive, identified by its class.
+
+    ``call_hi_primitive`` stores the actual operation as a HiJax primitive object
+    (a ``HiPrim``, called ``VJPHiPrimitive`` before JAX 0.11.2)
+    in ``eqn.params["_prim"]``.
+    Any HiJax primitive without a case raises, since its semantics are unknown.
+
+    Jaxpr:
+        invars: operands, aligned with ``_prim.jaxpr.invars``
+            (closure consts hoisted to the front)
+        _prim: the HiJax primitive, whose ``jaxpr`` maps invars to outvars
+
+    https://docs.jax.dev/en/latest/_autosummary/jax.checkpoint.html
+    """
+    prim = eqn.params["_prim"]
+    match type(prim).__name__:
+        # jax.checkpoint under jax_remat3 emits RematTraced, and jax.custom_remat emits CustomRemat.
+        # Both evaluate their wrapped jaxpr on the operands, so the pattern is that of the jaxpr.
+        # Like custom_vjp_call, custom_remat follows its primal, not its custom backward rule.
+        case "RematTraced" | "CustomRemat":
+            _prop_call(eqn, state, prim.jaxpr)
+        # checkpoint_name under jax_remat3 emits CheckpointName, which returns its operand unchanged.
+        case "CheckpointName":
+            _prop_pass_through(eqn, state)
+        case name:
+            msg = _report_issue(f"No handler for HiJax primitive '{name}'.")
+            raise NotImplementedError(msg)
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
@@ -223,6 +262,10 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_zero_derivative_const(eqn, state)
         case "jit" | "pjit" | "xla_call" | "named_call" | "remat2":
             _prop_closed_jaxpr(eqn, state, "jaxpr")
+        case "call_hi_primitive":
+            _prop_call_hi_primitive(eqn, state)
+        case "optimization_barrier" | "device_put" | "name":
+            _prop_pass_through(eqn, state)
         case "slice":
             _prop_slice(eqn, state)
         case "pad":
@@ -272,6 +315,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             "neg"  # ∂(-x)/∂x = -1
             | "exp"  # ∂eˣ/∂x = eˣ
             | "log"  # ∂log(x)/∂x = 1/x
+            | "log2"  # ∂log₂(x)/∂x = 1/(x·ln(2))
             | "sin"  # ∂sin(x)/∂x = cos(x)
             | "cos"  # ∂cos(x)/∂x = -sin(x)
             | "tan"  # ∂tan(x)/∂x = sec²(x)
@@ -333,6 +377,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_select_if_vmap(eqn, state)
         case "iota":
             _prop_iota(eqn, state)
+        case "empty":
+            _prop_empty(eqn, state)
         case (
             "random_seed"
             | "random_unwrap"
@@ -382,6 +428,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "pure_callback"
             | "lu"
             | "cholesky"
+            | "triangular_solve"
             | "svd"
             | "eigh"
         ):

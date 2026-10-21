@@ -1,6 +1,13 @@
 # asdex
 
 ## Unreleased
+* ![Feature][badge-feature] Support `jax.lax.optimization_barrier` and `jax.device_put` ([#218])
+* ![Feature][badge-feature] Support `jax.ad_checkpoint.checkpoint_name`, which previously raised an error for its `name` primitive ([#218])
+* ![Maintenance][badge-maintenance] Support `jax.checkpoint`, `jax.custom_remat`, and `checkpoint_name` under JAX's opt-in `jax_remat3` implementation, which emits `call_hi_primitive` ([#218])
+* ![Maintenance][badge-maintenance] Support the `triangular_solve` primitive with a conservative pattern, which the Hessian of `jnp.linalg.det` on 2x2 and 3x3 matrices emits since JAX 0.11.1 ([#218])
+* ![Maintenance][badge-maintenance] Support the `empty` primitive, which `jnp.empty` and `jnp.empty_like` emit since JAX 0.11.
+  Its values are uninitialized, so they are not treated as zeros ([#218])
+* ![Maintenance][badge-maintenance] Support the `log2` primitive, which `jnp.log2` emits since JAX 0.11.2 ([#218])
 * ![Maintenance][badge-maintenance] Pin JAX to 0.11 in CI while JAX 0.12 support is worked on ([#216])
 
 ## Version `v0.6.0`
@@ -165,6 +172,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 <!-- Only link to pull requests in this changelog, not issues. -->
+[#218]: https://github.com/adrhill/asdex/pull/218
 [#216]: https://github.com/adrhill/asdex/pull/216
 [#212]: https://github.com/adrhill/asdex/pull/212
 [#207]: https://github.com/adrhill/asdex/pull/207
