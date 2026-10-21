@@ -20,7 +20,10 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
-from tests._utils import assert_jacobian_sparsity_exact
+from tests._utils import (
+    assert_hessian_sparsity_exact,
+    assert_jacobian_sparsity_exact,
+)
 
 _INCOMPLETE_GAMMA_OPS = [
     jax.scipy.special.gammainc,
@@ -87,6 +90,29 @@ def test_zeta_s_below_one():
         return jax.scipy.special.zeta(s, 1.3)
 
     assert_jacobian_sparsity_exact(f, s)
+
+
+@pytest.mark.hessian
+def test_incomplete_gamma_hessian_x():
+    """Second-order derivatives of gammainc wrt x are detected exactly."""
+    x = jnp.array([0.5, 1.1, 2.3])
+
+    def f(x):
+        return jnp.sum(jax.scipy.special.gammainc(2.0, x))
+
+    assert_hessian_sparsity_exact(f, x)
+
+
+@pytest.mark.hessian
+def test_zeta_hessian_both_args():
+    """Second-order derivatives of zeta wrt both arguments are detected exactly."""
+    n = 3
+    v = jnp.array([1.3, 1.8, 2.4, 0.5, 1.1, 2.0])
+
+    def f(v):
+        return jnp.sum(jax.scipy.special.zeta(v[:n], v[n:]))
+
+    assert_hessian_sparsity_exact(f, v)
 
 
 @pytest.mark.elementwise

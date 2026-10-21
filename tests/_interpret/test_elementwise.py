@@ -16,6 +16,7 @@ from asdex.detection._interpret._elementwise import (
     _union_with_zero_derivs,
 )
 from tests._utils import (
+    assert_flat_jacobian_sparsity_exact,
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
 )
@@ -1338,9 +1339,9 @@ def test_binary_shapes_second_arg(op, shape):
     inputs = _positive_values(n)
 
     def f(v):
-        return op(const, v.reshape(shape)).ravel()
+        return op(const, v.reshape(shape))
 
-    assert_jacobian_sparsity_exact(f, inputs)
+    assert_flat_jacobian_sparsity_exact(f, inputs)
 
 
 @pytest.mark.elementwise
@@ -1352,9 +1353,9 @@ def test_binary_shapes_both_args(op, shape):
     inputs = _positive_values(2 * n)
 
     def f(v):
-        return op(v[:n].reshape(shape), v[n:].reshape(shape)).ravel()
+        return op(v[:n].reshape(shape), v[n:].reshape(shape))
 
-    assert_jacobian_sparsity_exact(f, inputs)
+    assert_flat_jacobian_sparsity_exact(f, inputs)
 
 
 @pytest.mark.elementwise
@@ -1377,9 +1378,9 @@ def test_binary_broadcasting(op, shape_a, shape_b):
     def f(v):
         a = v[:n_a].reshape(shape_a)
         b = v[n_a:].reshape(shape_b)
-        return op(a, b).ravel()
+        return op(a, b)
 
-    assert_jacobian_sparsity_exact(f, inputs)
+    assert_flat_jacobian_sparsity_exact(f, inputs)
 
 
 @pytest.mark.elementwise
@@ -1391,21 +1392,23 @@ def test_binary_scalar_first_arg(op, shape):
     inputs = _positive_values(n + 1)
 
     def f(v):
-        return op(v[0], v[1:].reshape(shape)).ravel()
+        return op(v[0], v[1:].reshape(shape))
 
-    assert_jacobian_sparsity_exact(f, inputs)
+    assert_flat_jacobian_sparsity_exact(f, inputs)
 
 
 @pytest.mark.elementwise
 @pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
-def test_binary_scalar_second_arg(op):
+@pytest.mark.parametrize("shape", [(4,), (3, 4)])
+def test_binary_scalar_second_arg(op, shape):
     """An array first operand broadcasts against a scalar second operand."""
-    inputs = _positive_values(4)
+    n = int(np.prod(shape))
+    inputs = _positive_values(n + 1)
 
     def f(v):
-        return op(v[:-1], v[-1])
+        return op(v[:-1].reshape(shape), v[-1])
 
-    assert_jacobian_sparsity_exact(f, inputs)
+    assert_flat_jacobian_sparsity_exact(f, inputs)
 
 
 @pytest.mark.elementwise
