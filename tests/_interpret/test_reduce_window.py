@@ -1,5 +1,10 @@
 """Tests for windowed reductions.
 
+The sum, max, and min specializations are exact.
+Generic ``reduce_window`` is conservative because the handler does not
+inspect the combiner jaxpr, so its tests state the full window explicitly
+and mark the over-approximating cases as ``fallback``.
+
 References:
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.reduce_window.html
 """

@@ -69,8 +69,8 @@ def _prop_reduce_window(eqn: JaxprEqn, state: _PropState) -> None:
         ]
     )
 
-    # JAX takes the output shape from the first operand,
-    # so the later ones are only computed for a jaxpr that JAX would reject.
+    # JAX derives the output shape from the first operand only,
+    # so every operand is mapped against its own input shape.
     target_lists = [
         _window_target_lists(
             out_shape,
