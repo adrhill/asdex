@@ -8,7 +8,8 @@ to determine Jacobian sparsity patterns.
 - `__init__.py`: `_prop_jaxpr`, `_prop_dispatch`, and the conservative fallback.
 - `_common.py`: shared types, `_PropState`, and helpers.
   Skim its docstrings before writing a handler, since most building blocks already exist there.
-- `_foo.py` holds `_prop_foo` for the JAX primitive `foo`.
+- `_foo.py` holds `_prop_foo` for the JAX primitive `foo`; for example,
+  `_fft.py` holds `_prop_fft` for `fft`.
 - Handlers for external packages (Equinox, Flax, etc.) live in subfolders such as `_equinox/`.
 
 ## Invariants
