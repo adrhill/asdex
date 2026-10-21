@@ -310,6 +310,14 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         case "polygamma":
             # ∂ψₙ/∂n = 0 (n is integer order), ∂ψₙ/∂x = ψₙ₊₁(x).
             _prop_binary_const(eqn, state, is_der1_zero_globally=True)
+        # Special functions with generically nonzero partials wrt both operands
+        case (
+            "igamma"  # ∂P(a,x)/∂a and ∂P(a,x)/∂x
+            | "igammac"  # ∂Q(a,x)/∂a and ∂Q(a,x)/∂x
+            | "igamma_grad_a"  # JVP helper for ∂P/∂a, nonzero partials wrt both
+            | "zeta"  # ∂ζ(x,q)/∂x and ∂ζ(x,q)/∂q
+        ):
+            _prop_binary_const(eqn, state)
         # Unary elementwise with nonzero derivative (diagonal Jacobian)
         case (
             "neg"  # ∂(-x)/∂x = -1
