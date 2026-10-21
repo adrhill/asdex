@@ -10,6 +10,7 @@ import pytest
 
 from asdex import hessian_sparsity, jacobian_sparsity
 from tests._utils import (
+    assert_flat_jacobian_sparsity_exact,
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
 )
@@ -105,9 +106,9 @@ def test_scatter_dynamic_indices():
 
 
 @pytest.mark.array_ops
-@pytest.mark.parametrize("method", ["mul", "min", "max"])
-def test_scatter_combine(method):
-    """Scatter combine variants union dependencies from operand and updates.
+@pytest.mark.parametrize("method", ["add", "mul", "subtract"])
+def test_scatter_combine_exact(method):
+    """Scatter combine variants with nonzero partials match the Jacobian exactly.
 
     Targeted positions depend on both the original value and the update.
     Non-targeted positions depend only on the operand.
@@ -117,6 +118,24 @@ def test_scatter_combine(method):
         arr = x[:3]
         return getattr(arr.at[1], method)(x[3])
 
+    x = jnp.array([1.0, -2.0, 3.0, 0.5])
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize("method", ["min", "max"])
+def test_scatter_combine_extremum_conservative(method):
+    """Scatter min/max must cover either operand winning at runtime.
+
+    The structural pattern unions the operand and update at the target position,
+    while a numerical Jacobian only sees the winner at one concrete input.
+    """
+
+    def f(x):
+        arr = x[:3]
+        return getattr(arr.at[1], method)(x[3])
+
+    x = jnp.array([1.0, -2.0, 3.0, 0.5])
     result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
     expected = np.array(
         [
@@ -127,6 +146,7 @@ def test_scatter_combine(method):
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, x)
 
 
 @pytest.mark.array_ops
@@ -557,6 +577,54 @@ def test_scatter_duplicate_indices_add():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_scatter_duplicate_indices_sub():
+    """Duplicate indices with subtract: the operand and both updates contribute.
+
+    Both x[3] and x[4] are subtracted from position 1,
+    which also keeps reading its operand value x[1].
+    """
+
+    def f(x):
+        arr = x[:3]
+        # Both x[3] and x[4] are subtracted from position 1.
+        return arr.at[jnp.array([1, 1])].subtract(x[3:])
+
+    x = jnp.array([1.0, 2.0, 3.0, 0.5, 1.5])
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.array_ops
+def test_scatter_sub_row_window():
+    """Scatter-sub with a 2D row window updates every element of one row."""
+
+    def f(x):
+        mat = x[:3]
+        updates = x[3:4]
+        return mat.at[jnp.array([1])].subtract(updates)
+
+    x = jnp.arange(1.0, 17.0).reshape(4, 4)
+    assert_flat_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize("mode", ["drop", "clip"])
+def test_scatter_sub_oob(mode):
+    """Scatter-sub with an out-of-bounds index, under drop and clip modes.
+
+    ``drop`` ignores the update, so out[2] keeps its operand dependency.
+    ``clip`` writes it at position 2, which then depends on both
+    the operand value x[2] and the update x[3].
+    """
+
+    def f(x):
+        arr = x[:3]
+        return arr.at[jnp.array([5])].subtract(x[3], mode=mode)
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    assert_jacobian_sparsity_exact(f, x)
 
 
 @pytest.mark.array_ops

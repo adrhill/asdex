@@ -369,7 +369,14 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_closed_jaxpr(eqn, state, "call_jaxpr")
         case "gather":
             _prop_gather(eqn, state)
-        case "scatter" | "scatter-add" | "scatter-mul" | "scatter-min" | "scatter-max":
+        case (
+            "scatter"
+            | "scatter-add"
+            | "scatter-mul"
+            | "scatter-min"
+            | "scatter-max"
+            | "scatter-sub"
+        ):
             _prop_scatter(eqn, state)
         case "select_n":
             _prop_select_n(eqn, state)
@@ -416,7 +423,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_tile(eqn, state)
         case "sort":
             _prop_sort(eqn, state)
-        case "cumsum" | "cumprod" | "cummax" | "cummin":
+        case "cumsum" | "cumprod" | "cummax" | "cummin" | "cumlogsumexp":
             _prop_cumsum(eqn, state)
         case "qr":
             _prop_qr(eqn, state)
