@@ -261,10 +261,12 @@ def test_reduce_window_multiple_operands_conservative():
         ((2,), ((1, 1),), (4,)),
         ((0,), ((0, 0),), (2,)),
         ((0, 3), ((1, 1), (0, 0)), (2, 2)),
+        ((1,), ((1, 1),), (1,)),
+        ((3,), ((3, 3),), (1,)),
     ],
 )
 def test_reduce_window_degenerate(shape, padding, window_dimensions):
-    """Empty inputs and windows larger than the input do not crash or invent deps."""
+    """Empty inputs, oversized windows, and all-padding windows stay dependency-free."""
     x = jnp.arange(np.prod(shape), dtype=jnp.float32).reshape(shape)
 
     def f(x):
