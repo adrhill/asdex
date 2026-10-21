@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792601587790,
+  "lastUpdate": 1792610984627,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -23115,6 +23115,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000001978969308854568",
             "extra": "mean: 11.413752440324705 usec\nrounds: 20181"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@adrianhill.de",
+            "name": "Bdrian Hill",
+            "username": "bdrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "da130b048b72c03e5ac1cb154968797bc32868b8",
+          "message": "feat(detection): handle the empty2 primitive (#215)\n\n* feat(detection): handle the empty2 primitive\n\n`empty2` is what AD allocates for the undefined residuals of a `cond`\nbranch (`ad_util.empty_like_aval`), so it appears inside the branch jaxprs\nwhenever a `cond` is differentiated, i.e. on asdex's Hessian path.\nDetecting the sparsity of such a gradient raised\n`NotImplementedError: No handler for primitive 'empty2'`.\n\nThe handler shares the `empty` rule: `empty2` has no invars and no `shape`\nparameter, so the element count comes from the output variable instead.\nIts contents are undefined, so no const value is recorded for it either.\n\nPart of #193\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* test(detection): cover empty2 through the jacobian API too\n\n`empty2` is only created by *differentiating* a `cond`, so\n`jacobian_sparsity(f, x)` on the primal never reaches it and passes on main\nas well: it would pin nothing.\n`assert_jacobian_sparsity_exact(jax.grad(f), x)` does reach it and is now\ncovered next to the Hessian case, both against the same `cond`.\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* test(detection): inline the empty2 cond example\n\nKeep the two empty2 tests self-contained: no module-level helper and no\nfloating array for the evaluation point, matching the rest of the file,\nwhere every test defines its own f.\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017",
+          "timestamp": "2026-10-21T21:29:10+02:00",
+          "tree_id": "53750437fd350fb04057b6677815b75ecdff36f5",
+          "url": "https://github.com/adrhill/asdex/commit/da130b048b72c03e5ac1cb154968797bc32868b8"
+        },
+        "date": 1792610982982,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 826.9225017853388,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00021511641154836188",
+            "extra": "mean: 1.2093031666703762 msec\nrounds: 24"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 28339.021967924087,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000032805838833192087",
+            "extra": "mean: 35.28703288108756 usec\nrounds: 8698"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 78147.16483210366,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013520350366025322",
+            "extra": "mean: 12.796369543904294 usec\nrounds: 22498"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 40159.241464422106,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003055626576495012",
+            "extra": "mean: 24.9008687299515 usec\nrounds: 14314"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 70783.21869834606,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000024136770848177723",
+            "extra": "mean: 14.127642376106955 usec\nrounds: 26128"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 176.0989410391024,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00020763651882591642",
+            "extra": "mean: 5.678625857142163 msec\nrounds: 21"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3533.6691615317513,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007534008760243423",
+            "extra": "mean: 282.9919707498952 usec\nrounds: 2906"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1609.450201627826,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00026012374016463744",
+            "extra": "mean: 621.3301902653358 usec\nrounds: 1130"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1779.9204983648513,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003104295259679334",
+            "extra": "mean: 561.8228459746736 usec\nrounds: 857"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4042.5311831730014,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003864527229733809",
+            "extra": "mean: 247.36976777383703 usec\nrounds: 3221"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 152.13469175780494,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001870632325133393",
+            "extra": "mean: 6.573122727273658 msec\nrounds: 66"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 28447.85860283246,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027910539534042566",
+            "extra": "mean: 35.15203073669781 usec\nrounds: 21375"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 37765.532920346624,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012852176576662158",
+            "extra": "mean: 26.479170891329808 usec\nrounds: 12230"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 36163.068701310345,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004732389418653165",
+            "extra": "mean: 27.652520538550583 usec\nrounds: 10030"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 43471.07543197555,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000036300529883377357",
+            "extra": "mean: 23.003801724777222 usec\nrounds: 11479"
           }
         ]
       }
