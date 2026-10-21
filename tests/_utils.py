@@ -10,9 +10,12 @@ def numerical_jacobian_sparsity(f, x, atol=1e-10, holomorphic=False):
     """Compute sparsity pattern from numerical Jacobian.
 
     Returns a binary int array: 1 where J[i,j] is not close to zero, else 0.
+    The Jacobian is flattened to shape ``(output size, input size)``,
+    matching the patterns asdex detects for inputs and outputs of any shape.
     """
-    J = jax.jacobian(f, holomorphic=holomorphic)(x)
-    return (~np.isclose(np.asarray(J), 0, atol=atol)).astype(int)
+    J = np.asarray(jax.jacobian(f, holomorphic=holomorphic)(x))
+    J = J.reshape(jax.eval_shape(f, x).size, np.size(x))
+    return (~np.isclose(J, 0, atol=atol)).astype(int)
 
 
 def assert_jacobian_sparsity_exact(f, x, holomorphic=False):
