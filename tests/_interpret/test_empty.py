@@ -16,9 +16,7 @@ from jax import lax
 from asdex import jacobian_sparsity
 from tests._utils import (
     assert_flat_jacobian_sparsity_exact,
-    assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
-    numerical_flat_jacobian_sparsity,
 )
 
 
@@ -59,9 +57,10 @@ def test_empty_is_not_treated_as_zeros_in_mul():
 
     Before JAX 0.11, ``jnp.empty`` lowered to zeros,
     which let ``mul`` clear the pattern.
-    The buffer is now uninitialized, so its values may be nonzero.
-    The numerical Jacobian reads whatever the buffer holds (zeros on CPU),
-    so the detected pattern can only be checked to cover it.
+    The buffer is now uninitialized, so its values may be nonzero,
+    and the diagonal is the precise pattern.
+    It is not compared against the numerical Jacobian,
+    which reads whatever the buffer holds (zeros on CPU).
     """
 
     def f(x):
@@ -71,15 +70,14 @@ def test_empty_is_not_treated_as_zeros_in_mul():
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.eye(6, dtype=int)  # out[i,j] = x[i,j] * empty[i,j]
     np.testing.assert_array_equal(result, expected)
-    assert np.all(result >= numerical_flat_jacobian_sparsity(f, x))
 
 
 @pytest.mark.array_ops
 def test_empty_is_not_treated_as_zeros_in_dot_general():
     """A matmul with an empty matrix keeps every contraction term.
 
-    As for ``mul``, the numerical Jacobian reads the uninitialized buffer,
-    so the detected pattern can only be checked to cover it.
+    As for ``mul``, the dense pattern is precise,
+    and the numerical Jacobian would read the uninitialized buffer.
     """
 
     def f(x):
@@ -89,7 +87,6 @@ def test_empty_is_not_treated_as_zeros_in_dot_general():
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.ones((2, 3), dtype=int)  # out[i] = sum_j empty[i,j] * x[j]
     np.testing.assert_array_equal(result, expected)
-    assert_jacobian_sparsity_conservative(f, x)
 
 
 @pytest.mark.array_ops

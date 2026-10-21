@@ -356,9 +356,16 @@ def test_custom_remat_follows_primal():
 
     x = jnp.array([1.0, 2.0, 3.0])
     result = jacobian_sparsity(f, x).todense().astype(int)
-    # custom_remat does not support reverse mode outside of jax.checkpoint,
-    # so the reference comes from forward mode, which differentiates the primal.
-    expected = (np.abs(jax.jacfwd(f)(x)) > 1e-10).astype(int)
+    # Not compared with assert_jacobian_sparsity_exact,
+    # since custom_remat has no reverse mode outside of jax.checkpoint.
+    expected = np.array(
+        [
+            [0, 0, 0],  # out[0] = sin(x[0]) * 0
+            [0, 1, 0],  # out[1] = sin(x[1]) * 1
+            [0, 0, 1],
+        ],
+        dtype=int,
+    )
     np.testing.assert_array_equal(result, expected)
 
 

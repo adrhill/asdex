@@ -12,7 +12,7 @@ def numerical_jacobian_sparsity(f, x, atol=1e-10, holomorphic=False):
     Returns a binary int array: 1 where J[i,j] is not close to zero, else 0.
     """
     J = jax.jacobian(f, holomorphic=holomorphic)(x)
-    return (~np.isclose(np.asarray(J), 0, atol=atol)).astype(int)
+    return (~np.isclose(J, 0, atol=atol)).astype(int)
 
 
 def numerical_flat_jacobian_sparsity(f, x, atol=1e-10):
