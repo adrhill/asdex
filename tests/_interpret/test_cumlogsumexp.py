@@ -11,7 +11,6 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from asdex import jacobian_sparsity
 from tests._utils import assert_jacobian_sparsity_exact
 
 
@@ -95,9 +94,7 @@ def test_cumlogsumexp_zero_size_scan_axis(reverse):
     def f(x):
         return lax.cumlogsumexp(x.reshape(0, 3), axis=0, reverse=reverse).flatten()
 
-    result = jacobian_sparsity(f, np.zeros(0))
-    assert result.shape == (0, 0)
-    assert result.nnz == 0
+    assert_jacobian_sparsity_exact(f, np.zeros(0))
 
 
 @pytest.mark.array_ops
@@ -107,6 +104,4 @@ def test_cumlogsumexp_zero_size_other_axis():
     def f(x):
         return lax.cumlogsumexp(x.reshape(3, 0), axis=0).flatten()
 
-    result = jacobian_sparsity(f, np.zeros(0))
-    assert result.shape == (0, 0)
-    assert result.nnz == 0
+    assert_jacobian_sparsity_exact(f, np.zeros(0))

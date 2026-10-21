@@ -596,6 +596,19 @@ def test_scatter_duplicate_indices_sub():
 
 
 @pytest.mark.array_ops
+def test_scatter_sub_row_window():
+    """Scatter-sub with a 2D row window updates every element of one row."""
+
+    def f(x):
+        mat = x[:12].reshape(3, 4)
+        updates = x[12:16].reshape(1, 4)
+        return mat.at[jnp.array([1])].subtract(updates).reshape(-1)
+
+    x = jnp.arange(1.0, 17.0)
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.array_ops
 @pytest.mark.parametrize("mode", ["drop", "clip"])
 def test_scatter_sub_oob(mode):
     """Scatter-sub with an out-of-bounds index, under drop and clip modes.
