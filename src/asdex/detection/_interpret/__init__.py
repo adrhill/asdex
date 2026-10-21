@@ -377,7 +377,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_select_if_vmap(eqn, state)
         case "iota":
             _prop_iota(eqn, state)
-        case "empty":
+        case "empty" | "empty2":
             _prop_empty(eqn, state)
         case (
             "random_seed"
