@@ -48,6 +48,7 @@ from ._elementwise import (
     _prop_zero_derivative_const,
     _prop_zero_derivative_unary_const,
 )
+from ._empty import _prop_empty
 from ._equinox._select_if_vmap import _prop_select_if_vmap
 from ._gather import _prop_gather
 from ._iota import _prop_iota
@@ -334,6 +335,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_select_if_vmap(eqn, state)
         case "iota":
             _prop_iota(eqn, state)
+        case "empty":
+            _prop_empty(eqn, state)
         case (
             "random_seed"
             | "random_unwrap"

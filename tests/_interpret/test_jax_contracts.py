@@ -373,6 +373,23 @@ def test_iota_dimension_semantics():
     np.testing.assert_array_equal(actual, expected)
 
 
+def test_empty_layout():
+    """``jnp.empty`` and ``jnp.empty_like`` emit a nullary ``empty`` eqn.
+
+    ``_prop_empty`` takes the output size from the ``shape`` param
+    and records no dependencies, which needs ``empty_like`` not to read its argument.
+    """
+    jaxpr = jax.make_jaxpr(lambda: jnp.empty((2, 3)))()
+    eqn = _unique_eqn(jaxpr.jaxpr, "empty")
+    assert eqn.params["shape"] == (2, 3)
+    assert list(eqn.invars) == []
+
+    jaxpr = jax.make_jaxpr(jnp.empty_like)(jnp.zeros((3, 1)))
+    eqn = _unique_eqn(jaxpr.jaxpr, "empty")
+    assert eqn.params["shape"] == (3, 1)
+    assert list(eqn.invars) == []
+
+
 # Contractions
 
 
