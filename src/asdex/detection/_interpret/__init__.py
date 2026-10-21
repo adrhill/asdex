@@ -59,6 +59,7 @@ from ._pass_through import _prop_pass_through
 from ._platform_index import _prop_platform_index
 from ._random import _prop_random
 from ._reduce import _prop_reduce
+from ._reduce_window import _prop_reduce_window
 from ._reshape import _prop_reshape
 from ._rev import _prop_rev
 from ._scan import _prop_scan
@@ -355,6 +356,13 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_ternary_elementwise(eqn, state)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
             _prop_reduce(eqn, state)
+        case (
+            "reduce_window"
+            | "reduce_window_sum"
+            | "reduce_window_max"
+            | "reduce_window_min"
+        ):
+            _prop_reduce_window(eqn, state)
         case "convert_element_type" | "stop_gradient":
             _prop_convert_element_type(eqn, state)
         case "reduce_precision":
