@@ -4,10 +4,13 @@ Since JAX 0.11, ``jnp.empty`` and ``jnp.empty_like`` emit the ``empty`` primitiv
 instead of a broadcast of zeros.
 Its contents are undefined,
 so it contributes no dependencies but must not be treated as known zeros.
+The internal ``empty2`` primitive allocates the same kind of buffer,
+for the undefined residuals of a ``cond`` branch.
 
 https://docs.jax.dev/en/latest/_autosummary/jax.numpy.empty.html
 """
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -16,6 +19,7 @@ from jax import lax
 from asdex import jacobian_sparsity
 from tests._utils import (
     assert_flat_jacobian_sparsity_exact,
+    assert_hessian_sparsity_exact,
     assert_jacobian_sparsity_exact,
 )
 
@@ -135,3 +139,46 @@ def test_empty_scalar():
         return x + jnp.empty(())
 
     assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0]))
+
+
+@pytest.mark.control_flow
+def test_empty2_in_cond_gradient_jacobian():
+    """First-order detection of a differentiated ``cond`` reaches ``empty2``.
+
+    AD makes the residuals of the branch that is not differentiated with
+    ``empty2`` equations inside the branch jaxprs.
+    They are only created by *differentiating* the ``cond``: the primal jaxpr
+    of ``f`` has no ``empty2``, which is why ``jacobian_sparsity(f, x)`` never
+    needs the handler and passes on main either.
+    Differentiating first and detecting afterwards -- ``jax.grad(f)`` here,
+    ``jax.jacobian(f)`` behaves the same -- does hit them.
+    """
+
+    def f(x):
+        # Branches of different shapes make AD allocate the undefined residual.
+        return lax.cond(
+            x[0] > 0, lambda v: jnp.array(1.0), lambda v: jnp.sum(jnp.sin(v)), x
+        )
+
+    # x[0] < 0 takes the differentiable branch,
+    # so the union over both branches is exact at this point.
+    assert_jacobian_sparsity_exact(jax.grad(f), np.array([-1.0, 2.0, 3.0]))
+
+
+@pytest.mark.control_flow
+def test_empty2_in_cond_gradient_hessian():
+    """Hessian detection of a ``cond`` reaches ``empty2``, as in the jacobian case.
+
+    ``hessian_sparsity`` differentiates once and then detects,
+    so it takes the same path as ``jacobian_sparsity(jax.grad(f), x)``
+    but through the public Hessian API.
+    """
+
+    def f(x):
+        return lax.cond(
+            x[0] > 0, lambda v: jnp.array(1.0), lambda v: jnp.sum(jnp.sin(v)), x
+        )
+
+    # x[0] < 0 takes the differentiable branch,
+    # so the union over both branches is exact at this point.
+    assert_hessian_sparsity_exact(f, np.array([-1.0, 2.0, 3.0]))
