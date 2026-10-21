@@ -386,6 +386,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "pure_callback"
             | "lu"
             | "cholesky"
+            | "triangular_solve"
             | "svd"
             | "eigh"
         ):

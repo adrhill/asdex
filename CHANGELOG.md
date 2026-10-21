@@ -1,6 +1,7 @@
 # asdex
 
 ## Unreleased
+* ![Maintenance][badge-maintenance] Support the `triangular_solve` primitive with a conservative pattern, which the Hessian of `jnp.linalg.det` on 2x2 and 3x3 matrices emits since JAX 0.11.1
 * ![Maintenance][badge-maintenance] Support the `empty` primitive, which `jnp.empty` and `jnp.empty_like` emit since JAX 0.11.
   Its values are uninitialized, so they are not treated as zeros
 * ![Maintenance][badge-maintenance] Support the `log2` primitive, which `jnp.log2` emits since JAX 0.11.2

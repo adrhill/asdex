@@ -1,16 +1,18 @@
 """Tests for linear algebra primitive handlers.
 
-Linear algebra decompositions (lu, cholesky, qr, svd, eigh) use conservative
-fallback since their outputs generally depend on all inputs.
+Linear algebra decompositions (lu, cholesky, qr, svd, eigh)
+and triangular solves use conservative fallback
+since their outputs generally depend on all inputs.
 """
 
+import jax
 import jax.lax.linalg
 import jax.numpy as jnp
 import jax.scipy.linalg as scipy_linalg
 import numpy as np
 import pytest
 
-from asdex import jacobian_sparsity
+from asdex import hessian, hessian_sparsity, jacobian_sparsity
 
 
 @pytest.mark.fallback
@@ -210,3 +212,50 @@ def test_lu_conservative():
 
     expected = np.vstack([expected_p, expected_l, expected_u])
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.fallback
+def test_triangular_solve_conservative():
+    """Triangular solve uses conservative fallback for the triangular_solve primitive.
+
+    Every solution entry depends on every entry of A and b.
+    TODO(triangular_solve): forward substitution only reads A's lower triangle,
+    and x[i] only depends on rows 0..i of it and on b[0..i]:
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],  # x[0] = b[0] / A[0,0]
+        [1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0],  # x[1] needs A[1,:2], b[1], x[0]
+        [1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1],  # x[2] needs A[2,:3], b[2], x[0], x[1]
+    """
+
+    def f(x):
+        A = x[:9].reshape(3, 3)
+        b = x[9:]
+        return scipy_linalg.solve_triangular(A, b, lower=True)
+
+    x = jnp.arange(1.0, 13.0)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.ones((3, 12), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.fallback
+@pytest.mark.hessian
+@pytest.mark.parametrize("n", [2, 3])
+def test_det_hessian_small_matrix(n):
+    """The Hessian of det for 2x2 and 3x3 matrices goes through triangular_solve.
+
+    Since JAX 0.11.1, ``jnp.linalg.det`` computes small determinants
+    from a closed-form LU decomposition
+    whose derivative emits ``triangular_solve``.
+    TODO(triangular_solve): the 2x2 Hessian of ad - bc is antidiagonal,
+    but the conservative fallback makes the detected pattern dense.
+    """
+
+    def f(x):
+        return jnp.linalg.det(x.reshape(n, n))
+
+    x = jnp.arange(1.0, n * n + 1.0) + jnp.eye(n).flatten()
+    result = hessian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.ones((n * n, n * n), dtype=int))
+
+    H = hessian(f, x, output_format="dense")(x)
+    np.testing.assert_allclose(H, jax.hessian(f)(x), atol=1e-5)
