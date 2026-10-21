@@ -14,7 +14,10 @@ from jax import lax
 
 from asdex import jacobian_sparsity
 from asdex.detection._interpret import _prop_jaxpr
-from tests._utils import assert_jacobian_sparsity_exact
+from tests._utils import (
+    assert_flat_jacobian_sparsity_exact,
+    assert_jacobian_sparsity_exact,
+)
 
 _PASS_THROUGHS = [
     pytest.param(lax.optimization_barrier, id="optimization_barrier"),
@@ -33,7 +36,7 @@ def test_pass_through_single_operand(pass_through):
     x = np.arange(1.0, 7.0).reshape(2, 3)
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.eye(6, dtype=int))
-    assert_jacobian_sparsity_exact(f, x)
+    assert_flat_jacobian_sparsity_exact(f, x)
 
 
 @pytest.mark.array_ops
