@@ -11,6 +11,9 @@ Each test here traces a small function on the installed JAX
 and asserts the exact structure the corresponding handler relies on,
 so a JAX upgrade that breaks a contract fails loudly in this file
 instead of surfacing as a wrong pattern elsewhere.
+Where an outcome pins the contract without reading JAX internals,
+a test instead checks that wrapping a function in the primitive
+leaves its detected pattern unchanged.
 
 https://docs.jax.dev/en/latest/jaxpr.html
 """
@@ -18,8 +21,12 @@ https://docs.jax.dev/en/latest/jaxpr.html
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax._src import config
 from jax._src.core import ClosedJaxpr, Jaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
+from jax.ad_checkpoint import checkpoint_name
+
+from asdex import jacobian_sparsity
 
 
 def _iter_eqns(jaxpr):
@@ -39,6 +46,11 @@ def _sub_jaxprs(val):
             yield item.jaxpr
         elif isinstance(item, Jaxpr):
             yield item
+
+
+def _pattern(f, x):
+    """Return the detected Jacobian sparsity of ``f`` at ``x`` as a dense int array."""
+    return jacobian_sparsity(f, x).todense().astype(int)
 
 
 def _unique_eqn(jaxpr, primitive_name: str):
@@ -373,6 +385,45 @@ def test_iota_dimension_semantics():
     np.testing.assert_array_equal(actual, expected)
 
 
+def test_empty_outputs():
+    """``jnp.empty`` and ``jnp.empty_like`` have the requested shape and depend on no input.
+
+    ``_prop_empty`` sizes its output from the requested shape
+    and records no dependencies,
+    which needs ``empty_like`` to read only the shape and dtype of its argument.
+    """
+    x = np.arange(1.0, 7.0).reshape(3, 2)
+
+    pattern = jacobian_sparsity(jnp.empty_like, x)
+    assert pattern.shape == (6, 6)
+    assert pattern.nnz == 0
+
+    pattern = jacobian_sparsity(lambda x: jnp.empty((2, 3)), x)
+    assert pattern.shape == (6, 6)
+    assert pattern.nnz == 0
+
+
+def test_pass_through_outputs():
+    """optimization_barrier and device_put keep each operand at its position.
+
+    ``_prop_pass_through`` pairs operands with outputs positionally,
+    so wrapping operands of different shapes and dtypes
+    must leave the detected pattern unchanged.
+    """
+
+    def make(pass_through):
+        def f(x):
+            idx, a, b = pass_through((jnp.array([1, 0]), x[:2] * 2.0, jnp.sum(x)))
+            return jnp.concatenate([a[idx], b[None]])
+
+        return f
+
+    x = np.array([1.0, 2.0, 3.0])
+    expected = _pattern(make(lambda ops: ops), x)
+    for pass_through in (jax.lax.optimization_barrier, jax.device_put):
+        np.testing.assert_array_equal(_pattern(make(pass_through), x), expected)
+
+
 # Contractions
 
 
@@ -502,6 +553,52 @@ def test_custom_vjp_call_jaxpr_alignment():
     inner = eqn.params["call_jaxpr"]
     assert [v.aval for v in inner.jaxpr.invars] == [v.aval for v in eqn.invars]
     assert len(inner.jaxpr.outvars) == len(eqn.outvars) == 1
+
+
+def test_remat3_outputs():
+    """Under remat3, ``jax.checkpoint`` and ``checkpoint_name`` leave the pattern unchanged.
+
+    ``_prop_call_hi_primitive`` aligns the operands with the wrapped jaxpr's inputs,
+    including the closure consts that remat3 hoists to leading operands,
+    and passes the operand of ``checkpoint_name`` through.
+    The captured index array only resolves the gather
+    if its value reaches the right input.
+    """
+    idx = jnp.array([2, 0, 1])
+
+    def f(x):
+        a = checkpoint_name(x[idx] * 2.0, "a")
+        return jnp.concatenate([a, jnp.sum(x[:2])[None]])
+
+    x = np.array([1.0, 2.0, 3.0])
+    expected = _pattern(f, x)
+    with config.remat3(True):
+        np.testing.assert_array_equal(_pattern(jax.checkpoint(f), x), expected)
+
+
+def test_custom_remat_outputs():
+    """``jax.custom_remat`` leaves the pattern of its primal function unchanged.
+
+    ``_prop_call_hi_primitive`` traces the primal jaxpr,
+    whose closure-captured weights are hoisted to leading operands.
+    The zero weight only clears its row
+    if the weights reach the right input.
+    """
+    w = jnp.array([0.0, 1.0, 2.0])
+
+    def g(x):
+        return jnp.sin(x) * w
+
+    f = jax.custom_remat(
+        g,
+        lambda policy, x: (g(x), None),
+        lambda res, x: (g(x), x),
+        lambda res, ct: (ct * jnp.cos(res) * w,),
+    )
+
+    x = np.array([1.0, 2.0, 3.0])
+    with config.remat3(True):
+        np.testing.assert_array_equal(_pattern(f, x), _pattern(g, x))
 
 
 # Dead code elimination
