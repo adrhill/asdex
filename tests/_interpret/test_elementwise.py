@@ -1359,13 +1359,24 @@ def test_binary_shapes_both_args(op, shape):
 
 @pytest.mark.elementwise
 @pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
-def test_binary_broadcasting(op):
-    """A (3,1) operand broadcasts across a (3,4) operand per row."""
-    inputs = _positive_values(15)
+@pytest.mark.parametrize(
+    ("shape_a", "shape_b"),
+    [
+        ((3, 1), (3, 4)),
+        ((3, 1), (1, 4)),
+        ((4,), ()),
+        ((), (3, 4)),
+    ],
+)
+def test_binary_broadcasting(op, shape_a, shape_b):
+    """Broadcast operands across leading, trailing, and scalar dimensions."""
+    n_a = int(np.prod(shape_a))
+    n_b = int(np.prod(shape_b))
+    inputs = _positive_values(n_a + n_b)
 
     def f(v):
-        a = v[:3].reshape(3, 1)
-        b = v[3:].reshape(3, 4)
+        a = v[:n_a].reshape(shape_a)
+        b = v[n_a:].reshape(shape_b)
         return op(a, b).ravel()
 
     assert_jacobian_sparsity_exact(f, inputs)

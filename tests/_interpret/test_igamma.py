@@ -8,6 +8,9 @@ and the ``igamma_grad_a`` reachability check.
 
 Covers the primitives ``igamma`` (``gammainc``),
 ``igammac`` (``gammaincc``), ``igamma_grad_a``, and ``zeta``.
+
+Zeta inputs with ``q <= 0`` are poles where ``jax.jacobian`` is NaN,
+so numerical references only use ``q > 0``.
 """
 
 import jax
@@ -72,6 +75,21 @@ def test_zeta_q_only():
 
 
 @pytest.mark.elementwise
+def test_zeta_s_below_one():
+    """Zeta has finite custom-JVP derivatives below the s > 1 convergence region.
+
+    The primal is NaN for s <= 1 on some CPUs,
+    but the custom JVP series still gives exact numerical references.
+    """
+    s = jnp.array([0.2, 0.5, 0.8])
+
+    def f(s):
+        return jax.scipy.special.zeta(s, 1.3)
+
+    assert_jacobian_sparsity_exact(f, s)
+
+
+@pytest.mark.elementwise
 @pytest.mark.parametrize("op", _INCOMPLETE_GAMMA_OPS)
 def test_igamma_grad_a_through_grad(op):
     """Differentiating gammainc/gammaincc wrt a emits ``igamma_grad_a``.
@@ -84,9 +102,37 @@ def test_igamma_grad_a_through_grad(op):
         return jax.grad(lambda z: jnp.sum(op(z, 3.0)))(a)
 
     primitives = {eqn.primitive.name for eqn in jax.make_jaxpr(f)(a).jaxpr.eqns}
+    # Deliberate reachability pin: igamma_grad_a is internal to JAX,
+    # so assert the lowering still emits it.
     assert "igamma_grad_a" in primitives
 
     result = jacobian_sparsity(f, a).todense().astype(int)
     # Manual expected pattern: JAX has no derivative rule for igamma_grad_a,
     # so jax.jacobian cannot provide a numerical reference here.
     np.testing.assert_array_equal(result, np.eye(3, dtype=int))
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _INCOMPLETE_GAMMA_OPS)
+def test_igamma_grad_a_depends_on_x_too(op):
+    """``igamma_grad_a(a, x)`` depends on both operands.
+
+    With x traced, a handler that drops the second operand would miss nonzeros.
+    """
+    n = 2
+    v = jnp.array([0.7, 1.8, 2.3, 0.6])
+
+    def f(v):
+        a, x = v[:n], v[n:]
+        return jax.grad(lambda z: jnp.sum(op(z, x)))(a)
+
+    result = jacobian_sparsity(f, v).todense().astype(int)
+    # Manual expected pattern: no JAX derivative rule for igamma_grad_a.
+    expected = np.array(
+        [
+            [1, 0, 1, 0],  # out[0] <- a[0], x[0]
+            [0, 1, 0, 1],  # out[1] <- a[1], x[1]
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
