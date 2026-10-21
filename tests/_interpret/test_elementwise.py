@@ -205,10 +205,6 @@ def test_bessel_i1e():
 
 
 @pytest.mark.elementwise
-@pytest.mark.skipif(
-    jax.__version_info__ < (0, 11, 2),
-    reason="one_minus_square was added in JAX 0.11.2",
-)
 def test_one_minus_square():
     """One-minus-square is unary elementwise with diagonal Jacobian."""
 
