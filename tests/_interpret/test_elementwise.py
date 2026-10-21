@@ -2,6 +2,7 @@
 
 import jax
 import jax.numpy as jnp
+import jax.scipy.special
 import numpy as np
 import pytest
 from jax import lax
@@ -1033,6 +1034,20 @@ def test_round():
 
 # Binary elementwise primitives
 
+# Binary ops with generically nonzero partials w.r.t. both operands.
+_BINARY_ELEMENTWISE_OPS = [
+    jnp.power,  # ∂(x^y)/∂x = y·x^(y-1), ∂(x^y)/∂y = x^y·ln(x)
+    jnp.arctan2,  # ∂atan2(y,x)/∂y = x/(x²+y²), ∂/∂x = -y/(x²+y²)
+    jax.scipy.special.gammainc,  # ∂P(a,x)/∂a, ∂P(a,x)/∂x
+    jax.scipy.special.gammaincc,  # ∂Q(a,x)/∂a, ∂Q(a,x)/∂x
+    jax.scipy.special.zeta,  # ∂ζ(s,q)/∂s, ∂ζ(s,q)/∂q
+]
+
+
+def _positive_values(n):
+    """Return n inputs above 1, keeping zeta's s > 1 convergence domain."""
+    return jnp.linspace(1.3, 3.2, n)
+
 
 @pytest.mark.elementwise
 @pytest.mark.parametrize(
@@ -1276,17 +1291,11 @@ def test_integer_pow_bounds_negative_odd_exponent():
 
 
 @pytest.mark.elementwise
-@pytest.mark.parametrize(
-    "op",
-    [
-        jnp.power,  # ∂(x^y)/∂x = y·x^(y-1)
-        jnp.arctan2,  # ∂atan2(y,x)/∂y = x/(x²+y²)
-    ],
-)
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
 def test_binary_first_arg_active(op):
     """Binary op with first argument active, second constant."""
-    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
-    const = jnp.array([1.0, 2.0, 0.5, 1.5])
+    x = _positive_values(4)
+    const = jnp.array([1.5, 2.0, 1.7, 2.5])
 
     def f(x):
         return op(x, const)
@@ -1295,22 +1304,117 @@ def test_binary_first_arg_active(op):
 
 
 @pytest.mark.elementwise
-@pytest.mark.parametrize(
-    "op",
-    [
-        jnp.power,  # ∂(x^y)/∂y = x^y·ln(x)
-        jnp.arctan2,  # ∂atan2(y,x)/∂x = -y/(x²+y²)
-    ],
-)
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
 def test_binary_second_arg_active(op):
     """Binary op with first argument constant, second active."""
-    const = jnp.array([2.0, 1.5, 3.0, 0.5])
-    x = jnp.abs(jax.random.normal(jax.random.key(0), (4,))) + 0.1
+    const = jnp.array([2.0, 1.5, 3.0, 2.5])
+    x = _positive_values(4)
 
     def f(x):
         return op(const, x)
 
     assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
+def test_binary_both_args_active(op):
+    """Both operands active: each output depends on its own element of both."""
+    inputs = _positive_values(8)
+
+    def f(v):
+        return op(v[:4], v[4:])
+
+    assert_jacobian_sparsity_exact(f, inputs)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
+@pytest.mark.parametrize("shape", [(4,), (3, 4), (2, 3, 4)])
+def test_binary_shapes_second_arg(op, shape):
+    """A shaped second operand keeps the elementwise identity pattern."""
+    n = int(np.prod(shape))
+    const = jnp.array([1.5, 2.0, 1.7, 2.5])
+    inputs = _positive_values(n)
+
+    def f(v):
+        return op(const, v.reshape(shape)).ravel()
+
+    assert_jacobian_sparsity_exact(f, inputs)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
+@pytest.mark.parametrize("shape", [(4,), (3, 4), (2, 3, 4)])
+def test_binary_shapes_both_args(op, shape):
+    """Both shaped operands stay elementwise across 1D, 2D, and 3D shapes."""
+    n = int(np.prod(shape))
+    inputs = _positive_values(2 * n)
+
+    def f(v):
+        return op(v[:n].reshape(shape), v[n:].reshape(shape)).ravel()
+
+    assert_jacobian_sparsity_exact(f, inputs)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
+def test_binary_broadcasting(op):
+    """A (3,1) operand broadcasts across a (3,4) operand per row."""
+    inputs = _positive_values(15)
+
+    def f(v):
+        a = v[:3].reshape(3, 1)
+        b = v[3:].reshape(3, 4)
+        return op(a, b).ravel()
+
+    assert_jacobian_sparsity_exact(f, inputs)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
+@pytest.mark.parametrize("shape", [(4,), (3, 4)])
+def test_binary_scalar_first_arg(op, shape):
+    """A scalar first operand broadcasts across a shaped second operand."""
+    n = int(np.prod(shape))
+    inputs = _positive_values(n + 1)
+
+    def f(v):
+        return op(v[0], v[1:].reshape(shape)).ravel()
+
+    assert_jacobian_sparsity_exact(f, inputs)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
+def test_binary_scalar_second_arg(op):
+    """An array first operand broadcasts against a scalar second operand."""
+    inputs = _positive_values(4)
+
+    def f(v):
+        return op(v[:-1], v[-1])
+
+    assert_jacobian_sparsity_exact(f, inputs)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
+def test_binary_zero_size(op):
+    """Zero-sized operands produce an empty pattern instead of crashing."""
+
+    def f(x):
+        return op(2.0, x)
+
+    result = jacobian_sparsity(f, np.zeros((0,)))
+    assert result.shape == (0, 0)
+    assert result.nnz == 0
+
+    def g(v):
+        return op(v[:0], v[0])
+
+    result = jacobian_sparsity(g, np.zeros(1))
+    assert result.shape == (0, 1)
+    assert result.nnz == 0
 
 
 @pytest.mark.elementwise
