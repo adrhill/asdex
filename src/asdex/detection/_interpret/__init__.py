@@ -421,6 +421,9 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         case "qr":
             _prop_qr(eqn, state)
         # Conservative fallback: all outputs depend on all inputs.
+        # Linear algebra decompositions emit pivots, reflectors, and packed factors
+        # whose positions depend on the input data,
+        # so their structural zeros are left out of the pattern.
         case (
             "nonbatchable"
             | "unvmap_any"  # from Equinox
@@ -431,6 +434,16 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "triangular_solve"
             | "svd"
             | "eigh"
+            | "eig"
+            | "schur"
+            | "hessenberg"
+            | "tridiagonal"
+            | "cholesky_update"
+            | "lu_pivots_to_permutation"
+            | "symmetric_product"
+            | "householder_product"
+            | "ormqr"
+            | "tridiagonal_solve"
         ):
             _prop_conservative_fallback(eqn, state)
         case _:
