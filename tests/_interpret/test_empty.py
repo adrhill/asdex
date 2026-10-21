@@ -10,6 +10,7 @@ for the undefined residuals of a ``cond`` branch.
 https://docs.jax.dev/en/latest/_autosummary/jax.numpy.empty.html
 """
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
@@ -140,23 +141,43 @@ def test_empty_scalar():
     assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0]))
 
 
-@pytest.mark.control_flow
-def test_empty2_in_cond_gradient():
-    """AD makes the residuals of a ``cond`` branch with ``empty2``.
+def _cond_with_undefined_branch(x):
+    """A ``cond`` whose constant branch leaves the other branch's residuals undefined.
 
-    Differentiating a ``cond`` whose branches return different shapes
-    leaves the residuals of the non-differentiated branch undefined,
-    which JAX represents with ``empty2`` equations inside the branch jaxprs.
-    They survive DCE because the predicate depends on the input,
-    so Hessian detection used to fail on this primitive.
-    The buffer's contents are undefined, so it contributes no dependencies.
+    The branches return different shapes,
+    which is what makes AD instantiate the undefined residuals with ``empty2``.
     """
+    return lax.cond(
+        x[0] > 0, lambda v: jnp.array(1.0), lambda v: jnp.sum(jnp.sin(v)), x
+    )
 
-    def f(x):
-        return lax.cond(
-            x[0] > 0, lambda v: jnp.array(1.0), lambda v: jnp.sum(jnp.sin(v)), x
-        )
 
-    # x[0] < 0 takes the differentiable branch,
-    # so the union over both branches is exact at this point.
-    assert_hessian_sparsity_exact(f, np.array([-1.0, 2.0, 3.0]))
+# x[0] < 0 takes the differentiable branch,
+# so the union over both branches is exact at this point.
+_X = np.array([-1.0, 2.0, 3.0])
+
+
+@pytest.mark.control_flow
+def test_empty2_in_cond_gradient_jacobian():
+    """First-order detection of a differentiated ``cond`` reaches ``empty2``.
+
+    AD makes the residuals of the branch that is not differentiated with
+    ``empty2`` equations inside the branch jaxprs.
+    They are only created by *differentiating* the ``cond``: the primal jaxpr
+    of ``f`` has no ``empty2``, which is why ``jacobian_sparsity(f, x)`` never
+    needs the handler and passes on main either.
+    Differentiating first and detecting afterwards -- ``jax.grad(f)`` here,
+    ``jax.jacobian(f)`` behaves the same -- does hit them.
+    """
+    assert_jacobian_sparsity_exact(jax.grad(_cond_with_undefined_branch), _X)
+
+
+@pytest.mark.control_flow
+def test_empty2_in_cond_gradient_hessian():
+    """Hessian detection of a ``cond`` reaches ``empty2``, as in the jacobian case.
+
+    ``hessian_sparsity`` differentiates once and then detects,
+    so it takes the same path as ``jacobian_sparsity(jax.grad(f), x)``
+    but through the public Hessian API.
+    """
+    assert_hessian_sparsity_exact(_cond_with_undefined_branch, _X)
