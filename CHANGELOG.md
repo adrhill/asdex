@@ -1,5 +1,8 @@
 # asdex
 
+## Unreleased
+* ![Maintenance][badge-maintenance] Pin JAX to 0.11 in CI while JAX 0.12 support is worked on in [#178] ([#216])
+
 ## Version `v0.6.0`
 * ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity` ([#186])
 * ![BREAKING][badge-breaking] Remove the undocumented `forced_colors` keyword from `color_symmetric` ([#188])
@@ -162,6 +165,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 
+[#216]: https://github.com/adrhill/asdex/pull/216
 [#212]: https://github.com/adrhill/asdex/pull/212
 [#207]: https://github.com/adrhill/asdex/pull/207
 [#206]: https://github.com/adrhill/asdex/pull/206
@@ -178,6 +182,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 [#187]: https://github.com/adrhill/asdex/pull/187
 [#186]: https://github.com/adrhill/asdex/pull/186
 [#180]: https://github.com/adrhill/asdex/pull/180
+[#178]: https://github.com/adrhill/asdex/issues/178
 [#176]: https://github.com/adrhill/asdex/pull/176
 [#169]: https://github.com/adrhill/asdex/pull/169
 [#168]: https://github.com/adrhill/asdex/pull/168
