@@ -20,7 +20,7 @@ from tests._utils import (
 def _numerical_flat_jacobian_sparsity_fwd(f, x):
     """Compute flattened Jacobian sparsity with forward-mode AD.
 
-    JAX 0.11.2 implements neither reverse-mode nor vmapped forward-mode
+    JAX 0.11 implements neither reverse-mode nor vmapped forward-mode
     differentiation for generic ``reduce_window``,
     so the shared reverse-mode helper cannot be used for that primitive.
     A JVP per input basis vector gives the same numerical reference.
@@ -102,28 +102,57 @@ def test_reduce_window_extrema_exact(shape, window_dimensions, window_strides, p
     assert_flat_jacobian_sparsity_exact(f, x)
 
 
+@pytest.mark.parametrize("combiner", [lax.add, lax.mul, lax.max, lax.min])
 @pytest.mark.parametrize(
-    ("combiner", "init_value"),
-    [(lax.add, 1.0), (lax.mul, 2.0)],
-)
-@pytest.mark.parametrize(
-    ("shape", "window_dimensions", "window_strides", "padding"),
+    ("shape", "window_dimensions", "window_strides", "padding", "expected"),
     [
-        ((6,), (2,), (1,), "VALID"),
-        ((3, 4), (2, 3), (2, 1), "SAME"),
-        ((3, 4), (2, 2), (1, 1), ((1, 1), (0, 2))),
+        # A 1-D window of two covers two adjacent inputs per output.
+        (
+            (4,),
+            (2,),
+            (1,),
+            "VALID",
+            [[1, 1, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]],
+        ),
+        # A row stride of two leaves the last input row out of every window.
+        (
+            (3, 4),
+            (2, 2),
+            (2, 1),
+            "VALID",
+            [
+                [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+                [0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0],
+            ],
+        ),
+        # Padding widens the border windows without adding dependencies.
+        (
+            (2,),
+            (2,),
+            (1,),
+            ((1, 1),),
+            [[1, 0], [1, 1], [0, 1]],
+        ),
     ],
 )
-def test_reduce_window_generic_exact(
-    combiner, init_value, shape, window_dimensions, window_strides, padding
+def test_reduce_window_generic_combines_whole_window(
+    combiner, shape, window_dimensions, window_strides, padding, expected
 ):
-    """Generic reduce_window with a non-identity init value is window-wide."""
+    """Generic reduce_window unions the windows of every operand per output.
+
+    Add, mul, max, and min read every element of their window,
+    so the union matches their numerical pattern exactly,
+    even though the handler does not look at the combiner jaxpr.
+    """
     x = jnp.arange(np.prod(shape), dtype=jnp.float32).reshape(shape) + 1.0
 
     def f(x):
+        # A non-identity init value keeps JAX on the generic primitive
+        # rather than lowering to reduce_window_sum/max/min.
         return lax.reduce_window(
             x,
-            jnp.asarray(init_value, x.dtype),
+            jnp.asarray(1.0, x.dtype),
             combiner,
             window_dimensions,
             window_strides,
@@ -131,39 +160,71 @@ def test_reduce_window_generic_exact(
         )
 
     detected = jacobian_sparsity(f, x).todense().astype(int)
-    expected = _numerical_flat_jacobian_sparsity_fwd(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    np.testing.assert_array_equal(detected, np.asarray(expected))
+    numerical = _numerical_flat_jacobian_sparsity_fwd(f, x)
+    assert np.all(detected >= numerical), "Detected pattern must cover numerical"
 
 
-@pytest.mark.parametrize(
-    ("shape", "window_dimensions", "window_strides"),
-    [((6,), (2,), (1,)), ((3, 4), (1, 2), (1, 2))],
-)
-def test_reduce_window_generic_extrema_exact(shape, window_dimensions, window_strides):
-    """Generic max and min windows with non-identity init values cover whole windows."""
-    x = jnp.arange(np.prod(shape), dtype=jnp.float32).reshape(shape) + 1.0
+@pytest.mark.fallback
+def test_reduce_window_generic_accumulator_only_conservative():
+    """A combiner that ignores the window element still reports the full window.
+
+    TODO(reduce_window): the handler unions the window without looking at the
+    combiner jaxpr, so it cannot tell that this combiner returns the init value
+    untouched and leaves every derivative zero.
+    Analyzing the combiner would give every output an empty set.
+    """
+    x = jnp.arange(4, dtype=jnp.float32) + 1.0
 
     def f(x):
-        windowed = (window_dimensions, window_strides, "VALID")
-        # reduce_window requires the init values to have the operand dtype.
-        init_max = jnp.asarray(0.0, x.dtype)
-        init_min = jnp.asarray(1e6, x.dtype)
-        return lax.reduce_window(x, init_max, lax.max, *windowed) + lax.reduce_window(
-            x, init_min, lax.min, *windowed
+        return lax.reduce_window(
+            x,
+            jnp.asarray(1.0, x.dtype),
+            lambda acc, _elem: acc,
+            (2,),
+            (1,),
+            "VALID",
         )
 
     detected = jacobian_sparsity(f, x).todense().astype(int)
-    expected = _numerical_flat_jacobian_sparsity_fwd(f, x)
-    np.testing.assert_array_equal(detected, expected)
+    expected = [[1, 1, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]]
+    np.testing.assert_array_equal(detected, np.asarray(expected))
+    # The combiner never reads the window element, so nothing is needed.
+    assert _numerical_flat_jacobian_sparsity_fwd(f, x).sum() == 0
 
 
-def test_reduce_window_multiple_operands_exact():
-    """Generic reduce_window over a tuple of operands unions all their windows."""
+def test_reduce_window_dynamic_init():
+    """An init value computed from the input reaches every output.
+
+    JAX cannot differentiate a non-constant init value
+    (``reduce_window jvp does not support non-zero init_value_tangent``),
+    so there is no numerical reference here:
+    unioning the init value's index sets is what keeps the pattern covered.
+    """
+    x = jnp.arange(4, dtype=jnp.float32) + 1.0
+
+    def f(x):
+        return lax.reduce_window(x, x.sum(), lax.add, (2,), (1,), "VALID")
+
+    detected = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(detected, np.ones((3, 4), dtype=int))
+
+
+@pytest.mark.fallback
+def test_reduce_window_multiple_operands_conservative():
+    """Generic reduce_window over a tuple of operands unions every operand.
+
+    The second output accumulates only the first operand (``lhs[1]``)
+    and never reads the second one,
+    so its dependency on the second operand is an over-approximation.
+
+    TODO(reduce_window): tracking the combiner would give each output
+    exactly the windows of the operands it accumulates.
+    """
     x = (jnp.arange(6.0) + 1.0, jnp.arange(6.0) + 2.0)
 
     def computation(lhs, rhs):
-        total = lhs[0] + rhs[0] + lhs[1] + rhs[1]
-        return total, total
+        return lhs[0] + rhs[0], lhs[1]
 
     def f(xs):
         inits = (jnp.asarray(0.0, xs[0].dtype), jnp.asarray(1.0, xs[1].dtype))
@@ -173,11 +234,24 @@ def test_reduce_window_multiple_operands_exact():
         xs = (z[:6], z[6:])
         return jnp.concatenate([out.ravel() for out in f(xs)])
 
+    # Each row of the first operand's block also carries the second operand's
+    # window, and both outputs share that union,
+    # so the two blocks of five output rows are identical.
+    window = [
+        [1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+        [0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+        [0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0],
+        [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1],
+    ]
+    expected = np.asarray(window + window)
+
     detected = jacobian_sparsity(f, x).todense().astype(int)
-    expected = _numerical_flat_jacobian_sparsity_fwd(
+    np.testing.assert_array_equal(detected, expected)
+    numerical = _numerical_flat_jacobian_sparsity_fwd(
         f_flat, jnp.concatenate([leaf.ravel() for leaf in x])
     )
-    np.testing.assert_array_equal(detected, expected)
+    assert np.all(detected >= numerical), "Detected pattern must cover numerical"
 
 
 @pytest.mark.parametrize(
