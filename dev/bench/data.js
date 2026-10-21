@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792592836972,
+  "lastUpdate": 1792601587790,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -22986,6 +22986,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006185396438937987",
             "extra": "mean: 24.0196943382497 usec\nrounds: 14130"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bfc8b517f085cbeb9438a6000e46187266d02b9",
+          "message": "fix: support JAX 0.11 in sparsity detection (#218)\n\n* fix(deps): require JAX 0.11.2\n\nasdex handles `one_minus_square`, which JAX 0.11.2 introduced,\nso test it on every supported version instead of skipping it below 0.11.2.\nAlso point the JAX 0.12 comment at #217, the 0.12 tracking issue.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(detection): handle log2, a primitive since JAX 0.11.2\n\n`jnp.log2` used to lower to `log` and `div`,\nbut JAX 0.11.2 made `log2` a primitive of its own,\nso detection raised on it.\nIt is unary elementwise with a nonzero derivative.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(detection): handle empty, which jnp.empty emits since JAX 0.11\n\nJAX 0.11 made `jnp.empty` and `jnp.empty_like` return uninitialized arrays\nthrough a new nullary `empty` primitive instead of a broadcast of zeros,\nso detection raised on it.\nThe output depends on no input.\nNo const value is recorded,\nsince treating the undefined contents as zeros\nwould let `mul` and `dot_general` skip entries that can be nonzero.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(detection): handle triangular_solve conservatively\n\nSince JAX 0.11.1, `jnp.linalg.det` computes 2x2 and 3x3 determinants\nfrom a closed-form LU decomposition,\nand its derivative emits `triangular_solve`,\nso Hessian detection of these determinants raised.\nRoute it to the conservative fallback like `lu` and `cholesky`,\nand document the precise forward-substitution pattern as a TODO.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: flatten the numerical Jacobian in the sparsity helpers\n\n`jax.jacobian` returns shape `out_shape + in_shape`,\nwhile asdex patterns are `(output size, input size)`,\nso `assert_jacobian_sparsity_exact` and `assert_jacobian_sparsity_conservative`\nfailed on any multi-dimensional input or output.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): handle optimization_barrier and device_put\n\nBoth return their operands unchanged,\nso each output aliases its operand's index sets\nand forwards its const values and bounds.\nUnder `jax_remat3`, JAX emits both in the gradients of `jax.checkpoint`,\n`device_put` for policies that offload residuals to host memory.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): support jax.checkpoint and custom_remat under jax_remat3\n\nJAX 0.11 added the opt-in `jax_remat3` implementation,\nunder which `jax.checkpoint` and `jax.custom_remat` no longer emit `remat2`\nbut `call_hi_primitive` wrapping a `RematTraced` or `CustomRemat`,\nand `checkpoint_name` emits one wrapping a `CheckpointName`.\nTrace the wrapped jaxpr of the former two\nthrough the helper shared with `jit` and `remat2`,\nand pass the operand of `CheckpointName` through.\nAny other HiJax primitive raises instead of guessing a pattern.\n\nCloses #178\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: link the JAX 0.11 changelog entries to #218\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(deps): support JAX 0.11.0 again\n\nLower the JAX requirement back to 0.11.0\nand skip test_one_minus_square on releases without the primitive.\n\nJAX 0.11.0 and 0.11.1 name the HiJax primitive base class VJPHiPrimitive,\nso the unknown-HiJax-primitive test falls back to that name.\n\nBefore JAX 0.11.1, det of 2x2 and 3x3 matrices expands into products of entries\nand its Hessian pattern is precise,\nso the det Hessian test is split by version\nand the conservative variant documents the precise pattern.\nAdd assert_hessian_sparsity_exact for comparing against jax.hessian.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* ci: test against JAX 0.11.0 and the latest 0.11 release\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Wq9pSPrruwgqU14paJiRDP\n\n* test: split the flattening Jacobian sparsity helpers\n\nRestore numerical_jacobian_sparsity and assert_jacobian_sparsity_exact\nto compare the unflattened Jacobian,\nand add numerical_flat_jacobian_sparsity and assert_flat_jacobian_sparsity_exact\nfor inputs and outputs that are not 1D.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Wq9pSPrruwgqU14paJiRDP\n\n* docs(detection): document each HiJax case next to its match arm\n\nAlso simplify the empty docstring example to the primitive itself.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Wq9pSPrruwgqU14paJiRDP\n\n* test: compare the JAX 0.11 tests against numerical patterns\n\nCheck the empty, pass-through, and remat3 tests\nwith assert_jacobian_sparsity_exact and assert_hessian_sparsity_exact\ninstead of hand-written patterns.\nThe mul and dot_general tests on empty buffers stay conservative,\nsince the numerical Jacobian reads the uninitialized buffer.\nThe custom_remat test compares against jax.jacfwd,\nsince custom_remat has no reverse mode outside of jax.checkpoint.\n\nDrop the tests that pinned index-set aliasing\nand the eqn layouts of empty, the pass-throughs, and the HiJax primitives,\nwhich the outcome tests already cover.\nDocument that triangular_solve is currently fully dense.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Wq9pSPrruwgqU14paJiRDP\n\n* ci: name the latest Python and JAX versions once\n\nDefine them as workflow-level variables\nand reuse them in the test matrix, the coverage upload, and the single-version jobs.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Wq9pSPrruwgqU14paJiRDP\n\n* test: drop the vacuous numerical checks on empty buffers\n\nThe numerical Jacobian through an uninitialized buffer is all zeros on CPU,\nso the conservative checks in the mul and dot_general tests could not fail.\nThe hand-written patterns are precise and stay.\n\nRestore the hand-written custom_remat pattern,\nand drop a redundant np.asarray in numerical_jacobian_sparsity.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Wq9pSPrruwgqU14paJiRDP\n\n* feat(detection): handle checkpoint_name\n\nOutside of jax_remat3, checkpoint_name emits a name primitive\nthat tags its operand for jax.checkpoint policies and returns it unchanged.\nIt had no handler, so any function using checkpoint_name raised.\nIt now goes through the pass-through handler.\n\nassert_hessian_sparsity_exact now takes its reference from jax.hessian,\nsince reverse-over-reverse differentiation of the offload policy fails in JAX.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Wq9pSPrruwgqU14paJiRDP\n\n* test: pin the empty, pass-through, and HiJax contracts by their outcomes\n\nCheck that jnp.empty and jnp.empty_like depend on no input,\nand that wrapping a function in optimization_barrier, device_put,\njax.checkpoint and checkpoint_name under jax_remat3, or jax.custom_remat\nleaves its detected pattern unchanged.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01Wq9pSPrruwgqU14paJiRDP\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-10-21T18:51:50+02:00",
+          "tree_id": "5d1781318a810e4b03242ef5e86b7b6e96888513",
+          "url": "https://github.com/adrhill/asdex/commit/5bfc8b517f085cbeb9438a6000e46187266d02b9"
+        },
+        "date": 1792601585926,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1078.307924178971,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00026617031455216186",
+            "extra": "mean: 927.3788846181438 usec\nrounds: 26"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 34251.12302580275,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003166861308862753",
+            "extra": "mean: 29.196122978118403 usec\nrounds: 8408"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 119787.02306159699,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010301039089654766",
+            "extra": "mean: 8.348149694694216 usec\nrounds: 27830"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 82172.93992420821,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001635482918468101",
+            "extra": "mean: 12.169456282352131 usec\nrounds: 16904"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 119052.70944903432,
+            "unit": "iter/sec",
+            "range": "stddev: 9.745548574781725e-7",
+            "extra": "mean: 8.399640836633738 usec\nrounds: 28352"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 215.96007801235226,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00022838282409627861",
+            "extra": "mean: 4.63048545455148 msec\nrounds: 22"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3731.45022480868,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000764535752818978",
+            "extra": "mean: 267.9923192734729 usec\nrounds: 3248"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2565.8561362790174,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001552133169212821",
+            "extra": "mean: 389.73346395413716 usec\nrounds: 2261"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2519.1151930946285,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017891433004034282",
+            "extra": "mean: 396.9647766569744 usec\nrounds: 1388"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5953.926872199843,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012078650596080577",
+            "extra": "mean: 167.95637928796435 usec\nrounds: 4635"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 200.15747517665017,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010887128016009516",
+            "extra": "mean: 4.996066217948862 msec\nrounds: 78"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 34164.86712014555,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000020669572834269834",
+            "extra": "mean: 29.26983431498093 usec\nrounds: 26146"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 82084.04397787317,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026047450631453656",
+            "extra": "mean: 12.182635644383739 usec\nrounds: 15419"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 72812.0865910852,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002312262422607875",
+            "extra": "mean: 13.733983557098549 usec\nrounds: 17515"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 87613.60518623193,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001978969308854568",
+            "extra": "mean: 11.413752440324705 usec\nrounds: 20181"
           }
         ]
       }
