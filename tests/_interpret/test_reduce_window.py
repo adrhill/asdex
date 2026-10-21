@@ -66,7 +66,7 @@ def test_reduce_window_sum_exact(
     def f(x):
         return lax.reduce_window(
             x,
-            0.0,
+            jnp.asarray(0.0, x.dtype),
             lax.add,
             window_dimensions,
             window_strides,
@@ -95,9 +95,9 @@ def test_reduce_window_extrema_exact(shape, window_dimensions, window_strides, p
             window_strides,
             padding,
         )
-        return lax.reduce_window(x, -jnp.inf, lax.max, *windowed) + lax.reduce_window(
-            x, jnp.inf, lax.min, *windowed
-        )
+        return lax.reduce_window(
+            x, jnp.asarray(-np.inf, x.dtype), lax.max, *windowed
+        ) + lax.reduce_window(x, jnp.asarray(np.inf, x.dtype), lax.min, *windowed)
 
     assert_flat_jacobian_sparsity_exact(f, x)
 
@@ -122,7 +122,12 @@ def test_reduce_window_generic_exact(
 
     def f(x):
         return lax.reduce_window(
-            x, init_value, combiner, window_dimensions, window_strides, padding
+            x,
+            jnp.asarray(init_value, x.dtype),
+            combiner,
+            window_dimensions,
+            window_strides,
+            padding,
         )
 
     detected = jacobian_sparsity(f, x).todense().astype(int)
@@ -140,8 +145,11 @@ def test_reduce_window_generic_extrema_exact(shape, window_dimensions, window_st
 
     def f(x):
         windowed = (window_dimensions, window_strides, "VALID")
-        return lax.reduce_window(x, 0.0, lax.max, *windowed) + lax.reduce_window(
-            x, 1e6, lax.min, *windowed
+        # reduce_window requires the init values to have the operand dtype.
+        init_max = jnp.asarray(0.0, x.dtype)
+        init_min = jnp.asarray(1e6, x.dtype)
+        return lax.reduce_window(x, init_max, lax.max, *windowed) + lax.reduce_window(
+            x, init_min, lax.min, *windowed
         )
 
     detected = jacobian_sparsity(f, x).todense().astype(int)
@@ -158,7 +166,8 @@ def test_reduce_window_multiple_operands_exact():
         return total, total
 
     def f(xs):
-        return lax.reduce_window(xs, (0.0, 1.0), computation, (2,), (1,))
+        inits = (jnp.asarray(0.0, xs[0].dtype), jnp.asarray(1.0, xs[1].dtype))
+        return lax.reduce_window(xs, inits, computation, (2,), (1,))
 
     def f_flat(z):
         xs = (z[:6], z[6:])
@@ -186,7 +195,12 @@ def test_reduce_window_degenerate(shape, padding, window_dimensions):
 
     def f(x):
         return lax.reduce_window(
-            x, 0.0, lax.add, window_dimensions, (1,) * len(shape), padding
+            x,
+            jnp.asarray(0.0, x.dtype),
+            lax.add,
+            window_dimensions,
+            (1,) * len(shape),
+            padding,
         )
 
     assert_flat_jacobian_sparsity_exact(f, x)
@@ -197,6 +211,7 @@ def test_reduce_window_sum_hessian():
     x = jnp.arange(6.0)
 
     def f(x):
-        return (lax.reduce_window(x, 0.0, lax.add, (2,), (1,)) ** 2).sum()
+        windowed = lax.reduce_window(x, jnp.asarray(0.0, x.dtype), lax.add, (2,), (1,))
+        return (windowed**2).sum()
 
     assert_hessian_sparsity_exact(f, x)
