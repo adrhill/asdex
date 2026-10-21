@@ -15,8 +15,8 @@ from jax import lax
 from jax._src import config
 from jax.ad_checkpoint import checkpoint_name
 
-from asdex import hessian, hessian_sparsity, jacobian, jacobian_sparsity
-from tests._utils import assert_jacobian_sparsity_exact
+from asdex import hessian, jacobian, jacobian_sparsity
+from tests._utils import assert_hessian_sparsity_exact, assert_jacobian_sparsity_exact
 
 try:
     from jax._src.hijax import HiPrim
@@ -224,9 +224,17 @@ def test_remat2_differentiated():
 
 @pytest.fixture
 def remat3():
-    """Trace ``jax.checkpoint`` with the HiJax-based ``jax_remat3`` implementation.
+    """Trace ``jax.checkpoint`` and ``checkpoint_name`` with JAX's ``jax_remat3`` flag enabled.
 
-    It emits ``call_hi_primitive`` wrapping a ``RematTraced`` instead of ``remat2``.
+    ``jax_remat3`` switches to a new implementation of rematerialization built on HiJax.
+    It is off by default in JAX 0.11,
+    and users opt in with ``jax.config.update("jax_remat3", True)``.
+    Instead of a ``remat2`` equation, ``jax.checkpoint`` then emits ``call_hi_primitive``
+    wrapping a ``RematTraced``, and ``checkpoint_name`` one wrapping a ``CheckpointName``.
+    ``jax.custom_remat``, which emits a ``CustomRemat``, requires the flag.
+    The remat3 tests below use this fixture to cover those equations,
+    so asdex keeps working for users who opt in,
+    and once JAX makes the new implementation the default.
     """
     with config.remat3(True):
         yield
@@ -241,19 +249,7 @@ def test_remat3_checkpoint():
     def f(x):
         return jnp.cos(jnp.sin(x)) * x[::-1]
 
-    x = jnp.array([1.0, 2.0, 3.0, 4.0])
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    expected = np.array(
-        [
-            [1, 0, 0, 1],  # out[0] = cos(sin(x[0])) * x[3]
-            [0, 1, 1, 0],  # out[1] = cos(sin(x[1])) * x[2]
-            [0, 1, 1, 0],
-            [1, 0, 0, 1],
-        ],
-        dtype=int,
-    )
-    np.testing.assert_array_equal(result, expected)
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, jnp.array([1.0, 2.0, 3.0, 4.0]))
 
 
 @pytest.mark.array_ops
@@ -270,16 +266,7 @@ def test_remat3_closure_captured_index():
     def f(x):
         return x[indices]
 
-    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
-    expected = np.array(
-        [
-            [0, 0, 1],  # out[0] = x[2]
-            [1, 0, 0],  # out[1] = x[0]
-            [0, 1, 0],  # out[2] = x[1]
-        ],
-        dtype=int,
-    )
-    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, jnp.array([1.0, 2.0, 3.0]))
 
 
 @pytest.mark.array_ops
@@ -295,18 +282,7 @@ def test_remat3_multiple_operands_and_outputs():
         out = g({"a": x[:2], "b": x[2:]})
         return jnp.concatenate([out["prod"], out["sum"][None]])
 
-    x = jnp.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    expected = np.array(
-        [
-            [1, 0, 1, 0, 0],  # prod[0] = x[0] * x[2]
-            [0, 1, 0, 1, 0],  # prod[1] = x[1] * x[3]
-            [0, 0, 1, 1, 1],  # sum = x[2] + x[3] + x[4]
-        ],
-        dtype=int,
-    )
-    np.testing.assert_array_equal(result, expected)
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, jnp.array([1.0, 2.0, 3.0, 4.0, 5.0]))
 
 
 @pytest.mark.elementwise
@@ -322,9 +298,7 @@ def test_remat3_nested():
     def outer(x):
         return jnp.cos(inner(x))
 
-    x = jnp.array([1.0, 2.0, 3.0])
-    result = jacobian_sparsity(outer, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.eye(3, dtype=int))
+    assert_jacobian_sparsity_exact(outer, jnp.array([1.0, 2.0, 3.0]))
 
 
 @pytest.mark.hessian
@@ -339,19 +313,7 @@ def test_remat3_differentiated():
     def f(x):
         return jnp.sum(jax.checkpoint(lambda z: jnp.sin(z) * jnp.roll(z, 1))(x))
 
-    x = jnp.array([1.0, 2.0, 3.0, 4.0])
-    result = hessian_sparsity(f, x).todense().astype(int)
-    # sin(x[i]) * x[i-1] couples each x[i] with its cyclic neighbors
-    expected = np.array(
-        [
-            [1, 1, 0, 1],
-            [1, 1, 1, 0],
-            [0, 1, 1, 1],
-            [1, 0, 1, 1],
-        ],
-        dtype=int,
-    )
-    np.testing.assert_array_equal(result, expected)
+    assert_hessian_sparsity_exact(f, jnp.array([1.0, 2.0, 3.0, 4.0]))
 
 
 @pytest.mark.hessian
@@ -394,14 +356,9 @@ def test_custom_remat_follows_primal():
 
     x = jnp.array([1.0, 2.0, 3.0])
     result = jacobian_sparsity(f, x).todense().astype(int)
-    expected = np.array(
-        [
-            [0, 0, 0],  # out[0] = sin(x[0]) * 0
-            [0, 1, 0],  # out[1] = sin(x[1]) * 1
-            [0, 0, 1],
-        ],
-        dtype=int,
-    )
+    # custom_remat does not support reverse mode outside of jax.checkpoint,
+    # so the reference comes from forward mode, which differentiates the primal.
+    expected = (np.abs(jax.jacfwd(f)(x)) > 1e-10).astype(int)
     np.testing.assert_array_equal(result, expected)
 
 
@@ -440,22 +397,8 @@ def test_remat3_checkpoint_name(policy):
         return jnp.sum(jax.checkpoint(g, policy=policy)(x))
 
     x = jnp.array([1.0, 2.0, 3.0, 4.0])
-    result = jacobian_sparsity(g, x).todense().astype(int)
-    expected = np.array(
-        [
-            [1, 0, 0, 1],  # out[0] = sin(sin(x[0]) * x[3])
-            [0, 1, 1, 0],  # out[1] = sin(sin(x[1]) * x[2])
-            [0, 1, 1, 0],
-            [1, 0, 0, 1],
-        ],
-        dtype=int,
-    )
-    np.testing.assert_array_equal(result, expected)
     assert_jacobian_sparsity_exact(g, x)
-
-    # Each term couples x[i] with its mirror x[3-i], as does its Hessian
-    result = hessian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, expected)
+    assert_hessian_sparsity_exact(f, x)
 
 
 @pytest.mark.elementwise

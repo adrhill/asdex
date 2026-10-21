@@ -219,7 +219,8 @@ def test_lu_conservative():
 def test_triangular_solve_conservative():
     """Triangular solve uses conservative fallback for the triangular_solve primitive.
 
-    Every solution entry depends on every entry of A and b.
+    The detected pattern is currently fully dense:
+    every solution entry depends on every entry of A and b.
     TODO(triangular_solve): forward substitution only reads A's lower triangle,
     and x[i] only depends on rows 0..i of it and on b[0..i]:
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],  # x[0] = b[0] / A[0,0]
