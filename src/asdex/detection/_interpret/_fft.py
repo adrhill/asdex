@@ -15,22 +15,22 @@ from ._common import (
 def _prop_fft(eqn: JaxprEqn, state: _PropState) -> None:
     """A discrete Fourier transform mixes every element along the transformed axes.
 
-    The primitive always transforms the trailing ``len(fft_lengths)`` axes.
-    Every output element along those axes is a weighted sum
-    of all input elements along the same axes,
-    while the leading batch axes are independent.
-    This holds for ``FFT``, ``IFFT``, ``RFFT``, and ``IRFFT``:
-    each output in a batch block depends on every input in that block,
-    including both real and imaginary parts of a complex input.
-
-    For a 1D transform with input [a, b, c, d]:
-        out[k] = Σ_n aₙ · exp(-2πikn/N)  →  out[k] depends on {0, 1, 2, 3}
+    The primitive always transforms the trailing ``len(fft_lengths)`` axes,
+    so the array splits into one block per position of the leading untransformed axes,
+    and the Jacobian is block diagonal: each output element of a block
+    is a weighted sum of every element of the same input block,
+    so the block is dense and the untransformed axes stay independent.
+    All four ``fft_type`` values share this structure,
+    since they only differ in the size of the blocks
+    (``RFFT`` halves and ``IRFFT`` doubles the last transformed axis),
+    so the handler reads shapes but not ``fft_type``.
 
     Example: y = fft(x) where x.shape = (2, 3)
         Input index sets:  [{0}, {1}, {2}, {3}, {4}, {5}]
+        The trailing transformed axis has length 3,
+        so every row of 3 is one block.
         Output index sets: [{0, 1, 2}, {0, 1, 2}, {0, 1, 2},
                             {3, 4, 5}, {3, 4, 5}, {3, 4, 5}]
-        The two rows are independent batch blocks.
 
     Jaxpr:
         invars[0]: input array
@@ -50,12 +50,10 @@ def _prop_fft(eqn: JaxprEqn, state: _PropState) -> None:
     n_transformed = len(eqn.params["fft_lengths"])
     in_block_size = _numel(in_shape[-n_transformed:])
     out_block_size = _numel(out_shape[-n_transformed:])
-    n_blocks = out_size // out_block_size
 
-    block_indices: list[IndexSet] = _empty_index_sets(n_blocks)
-    if in_block_size:
-        for flat, index_set in enumerate(in_indices):
-            block_indices[flat // in_block_size] |= index_set
+    block_indices: list[IndexSet] = _empty_index_sets(out_size // out_block_size)
+    for flat, index_set in enumerate(in_indices):
+        block_indices[flat // in_block_size] |= index_set
 
     state.indices[eqn.outvars[0]] = [
         block_indices[flat // out_block_size] for flat in range(out_size)
