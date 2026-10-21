@@ -17,6 +17,7 @@ from asdex.detection._interpret._elementwise import (
 )
 from tests._utils import (
     assert_flat_jacobian_sparsity_exact,
+    assert_hessian_sparsity_exact,
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
 )
@@ -875,23 +876,23 @@ def test_integer_pow_zero_bounds():
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.negative,  # ∂(-x)/∂x = -1
-        jnp.exp,  # ∂eˣ/∂x = eˣ
-        jnp.sin,  # ∂sin(x)/∂x = cos(x)
-        jnp.cos,  # ∂cos(x)/∂x = -sin(x)
-        jnp.tan,  # ∂tan(x)/∂x = sec²(x)
-        jnp.sinh,  # ∂sinh(x)/∂x = cosh(x)
-        jnp.cosh,  # ∂cosh(x)/∂x = sinh(x)
-        jnp.tanh,  # ∂tanh(x)/∂x = sech²(x)
-        jnp.arctan,  # ∂arctan(x)/∂x = 1/(1+x²)
-        jnp.arcsinh,  # ∂arcsinh(x)/∂x = 1/√(x²+1)
-        jnp.log1p,  # ∂log(1+x)/∂x = 1/(1+x)
-        jnp.expm1,  # ∂(eˣ-1)/∂x = eˣ
-        jnp.cbrt,  # ∂x^(1/3)/∂x = 1/(3x^(2/3))
-        jnp.exp2,  # ∂2ˣ/∂x = 2ˣ·ln(2)
-        jax.nn.sigmoid,  # ∂σ(x)/∂x = σ(x)(1-σ(x))
-        jnp.square,  # ∂x²/∂x = 2x
-        lax.erf,  # ∂erf(x)/∂x = 2e^(-x²)/√π
+        jnp.negative,
+        jnp.exp,
+        jnp.sin,
+        jnp.cos,
+        jnp.tan,
+        jnp.sinh,
+        jnp.cosh,
+        jnp.tanh,
+        jnp.arctan,
+        jnp.arcsinh,
+        jnp.log1p,
+        jnp.expm1,
+        jnp.cbrt,
+        jnp.exp2,
+        jax.nn.sigmoid,
+        jnp.square,
+        lax.erf,
     ],
 )
 def test_unary_any_input(op):
@@ -904,11 +905,11 @@ def test_unary_any_input(op):
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.log,  # ∂log(x)/∂x = 1/x
-        jnp.sqrt,  # ∂√x/∂x = 1/(2√x)
-        lax.rsqrt,  # ∂(1/√x)/∂x = -1/(2x^(3/2))
-        lax.lgamma,  # ∂log(Γ(x))/∂x = ψ(x)
-        jax.scipy.special.digamma,  # ∂ψ(x)/∂x = ψ₁(x)
+        jnp.log,
+        jnp.sqrt,
+        lax.rsqrt,
+        lax.lgamma,
+        jax.scipy.special.digamma,
     ],
 )
 def test_unary_positive_input(op):
@@ -921,8 +922,8 @@ def test_unary_positive_input(op):
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.arcsin,  # ∂arcsin(x)/∂x = 1/√(1-x²)
-        jnp.arccos,  # ∂arccos(x)/∂x = -1/√(1-x²)
+        jnp.arcsin,
+        jnp.arccos,
     ],
 )
 def test_unary_bounded_input(op):
@@ -935,8 +936,8 @@ def test_unary_bounded_input(op):
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.arctanh,  # ∂arctanh(x)/∂x = 1/(1-x²)
-        jax.scipy.special.erfinv,  # ∂erf⁻¹(x)/∂x = (√π/2)·exp(erf⁻¹(x)²)
+        jnp.arctanh,
+        jax.scipy.special.erfinv,
     ],
 )
 def test_unary_open_interval_input(op):
@@ -975,8 +976,8 @@ def test_unary_conj():
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.real,  # ∂Re(z)/∂z = 1/2
-        jnp.imag,  # ∂Im(z)/∂z = -i/2
+        jnp.real,
+        jnp.imag,
     ],
 )
 def test_unary_real_imag(op):
@@ -998,8 +999,8 @@ def test_unary_copy():
 @pytest.mark.parametrize(
     "op",
     [
-        jax.scipy.special.i0e,  # ∂(I₀(x)e^(-|x|))/∂x = (I₁ - sign(x)I₀)e^(-|x|)
-        jax.scipy.special.i1e,  # ∂(I₁(x)e^(-|x|))/∂x = ((I₀+I₂)/2 - sign(x)I₁)e^(-|x|)
+        jax.scipy.special.i0e,
+        jax.scipy.special.i1e,
     ],
 )
 def test_unary_bessel(op):
@@ -1008,16 +1009,16 @@ def test_unary_bessel(op):
     assert_jacobian_sparsity_exact(op, x)
 
 
-# Zero-derivative primitives (piecewise constant, ∂f/∂x = 0 a.e.)
+# Zero-derivative primitives
 
 
 @pytest.mark.elementwise
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.floor,  # ∂⌊x⌋/∂x = 0
-        jnp.ceil,  # ∂⌈x⌉/∂x = 0
-        jnp.sign,  # ∂sign(x)/∂x = 0
+        jnp.floor,
+        jnp.ceil,
+        jnp.sign,
     ],
 )
 def test_zero_derivative(op):
@@ -1037,25 +1038,25 @@ def test_round():
 
 # Binary ops with generically nonzero partials w.r.t. both operands.
 _BINARY_ELEMENTWISE_OPS = [
-    jnp.power,  # ∂(x^y)/∂x = y·x^(y-1), ∂(x^y)/∂y = x^y·ln(x)
-    jnp.arctan2,  # ∂atan2(y,x)/∂y = x/(x²+y²), ∂/∂x = -y/(x²+y²)
-    jax.scipy.special.gammainc,  # ∂P(a,x)/∂a, ∂P(a,x)/∂x
-    jax.scipy.special.gammaincc,  # ∂Q(a,x)/∂a, ∂Q(a,x)/∂x
-    jax.scipy.special.zeta,  # ∂ζ(s,q)/∂s, ∂ζ(s,q)/∂q
+    jnp.power,
+    jnp.arctan2,
+    jax.scipy.special.gammainc,
+    jax.scipy.special.gammaincc,
+    jax.scipy.special.zeta,
 ]
 
-
-def _positive_values(n):
-    """Return n inputs above 1, keeping zeta's s > 1 convergence domain."""
-    return jnp.linspace(1.3, 3.2, n)
+_INCOMPLETE_GAMMA_OPS = [
+    jax.scipy.special.gammainc,
+    jax.scipy.special.gammaincc,
+]
 
 
 @pytest.mark.elementwise
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.maximum,  # ∂max(x,y)/∂x = 1 if x>y else 0, ∂max/∂y = 1 if y>x else 0
-        jnp.minimum,  # ∂min(x,y)/∂x = 1 if x<y else 0, ∂min/∂y = 1 if y<x else 0
+        jnp.maximum,
+        jnp.minimum,
     ],
 )
 def test_binary_minmax(op):
@@ -1295,7 +1296,7 @@ def test_integer_pow_bounds_negative_odd_exponent():
 @pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
 def test_binary_first_arg_active(op):
     """Binary op with first argument active, second constant."""
-    x = _positive_values(4)
+    x = jnp.linspace(1.3, 3.2, 4)
     const = jnp.array([1.5, 2.0, 1.7, 2.5])
 
     def f(x):
@@ -1309,7 +1310,7 @@ def test_binary_first_arg_active(op):
 def test_binary_second_arg_active(op):
     """Binary op with first argument constant, second active."""
     const = jnp.array([2.0, 1.5, 3.0, 2.5])
-    x = _positive_values(4)
+    x = jnp.linspace(1.3, 3.2, 4)
 
     def f(x):
         return op(const, x)
@@ -1321,7 +1322,7 @@ def test_binary_second_arg_active(op):
 @pytest.mark.parametrize("op", _BINARY_ELEMENTWISE_OPS, ids=lambda op: op.__name__)
 def test_binary_both_args_active(op):
     """Both operands active: each output depends on its own element of both."""
-    inputs = _positive_values(8)
+    inputs = jnp.linspace(1.3, 3.2, 8)
 
     def f(v):
         return op(v[:4], v[4:])
@@ -1336,7 +1337,7 @@ def test_binary_shapes_second_arg(op, shape):
     """A shaped second operand keeps the elementwise identity pattern."""
     n = int(np.prod(shape))
     const = jnp.array([1.5, 2.0, 1.7, 2.5])
-    inputs = _positive_values(n)
+    inputs = jnp.linspace(1.3, 3.2, n)
 
     def f(v):
         return op(const, v.reshape(shape))
@@ -1350,7 +1351,7 @@ def test_binary_shapes_second_arg(op, shape):
 def test_binary_shapes_both_args(op, shape):
     """Both shaped operands stay elementwise across 1D, 2D, and 3D shapes."""
     n = int(np.prod(shape))
-    inputs = _positive_values(2 * n)
+    inputs = jnp.linspace(1.3, 3.2, 2 * n)
 
     def f(v):
         return op(v[:n].reshape(shape), v[n:].reshape(shape))
@@ -1373,7 +1374,7 @@ def test_binary_broadcasting(op, shape_a, shape_b):
     """Broadcast operands across leading, trailing, and scalar dimensions."""
     n_a = int(np.prod(shape_a))
     n_b = int(np.prod(shape_b))
-    inputs = _positive_values(n_a + n_b)
+    inputs = jnp.linspace(1.3, 3.2, n_a + n_b)
 
     def f(v):
         a = v[:n_a].reshape(shape_a)
@@ -1389,7 +1390,7 @@ def test_binary_broadcasting(op, shape_a, shape_b):
 def test_binary_scalar_first_arg(op, shape):
     """A scalar first operand broadcasts across a shaped second operand."""
     n = int(np.prod(shape))
-    inputs = _positive_values(n + 1)
+    inputs = jnp.linspace(1.3, 3.2, n + 1)
 
     def f(v):
         return op(v[0], v[1:].reshape(shape))
@@ -1403,7 +1404,7 @@ def test_binary_scalar_first_arg(op, shape):
 def test_binary_scalar_second_arg(op, shape):
     """An array first operand broadcasts against a scalar second operand."""
     n = int(np.prod(shape))
-    inputs = _positive_values(n + 1)
+    inputs = jnp.linspace(1.3, 3.2, n + 1)
 
     def f(v):
         return op(v[:-1].reshape(shape), v[-1])
@@ -1431,12 +1432,95 @@ def test_binary_zero_size(op):
     assert result.nnz == 0
 
 
+# Specific special-function cases
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _INCOMPLETE_GAMMA_OPS)
+def test_incomplete_gamma_fixed_operand(op):
+    """Incomplete gamma with a fixed operand, including values below 1."""
+    x = jnp.array([0.3, 1.2, 2.7])
+    a = jnp.array([0.5, 1.2, 2.7])
+
+    assert_jacobian_sparsity_exact(lambda x: op(2.0, x), x)
+    assert_jacobian_sparsity_exact(lambda a: op(a, 3.0), a)
+
+
+# q <= 0 is a pole where jax.jacobian is NaN, so zeta references stay q > 0.
+@pytest.mark.elementwise
+def test_zeta_s_below_one():
+    """Zeta has finite custom-JVP derivatives below the s > 1 convergence region.
+
+    The primal is NaN for s <= 1 on some CPUs,
+    but the custom JVP series still gives exact numerical references.
+    """
+    s = jnp.array([0.2, 0.5, 0.8])
+
+    def f(s):
+        return jax.scipy.special.zeta(s, 1.3)
+
+    assert_jacobian_sparsity_exact(f, s)
+
+
+@pytest.mark.hessian
+def test_incomplete_gamma_hessian_x():
+    """Second-order derivatives of gammainc wrt x are detected exactly."""
+    x = jnp.array([0.5, 1.1, 2.3])
+
+    def f(x):
+        return jnp.sum(jax.scipy.special.gammainc(2.0, x))
+
+    assert_hessian_sparsity_exact(f, x)
+
+
+@pytest.mark.hessian
+def test_zeta_hessian_both_args():
+    """Second-order derivatives of zeta wrt both arguments are detected exactly."""
+    n = 3
+    v = jnp.array([1.3, 1.8, 2.4, 0.5, 1.1, 2.0])
+
+    def f(v):
+        return jnp.sum(jax.scipy.special.zeta(v[:n], v[n:]))
+
+    assert_hessian_sparsity_exact(f, v)
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("op", _INCOMPLETE_GAMMA_OPS)
+def test_igamma_grad_a_depends_on_x_too(op):
+    """``igamma_grad_a(a, x)`` depends on both operands.
+
+    With x traced, a handler that drops the second operand would miss nonzeros.
+    """
+    n = 2
+    v = jnp.array([0.7, 1.8, 2.3, 0.6])
+
+    def f(v):
+        a, x = v[:n], v[n:]
+        return jax.grad(lambda z: jnp.sum(op(z, x)))(a)
+
+    primitives = {eqn.primitive.name for eqn in jax.make_jaxpr(f)(v).jaxpr.eqns}
+    # igamma_grad_a is internal, so this pins that JAX still emits it.
+    assert "igamma_grad_a" in primitives
+
+    result = jacobian_sparsity(f, v).todense().astype(int)
+    # JAX has no derivative rule for igamma_grad_a, so assert the pattern directly.
+    expected = np.array(
+        [
+            [1, 0, 1, 0],  # out[0] <- a[0], x[0]
+            [0, 1, 0, 1],  # out[1] <- a[1], x[1]
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
 @pytest.mark.elementwise
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.maximum,  # ∂max(x,y)/∂x = 1 if x>y else 0
-        jnp.minimum,  # ∂min(x,y)/∂x = 1 if x<y else 0
+        jnp.maximum,
+        jnp.minimum,
     ],
 )
 def test_binary_minmax_first_arg_active(op):
@@ -1457,8 +1541,8 @@ def test_binary_minmax_first_arg_active(op):
 @pytest.mark.parametrize(
     "op",
     [
-        jnp.maximum,  # ∂max(x,y)/∂y = 1 if y>x else 0
-        jnp.minimum,  # ∂min(x,y)/∂y = 1 if y<x else 0
+        jnp.maximum,
+        jnp.minimum,
     ],
 )
 def test_binary_minmax_second_arg_active(op):
