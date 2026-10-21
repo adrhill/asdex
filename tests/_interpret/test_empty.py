@@ -141,22 +141,6 @@ def test_empty_scalar():
     assert_jacobian_sparsity_exact(f, np.array([1.0, 2.0, 3.0]))
 
 
-def _cond_with_undefined_branch(x):
-    """A ``cond`` whose constant branch leaves the other branch's residuals undefined.
-
-    The branches return different shapes,
-    which is what makes AD instantiate the undefined residuals with ``empty2``.
-    """
-    return lax.cond(
-        x[0] > 0, lambda v: jnp.array(1.0), lambda v: jnp.sum(jnp.sin(v)), x
-    )
-
-
-# x[0] < 0 takes the differentiable branch,
-# so the union over both branches is exact at this point.
-_X = np.array([-1.0, 2.0, 3.0])
-
-
 @pytest.mark.control_flow
 def test_empty2_in_cond_gradient_jacobian():
     """First-order detection of a differentiated ``cond`` reaches ``empty2``.
@@ -169,7 +153,16 @@ def test_empty2_in_cond_gradient_jacobian():
     Differentiating first and detecting afterwards -- ``jax.grad(f)`` here,
     ``jax.jacobian(f)`` behaves the same -- does hit them.
     """
-    assert_jacobian_sparsity_exact(jax.grad(_cond_with_undefined_branch), _X)
+
+    def f(x):
+        # Branches of different shapes make AD allocate the undefined residual.
+        return lax.cond(
+            x[0] > 0, lambda v: jnp.array(1.0), lambda v: jnp.sum(jnp.sin(v)), x
+        )
+
+    # x[0] < 0 takes the differentiable branch,
+    # so the union over both branches is exact at this point.
+    assert_jacobian_sparsity_exact(jax.grad(f), np.array([-1.0, 2.0, 3.0]))
 
 
 @pytest.mark.control_flow
@@ -180,4 +173,12 @@ def test_empty2_in_cond_gradient_hessian():
     so it takes the same path as ``jacobian_sparsity(jax.grad(f), x)``
     but through the public Hessian API.
     """
-    assert_hessian_sparsity_exact(_cond_with_undefined_branch, _X)
+
+    def f(x):
+        return lax.cond(
+            x[0] > 0, lambda v: jnp.array(1.0), lambda v: jnp.sum(jnp.sin(v)), x
+        )
+
+    # x[0] < 0 takes the differentiable branch,
+    # so the union over both branches is exact at this point.
+    assert_hessian_sparsity_exact(f, np.array([-1.0, 2.0, 3.0]))
