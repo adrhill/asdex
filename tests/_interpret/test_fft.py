@@ -2,6 +2,13 @@
 
 Every FFT mixes all elements along the transformed trailing axes,
 leaving the leading batch axes independent.
+
+Real inputs are compared through their magnitude (``jnp.abs``),
+so the imaginary part of the complex output contributes to the numerical Jacobian too,
+and complex inputs are compared holomorphically.
+Detection is the only thing tested here:
+sparse Jacobian decompression takes real- or holomorphic inputs,
+not a complex transform output.
 """
 
 import jax.numpy as jnp
@@ -24,7 +31,8 @@ from tests._utils import (
         pytest.param(lambda x: jnp.fft.ifft(x), 8, False, id="ifft"),
         pytest.param(lambda x: jnp.fft.rfft(x), 8, False, id="rfft"),
         pytest.param(lambda x: jnp.fft.rfft(x), 7, False, id="rfft-non-power-of-two"),
-        pytest.param(lambda x: jnp.fft.irfft(x, n=8), 5, True, id="irfft"),
+        pytest.param(lambda x: jnp.fft.irfft(x, n=8), 5, True, id="irfft-even"),
+        pytest.param(lambda x: jnp.fft.irfft(x, n=7), 4, True, id="irfft-odd"),
     ],
 )
 def test_fft_1d(transform, n, complex_input):
@@ -115,10 +123,18 @@ def test_fft_size_one():
 
 
 @pytest.mark.array_ops
-def test_fft_empty_batch():
-    """A zero-sized batch axis produces an empty pattern without crashing."""
-    sparsity = jacobian_sparsity(
-        lambda x: jnp.fft.fft2(x, axes=(1, 2)), np.empty((0, 3, 4))
-    )
+@pytest.mark.parametrize(
+    ("shape", "n", "out_size"),
+    [
+        pytest.param((0, 3, 4), None, 0, id="empty-batch-axis"),
+        # Padding an empty transform axis still allocates a full output,
+        # whose values are constant zeros.
+        pytest.param((3, 0), 4, 9, id="empty-transform-axis"),
+    ],
+)
+def test_fft_empty(shape, n, out_size):
+    """A zero-sized axis produces an empty pattern without crashing."""
+    sparsity = jacobian_sparsity(lambda x: jnp.fft.rfft(x, n=n), np.empty(shape))
 
-    assert sparsity.shape == (0, 0)
+    assert sparsity.shape == (out_size, 0)
+    assert sparsity.nnz == 0
