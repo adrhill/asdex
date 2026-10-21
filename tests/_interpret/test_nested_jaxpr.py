@@ -369,26 +369,44 @@ def test_custom_remat_follows_primal():
     np.testing.assert_array_equal(result, expected)
 
 
+_NAME_POLICIES = [
+    pytest.param(None, id="no_policy"),
+    pytest.param(jax.checkpoint_policies.save_only_these_names("a"), id="save_names"),
+    pytest.param(
+        jax.checkpoint_policies.save_and_offload_only_these_names(
+            names_which_can_be_saved=[],
+            names_which_can_be_offloaded=["a"],
+            offload_src="device",
+            offload_dst="pinned_host",
+        ),
+        id="offload_names",
+    ),
+]
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("policy", _NAME_POLICIES)
+def test_checkpoint_name(policy):
+    """checkpoint_name emits a ``name`` primitive that passes its operand through.
+
+    The Hessian traces the gradient,
+    where name-based policies save or offload the named residual.
+    """
+
+    def g(x):
+        return jnp.sin(checkpoint_name(jnp.sin(x) * x[::-1], "a"))
+
+    def f(x):
+        return jnp.sum(jax.checkpoint(g, policy=policy)(x))
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    assert_jacobian_sparsity_exact(g, x)
+    assert_hessian_sparsity_exact(f, x)
+
+
 @pytest.mark.elementwise
 @pytest.mark.usefixtures("remat3")
-@pytest.mark.parametrize(
-    "policy",
-    [
-        pytest.param(None, id="no_policy"),
-        pytest.param(
-            jax.checkpoint_policies.save_only_these_names("a"), id="save_names"
-        ),
-        pytest.param(
-            jax.checkpoint_policies.save_and_offload_only_these_names(
-                names_which_can_be_saved=[],
-                names_which_can_be_offloaded=["a"],
-                offload_src="device",
-                offload_dst="pinned_host",
-            ),
-            id="offload_names",
-        ),
-    ],
-)
+@pytest.mark.parametrize("policy", _NAME_POLICIES)
 def test_remat3_checkpoint_name(policy):
     """checkpoint_name emits a CheckpointName HiJax primitive that passes its operand through.
 

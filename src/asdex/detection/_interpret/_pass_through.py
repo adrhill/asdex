@@ -9,7 +9,9 @@ def _prop_pass_through(eqn: JaxprEqn, state: _PropState) -> None:
     """Pass-through primitives return each operand unchanged.
 
     ``optimization_barrier`` only stops XLA from moving computations across it,
-    and ``device_put`` only changes where an array lives,
+    ``device_put`` only changes where an array lives,
+    and ``name``, which ``checkpoint_name`` emits outside of ``jax_remat3``,
+    only tags its operand for ``jax.checkpoint`` policies,
     so each output equals its operand: ∂yᵢ/∂xᵢ = I and ∂yᵢ/∂xⱼ = 0 for i ≠ j.
     Index sets are aliased, and const values and bounds are forwarded,
     so indices that pass through stay resolvable downstream.
@@ -23,7 +25,7 @@ def _prop_pass_through(eqn: JaxprEqn, state: _PropState) -> None:
     Jaxpr:
         invars: operands, flattened
         outvars: one per operand, in the same order
-        params: placement metadata for ``device_put``, unused here
+        params: placement metadata for ``device_put`` and the tag for ``name``, unused here
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.optimization_barrier.html
     """

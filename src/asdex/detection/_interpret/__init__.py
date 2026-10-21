@@ -264,7 +264,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_closed_jaxpr(eqn, state, "jaxpr")
         case "call_hi_primitive":
             _prop_call_hi_primitive(eqn, state)
-        case "optimization_barrier" | "device_put":
+        case "optimization_barrier" | "device_put" | "name":
             _prop_pass_through(eqn, state)
         case "slice":
             _prop_slice(eqn, state)

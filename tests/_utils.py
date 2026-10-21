@@ -59,5 +59,5 @@ def assert_jacobian_sparsity_conservative(f, x):
 def assert_hessian_sparsity_exact(f, x):
     """Assert detected Hessian sparsity matches the numerical Hessian exactly."""
     detected = hessian_sparsity(f, x).todense().astype(int)
-    expected = numerical_jacobian_sparsity(jax.grad(f), x)
+    expected = (~np.isclose(jax.hessian(f)(x), 0, atol=1e-10)).astype(int)
     np.testing.assert_array_equal(detected, expected)

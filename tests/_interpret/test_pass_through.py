@@ -1,6 +1,7 @@
 """Tests for the pass-through propagation handler.
 
-``optimization_barrier`` and ``device_put`` return their operands unchanged,
+``optimization_barrier``, ``device_put``, and ``checkpoint_name``
+return their operands unchanged,
 so index sets, const values, and bounds pass straight through.
 
 https://docs.jax.dev/en/latest/_autosummary/jax.lax.optimization_barrier.html
@@ -11,6 +12,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from jax import lax
+from jax.ad_checkpoint import checkpoint_name
 
 from tests._utils import (
     assert_flat_jacobian_sparsity_exact,
@@ -20,6 +22,7 @@ from tests._utils import (
 _PASS_THROUGHS = [
     pytest.param(lax.optimization_barrier, id="optimization_barrier"),
     pytest.param(jax.device_put, id="device_put"),
+    pytest.param(lambda x: checkpoint_name(x, "a"), id="checkpoint_name"),
 ]
 
 
