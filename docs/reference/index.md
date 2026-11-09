@@ -3,6 +3,8 @@
 ## Differentiation
 
 ::: asdex.jacobian
+::: asdex.jacfwd
+::: asdex.jacrev
 ::: asdex.jacobian_from_coloring
 ::: asdex.value_and_jacobian
 ::: asdex.value_and_jacobian_from_coloring

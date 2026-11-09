@@ -14,7 +14,7 @@ to the compress, decompress, and evaluate stages.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, assert_never
 
 import jax
 
@@ -41,6 +41,7 @@ from asdex._types import (
     HessianMode,
     JacobianMode,
     OutputFormat,
+    _assert_jacobian_mode,
     _assert_output_format,
 )
 from asdex.coloring import hessian_coloring as _hessian_coloring
@@ -84,6 +85,8 @@ def jacobian(
     Combines [`jacobian_coloring`][asdex.jacobian_coloring]
     and [`jacobian_from_coloring`][asdex.jacobian_from_coloring]
     in one call.
+    With ``mode="fwd"`` or ``mode="rev"``,
+    this forwards all arguments to [`jacfwd`][asdex.jacfwd] or [`jacrev`][asdex.jacrev].
 
     {jit}
 
@@ -108,39 +111,168 @@ def jacobian(
             (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
             when ``"dense"``).
     """
-    _assert_output_format(output_format)
-    _assert_chunk_size(chunk_size)
-    argnums = _ensure_index(argnums)
-    args, f_detect, remapped_argnums = _merge_sample_inputs(
-        f, sample_args, sample_kwargs, argnums
-    )
-    coloring = _jacobian_coloring(
-        f_detect,
-        *args,
-        argnums=remapped_argnums,
+    if mode is not None:
+        _assert_jacobian_mode(mode)
+    match mode:
+        case "fwd":
+            if allow_int:
+                # Match JAX: jacfwd has no ``allow_int``, only jacrev does.
+                raise TypeError(
+                    "`allow_int=True` is not supported in forward mode. "
+                    "Use `mode='rev'` for differentiating with respect to integer inputs."
+                )
+            return jacfwd(
+                f,
+                *sample_args,
+                argnums=argnums,
+                has_aux=has_aux,
+                holomorphic=holomorphic,
+                symmetric=symmetric,
+                output_format=output_format,
+                chunk_size=chunk_size,
+                **sample_kwargs,
+            )
+        case "rev":
+            return jacrev(
+                f,
+                *sample_args,
+                argnums=argnums,
+                has_aux=has_aux,
+                holomorphic=holomorphic,
+                allow_int=allow_int,
+                symmetric=symmetric,
+                output_format=output_format,
+                chunk_size=chunk_size,
+                **sample_kwargs,
+            )
+        case None:
+            # No mode requested: the coloring picks the cheaper one.
+            return _jacobian_fn(
+                f,
+                sample_args,
+                sample_kwargs,
+                argnums=argnums,
+                has_aux=has_aux,
+                holomorphic=holomorphic,
+                allow_int=allow_int,
+                mode=None,
+                symmetric=symmetric,
+                output_format=output_format,
+                chunk_size=chunk_size,
+            )
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+@_fill_doc
+def jacfwd(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    symmetric: bool = _DEFAULT_SYMMETRIC_JACOBIAN,
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Detect sparsity, color, and return a function computing sparse Jacobians in forward mode.
+
+    The sparse counterpart of ``jax.jacfwd``:
+    colors the columns of the Jacobian and computes one JVP per color.
+    Equivalent to [`jacobian`][asdex.jacobian] with ``mode="fwd"``.
+    Like ``jax.jacfwd``, it has no ``allow_int`` argument.
+
+    {jit}
+
+    Args:
+        f: {f_jac}
+        *sample_args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        symmetric: {symmetric_jac}
+        output_format: {format_jac}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            a pytree of Jacobian blocks matching ``argnums``, with each leaf
+            shaped ``(*out_shape, *in_leaf_shape)``.
+            The block type depends on ``output_format``
+            (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
+            when ``"dense"``).
+    """
+    return _jacobian_fn(
+        f,
+        sample_args,
+        sample_kwargs,
+        argnums=argnums,
         has_aux=has_aux,
-        mode=mode,
+        holomorphic=holomorphic,
+        allow_int=False,
+        mode="fwd",
         symmetric=symmetric,
+        output_format=output_format,
+        chunk_size=chunk_size,
     )
 
-    call_cache: _CallCache = {}
 
-    def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
-        expected_nargs = len(coloring.sparsity.input_avals)
-        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
-        return _eval_jacobian(
-            f_bound,
-            merged_args,
-            coloring,
-            output_format,
-            has_aux=has_aux,
-            holomorphic=holomorphic,
-            allow_int=allow_int,
-            chunk_size=chunk_size,
-            call_cache=call_cache if f_bound is f else None,
-        )
+@_fill_doc
+def jacrev(
+    f: Callable[..., Any],
+    *sample_args: Any,
+    argnums: int | Sequence[int] = _DEFAULT_ARGNUMS,
+    has_aux: bool = _DEFAULT_HAS_AUX,
+    holomorphic: bool = _DEFAULT_HOLOMORPHIC,
+    allow_int: bool = _DEFAULT_ALLOW_INT,
+    symmetric: bool = _DEFAULT_SYMMETRIC_JACOBIAN,
+    output_format: OutputFormat = _DEFAULT_OUTPUT_FORMAT,
+    chunk_size: int | None = _DEFAULT_CHUNK_SIZE,
+    **sample_kwargs: Any,
+) -> Callable[..., Any]:
+    """Detect sparsity, color, and return a function computing sparse Jacobians in reverse mode.
 
-    return jac_fn
+    The sparse counterpart of ``jax.jacrev``:
+    colors the rows of the Jacobian and computes one VJP per color.
+    Equivalent to [`jacobian`][asdex.jacobian] with ``mode="rev"``.
+
+    {jit}
+
+    Args:
+        f: {f_jac}
+        *sample_args: {sample_args}
+        argnums: {argnums}
+        has_aux: {has_aux}
+        holomorphic: {holomorphic}
+        allow_int: {allow_int_jac}
+        symmetric: {symmetric_jac}
+        output_format: {format_jac}
+        chunk_size: {chunk_size}
+        **sample_kwargs: {sample_kwargs}
+
+    Returns:
+        A function that takes the same positional args as ``f`` and returns
+            a pytree of Jacobian blocks matching ``argnums``, with each leaf
+            shaped ``(*out_shape, *in_leaf_shape)``.
+            The block type depends on ``output_format``
+            (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
+            when ``"dense"``).
+    """
+    return _jacobian_fn(
+        f,
+        sample_args,
+        sample_kwargs,
+        argnums=argnums,
+        has_aux=has_aux,
+        holomorphic=holomorphic,
+        allow_int=allow_int,
+        mode="rev",
+        symmetric=symmetric,
+        output_format=output_format,
+        chunk_size=chunk_size,
+    )
 
 
 @_fill_doc
@@ -362,6 +494,63 @@ def value_and_hessian(
         )
 
     return val_hess_fn
+
+
+# Shared implementation of the one-shot Jacobian entry points
+
+
+def _jacobian_fn(
+    f: Callable[..., Any],
+    sample_args: tuple[Any, ...],
+    sample_kwargs: dict[str, Any],
+    *,
+    argnums: int | Sequence[int],
+    has_aux: bool,
+    holomorphic: bool,
+    allow_int: bool,
+    mode: JacobianMode | None,
+    symmetric: bool,
+    output_format: OutputFormat,
+    chunk_size: int | None,
+) -> Callable[..., Any]:
+    """Detect sparsity, color for ``mode``, and return the sparse Jacobian function.
+
+    Shared by ``jacobian``, ``jacfwd``, and ``jacrev``,
+    which differ only in the ``mode`` they color for.
+    """
+    _assert_output_format(output_format)
+    _assert_chunk_size(chunk_size)
+    argnums = _ensure_index(argnums)
+    args, f_detect, remapped_argnums = _merge_sample_inputs(
+        f, sample_args, sample_kwargs, argnums
+    )
+    coloring = _jacobian_coloring(
+        f_detect,
+        *args,
+        argnums=remapped_argnums,
+        has_aux=has_aux,
+        mode=mode,
+        symmetric=symmetric,
+    )
+
+    call_cache: _CallCache = {}
+
+    def jac_fn(*call_args: Any, **kwargs: Any) -> Any:
+        expected_nargs = len(coloring.sparsity.input_avals)
+        merged_args, f_bound = _merge_args_kwargs(f, call_args, kwargs, expected_nargs)
+        return _eval_jacobian(
+            f_bound,
+            merged_args,
+            coloring,
+            output_format,
+            has_aux=has_aux,
+            holomorphic=holomorphic,
+            allow_int=allow_int,
+            chunk_size=chunk_size,
+            call_cache=call_cache if f_bound is f else None,
+        )
+
+    return jac_fn
 
 
 # Public API: ``*_from_coloring`` entry points

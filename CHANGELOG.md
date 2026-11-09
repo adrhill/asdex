@@ -1,6 +1,8 @@
 # asdex
 
 ## Unreleased
+* ![Feature][badge-feature] Add `jacfwd` and `jacrev`, the sparse counterparts of `jax.jacfwd` and `jax.jacrev`.
+  `jacobian` forwards to them when `mode` is `"fwd"` or `"rev"` ([#XXX])
 * ![Feature][badge-feature] Support `jax.lax.optimization_barrier` and `jax.device_put` ([#218])
 * ![Feature][badge-feature] Support `jax.ad_checkpoint.checkpoint_name`, which previously raised an error for its `name` primitive ([#218])
 * ![Maintenance][badge-maintenance] Support `jax.checkpoint`, `jax.custom_remat`, and `checkpoint_name` under JAX's opt-in `jax_remat3` implementation, which emits `call_hi_primitive` ([#218])
