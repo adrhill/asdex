@@ -12,7 +12,6 @@ which exploits the sparsity to reduce the number of AD passes.
 The approach summed up below is described more thoroughly in:
 
 - [_Sparser, Better, Faster, Stronger: Sparsity Detection for Efficient Automatic Differentiation_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)
-- [_Evaluating Derivatives: Principles and Techniques of Algorithmic Differentiation_](https://epubs.siam.org/doi/book/10.1137/1.9780898717761), Griewank & Walther (2008)
 - [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025)
 - [_SparseConnectivityTracer.jl_](https://github.com/adrhill/SparseConnectivityTracer.jl), Hill & Dalle, the Julia library whose index set propagation `asdex` adapts to jaxprs
 
@@ -92,80 +91,35 @@ which directly gives the sparsity pattern.
 Consider \(f(x) = \bigl[\sin(x_1 \cdot x_2),\; x_2 + x_3\bigr]\)
 with input \(x \in \mathbb{R}^3\).
 
-In JAX, this function reads:
-
-```python
-def f(x):
-    return jnp.stack([jnp.sin(x[0] * x[1]), x[1] + x[2]])
-```
-
-Calling `jax.make_jaxpr(f)(jnp.ones(3))` returns its jaxpr:
-
-```jaxpr
-{ lambda ; a:f32[3]. let
-    b:f32[1] = slice[limit_indices=(1,) start_indices=(0,) strides=None] a
-    c:f32[] = squeeze[dimensions=(0,)] b
-    d:f32[1] = slice[limit_indices=(2,) start_indices=(1,) strides=None] a
-    e:f32[] = squeeze[dimensions=(0,)] d
-    f:f32[] = mul c e
-    g:f32[] = sin f
-    h:f32[1] = slice[limit_indices=(2,) start_indices=(1,) strides=None] a
-    i:f32[] = squeeze[dimensions=(0,)] h
-    j:f32[1] = slice[limit_indices=(3,) start_indices=(2,) strides=None] a
-    k:f32[] = squeeze[dimensions=(0,)] j
-    l:f32[] = add i k
-    m:f32[2] = stack[axis=0] g l
-  in (m,) }
-```
-
-The input `x` is the variable `a`, and the output is `m`.
-
 **Initialization:**
 
 | Variable | Index sets |
 |:---------|:-----------|
-| `a` | `[{0}, {1}, {2}]` |
+| \(x\) | `[{0}, {1}, {2}]` |
 
-**Indexing:** each `x[i]` becomes a `slice` followed by a `squeeze`.
-Both only select and rearrange elements,
-so they copy the index sets of the elements they read:
-
-| Variable | Index sets |
-|:---------|:-----------|
-| `b`, `c` | `[{0}]` |
-| `d`, `e` | `[{1}]` |
-| `h`, `i` | `[{1}]` |
-| `j`, `k` | `[{2}]` |
-
-**Equation** `f = mul c e`: elementwise multiply.
+**Equation 1:** `mul x[0] x[1] → t1` — elementwise multiply.
 Each output depends on both operands:
 
 | Variable | Index sets |
 |:---------|:-----------|
-| `f` | `[{0, 1}]` |
+| \(t_1\) | `[{0, 1}]` |
 
-**Equation** `g = sin f`: elementwise unary op.
+**Equation 2:** `sin t1 → t2` — elementwise unary op.
 Dependencies pass through unchanged:
 
 | Variable | Index sets |
 |:---------|:-----------|
-| `g` | `[{0, 1}]` |
+| \(t_2\) | `[{0, 1}]` |
 
-**Equation** `l = add i k`: elementwise add.
+**Equation 3:** `add x[1] x[2] → t3` — elementwise add.
 Union of both operands:
 
 | Variable | Index sets |
 |:---------|:-----------|
-| `l` | `[{1, 2}]` |
-
-**Equation** `m = stack g l`: stacking concatenates the index sets of its operands:
-
-| Variable | Index sets |
-|:---------|:-----------|
-| `m` | `[{0, 1}, {1, 2}]` |
+| \(t_3\) | `[{1, 2}]` |
 
 **Extraction:**
-The output is `m`, so the index sets are `[{0, 1}, {1, 2}]`.
+The output is \([t_2, t_3]\), so the index sets are `[{0, 1}, {1, 2}]`.
 This encodes the sparsity pattern:
 
 \[
