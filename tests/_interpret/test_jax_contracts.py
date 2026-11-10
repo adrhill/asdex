@@ -640,7 +640,7 @@ def test_reduce_layout():
 def test_dce_jaxpr_instantiate_preserves_inputs():
     """``dce_jaxpr`` with instantiate=True keeps all invars in order.
 
-    ``_dce_closed_jaxpr`` in ``detection/_api.py`` relies on this
+    ``_dce_jaxpr`` in ``detection/_api.py`` relies on this
     to keep the seeded input index sets aligned with the jaxpr inputs
     while dead equations are removed.
     """
@@ -658,3 +658,30 @@ def test_dce_jaxpr_instantiate_preserves_inputs():
     assert [v.aval for v in new_jaxpr.invars] == [v.aval for v in jaxpr.invars]
     # The dead equation is removed
     assert "reduce_sum" not in [e.primitive.name for e in new_jaxpr.eqns]
+
+
+def test_dce_jaxpr_preserves_consts():
+    """``dce_jaxpr`` keeps the captured constants aligned with ``constvars``.
+
+    ``_dce_jaxpr`` in ``detection/_api.py`` relies on this
+    to seed const values from the jaxpr it returns,
+    without re-attaching the constants of the original jaxpr.
+    Constants that are only used by dead equations are kept as well.
+    """
+    live = jnp.arange(3.0)
+    dead = jnp.arange(3.0) * 7.0
+
+    def f(x):
+        _ = jnp.sin(x) * dead
+        return x * live
+
+    jaxpr = jax.make_jaxpr(f)(jnp.zeros(3))
+    assert len(jaxpr.consts) == 2
+
+    new_jaxpr, _ = dce_jaxpr(jaxpr, [True] * len(jaxpr.outvars), instantiate=True)
+
+    assert "sin" not in [e.primitive.name for e in new_jaxpr.eqns]
+    assert new_jaxpr.constvars == jaxpr.constvars
+    assert len(new_jaxpr.consts) == len(jaxpr.consts)
+    for new_const, const in zip(new_jaxpr.consts, jaxpr.consts, strict=True):
+        assert new_const is const
