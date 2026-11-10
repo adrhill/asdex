@@ -1,4 +1,4 @@
-# Configuration for the lychee link checker, used by .github/workflows/links.yml.
+# Configuration for the lychee link checker, used by .github/workflows/check-urls.yml.
 # Run locally with `lychee README.md CHANGELOG.md CITATION.cff 'docs/**/*.md'`.
 
 no_progress = true

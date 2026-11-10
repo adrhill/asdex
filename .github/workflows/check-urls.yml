@@ -1,4 +1,4 @@
-name: Links
+name: Check URLs
 
 # External links break without any change to the repository,
 # so check them on a schedule instead of blocking pull requests.
@@ -10,7 +10,7 @@ on:
     branches: [main]
     paths:
       - lychee.toml
-      - .github/workflows/links.yml
+      - .github/workflows/check-urls.yml
 
 jobs:
   lychee:
