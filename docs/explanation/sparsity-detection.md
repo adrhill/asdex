@@ -7,6 +7,14 @@ a conservative superset of the true nonzero structure of the Jacobian \(J_{ij} =
 This pattern is the input to [graph coloring](coloring.md),
 which exploits the sparsity to reduce the number of AD passes.
 
+## References
+
+The approach summed up below is described more thoroughly in:
+
+- [_Sparser, Better, Faster, Stronger: Sparsity Detection for Efficient Automatic Differentiation_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)
+- [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025)
+- [_SparseConnectivityTracer.jl_](https://github.com/adrhill/SparseConnectivityTracer.jl), Hill & Dalle, the Julia library whose index set propagation `asdex` adapts to jaxprs
+
 ## Why Abstract Interpretation
 
 Since we need [global sparsity patterns](global-sparsity.md) —
@@ -26,7 +34,7 @@ and no risk of missing nonzeros due to cancellation.
 
 ## Jaxpr: JAX's Intermediate Representation
 
-JAX represents computations as **jaxprs** (JAX expressions) —
+JAX represents computations as [**jaxprs**](https://docs.jax.dev/en/latest/jaxpr.html) (JAX expressions) —
 a flat sequence of primitive operations with explicit data flow.
 When you call `jax.make_jaxpr(f)(x)`,
 JAX traces `f` symbolically (without evaluating it)
@@ -132,6 +140,12 @@ Unary operations like `sin`, `exp`, `neg`
 pass each element's index set through unchanged —
 \(y_i = g(x_i)\) means \(S_{y_i} = S_{x_i}\).
 
+The exceptions are operations whose derivative is zero everywhere it is defined,
+such as `floor`, `ceil`, `round`, and `sign`.
+Their outputs are piecewise constant and carry no dependencies,
+so the handler returns empty index sets:
+\(y_i = \lfloor x_i \rfloor\) means \(S_{y_i} = \emptyset\).
+
 Binary operations like `add`, `mul`, `sub`
 take the union of their operands' index sets —
 \(y_i = x_i \oplus z_i\) means \(S_{y_i} = S_{x_i} \cup S_{z_i}\).
@@ -168,6 +182,45 @@ This is why `asdex` tracks constant values through the computation graph:
 if an index array is built from literals and arithmetic on constants,
 the handler can still resolve it precisely
 even though it is not a direct literal in the jaxpr.
+
+## Constants and Non-Differentiated Arguments
+
+Not every value in a jaxpr is a differentiated input.
+The detector distinguishes three kinds of values:
+
+**Differentiated arguments** are the arguments selected by `argnums`.
+They are the only values that start with nonempty index sets.
+Only their shapes and dtypes are used, never their sample values,
+which is what makes the pattern [global](global-sparsity.md).
+
+**Non-differentiated arguments** are all other arguments of the function.
+They start with empty index sets,
+so they contribute no columns and no dependencies.
+Like differentiated arguments, they are symbolic inputs of the jaxpr,
+which means their values are unknown during detection.
+The pattern is therefore valid for every value they can take.
+For \(f(x, c) = x \odot c\) differentiated with respect to \(x\),
+the detected pattern is the full diagonal,
+even if the sample passed for \(c\) is all zeros.
+
+**Constants** are values that JAX bakes into the jaxpr while tracing:
+literals, and arrays captured from the enclosing scope (closures or globals).
+Their values are known to the detector,
+which tracks them through the computation and uses them in two ways:
+
+- Constant indices are resolved exactly,
+  as described in [Indexing](#indexing-gather-and-scatter) above.
+- Multiplying by a constant that is exactly zero removes the dependency,
+  since \(\partial (0 \cdot x) / \partial x = 0\) for every \(x\).
+
+A pattern can therefore depend on the values of captured constants.
+If \(c = (0, 1, 0)\) is captured by \(f(x) = x \odot c\) instead of being passed as an argument,
+the detected pattern only contains the middle diagonal entry.
+This is still a global pattern with respect to \(x\),
+but it is tied to the constants the function was traced with.
+If a captured array changes, detect the pattern again.
+To obtain a pattern that holds for all values of an array,
+pass it as an argument instead of capturing it.
 
 ## Fallback Handlers
 

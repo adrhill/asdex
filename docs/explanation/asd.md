@@ -4,6 +4,16 @@ Automatic sparse differentiation (ASD) exploits the sparsity structure of Jacobi
 to compute them far more efficiently than dense automatic differentiation (AD).
 This page explains the mathematical ideas behind the approach.
 
+## References
+
+The ideas summed up below are described more thoroughly in:
+
+- [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025), a visual walkthrough of the ideas on this page
+- [_What Color Is Your Jacobian? Graph Coloring for Computing Derivatives_](https://epubs.siam.org/doi/10.1137/S0036144504444711), Gebremedhin, Manne, Pothen (2005)
+- [_On the Estimation of Sparse Jacobian Matrices_](https://doi.org/10.1093/imamat/13.1.117), Curtis, Powell, Reid (1974)
+- [_Evaluating Derivatives: Principles and Techniques of Algorithmic Differentiation_](https://epubs.siam.org/doi/book/10.1137/1.9780898717761), Griewank & Walther (2008)
+- [_Sparser, Better, Faster, Stronger: Sparsity Detection for Efficient Automatic Differentiation_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)
+
 ## Automatic Differentiation in Brief
 
 AD computes exact derivatives of programs
@@ -56,22 +66,30 @@ The same idea applies symmetrically to columns and JVPs.
 
 Graph coloring assigns each row a color
 such that rows sharing a nonzero column get different colors.
-From this coloring, we build a seed matrix \(S \in \mathbb{R}^{m \times c}\),
+From this coloring, we build a seed matrix \(S \in \mathbb{R}^{m \times c}\) with one column per color,
 where \(c\) is the number of colors.
-The seed for color \(c\) is the sum of the standard basis vectors
-for all rows assigned that color:
+Column \(k\) of \(S\) is the seed for color \(k\):
+the sum of the standard basis vectors \(e_i \in \mathbb{R}^m\)
+of all rows assigned that color.
 
 \[
-S_{:,c} = \sum_{i \,:\, \text{color}(i) = c} e_i
+S_{:,k} = \sum_{i \,:\, \text{color}(i) = k} e_i
 \]
 
 The compressed Jacobian is then:
 
 \[
-B = S^\top \cdot J \in \mathbb{R}^{c \times n}
+B = S^\top J \in \mathbb{R}^{c \times n}
 \]
 
-Computing \(B\) requires only \(c\) VJPs — one per color — instead of \(m\).
+Row \(k\) of \(B\) is the sum of all rows of \(J\) with color \(k\),
+obtained from a single VJP with the seed \(S_{:,k}\).
+Computing \(B\) therefore requires only \(c\) VJPs, one per color, instead of \(m\).
+We call this step compressed differentiation.
+
+Column coloring works the same way with the roles of rows and columns swapped.
+The seed matrix \(S \in \mathbb{R}^{n \times c}\) sums the basis vectors of same-colored columns,
+and the compressed Jacobian \(B = J S \in \mathbb{R}^{m \times c}\) is computed with one JVP per color.
 
 ## Decompression
 
@@ -87,25 +105,29 @@ We simply read off each nonzero from the compressed matrix
 using the known color assignments.
 This is **direct decompression** — no systems of equations need to be solved.
 
-## The Three-Step Pipeline
+## The Four-Step Pipeline
 
-ASD decomposes the problem into three independent stages:
+ASD decomposes the problem into four independent steps:
 
-1. **[Detection](sparsity-detection.md)** — determine the [global sparsity pattern](global-sparsity.md) of the Jacobian
+1. **[Detection](sparsity-detection.md)**: determine the [global sparsity pattern](global-sparsity.md) of the Jacobian
    by analyzing the computation graph (no numerical evaluation).
-2. **[Coloring](coloring.md)** — assign colors to rows or columns
+2. **[Coloring](coloring.md)**: assign colors to rows or columns
    so that structurally orthogonal groups share a color.
-3. **Decompression** — compute one AD pass per color and extract the sparse matrix.
+3. **[Compressed differentiation](#seed-matrices-and-compression)**: compute one AD pass per color,
+   producing the compressed matrix \(B\).
+4. **[Decompression](#decompression)**: read the nonzeros of the sparse matrix off \(B\).
 
 Steps 1 and 2 are preprocessing:
 they depend only on the function's structure and input shape,
 not on the input values.
 Once computed, the coloring can be reused across arbitrarily many evaluations.
-Step 3 is the only part that touches actual numerical data.
+Steps 3 and 4 are the only parts that touch actual numerical data.
+`asdex` also exposes them separately,
+see [Skipping Decompression](../how-to/jacobians.md#skipping-decompression).
 
 ## Amortization
 
-The three-step split is designed around amortization.
+The four-step split is designed around amortization.
 Detection and coloring are the most expensive steps,
 but their results depend only on the function's structure and input shape —
 not on the input values.
@@ -115,7 +137,7 @@ across arbitrarily many evaluations at different inputs.
 In a typical workflow,
 a user calls [`jacobian_coloring`](../reference/index.md#asdex.jacobian_coloring) (or [`hessian_coloring`](../reference/index.md#asdex.hessian_coloring)) once during setup
 and passes the result to [`jacobian_from_coloring`](../reference/index.md#asdex.jacobian_from_coloring) (or [`hessian_from_coloring`](../reference/index.md#asdex.hessian_from_coloring)) in a loop.
-The per-evaluation cost is then just the decompression step:
+The per-evaluation cost is then just compressed differentiation and decompression:
 \(c\) AD passes plus a cheap index lookup,
 where \(c\) is the number of colors.
 For problems where the Jacobian is evaluated hundreds or thousands of times —
@@ -146,7 +168,3 @@ Each color corresponds to one Hessian-vector product (HVP),
 computed via forward-over-reverse autodiff.
 The decompression step recovers both \(H_{ij}\) and \(H_{ji}\) from each entry,
 halving the effective number of unknowns.
-
-## References
-
-- [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025) — a visual walkthrough of the ideas on this page.

@@ -257,6 +257,47 @@ They differ in their performance and memory trade-offs:
     When in doubt, stick with the default `"fwd_over_rev"`.
     It is the most widely used and typically the most efficient under `jax.jit`.
 
+### Multi-Dimensional Inputs
+
+The input can be an array of any dimension.
+`asdex` follows the conventions of `jax.hessian`:
+the Hessian has shape `(*input_shape, *input_shape)`,
+it is not flattened into a 2D matrix.
+
+```python exec="true" session="hess-nd" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import hessian, hessian_coloring
+
+def g(X):
+    return jnp.sum(X[:, 1:] * X[:, :-1] ** 2)  # maps shape (2, 3) to a scalar
+
+X = jnp.arange(1.0, 7.0).reshape(2, 3)
+H = jax.jit(hessian(g, X))(X)
+H_jax = jax.hessian(g)(X)
+```
+
+```python exec="true" session="hess-nd"
+print(f"""```
+type(H):     {type(H).__name__}
+H.shape:     {H.shape}
+H_jax.shape: {H_jax.shape}
+H == H_jax:  {bool(jnp.allclose(H.todense(), H_jax))}
+```""")
+```
+
+Sparsity patterns and colorings always describe the flattened \((n, n)\) matrix,
+with \(n\) the total number of input elements.
+Elements are numbered in row-major order, like `jnp.ravel`:
+
+```python exec="true" session="hess-nd" source="above"
+coloring = hessian_coloring(g, X)
+```
+
+```python exec="true" session="hess-nd"
+print(f"```\n{coloring}\n```")
+```
+
 ### Multiple Inputs
 
 `asdex` mirrors `jax.hessian`:
@@ -424,7 +465,9 @@ H_csr:    {type(H_csr).__name__}  nnz={H_csr.nnz}
     Note that SciPy is an optional dependency. Install it via `pip install 'asdex[scipy]'`.
 
 Structural non-zeros that happen to be numerically zero at the evaluation point are kept as explicit entries in the `BCOO` and scipy outputs,
-so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md) and is independent of `x`.
+so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md).
+It is independent of `x` and of the values of all other arguments of the function,
+see [Constants and Non-Differentiated Arguments](../explanation/sparsity-detection.md#constants-and-non-differentiated-arguments).
 
 ### Reducing Peak Memory with Chunking
 
@@ -484,7 +527,12 @@ and its `*_from_coloring` form) that also returns the primal value.
 [`decompress`](../reference/index.md#asdex.decompress) turns \(B\) back into the sparse matrix
 in any [output format](#output-formats).
 Unlike [`hessian`](../reference/index.md#asdex.hessian),
-it always returns the flat 2-D \((n, n)\) matrix, regardless of input PyTree structure:
+it always returns the flat 2-D \((n, n)\) matrix, regardless of input shape and PyTree structure.
+`decompress` is the same function for Jacobians and Hessians.
+It only receives \(B\) and the coloring and applies no reshaping,
+since a coloring does not record the output structure a Jacobian would need.
+For a single array input,
+reshaping the dense result to `(*input_shape, *input_shape)` recovers the layout of `hessian`.
 
 ```python exec="true" session="hess-compress" source="above"
 H_bcoo = decompress(B, coloring)                          # BCOO (default)
@@ -493,8 +541,11 @@ H_dense = decompress(B, coloring, output_format="dense")  # jax.Array
 
 For full control, [`decompress_data`](../reference/index.md#asdex.decompress_data) is the jittable
 primitive underneath `decompress`.
-It returns just the structural non-zero values as a `jax.Array` of shape \((\text{nnz},)\) in pattern order,
-ready to pair with `coloring.sparsity.rows` and `coloring.sparsity.cols` to build a custom container:
+It returns just the structural non-zero values as a `jax.Array` of shape \((\text{nnz},)\) in pattern order.
+Pattern order is the order of the coordinate arrays `coloring.sparsity.rows` and `coloring.sparsity.cols`,
+in which every [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern) stores its non-zeros.
+It is a property of the coloring and does not depend on any `output_format`.
+The values are ready to pair with these two arrays to build a custom container:
 
 ```python exec="true" session="hess-compress" source="above"
 data = decompress_data(B, coloring)  # the nnz values, in pattern order

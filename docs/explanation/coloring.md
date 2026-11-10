@@ -42,7 +42,11 @@ Exploiting this redundancy can significantly reduce the number of colors needed,
 since recovering $H_{ij}$ from a compressed column simultaneously gives us $H_{ji}$ for free.
 The coloring operates on an **adjacency graph** whose vertices are columns (or rows, since $\mathcal{R} = \mathcal{C}$)
 and whose edges connect pairs $i, j$ with $H_{ij} \neq 0$.
-Diagonal entries are always recoverable, so only off-diagonal nonzeros create edges.
+Only off-diagonal nonzeros create edges.
+Diagonal entries need none:
+the coloring treats every diagonal entry as potentially nonzero,
+and since no neighbor of vertex $i$ shares its color,
+$H_{ii}$ can always be read off the compressed column of that color.
 
 The appropriate algorithm to use in this case is a **star coloring**:
 a complete distance-1 coloring with the additional constraint

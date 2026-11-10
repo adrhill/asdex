@@ -65,6 +65,7 @@ Zenodo = "https://doi.org/10.5281/zenodo.18788242"
 dev = [
     "diffrax>=0.7.1",
     "flax>=0.12.3",
+    "matplotlib>=3.5.0",
     "prek==0.4.6",
     "pytest>=8.0.0",
     "pytest-benchmark>=5.0.0",
@@ -164,12 +165,11 @@ exclude_also = [
     "assert_never\\(",
 ]
 
-# These files import optional dependencies (matplotlib, griffe, juliacall) that are
+# These files import optional dependencies (griffe, juliacall) that are
 # absent from the lean type-check environment (dev group only),
 # so ignore unresolved imports.
 [[tool.ty.overrides]]
 include = [
-    "src/asdex/_plotting.py",
     "docs/_griffe_extensions.py",
     "tests/smc/conftest.py",
 ]
