@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794324609779,
+  "lastUpdate": 1794326056663,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -23760,6 +23760,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006845732855214185",
             "extra": "mean: 24.34681596692235 usec\nrounds: 9933"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "67a34925fc7622d468f664b01ced33788b596127",
+          "message": "ci: check URLs in the docs weekly with lychee (#227)\n\n* docs: fix the NonlinearSolve.jl license link\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* ci: check links in the docs weekly with lychee\n\nExternal URLs can break without any change to the repository,\nso the check runs on a weekly schedule rather than on every pull request.\nIt also runs on pull requests that change its configuration.\nScholarly publishers that reject automated requests are excluded.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* ci: rename the link-check workflow to Check URLs\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: link the Curtis, Powell, Reid paper on Oxford Academic\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* ci: exclude Oxford Academic and this repository's GitHub file links from URL checks\n\nOxford Academic rejects automated requests with 403 Forbidden.\ngithub.com rate-limits page requests from CI runners with 503 Service Unavailable,\nand the excluded links point to files in this repository.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* ci: run the URL check at a less busy minute\n\nGitHub Actions delays or drops scheduled runs at the top of the hour, when load is highest.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* ci: explain the URL check's cron minute\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* ci: exclude Instagram from URL checks\n\nInstagram answers requests from CI runners with 429 Too Many Requests,\neven when the README's single Instagram link is the only request to it,\nso pacing requests per host would not help.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* ci: space out URL check requests to GitHub and Instagram instead of excluding them\n\nBoth rate-limit requests from CI runners.\nWith a minimum interval between requests per host,\nlinks to files in this repository and the Instagram link are checked again.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-10T16:53:03+01:00",
+          "tree_id": "672ce36605e79159ff454a3389fca731a9578ca6",
+          "url": "https://github.com/adrhill/asdex/commit/67a34925fc7622d468f664b01ced33788b596127"
+        },
+        "date": 1794326055265,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1033.7607230967683,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00045917122787712854",
+            "extra": "mean: 967.3418399998468 usec\nrounds: 25"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 33536.08808571278,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009009752801027656",
+            "extra": "mean: 29.81862396842956 usec\nrounds: 8119"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 120207.41548681345,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000012138261360187506",
+            "extra": "mean: 8.318954333642573 usec\nrounds: 31117"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 81479.80380280859,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027639118522192546",
+            "extra": "mean: 12.272979969614633 usec\nrounds: 14478"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 115380.99859967966,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000020605381412152812",
+            "extra": "mean: 8.66693833591744 usec\nrounds: 30131"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 216.10335084496714,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004266594982147538",
+            "extra": "mean: 4.627415521739881 msec\nrounds: 23"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3613.215658828046,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000024885801795197903",
+            "extra": "mean: 276.7617807580165 usec\nrounds: 3430"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2499.3178033216664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004583407634335248",
+            "extra": "mean: 400.109181261771 usec\nrounds: 2124"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2484.261714343393,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004971666576741958",
+            "extra": "mean: 402.5340785257428 usec\nrounds: 1248"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5465.436183207026,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000013235568829188858",
+            "extra": "mean: 182.96801325255194 usec\nrounds: 4452"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 206.81014523047534,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008347917958266893",
+            "extra": "mean: 4.835352728395265 msec\nrounds: 81"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 35693.9045113218,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025587839935227564",
+            "extra": "mean: 28.01598798704716 usec\nrounds: 26305"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 67627.14981319924,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003512066891688897",
+            "extra": "mean: 14.786960603281603 usec\nrounds: 20687"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 57860.845645839036,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000035589916694964844",
+            "extra": "mean: 17.282844535679775 usec\nrounds: 15830"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 71036.51051304469,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002426848221554116",
+            "extra": "mean: 14.077268052410407 usec\nrounds: 20205"
           }
         ]
       }
