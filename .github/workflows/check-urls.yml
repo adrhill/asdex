@@ -4,7 +4,9 @@ name: Check URLs
 # so check them on a schedule instead of blocking pull requests.
 on:
   schedule:
-    - cron: "36 6 * * 1" # Mondays at 06:36 UTC
+    # Mondays at 06:36 UTC.
+    # The minute 36 has no meaning, it was picked at random to avoid the peak load on the hour.
+    - cron: "36 6 * * 1"
   workflow_dispatch:
   pull_request:
     branches: [main]
