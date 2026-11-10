@@ -253,6 +253,47 @@ jac_fn = jax.jit(jacrev(f, x))
 When the number of colors is equal,
 `asdex` prefers column coloring since JVPs are generally cheaper to compute in JAX.
 
+### Multi-Dimensional Inputs and Outputs
+
+Inputs and outputs can be arrays of any dimension.
+`asdex` follows the conventions of `jax.jacfwd` and `jax.jacrev`:
+the Jacobian has shape `(*output_shape, *input_shape)`,
+it is not flattened into a 2D matrix.
+
+```python exec="true" session="jac-nd" source="above"
+import jax
+import jax.numpy as jnp
+from asdex import jacobian, jacobian_coloring
+
+def f(X):
+    return X[:, 1:] * X[:, :-1]  # maps shape (2, 3) to shape (2, 2)
+
+X = jnp.arange(1.0, 7.0).reshape(2, 3)
+J = jax.jit(jacobian(f, X))(X)
+J_jax = jax.jacfwd(f)(X)
+```
+
+```python exec="true" session="jac-nd"
+print(f"""```
+type(J):     {type(J).__name__}
+J.shape:     {J.shape}
+J_jax.shape: {J_jax.shape}
+J == J_jax:  {bool(jnp.allclose(J.todense(), J_jax))}
+```""")
+```
+
+Sparsity patterns and colorings always describe the flattened \((m, n)\) matrix,
+with \(m\) and \(n\) the total number of output and input elements.
+Elements are numbered in row-major order, like `jnp.ravel`:
+
+```python exec="true" session="jac-nd" source="above"
+coloring = jacobian_coloring(f, X)
+```
+
+```python exec="true" session="jac-nd"
+print(f"```\n{coloring}\n```")
+```
+
 ### Multiple Inputs and Outputs
 
 `asdex` mirrors `jax.jacobian`:
@@ -288,6 +329,12 @@ def scaled(x, scale):
 J1 = jacobian(scaled, x, 1.0, argnums=0)(x, 1.0)  # [ 1.  4.  6.]
 J5 = jacobian(scaled, x, 5.0, argnums=0)(x, 5.0)  # [10. 20. 30.]
 ```
+
+The sparsity pattern never depends on the values of such arguments, only on their shapes and dtypes.
+Calling the function above with `scale=0.0` returns the same structure, with explicit zeros as values.
+Arrays captured from the enclosing scope are treated differently:
+they are constants whose values the detector knows and may exploit.
+See [Constants and Non-Differentiated Arguments](../explanation/sparsity-detection.md#constants-and-non-differentiated-arguments).
 
 A function may also return several outputs.
 The Jacobian then mirrors the output structure,
@@ -459,7 +506,9 @@ J_csr:        {type(J_csr).__name__}  nnz={J_csr.nnz}
     Note that SciPy is an optional dependency. Install it via `pip install 'asdex[scipy]'`.
 
 Structural non-zeros that happen to be numerically zero at the evaluation point are kept as explicit entries in the `BCOO` and scipy outputs,
-so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md) and is independent of `x`.
+so the structure always matches the detected [global sparsity pattern](../explanation/global-sparsity.md).
+It is independent of `x` and of the values of all other arguments of the function,
+see [Constants and Non-Differentiated Arguments](../explanation/sparsity-detection.md#constants-and-non-differentiated-arguments).
 
 ### Reducing Peak Memory with Chunking
 
@@ -520,7 +569,13 @@ and its `*_from_coloring` form) that also returns the primal value.
 [`decompress`](../reference/index.md#asdex.decompress) turns \(B\) back into the sparse matrix
 in any [output format](#output-formats).
 Unlike [`jacobian`](../reference/index.md#asdex.jacobian),
-it always returns the flat 2-D \((m, n)\) matrix, regardless of input or output PyTree structure:
+it always returns the flat 2-D \((m, n)\) matrix, regardless of input or output shapes and PyTree structure.
+[`jacobian`](../reference/index.md#asdex.jacobian) shapes its result using the structure of the output `f(x)`,
+which it obtains by tracing `f`.
+`decompress` only receives \(B\) and the coloring,
+and a coloring does not record the output structure.
+For a single array input and output,
+reshaping the dense result to `(*output_shape, *input_shape)` recovers the layout of `jacobian`.
 
 ```python exec="true" session="jac-compress" source="above"
 J_bcoo = decompress(B, coloring)                          # BCOO (default)
@@ -529,8 +584,11 @@ J_dense = decompress(B, coloring, output_format="dense")  # jax.Array
 
 For full control, [`decompress_data`](../reference/index.md#asdex.decompress_data) is the jittable
 primitive underneath `decompress`.
-It returns just the structural non-zero values as a `jax.Array` of shape \((\text{nnz},)\) in pattern order,
-ready to pair with `coloring.sparsity.rows` and `coloring.sparsity.cols` to build a custom container:
+It returns just the structural non-zero values as a `jax.Array` of shape \((\text{nnz},)\) in pattern order.
+Pattern order is the order of the coordinate arrays `coloring.sparsity.rows` and `coloring.sparsity.cols`,
+in which every [`SparsityPattern`](../reference/index.md#asdex.SparsityPattern) stores its non-zeros.
+It is a property of the coloring and does not depend on any `output_format`.
+The values are ready to pair with these two arrays to build a custom container:
 
 ```python exec="true" session="jac-compress" source="above"
 data = decompress_data(B, coloring)  # the nnz values, in pattern order

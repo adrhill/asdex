@@ -1,7 +1,7 @@
 # Getting Started
 
-This tutorial walks through the three stages of [automatic sparse differentiation](../explanation/asd.md):
-**[detection](../explanation/sparsity-detection.md)**, **[coloring](../explanation/coloring.md)**, and **decompression**.
+This tutorial walks through the four steps of [automatic sparse differentiation](../explanation/asd.md):
+**[detection](../explanation/sparsity-detection.md)**, **[coloring](../explanation/coloring.md)**, **compressed differentiation**, and **decompression**.
 
 ## The Problem
 
@@ -9,10 +9,11 @@ For a function $f: \mathbb{R}^n \to \mathbb{R}^m$, computing the full Jacobian $
 In practice, for example in scientific machine learning,
 many Jacobians are *sparse* (i.e., most entries are structurally zero, regardless of the input).
 
-`asdex` exploits this sparsity in three steps:
+`asdex` exploits this sparsity in four steps:
 1. **Detect** the sparsity pattern by tracing the computation graph
 2. **Color** the pattern so that structurally orthogonal rows (or columns) share a color
-3. **Decompress** one AD pass per color into the sparse Jacobian or Hessian
+3. **Differentiate** with one AD pass per color, producing a small compressed matrix
+4. **Decompress** the compressed matrix into the sparse Jacobian or Hessian
 
 This reduces the computational cost from $m$ (or $n$) AD passes to just the number of colors,
 yielding significant speedups on large sparse problems,
