@@ -15,6 +15,7 @@ from asdex.detection._interpret._elementwise import (
     _union_with_zero_derivs,
 )
 from tests._utils import (
+    assert_hessian_sparsity_exact,
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
 )
@@ -1657,3 +1658,120 @@ def test_reduce_precision_is_elementwise():
 
     x = jnp.arange(1.0, 4.0)
     assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_ldexp_broadcast():
+    """Ldexp broadcasts the mantissa against the integer exponent.
+
+    Since JAX 0.12, ``jnp.ldexp`` emits the HiJax primitive ``Ldexp``.
+    """
+
+    def f(x):
+        return jnp.ldexp(x.reshape(3, 1), jnp.arange(2)).ravel()
+
+    x = jnp.array([1.5, 3.0, 0.7])
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 0, 0],  # out[0, :] = x[0] * 2^[0, 1]
+            [1, 0, 0],
+            [0, 1, 0],
+            [0, 1, 0],
+            [0, 0, 1],
+            [0, 0, 1],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+def test_ldexp_exponent_from_input():
+    """An exponent computed from the input contributes nothing, since it is an integer."""
+
+    def f(x):
+        return jnp.ldexp(x[:2], jnp.argmax(x).astype(jnp.int32))
+
+    x = jnp.array([1.5, 3.0, 0.7])
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 0, 0],  # out[0] = x[0] * 2^argmax(x)
+            [0, 1, 0],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.elementwise
+@pytest.mark.hessian
+def test_ldexp_hessian():
+    """The derivative of ldexp is again an ldexp, so the Hessian stays diagonal."""
+
+    def f(x):
+        return jnp.sum(jnp.ldexp(x, 2) ** 2)
+
+    assert_hessian_sparsity_exact(f, jnp.array([1.5, 3.0, 0.7]))
+
+
+@pytest.mark.elementwise
+def test_frexp_mantissa():
+    """The mantissa of frexp depends elementwise on the input.
+
+    Since JAX 0.12, ``jnp.frexp`` emits the HiJax primitive ``Frexp``.
+    Its expansion manipulates float bits, which have zero derivative,
+    so the handler must not follow it.
+    """
+
+    def f(x):
+        mantissa, _ = jnp.frexp(x)
+        return mantissa
+
+    x = jnp.array([1.5, 3.0, 0.7])
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.eye(3, dtype=int))
+
+
+@pytest.mark.elementwise
+def test_frexp_exponent():
+    """The exponent of frexp is piecewise constant and has no dependencies."""
+
+    def f(x):
+        _, exponent = jnp.frexp(x)
+        return exponent.astype(float)
+
+    result = jacobian_sparsity(f, jnp.array([1.5, 3.0, 0.7])).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
+
+
+@pytest.mark.elementwise
+def test_frexp_2d():
+    """Both outputs of frexp keep the shape of a non-square 2D input."""
+
+    def f(x):
+        mantissa, exponent = jnp.frexp(x.reshape(2, 3))
+        return (mantissa * exponent).ravel()
+
+    # Values outside of [0.5, 1) have a nonzero exponent.
+    x = jnp.array([1.5, 3.0, 5.0, 4.5, 9.0, 2.2])
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.eye(6, dtype=int))
+
+
+@pytest.mark.elementwise
+def test_frexp_size_zero():
+    """Frexp of a size-0 array yields an empty pattern."""
+
+    def f(x):
+        mantissa, exponent = jnp.frexp(x[:0])
+        return mantissa * exponent
+
+    result = jacobian_sparsity(f, jnp.ones(3))
+    assert result.shape == (0, 3)
+    assert result.nnz == 0
