@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794323104525,
+  "lastUpdate": 1794323139664,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -23502,6 +23502,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000005609860374224088",
             "extra": "mean: 23.63935037594986 usec\nrounds: 12635"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@adrianhill.de",
+            "name": "Bdrian Hill",
+            "username": "bdrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f7706fed8c9cdcd11c2afdf143a70cd31300e308",
+          "message": "feat(detection): handle `cumlogsumexp` and `scatter-sub` (#213)\n\n* feat(detection): handle cumlogsumexp and scatter-sub\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* test(detection): use shared Jacobian helpers for alias coverage\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* test(detection): use exact helper for zero-size aliases and window scatter-sub\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* test(detection): use flat Jacobian helper for non-1D alias cases\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* test(detection): fold cumlogsumexp coverage into cumsum tests\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* test(detection): pin scatter-sub combine semantics on duplicate indices\n\nThe duplicate-index subtract test scattered into a constant operand,\nso replace semantics produced the same pattern and the test could not\ntell combine from replace. Scatter into the input instead, so the\noperand dependency must survive. Also drop the unused axis parameter\nfrom the zero-size cumulative test.\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* docs(detection): name cumlogsumexp and scatter-sub in handler docstrings\n\nThe cumulative handler module described only cumsum,\nand the scatter docstring listed combine variants without sub.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test(detection): cover Hessians of cumlogsumexp and scatter-sub\n\nThe gradients of both primitives emit different primitives than their\nforward passes: an associative scan of logaddexp, pad and strided slice\nfor cumlogsumexp, and gather plus neg for scatter-sub.\nAlso pin the 1D cumulative tests to an explicit triangular pattern\nin addition to the numerical Jacobian.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: adrhill <adrian.hill@mailbox.org>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-10T14:57:44+01:00",
+          "tree_id": "f9782e55ef9ecb31de3f42d98c8f4ff81fb0b88c",
+          "url": "https://github.com/adrhill/asdex/commit/f7706fed8c9cdcd11c2afdf143a70cd31300e308"
+        },
+        "date": 1794323138267,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 780.4679162719332,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004055980726707623",
+            "extra": "mean: 1.2812826499988716 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27186.61845947379,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003920395485673958",
+            "extra": "mean: 36.78280185859332 usec\nrounds: 8716"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 75191.96420240434,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026911580253069684",
+            "extra": "mean: 13.29929348976927 usec\nrounds: 26420"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 41813.39030740191,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000035844820650687505",
+            "extra": "mean: 23.91578373932949 usec\nrounds: 15227"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 77414.1425412036,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023170843075995233",
+            "extra": "mean: 12.91753634638207 usec\nrounds: 27967"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 171.14660843901027,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00033080324397409907",
+            "extra": "mean: 5.84294371428552 msec\nrounds: 21"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2939.5152825656714,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009252585347551182",
+            "extra": "mean: 340.1921418578844 usec\nrounds: 2573"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2014.6183972452354,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000023323788171917198",
+            "extra": "mean: 496.371919052952 usec\nrounds: 1816"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2011.6661100444937,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000249490133780729",
+            "extra": "mean: 497.10038609632005 usec\nrounds: 935"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4515.209897659919,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001074722323379955",
+            "extra": "mean: 221.47364633441876 usec\nrounds: 3492"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 145.42779090228356,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000792802328553823",
+            "extra": "mean: 6.876264803279066 msec\nrounds: 61"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27149.269767097227,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003602126990065767",
+            "extra": "mean: 36.83340320305488 usec\nrounds: 17733"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 43122.17596774968,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006246655511433391",
+            "extra": "mean: 23.18992438479641 usec\nrounds: 12881"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 38577.899134064086,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005908121311860552",
+            "extra": "mean: 25.92157744321036 usec\nrounds: 10427"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 45267.86182176022,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004426847152346219",
+            "extra": "mean: 22.09072749973141 usec\nrounds: 11622"
           }
         ]
       }
