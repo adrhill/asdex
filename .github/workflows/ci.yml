@@ -9,7 +9,7 @@ on:
 env:
   # Versions for single-version jobs and the coverage upload.
   LATEST_PYTHON: &latest-python "3.14"
-  LATEST_JAX: &latest-jax "0.11"
+  LATEST_JAX: &latest-jax "0.12"
 
 jobs:
   Tests:
@@ -19,8 +19,9 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version: ["3.12", *latest-python]
-        # The oldest supported JAX release and the latest 0.11 release.
-        jax-version: ["0.11.0", *latest-jax]
+        # The oldest supported JAX release,
+        # then the latest patch release of every supported minor version.
+        jax-version: ["0.11.0", "0.11", *latest-jax]
     steps:
       - uses: actions/checkout@v7
       - name: Install uv

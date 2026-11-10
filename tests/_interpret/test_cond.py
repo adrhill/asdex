@@ -122,7 +122,7 @@ def test_cond_asymmetric_branches():
 def test_cond_closure_captured_index():
     """Cond branch with closure-captured index array resolves gather precisely.
 
-    Without seeding state_consts from the ClosedJaxpr's captured constants,
+    Without seeding state_consts from the closed jaxpr's captured constants,
     the gather in branch_a would be conservative (dense).
     """
     indices = jnp.array([2, 0, 1])

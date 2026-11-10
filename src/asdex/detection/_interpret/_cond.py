@@ -26,7 +26,7 @@ def _prop_cond(
     Layout:
         invars: [index_scalar, operands...]
         outvars: [results...]
-        params: branches (tuple of ClosedJaxpr)
+        params: branches (tuple of closed Jaxprs)
 
     Example: cond(pred, true_fn, false_fn, x)
         true_fn:  out = x[:2]  → index sets [{0}, {1}]

@@ -1,6 +1,8 @@
 # asdex
 
 ## Unreleased
+* ![Feature][badge-feature] Support `jax.lax.reduce` with a custom computation, which emits the generic `reduce` primitive, with a conservative pattern across its operands.
+  Since JAX 0.12, `jnp.minmax` emits it as well ([#228])
 * ![Enhancement][badge-enhancement] Values of integer, boolean, and PRNG key dtype have zero derivative in sparsity detection, as in JAX, whichever primitive produced them, e.g. `x.astype(int)`, `jnp.argsort(x)`, the pivots of `lu`, or the integer outputs of primitives without a handler.
   Integer inputs differentiated with `allow_int=True` no longer get dependencies either, matching the zero Jacobian that `jax.jacobian` and asdex compute for them.
   Integer indices computed from inputs therefore no longer add dependencies to `gather`, `scatter`, and `dynamic_slice`, and an unknown primitive is only blamed by `DensePatternWarning` if one of its floating-point outputs received dependencies ([#235])
@@ -8,6 +10,10 @@
 * ![Enhancement][badge-enhancement] Stop reporting `jax.debug.print`, `jax.debug.callback`, `jax.random.clone`, and the `eq_to` comparator of `jnp.searchsorted` on complex inputs as fallbacks in `print_fallbacks` and `DensePatternWarning` ([#234])
 * ![Enhancement][badge-enhancement] Report linear algebra primitives without a precise handler, such as `lu`, `cholesky` and `svd`, as fallbacks in `print_fallbacks` and `DensePatternWarning` ([#232])
 * ![Bugfix][badge-bugfix] Raise a `TypeError` for integer outputs in reverse mode even when the sparsity pattern is empty, as `jax.jacrev` does, instead of returning a zero Jacobian ([#235])
+* ![Maintenance][badge-maintenance] Support JAX 0.12, which removed the `ClosedJaxpr` alias that asdex imported.
+  The `jax<0.12` requirement is lifted, so asdex supports JAX 0.11 and 0.12 ([#228])
+* ![Maintenance][badge-maintenance] Support the `polynomial` primitive, which `jax.lax.polynomial`, `jnp.sinc`, `jax.scipy.special.ndtri`, `erfcx`, `expi`, and `jax.scipy.stats.norm.ppf` emit since JAX 0.12 ([#228])
+* ![Maintenance][badge-maintenance] Support `jnp.ldexp`, `jnp.frexp`, `jnp.searchsorted`, and `jnp.nonzero`, which emit HiJax primitives since JAX 0.12 ([#228])
 * ![Documentation][badge-docs] Explain that dynamic `gather` and `scatter` indices are a source of conservatism, not a fallback ([#232])
 
 ## Version `v0.6.1`
@@ -192,6 +198,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 [#235]: https://github.com/adrhill/asdex/pull/235
 [#234]: https://github.com/adrhill/asdex/pull/234
 [#232]: https://github.com/adrhill/asdex/pull/232
+[#228]: https://github.com/adrhill/asdex/pull/228
 [#226]: https://github.com/adrhill/asdex/pull/226
 [#225]: https://github.com/adrhill/asdex/pull/225
 [#220]: https://github.com/adrhill/asdex/pull/220
