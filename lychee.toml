@@ -1,0 +1,12 @@
+# Configuration for the lychee link checker, used by .github/workflows/links.yml.
+# Run locally with `lychee README.md CHANGELOG.md CITATION.cff 'docs/**/*.md'`.
+
+no_progress = true
+max_retries = 3
+
+# Scholarly publishers reject automated requests with 403 Forbidden.
+exclude = [
+  '^https://dl\.acm\.org/',
+  '^https://epubs\.siam\.org/',
+  '^https://pubsonline\.informs\.org/',
+]
