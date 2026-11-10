@@ -1,5 +1,13 @@
 # asdex
 
+## Version `v0.6.2`
+* ![Maintenance][badge-maintenance] Support JAX 0.12, which removed the `ClosedJaxpr` alias that asdex imported.
+  The `jax<0.12` requirement is lifted, so asdex supports JAX 0.11 and 0.12 ([#228])
+* ![Maintenance][badge-maintenance] Support the `polynomial` primitive, which `jax.lax.polynomial`, `jnp.sinc`, `jax.scipy.special.ndtri`, `erfcx`, `expi`, and `jax.scipy.stats.norm.ppf` emit since JAX 0.12 ([#228])
+* ![Maintenance][badge-maintenance] Support `jnp.ldexp`, `jnp.frexp`, `jnp.searchsorted`, and `jnp.nonzero`, which emit HiJax primitives since JAX 0.12 ([#228])
+* ![Feature][badge-feature] Support `jax.lax.reduce` with a custom computation, which emits the generic `reduce` primitive, with a conservative pattern across its operands.
+  Since JAX 0.12, `jnp.minmax` emits it as well ([#228])
+
 ## Version `v0.6.1`
 * ![Feature][badge-feature] Add `jacfwd` and `jacrev`, the sparse counterparts of `jax.jacfwd` and `jax.jacrev`.
   `jacobian` forwards to them when `mode` is `"fwd"` or `"rev"` ([#225])
@@ -179,6 +187,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 <!-- Only link to pull requests in this changelog, not issues. -->
+[#228]: https://github.com/adrhill/asdex/pull/228
 [#226]: https://github.com/adrhill/asdex/pull/226
 [#225]: https://github.com/adrhill/asdex/pull/225
 [#220]: https://github.com/adrhill/asdex/pull/220

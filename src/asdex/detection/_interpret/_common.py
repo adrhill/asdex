@@ -695,7 +695,7 @@ def _dim_offsets(shape: Sequence[int], dims: Sequence[int]) -> np.ndarray:
 
 
 def _seed_const_vals(state: _PropState, constvars, consts) -> None:
-    """Populate ``state.consts`` for the captured constants of a ClosedJaxpr.
+    """Populate ``state.consts`` for the captured constants of a closed jaxpr.
 
     Without this, gather/scatter inside nested jaxprs (cond branches,
     while bodies, jit-wrapped calls) cannot resolve closure-captured

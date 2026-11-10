@@ -7,7 +7,7 @@ from typing import Any
 
 import jax
 import jax.numpy as jnp
-from jax._src.core import ClosedJaxpr
+from jax._src.core import Jaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 
 from asdex._arguments import (
@@ -133,7 +133,7 @@ def _strip_aux(f: Callable) -> Callable:
     return lambda *xs: f(*xs)[0]
 
 
-def _dce_closed_jaxpr(closed_jaxpr: ClosedJaxpr) -> ClosedJaxpr:
+def _dce_closed_jaxpr(closed_jaxpr: Jaxpr) -> Jaxpr:
     """Remove equations unused by outputs while preserving all inputs.
 
     Uses ``instantiate=True`` so DCE keeps all input variables even if unused.
@@ -142,7 +142,7 @@ def _dce_closed_jaxpr(closed_jaxpr: ClosedJaxpr) -> ClosedJaxpr:
     jaxpr = closed_jaxpr.jaxpr
     used_outputs = [True] * len(jaxpr.outvars)
     new_jaxpr, _ = dce_jaxpr(jaxpr, used_outputs, instantiate=True)
-    return ClosedJaxpr(new_jaxpr, closed_jaxpr.consts)
+    return Jaxpr(new_jaxpr, closed_jaxpr.consts)
 
 
 def _build_input_indices(

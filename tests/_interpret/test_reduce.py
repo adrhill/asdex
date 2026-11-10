@@ -11,7 +11,15 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
-from tests._utils import assert_jacobian_sparsity_exact
+from tests._utils import (
+    assert_jacobian_sparsity_conservative,
+    assert_jacobian_sparsity_exact,
+)
+
+_needs_minmax = pytest.mark.skipif(
+    not hasattr(jnp, "minmax"),
+    reason="jnp.minmax is not available in JAX 0.11.0",
+)
 
 
 def _reduction_jacobian(in_shape: tuple[int, ...], axes: tuple[int, ...]) -> np.ndarray:
@@ -393,4 +401,228 @@ def test_argmax_as_index():
 
     result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
     expected = np.array([[1, 0, 0]])
+    np.testing.assert_array_equal(result, expected)
+
+
+# Generic reduce
+
+
+def _fold(acc, x):
+    """A monoid without a specialized primitive, so ``lax.reduce`` emits ``reduce``."""
+    return acc + x + acc * x
+
+
+@pytest.mark.reduction
+@pytest.mark.parametrize(("in_shape", "axes"), _SHAPES_AND_AXES)
+def test_reduce_generic_shapes(in_shape, axes):
+    """``lax.reduce`` with a custom computation has the pattern of any reduction."""
+    n_in = int(np.prod(in_shape))
+
+    def f(x):
+        return lax.reduce(x.reshape(in_shape), 0.0, _fold, axes).flatten()
+
+    result = jacobian_sparsity(f, np.zeros(n_in)).todense().astype(int)
+    np.testing.assert_array_equal(result, _reduction_jacobian(in_shape, axes))
+
+
+@pytest.mark.reduction
+def test_reduce_generic_matches_numerical():
+    """The pattern of a generic reduction matches the numerical Jacobian."""
+
+    def f(x):
+        return lax.reduce(x.reshape(3, 4), 0.0, _fold, (1,))
+
+    assert_jacobian_sparsity_exact(f, jnp.linspace(0.1, 1.2, 12))
+
+
+@pytest.mark.reduction
+def test_reduce_generic_init_value():
+    """An init value that depends on the input reaches every output element.
+
+    Not compared with the numerical Jacobian,
+    since JAX cannot differentiate ``lax.reduce`` with respect to its init values.
+    """
+
+    def f(x):
+        return lax.reduce(x[:6].reshape(2, 3), x[6], _fold, (1,))
+
+    result = jacobian_sparsity(f, jnp.linspace(0.1, 0.7, 7)).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 1, 1, 0, 0, 0, 1],  # out[0] folds row 0, starting from x[6]
+            [0, 0, 0, 1, 1, 1, 1],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+def test_reduce_generic_mixing_operands():
+    """A variadic computation can mix its operands, so each output reads all of them.
+
+    The computation multiplies complex numbers stored as (real, imaginary) pairs.
+    """
+
+    def computation(accs, xs):
+        return accs[0] * xs[0] - accs[1] * xs[1], accs[0] * xs[1] + accs[1] * xs[0]
+
+    def f(x):
+        re, im = x[:6].reshape(2, 3), x[6:].reshape(2, 3)
+        out = lax.reduce((re, im), (1.0, 0.0), computation, (1,))
+        return jnp.concatenate(out)
+
+    x = jnp.linspace(0.1, 1.2, 12)
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array(
+        [
+            # re row 0 re row 1 im row 0 im row 1
+            [1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],  # real part of the product of row 0
+            [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+            [
+                1,
+                1,
+                1,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                0,
+            ],  # imaginary part of the product of row 0
+            [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+@pytest.mark.fallback
+def test_reduce_generic_max_with_payload():
+    """Carrying a payload along with the maximum gets a conservative pattern.
+
+    TODO(reduce): propagate index sets through the computation's jaxpr.
+    The payload is selected by comparing the values, which has zero derivative,
+    so the precise pattern of the payload output only depends on the payloads.
+    """
+
+    def computation(accs, xs):
+        is_larger = xs[0] > accs[0]
+        return jnp.maximum(accs[0], xs[0]), jnp.where(is_larger, xs[1], accs[1])
+
+    def f(x):
+        out = lax.reduce((x[:3], x[3:]), (-jnp.inf, 0.0), computation, (0,))
+        return jnp.stack(out)
+
+    x = jnp.array([0.3, 0.9, 0.5, 1.0, 2.0, 3.0])
+    assert_jacobian_sparsity_conservative(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # Precise: [[1, 1, 1, 0, 0, 0], [0, 0, 0, 1, 1, 1]]
+    expected = np.ones((2, 6), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+@pytest.mark.fallback
+def test_reduce_generic_separable_operands():
+    """Outputs that each fold a single operand get a conservative pattern.
+
+    TODO(reduce): propagate index sets through the computation's jaxpr.
+    The precise pattern keeps the operands apart:
+    out0 only depends on a, and out1 only on b.
+    """
+
+    def computation(accs, xs):
+        return accs[0] + xs[0] + accs[0] * xs[0], accs[1] + xs[1] + accs[1] * xs[1]
+
+    def f(x):
+        out = lax.reduce((x[:3], x[3:]), (0.0, 0.0), computation, (0,))
+        return jnp.stack(out)
+
+    x = jnp.linspace(0.1, 0.6, 6)
+    assert_jacobian_sparsity_conservative(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # Precise: [[1, 1, 1, 0, 0, 0], [0, 0, 0, 1, 1, 1]]
+    expected = np.ones((2, 6), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+def test_reduce_generic_zero_size_reduced_axis():
+    """Reducing over a size-0 axis leaves only the init value."""
+
+    def f(x):
+        return lax.reduce(x[:3].reshape(3, 1)[:, :0], x[3], _fold, (1,))
+
+    result = jacobian_sparsity(f, jnp.ones(4)).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 0, 0, 1],  # out[0] = init = x[3]
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+def test_reduce_generic_zero_size_output():
+    """A generic reduction with a size-0 output yields an empty pattern."""
+
+    def f(x):
+        return lax.reduce(x.reshape(3, 1)[:0], 0.0, _fold, (1,))
+
+    result = jacobian_sparsity(f, jnp.ones(3))
+    assert result.shape == (0, 3)
+    assert result.nnz == 0
+
+
+@pytest.mark.reduction
+@_needs_minmax
+def test_jnp_minmax_no_axis():
+    """jnp.minmax reduces all elements into both the minimum and the maximum.
+
+    Since JAX 0.12, it lowers to a single generic ``reduce`` over two operands.
+    """
+
+    def f(x):
+        return jnp.stack(jnp.minmax(x))
+
+    x = jnp.array([3.0, 1.0, 2.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 1, 1],  # min
+            [1, 1, 1],  # max
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.reduction
+@_needs_minmax
+def test_jnp_minmax_with_axis():
+    """jnp.minmax along an axis reduces each row into its minimum and maximum."""
+
+    def f(x):
+        return jnp.concatenate(jnp.minmax(x.reshape(2, 3), axis=1))
+
+    x = jnp.array([3.0, 1.0, 2.0, 5.0, 6.0, 4.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 1, 1, 0, 0, 0],  # min of row 0
+            [0, 0, 0, 1, 1, 1],
+            [1, 1, 1, 0, 0, 0],  # max of row 0
+            [0, 0, 0, 1, 1, 1],
+        ],
+        dtype=int,
+    )
     np.testing.assert_array_equal(result, expected)

@@ -16,7 +16,11 @@ from jax._src import config
 from jax.ad_checkpoint import checkpoint_name
 
 from asdex import hessian, jacobian, jacobian_sparsity
-from tests._utils import assert_hessian_sparsity_exact, assert_jacobian_sparsity_exact
+from tests._utils import (
+    assert_hessian_sparsity_exact,
+    assert_jacobian_sparsity_conservative,
+    assert_jacobian_sparsity_exact,
+)
 
 try:
     from jax._src.hijax import HiPrim
@@ -28,7 +32,7 @@ except ImportError:  # JAX < 0.11.2 names the HiJax primitive base class differe
 def test_jit_closure_captured_index():
     """jit-wrapped function with closure-captured index resolves gather precisely.
 
-    The index array becomes a constvar in the nested ClosedJaxpr.
+    The index array becomes a constvar in the nested closed jaxpr.
     _seed_const_vals populates state_consts for it,
     enabling the gather handler to track precise element dependencies.
     Without the fix, the result is dense.
@@ -331,6 +335,10 @@ def test_remat3_hessian_decompression():
 
 @pytest.mark.elementwise
 @pytest.mark.usefixtures("remat3")
+@pytest.mark.skipif(
+    not hasattr(jax, "custom_remat"),
+    reason="jax.custom_remat was removed in JAX 0.12",
+)
 def test_custom_remat_follows_primal():
     """call_hi_primitive with CustomRemat traces the wrapped primal function.
 
@@ -352,7 +360,7 @@ def test_custom_remat_follows_primal():
     def g_bwd(res, ct):
         return (ct * jnp.cos(res) * w,)
 
-    f = jax.custom_remat(g, g_fwd, g_rem, g_bwd)
+    f = jax.custom_remat(g, g_fwd, g_rem, g_bwd)  # ty: ignore[unresolved-attribute]
 
     x = jnp.array([1.0, 2.0, 3.0])
     result = jacobian_sparsity(f, x).todense().astype(int)
@@ -424,6 +432,162 @@ def test_remat3_checkpoint_name(policy):
     x = jnp.array([1.0, 2.0, 3.0, 4.0])
     assert_jacobian_sparsity_exact(g, x)
     assert_hessian_sparsity_exact(f, x)
+
+
+@pytest.mark.array_ops
+def test_searchsorted_zero_derivative():
+    """The indices returned by searchsorted do not depend on either operand.
+
+    Since JAX 0.12, ``jnp.searchsorted`` emits the HiJax primitive ``SearchSorted``.
+    """
+
+    def f(x):
+        return jnp.searchsorted(x[:4], x[4:]).astype(float)
+
+    x = jnp.array([0.5, 1.5, 2.5, 3.5, 1.0, 3.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((2, 6), dtype=int))
+
+
+@pytest.mark.array_ops
+@pytest.mark.parametrize(
+    "method",
+    [
+        "scan",
+        "scan_unrolled",
+        "compare_all",
+        pytest.param(
+            "sort",
+            marks=pytest.mark.xfail(
+                jax.__version_info__ < (0, 12, 0),
+                strict=True,
+                # TODO(sort): integer operands carried along by a sort have zero derivative.
+                reason="Before JAX 0.12, the sort method lowers to a multi-operand sort, "
+                "which is conservative for the integer positions it carries along",
+            ),
+        ),
+    ],
+)
+def test_searchsorted_methods(method):
+    """Every search method yields indices without dependencies.
+
+    Weighting the queries by their index keeps only the diagonal of the queries.
+    """
+
+    def f(x):
+        idx = jnp.searchsorted(x[:4], x[4:], method=method)
+        return x[4:] * idx
+
+    x = jnp.array([0.5, 1.5, 2.5, 3.5, 1.0, 3.0])
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 0, 0, 0, 1, 0],  # out[0] = query[0] * idx[0]
+            [0, 0, 0, 0, 0, 1],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_searchsorted_const_as_index():
+    """Indexing with the searchsorted of constants is conservative.
+
+    TODO(searchsorted): propagate the const value of the indices.
+    Both operands are constants, so the indices [1, 2] are known,
+    and the precise pattern is [[0, 1, 0, 0], [0, 0, 1, 0]].
+    """
+    sorted_arr = jnp.array([0.5, 1.5, 2.5])
+    query = jnp.array([1.0, 2.0])
+
+    def f(x):
+        return x[jnp.searchsorted(sorted_arr, query)]
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    assert_jacobian_sparsity_conservative(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.ones((2, 4), dtype=int))
+
+
+@pytest.mark.array_ops
+def test_nonzero_zero_derivative():
+    """The indices returned by nonzero do not depend on the input.
+
+    Since JAX 0.12, ``jnp.nonzero`` emits the HiJax primitive ``Nonzero``.
+    """
+
+    def f(x):
+        (idx,) = jnp.nonzero(x > 1.0, size=2)
+        return idx.astype(float)
+
+    result = jacobian_sparsity(f, jnp.array([0.5, 1.5, 2.5])).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((2, 3), dtype=int))
+
+
+@pytest.mark.array_ops
+def test_nonzero_2d_fill_value():
+    """Nonzero over two axes with a fill value returns one index array per axis."""
+
+    def f(x):
+        rows, cols = jnp.nonzero(x.reshape(2, 3) > 1.0, size=4, fill_value=0)
+        return x[:4] * (rows + cols)
+
+    x = jnp.array([0.5, 1.5, 2.5, 3.5, 0.2, 4.5])
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 0, 0, 0, 0, 0],  # out[0] = x[0] * (rows[0] + cols[0])
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_nonzero_as_index():
+    """Indexing with the nonzero positions of the input is conservative.
+
+    The positions depend on the input values,
+    so any element can be selected and the dense pattern is the global one.
+    """
+
+    def f(x):
+        (idx,) = jnp.nonzero(x > 1.0, size=2)
+        return x[idx]
+
+    x = jnp.array([0.5, 1.5, 2.5])
+    assert_jacobian_sparsity_conservative(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.ones((2, 3), dtype=int))
+
+
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_nonzero_const_as_index():
+    """Indexing with the nonzero positions of a constant is conservative.
+
+    TODO(nonzero): propagate the const value of the indices.
+    The mask is a constant, so the indices [1, 3] are known,
+    and the precise pattern is [[0, 1, 0, 0], [0, 0, 0, 1]].
+    """
+    mask = jnp.array([0.0, 1.0, 0.0, 2.0])
+
+    def f(x):
+        (idx,) = jnp.nonzero(mask, size=2)
+        return x[idx]
+
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    assert_jacobian_sparsity_conservative(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.ones((2, 4), dtype=int))
 
 
 @pytest.mark.elementwise

@@ -38,7 +38,9 @@ from ._elementwise import (
     _prop_binary_const,
     _prop_clamp,
     _prop_convert_element_type,
+    _prop_frexp,
     _prop_integer_pow,
+    _prop_ldexp,
     _prop_max,
     _prop_min,
     _prop_sub,
@@ -57,8 +59,9 @@ from ._mul import _prop_mul
 from ._pad import _prop_pad
 from ._pass_through import _prop_pass_through
 from ._platform_index import _prop_platform_index
+from ._polynomial import _prop_polynomial
 from ._random import _prop_random
-from ._reduce import _prop_reduce
+from ._reduce import _prop_reduce, _prop_reduce_generic
 from ._reshape import _prop_reshape
 from ._rev import _prop_rev
 from ._scan import _prop_scan
@@ -172,7 +175,7 @@ def _prop_call(eqn: JaxprEqn, state: _PropState, closed) -> None:
 
     The jaxpr's invars and outvars must align with the equation's.
     """
-    # Unwrap ClosedJaxpr, seeding state.consts for captured constants
+    # Seed state.consts for the constants captured by a closed jaxpr
     if hasattr(closed, "jaxpr"):
         _seed_const_vals(state, closed.jaxpr.constvars, closed.consts)
         closed = closed.jaxpr
@@ -194,12 +197,19 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
     ``call_hi_primitive`` stores the actual operation as a HiJax primitive object
     (a ``HiPrim``, called ``VJPHiPrimitive`` before JAX 0.11.2)
     in ``eqn.params["_prim"]``.
+    Since JAX 0.12, ``jnp.ldexp``, ``jnp.frexp``, ``jnp.searchsorted``,
+    and ``jnp.nonzero`` emit it as well.
     Any HiJax primitive without a case raises, since its semantics are unknown.
+    In particular, a HiJax primitive is not generically replaced by its ``expand``,
+    since JAX differentiates it with its own rule, not through the expansion.
+    The expansions of ``Ldexp`` and ``Frexp`` manipulate float bits,
+    so following them would yield an empty pattern and miss every nonzero.
 
     Jaxpr:
-        invars: operands, aligned with ``_prim.jaxpr.invars``
-            (closure consts hoisted to the front)
-        _prim: the HiJax primitive, whose ``jaxpr`` maps invars to outvars
+        invars: flat operands.
+            For remat, they align with ``_prim.jaxpr.invars``
+            (closure consts hoisted to the front).
+        _prim: the HiJax primitive
 
     https://docs.jax.dev/en/latest/_autosummary/jax.checkpoint.html
     """
@@ -213,6 +223,13 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
         # checkpoint_name under jax_remat3 emits CheckpointName, which returns its operand unchanged.
         case "CheckpointName":
             _prop_pass_through(eqn, state)
+        case "Ldexp":
+            _prop_ldexp(eqn, state)
+        case "Frexp":
+            _prop_frexp(eqn, state)
+        # jnp.searchsorted and jnp.nonzero return integer indices, which have zero derivative.
+        case "SearchSorted" | "Nonzero":
+            _prop_zero_derivative(eqn, state)
         case name:
             msg = _report_issue(f"No handler for HiJax primitive '{name}'.")
             raise NotImplementedError(msg)
@@ -356,6 +373,10 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_ternary_elementwise(eqn, state)
         case "reduce_sum" | "reduce_max" | "reduce_min" | "reduce_prod":
             _prop_reduce(eqn, state)
+        case "reduce":
+            _prop_reduce_generic(eqn, state)
+        case "polynomial":
+            _prop_polynomial(eqn, state)
         case "convert_element_type" | "stop_gradient":
             _prop_convert_element_type(eqn, state)
         case "reduce_precision":

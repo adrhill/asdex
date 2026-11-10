@@ -21,8 +21,10 @@ https://docs.jax.dev/en/latest/jaxpr.html
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
+from jax import lax
 from jax._src import config
-from jax._src.core import ClosedJaxpr, Jaxpr
+from jax._src.core import Jaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 from jax.ad_checkpoint import checkpoint_name
 
@@ -42,9 +44,7 @@ def _sub_jaxprs(val):
     """Yield the jaxprs contained in a single params value, if any."""
     items = val if isinstance(val, (tuple, list)) else (val,)
     for item in items:
-        if isinstance(item, ClosedJaxpr):
-            yield item.jaxpr
-        elif isinstance(item, Jaxpr):
+        if isinstance(item, Jaxpr):
             yield item
 
 
@@ -142,7 +142,7 @@ def test_scan_layout():
 
     # body: [consts..., carry..., x_slice...] -> [carry_new..., y_slice...]
     body_closed = eqn.params["jaxpr"]
-    assert isinstance(body_closed, ClosedJaxpr)
+    assert isinstance(body_closed, Jaxpr)
     assert [v.aval.shape for v in body_closed.jaxpr.invars] == [(2,), (4,), (5,)]
     assert [v.aval.shape for v in body_closed.jaxpr.outvars] == [(4,), (6,)]
 
@@ -503,7 +503,7 @@ def test_nested_jaxpr_param_alignment():
     assert eqn.primitive.name in ("jit", "pjit")
 
     inner = eqn.params["jaxpr"]
-    assert isinstance(inner, ClosedJaxpr)
+    assert isinstance(inner, Jaxpr)
     assert [v.aval for v in inner.jaxpr.invars] == [v.aval for v in eqn.invars]
     assert [v.aval for v in inner.jaxpr.outvars] == [v.aval for v in eqn.outvars]
 
@@ -576,6 +576,10 @@ def test_remat3_outputs():
         np.testing.assert_array_equal(_pattern(jax.checkpoint(f), x), expected)
 
 
+@pytest.mark.skipif(
+    not hasattr(jax, "custom_remat"),
+    reason="jax.custom_remat was removed in JAX 0.12",
+)
 def test_custom_remat_outputs():
     """``jax.custom_remat`` leaves the pattern of its primal function unchanged.
 
@@ -589,7 +593,7 @@ def test_custom_remat_outputs():
     def g(x):
         return jnp.sin(x) * w
 
-    f = jax.custom_remat(
+    f = jax.custom_remat(  # ty: ignore[unresolved-attribute]
         g,
         lambda policy, x: (g(x), None),
         lambda res, x: (g(x), x),
@@ -599,6 +603,35 @@ def test_custom_remat_outputs():
     x = np.array([1.0, 2.0, 3.0])
     with config.remat3(True):
         np.testing.assert_array_equal(_pattern(f, x), _pattern(g, x))
+
+
+# Reductions
+
+
+def test_reduce_layout():
+    """Generic reduce: invars = [operands..., init_values...], one outvar per operand."""
+
+    def computation(accs, xs):
+        return accs[0] + xs[0] * xs[1], accs[1] * xs[1]
+
+    def f(a, b, init_a, init_b):
+        return lax.reduce((a, b), (init_a, init_b), computation, (1,))
+
+    # Explicit dtypes, in case another test enabled x64.
+    jaxpr = jax.make_jaxpr(f)(
+        jnp.zeros((2, 3), dtype=jnp.float32),
+        jnp.zeros((2, 3), dtype=jnp.int32),
+        jnp.zeros((), dtype=jnp.float32),
+        jnp.ones((), dtype=jnp.int32),
+    ).jaxpr
+    eqn = _unique_eqn(jaxpr, "reduce")
+
+    assert list(eqn.invars) == list(jaxpr.invars)
+    assert eqn.params["dimensions"] == (1,)
+    assert [(v.aval.shape, v.aval.dtype) for v in eqn.outvars] == [
+        ((2,), jnp.float32),
+        ((2,), jnp.int32),
+    ]
 
 
 # Dead code elimination

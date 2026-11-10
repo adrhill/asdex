@@ -211,7 +211,11 @@ def test_integer_argument():
 
 @pytest.mark.elementwise
 def test_jnp_ldexp():
-    """``jnp.ldexp`` has a custom_jvp whose rule broadcasts a float0 zero."""
+    """``jnp.ldexp`` is differentiated with its own rule, not through its bit manipulation.
+
+    Before JAX 0.12, it is a custom_jvp whose rule broadcasts a float0 zero.
+    Since JAX 0.12, it emits the HiJax primitive ``Ldexp``.
+    """
 
     def f(x):
         return jnp.ldexp(x, 2)
