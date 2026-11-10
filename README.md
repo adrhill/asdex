@@ -149,7 +149,7 @@ See the [contributor's guide](https://adrianhill.de/asdex/contributing/#developm
 Prior work on ASD by asdex's authors Adrian Hill ([`@adrhill`](https://github.com/adrhill)) and Guillaume Dalle ([`@gdalle`](https://github.com/gdalle)), as well as Alexis Montoison ([`@amontoison`](https://github.com/amontoison)):
 
 - [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025)
-- [_Sparser, Better, Faster, Stronger: Efficient Automatic Differentiation for Sparse Jacobians and Hessians_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)
+- [_Sparser, Better, Faster, Stronger: Sparsity Detection for Efficient Automatic Differentiation_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)
 - [_Revisiting Sparse Matrix Coloring and Bicoloring_](https://arxiv.org/abs/2505.07308), Montoison, Dalle, Gebremedhin (2025)
 - [`SparseConnectivityTracer.jl`](https://github.com/adrhill/SparseConnectivityTracer.jl), Hill & Dalle
 - [`SparseMatrixColorings.jl`](https://github.com/gdalle/SparseMatrixColorings.jl), Dalle & Montoison
