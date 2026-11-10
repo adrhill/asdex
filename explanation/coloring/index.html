@@ -1376,7 +1376,11 @@ Exploiting this redundancy can significantly reduce the number of colors needed,
 since recovering <span class="arithmatex">\(H_{ij}\)</span> from a compressed column simultaneously gives us <span class="arithmatex">\(H_{ji}\)</span> for free.
 The coloring operates on an <strong>adjacency graph</strong> whose vertices are columns (or rows, since <span class="arithmatex">\(\mathcal{R} = \mathcal{C}\)</span>)
 and whose edges connect pairs <span class="arithmatex">\(i, j\)</span> with <span class="arithmatex">\(H_{ij} \neq 0\)</span>.
-Diagonal entries are always recoverable, so only off-diagonal nonzeros create edges.</p>
+Only off-diagonal nonzeros create edges.
+Diagonal entries need none:
+the coloring treats every diagonal entry as potentially nonzero,
+and since no neighbor of vertex <span class="arithmatex">\(i\)</span> shares its color,
+<span class="arithmatex">\(H_{ii}\)</span> can always be read off the compressed column of that color.</p>
 <p>The appropriate algorithm to use in this case is a <strong>star coloring</strong>:
 a complete distance-1 coloring with the additional constraint
 that every path on 4 vertices uses at least 3 colors.

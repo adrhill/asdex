@@ -1802,6 +1802,8 @@ including in pull requests, issues, and discussions.</p>
 <li>PRs affecting the public API, including adding new features, must update the public documentation.</li>
 <li>Comments and docstrings should make the code accessible.</li>
 <li>PRs that change code must have appropriate tests.</li>
+<li>PRs do not need to update <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a>.
+    A clear PR description is all we ask for.</li>
 <li>Changes to the code must be made via PR, not pushing to <code>main</code>.</li>
 </ul>
 <h2 id="ai-policy">AI Policy<a class="headerlink" href="#ai-policy" title="Permanent link">¶</a></h2>
@@ -1869,6 +1871,13 @@ for example with the standalone installer:</p>
 <code>uv sync</code> creates a virtual environment and installs asdex together with the <code>dev</code> dependency group:</p>
 <div class="highlight"><pre><span></span><code><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a>uv<span class="w"> </span>sync
 </code></pre></div>
+<p>The <code>dev</code> group is required to run the test suite.
+Besides pytest and the linters, it contains the packages the tests exercise asdex against,
+including the optional dependencies matplotlib and SciPy.
+A plain <code>pip install asdex</code> does not include them,
+so always run the tests through <code>uv run</code>, which uses this environment:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest
+</code></pre></div>
 <h3 id="git-hooks">Git hooks<a class="headerlink" href="#git-hooks" title="Permanent link">¶</a></h3>
 <p>Pre-commit hooks are checks that run automatically on your staged files each time you create a commit,
 stopping the commit if any of them fail.
@@ -1876,19 +1885,19 @@ asdex uses <a href="https://prek.j178.dev/">prek</a> to run its lint, format, an
 configured in <a href="https://github.com/adrhill/asdex/blob/main/.pre-commit-config.yaml"><code>.pre-commit-config.yaml</code></a>.
 <code>prek</code> is a drop-in reimplementation of <code>pre-commit</code> and ships with the <code>dev</code> group.
 Install the hooks once so they run automatically on each commit:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>prek<span class="w"> </span>install
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-3-1" id="__codelineno-3-1" name="__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>prek<span class="w"> </span>install
 </code></pre></div>
 <p>Once installed, the hooks run on every commit without any further action.
 To manually check the entire repository at once instead of only the staged files, run <code>uv run prek run --all-files</code>.</p>
 <h3 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">¶</a></h3>
 <p>Run the test suite with pytest:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-3-1" id="__codelineno-3-1" name="__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w">                          </span><span class="c1"># the whole suite</span>
-<a href="#__codelineno-3-2" id="__codelineno-3-2" name="__codelineno-3-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/test_coloring.py<span class="w">   </span><span class="c1"># a single file</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-4-1" id="__codelineno-4-1" name="__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w">                          </span><span class="c1"># the whole suite</span>
+<a href="#__codelineno-4-2" id="__codelineno-4-2" name="__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/test_coloring.py<span class="w">   </span><span class="c1"># a single file</span>
 </code></pre></div>
 <p>By default the suite skips the <code>slow</code>, <code>benchmark</code>, <code>cutest</code>, and <code>smc</code> tests, which only run in CI.
 Pass <code>-m</code> with a marker to run a subset:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-4-1" id="__codelineno-4-1" name="__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span>jacobian<span class="w">      </span><span class="c1"># only sparse Jacobian tests</span>
-<a href="#__codelineno-4-2" id="__codelineno-4-2" name="__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">"not slow"</span><span class="w">    </span><span class="c1"># skip slow tests</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-5-1" id="__codelineno-5-1" name="__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span>jacobian<span class="w">      </span><span class="c1"># only sparse Jacobian tests</span>
+<a href="#__codelineno-5-2" id="__codelineno-5-2" name="__codelineno-5-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-m<span class="w"> </span><span class="s2">"not slow"</span><span class="w">    </span><span class="c1"># skip slow tests</span>
 </code></pre></div>
 <p>The default selection and the full list of markers are defined together in the <code>[tool.pytest.ini_options]</code> table of
 <a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a>.
@@ -1900,8 +1909,8 @@ The <code>smc</code> tests call the Julia package from Python through
 <a href="https://github.com/JuliaPy/PythonCall.jl">PythonCall.jl</a>'s <code>juliacall</code> package
 and assert that both implementations produce identical colorings.
 They live in their own dependency group and CI job so that the core suite never loads Julia:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-5-1" id="__codelineno-5-1" name="__codelineno-5-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>smc
-<a href="#__codelineno-5-2" id="__codelineno-5-2" name="__codelineno-5-2"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>smc<span class="w"> </span>pytest<span class="w"> </span>tests/smc<span class="w"> </span>-m<span class="w"> </span>smc
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-6-1" id="__codelineno-6-1" name="__codelineno-6-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>smc
+<a href="#__codelineno-6-2" id="__codelineno-6-2" name="__codelineno-6-2"></a>uv<span class="w"> </span>run<span class="w"> </span>--no-default-groups<span class="w"> </span>--group<span class="w"> </span>smc<span class="w"> </span>pytest<span class="w"> </span>tests/smc<span class="w"> </span>-m<span class="w"> </span>smc
 </code></pre></div>
 <p>The Julia version and the SparseMatrixColorings.jl version bound are declared in
 <code>tests/juliapkg.json</code>; both are downloaded on demand if they are not already available.</p>
@@ -1968,6 +1977,7 @@ They live in their own dependency group and CI job so that the core suite never 
 </ul>
 <h4 id="preparing-a-release">Preparing a release<a class="headerlink" href="#preparing-a-release" title="Permanent link">¶</a></h4>
 <p>Unreleased changes accumulate in <a href="https://github.com/adrhill/asdex/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a>.
+The changelog is maintained by the maintainers, contributors are not expected to edit it in their PRs.
 Between releases, the <code>version</code> field in <a href="https://github.com/adrhill/asdex/blob/main/pyproject.toml"><code>pyproject.toml</code></a> may carry a <code>-DEV</code> suffix
 (for example <code>0.5.1-DEV</code>) to signal that the checkout is ahead of the last tagged release.
 This is encouraged but not strictly enforced, and cutting a release drops the suffix so that the <code>version</code> field names the release exactly.</p>

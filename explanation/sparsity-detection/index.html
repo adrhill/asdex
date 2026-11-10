@@ -859,6 +859,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#why-abstract-interpretation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -960,6 +971,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constants-and-non-differentiated-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constants and Non-Differentiated Arguments
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1348,6 +1370,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#why-abstract-interpretation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1453,6 +1486,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#constants-and-non-differentiated-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constants and Non-Differentiated Arguments
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fallback-handlers" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1512,6 +1556,13 @@ it computes a binary <a href="../global-sparsity/">global sparsity pattern</a> �
 a conservative superset of the true nonzero structure of the Jacobian <span class="arithmatex">\(J_{ij} = \partial f_i / \partial x_j\)</span>.
 This pattern is the input to <a href="../coloring/">graph coloring</a>,
 which exploits the sparsity to reduce the number of AD passes.</p>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">¶</a></h2>
+<p>The approach summed up below is described more thoroughly in:</p>
+<ul>
+<li><a href="https://openreview.net/forum?id=GtXSN52nIW"><em>Sparser, Better, Faster, Stronger: Sparsity Detection for Efficient Automatic Differentiation</em></a>, Hill &amp; Dalle (2025)</li>
+<li><a href="https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/"><em>An Illustrated Guide to Automatic Sparse Differentiation</em></a>, Hill, Dalle, Montoison (2025)</li>
+<li><a href="https://github.com/adrhill/SparseConnectivityTracer.jl"><em>SparseConnectivityTracer.jl</em></a>, Hill &amp; Dalle, the Julia library whose index set propagation <code>asdex</code> adapts to jaxprs</li>
+</ul>
 <h2 id="why-abstract-interpretation">Why Abstract Interpretation<a class="headerlink" href="#why-abstract-interpretation" title="Permanent link">¶</a></h2>
 <p>Since we need <a href="../global-sparsity/">global sparsity patterns</a> —
 patterns that are valid for all inputs, not just a specific one —
@@ -1527,7 +1578,7 @@ This gives global patterns directly —
 no numerical evaluation, no dependence on a particular input,
 and no risk of missing nonzeros due to cancellation.</p>
 <h2 id="jaxpr-jaxs-intermediate-representation">Jaxpr: JAX's Intermediate Representation<a class="headerlink" href="#jaxpr-jaxs-intermediate-representation" title="Permanent link">¶</a></h2>
-<p>JAX represents computations as <strong>jaxprs</strong> (JAX expressions) —
+<p>JAX represents computations as <a href="https://docs.jax.dev/en/latest/jaxpr.html"><strong>jaxprs</strong></a> (JAX expressions) —
 a flat sequence of primitive operations with explicit data flow.
 When you call <code>jax.make_jaxpr(f)(x)</code>,
 JAX traces <code>f</code> symbolically (without evaluating it)
@@ -1649,6 +1700,11 @@ The handlers fall into a few families.</p>
 <p>Unary operations like <code>sin</code>, <code>exp</code>, <code>neg</code>
 pass each element's index set through unchanged —
 <span class="arithmatex">\(y_i = g(x_i)\)</span> means <span class="arithmatex">\(S_{y_i} = S_{x_i}\)</span>.</p>
+<p>The exceptions are operations whose derivative is zero everywhere it is defined,
+such as <code>floor</code>, <code>ceil</code>, <code>round</code>, and <code>sign</code>.
+Their outputs are piecewise constant and carry no dependencies,
+so the handler returns empty index sets:
+<span class="arithmatex">\(y_i = \lfloor x_i \rfloor\)</span> means <span class="arithmatex">\(S_{y_i} = \emptyset\)</span>.</p>
 <p>Binary operations like <code>add</code>, <code>mul</code>, <code>sub</code>
 take the union of their operands' index sets —
 <span class="arithmatex">\(y_i = x_i \oplus z_i\)</span> means <span class="arithmatex">\(S_{y_i} = S_{x_i} \cup S_{z_i}\)</span>.
@@ -1677,6 +1733,40 @@ It falls back to the <a href="#fallback-handlers">conservative strategy</a> desc
 if an index array is built from literals and arithmetic on constants,
 the handler can still resolve it precisely
 even though it is not a direct literal in the jaxpr.</p>
+<h2 id="constants-and-non-differentiated-arguments">Constants and Non-Differentiated Arguments<a class="headerlink" href="#constants-and-non-differentiated-arguments" title="Permanent link">¶</a></h2>
+<p>Not every value in a jaxpr is a differentiated input.
+The detector distinguishes three kinds of values:</p>
+<p><strong>Differentiated arguments</strong> are the arguments selected by <code>argnums</code>.
+They are the only values that start with nonempty index sets.
+Only their shapes and dtypes are used, never their sample values,
+which is what makes the pattern <a href="../global-sparsity/">global</a>.</p>
+<p><strong>Non-differentiated arguments</strong> are all other arguments of the function.
+They start with empty index sets,
+so they contribute no columns and no dependencies.
+Like differentiated arguments, they are symbolic inputs of the jaxpr,
+which means their values are unknown during detection.
+The pattern is therefore valid for every value they can take.
+For <span class="arithmatex">\(f(x, c) = x \odot c\)</span> differentiated with respect to <span class="arithmatex">\(x\)</span>,
+the detected pattern is the full diagonal,
+even if the sample passed for <span class="arithmatex">\(c\)</span> is all zeros.</p>
+<p><strong>Constants</strong> are values that JAX bakes into the jaxpr while tracing:
+literals, and arrays captured from the enclosing scope (closures or globals).
+Their values are known to the detector,
+which tracks them through the computation and uses them in two ways:</p>
+<ul>
+<li>Constant indices are resolved exactly,
+  as described in <a href="#indexing-gather-and-scatter">Indexing</a> above.</li>
+<li>Multiplying by a constant that is exactly zero removes the dependency,
+  since <span class="arithmatex">\(\partial (0 \cdot x) / \partial x = 0\)</span> for every <span class="arithmatex">\(x\)</span>.</li>
+</ul>
+<p>A pattern can therefore depend on the values of captured constants.
+If <span class="arithmatex">\(c = (0, 1, 0)\)</span> is captured by <span class="arithmatex">\(f(x) = x \odot c\)</span> instead of being passed as an argument,
+the detected pattern only contains the middle diagonal entry.
+This is still a global pattern with respect to <span class="arithmatex">\(x\)</span>,
+but it is tied to the constants the function was traced with.
+If a captured array changes, detect the pattern again.
+To obtain a pattern that holds for all values of an array,
+pass it as an argument instead of capturing it.</p>
 <h2 id="fallback-handlers">Fallback Handlers<a class="headerlink" href="#fallback-handlers" title="Permanent link">¶</a></h2>
 <p>Not every JAX primitive has a precise handler.
 When <code>asdex</code> encounters an unhandled primitive,

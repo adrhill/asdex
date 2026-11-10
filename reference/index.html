@@ -8478,8 +8478,14 @@ it gathers <code>B</code> into the sparse values,
 then materializes the flat <code>(m, n)</code> matrix in the requested format.</p>
 <p>Unlike the matrices returned by <a class="autorefs autorefs-internal" title="asdex.jacobian(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, output_format=_DEFAULT_OUTPUT_FORMAT, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="#asdex.jacobian"><code>jacobian</code></a> /
 <a class="autorefs autorefs-internal" title="asdex.hessian(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_HESSIAN, output_format=_DEFAULT_OUTPUT_FORMAT, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="#asdex.hessian"><code>hessian</code></a>,
-this is always the flat 2-D matrix regardless of input/output pytree structure:
-<code>B</code>'s natural domain is the 2-D compressed matrix.</p>
+this is always the flat 2-D matrix,
+regardless of input/output shapes and pytree structure.
+<a class="autorefs autorefs-internal" title="asdex.jacobian(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, output_format=_DEFAULT_OUTPUT_FORMAT, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="#asdex.jacobian"><code>jacobian</code></a> shapes its result using the structure
+of the function's output, which it obtains by tracing the function.
+<code>decompress</code> only receives <code>B</code> and <code>coloring</code>,
+which does not record the output structure,
+so it applies no reshaping, for Jacobians and Hessians alike.
+Rows and columns number the flattened output and input elements.</p>
 <p><span class="doc-section-title">Parameters:</span></p>
 <table>
 <thead>
@@ -8621,9 +8627,14 @@ not installed.</p>
 <div class="doc doc-contents first">
 <p>Gather a compressed matrix <code>B</code> into sparse values in pattern order.</p>
 <p>Returns a plain <code>jax.Array</code> of shape <code>(coloring.sparsity.nnz,)</code>
-holding the sparse values in <code>coloring.sparsity</code> order,
+holding the sparse values in pattern order:
+the order of the coordinate arrays
+<code>coloring.sparsity.rows</code> and <code>coloring.sparsity.cols</code>,
 so <code>data[k]</code> is the entry at
-<code>(coloring.sparsity.rows[k], coloring.sparsity.cols[k])</code>.</p>
+<code>(coloring.sparsity.rows[k], coloring.sparsity.cols[k])</code>.
+This order is a property of <code>coloring</code>
+and is independent of any <code>output_format</code>.
+Use <a class="autorefs autorefs-internal" title="asdex.decompress(compressed, coloring, output_format=_DEFAULT_OUTPUT_FORMAT)" href="#asdex.decompress"><code>decompress</code></a> for the CSR and CSC layouts.</p>
 <p>This is the jittable numeric core of decompression:
 it always returns a <code>jax.Array</code>, so it composes inside <code>jax.jit</code>
 and can feed a custom solver or sparse format,

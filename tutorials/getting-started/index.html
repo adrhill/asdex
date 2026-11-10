@@ -1318,16 +1318,17 @@
 
 
 <h1 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">¶</a></h1>
-<p>This tutorial walks through the three stages of <a href="../../explanation/asd/">automatic sparse differentiation</a>:
-<strong><a href="../../explanation/sparsity-detection/">detection</a></strong>, <strong><a href="../../explanation/coloring/">coloring</a></strong>, and <strong>decompression</strong>.</p>
+<p>This tutorial walks through the four steps of <a href="../../explanation/asd/">automatic sparse differentiation</a>:
+<strong><a href="../../explanation/sparsity-detection/">detection</a></strong>, <strong><a href="../../explanation/coloring/">coloring</a></strong>, <strong>compressed differentiation</strong>, and <strong>decompression</strong>.</p>
 <h2 id="the-problem">The Problem<a class="headerlink" href="#the-problem" title="Permanent link">¶</a></h2>
 <p>For a function <span class="arithmatex">\(f: \mathbb{R}^n \to \mathbb{R}^m\)</span>, computing the full Jacobian <span class="arithmatex">\(J \in \mathbb{R}^{m \times n}\)</span> requires <span class="arithmatex">\(n\)</span> forward-mode or <span class="arithmatex">\(m\)</span> reverse-mode AD passes.
 In practice, for example in scientific machine learning,
 many Jacobians are <em>sparse</em> (i.e., most entries are structurally zero, regardless of the input).</p>
-<p><code>asdex</code> exploits this sparsity in three steps:
+<p><code>asdex</code> exploits this sparsity in four steps:
 1. <strong>Detect</strong> the sparsity pattern by tracing the computation graph
 2. <strong>Color</strong> the pattern so that structurally orthogonal rows (or columns) share a color
-3. <strong>Decompress</strong> one AD pass per color into the sparse Jacobian or Hessian</p>
+3. <strong>Differentiate</strong> with one AD pass per color, producing a small compressed matrix
+4. <strong>Decompress</strong> the compressed matrix into the sparse Jacobian or Hessian</p>
 <p>This reduces the computational cost from <span class="arithmatex">\(m\)</span> (or <span class="arithmatex">\(n\)</span>) AD passes to just the number of colors,
 yielding significant speedups on large sparse problems,
 especially when the cost of detection and coloring can be amortized over repeated evaluations.
@@ -1421,9 +1422,9 @@ This time, we use <a href="../../reference/#asdex.jacobian"><code>asdex.jacobian
 <a href="#__codelineno-0-15" id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="n">t_asdex</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">timeit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">jac_fn_asdex</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span>
 <a href="#__codelineno-0-16" id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="n">t_jax</span> <span class="o">=</span> <span class="n">timeit</span><span class="o">.</span><span class="n">timeit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">jac_fn_jax</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">(),</span> <span class="n">number</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>asdex.jacobian:      2.74 ms
-<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>jax.jacobian:       35.03 ms
-<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>speedup:             12.8x
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>asdex.jacobian:      3.48 ms
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>jax.jacobian:       35.85 ms
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>speedup:             10.3x
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Precompute for Repeated Evaluations</p>

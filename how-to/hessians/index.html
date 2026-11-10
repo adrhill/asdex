@@ -760,6 +760,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#multi-dimensional-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Dimensional Inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#multiple-inputs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1537,6 +1548,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#multi-dimensional-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Dimensional Inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#multiple-inputs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1869,6 +1891,41 @@ They differ in their performance and memory trade-offs:</p>
 <p>When in doubt, stick with the default <code>"fwd_over_rev"</code>.
 It is the most widely used and typically the most efficient under <code>jax.jit</code>.</p>
 </div>
+<h3 id="multi-dimensional-inputs">Multi-Dimensional Inputs<a class="headerlink" href="#multi-dimensional-inputs" title="Permanent link">¶</a></h3>
+<p>The input can be an array of any dimension.
+<code>asdex</code> follows the conventions of <code>jax.hessian</code>:
+the Hessian has shape <code>(*input_shape, *input_shape)</code>,
+it is not flattened into a 2D matrix.</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">hessian</span><span class="p">,</span> <span class="n">hessian_coloring</span>
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:]</span> <span class="o">*</span> <span class="n">X</span><span class="p">[:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># maps shape (2, 3) to a scalar</span>
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="n">X</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="n">H</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">hessian</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">X</span><span class="p">))(</span><span class="n">X</span><span class="p">)</span>
+<a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="n">H_jax</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">hessian</span><span class="p">(</span><span class="n">g</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>type(H):     BCOO
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>H.shape:     (2, 3, 2, 3)
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>H_jax.shape: (2, 3, 2, 3)
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>H == H_jax:  True
+</code></pre></div>
+<p>Sparsity patterns and colorings always describe the flattened <span class="arithmatex">\((n, n)\)</span> matrix,
+with <span class="arithmatex">\(n\)</span> the total number of input elements.
+Elements are numbered in row-major order, like <code>jnp.ravel</code>:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">coloring</span> <span class="o">=</span> <span class="n">hessian_coloring</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>ColoredPattern(6×6, nnz=12, sparsity=66.7%, HVP, 2 colors)
+<a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>  2 HVPs (instead of 6 HVPs)
+<a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>● ● ⋅ ⋅ ⋅ ⋅   ● ●
+<a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>● ● ● ⋅ ⋅ ⋅   ● ●
+<a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>⋅ ● ⋅ ⋅ ⋅ ⋅   ● ⋅
+<a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>⋅ ⋅ ⋅ ● ● ⋅ → ● ●
+<a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>⋅ ⋅ ⋅ ● ● ●   ● ●
+<a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>⋅ ⋅ ⋅ ⋅ ● ⋅   ● ⋅
+</code></pre></div>
 <h3 id="multiple-inputs">Multiple Inputs<a class="headerlink" href="#multiple-inputs" title="Permanent link">¶</a></h3>
 <p><code>asdex</code> mirrors <code>jax.hessian</code>:
 it differentiates functions of several arguments,
@@ -2025,7 +2082,9 @@ or an arbitrarily nested PyTree, raises a clear <code>ValueError</code> rather t
 Note that SciPy is an optional dependency. Install it via <code>pip install 'asdex[scipy]'</code>.</p>
 </div>
 <p>Structural non-zeros that happen to be numerically zero at the evaluation point are kept as explicit entries in the <code>BCOO</code> and scipy outputs,
-so the structure always matches the detected <a href="../../explanation/global-sparsity/">global sparsity pattern</a> and is independent of <code>x</code>.</p>
+so the structure always matches the detected <a href="../../explanation/global-sparsity/">global sparsity pattern</a>.
+It is independent of <code>x</code> and of the values of all other arguments of the function,
+see <a href="../../explanation/sparsity-detection/#constants-and-non-differentiated-arguments">Constants and Non-Differentiated Arguments</a>.</p>
 <h3 id="reducing-peak-memory-with-chunking">Reducing Peak Memory with Chunking<a class="headerlink" href="#reducing-peak-memory-with-chunking" title="Permanent link">¶</a></h3>
 <p>Each color requires one HVP, and by default <code>asdex</code> evaluates <strong>all</strong> colors in a single <code>jax.vmap</code> batch.
 For large patterns with many colors on memory-constrained hardware, <code>chunk_size</code> caps how many colors run in parallel:
@@ -2074,14 +2133,22 @@ and its <code>*_from_coloring</code> form) that also returns the primal value.</
 <p><a href="../../reference/#asdex.decompress"><code>decompress</code></a> turns <span class="arithmatex">\(B\)</span> back into the sparse matrix
 in any <a href="#output-formats">output format</a>.
 Unlike <a href="../../reference/#asdex.hessian"><code>hessian</code></a>,
-it always returns the flat 2-D <span class="arithmatex">\((n, n)\)</span> matrix, regardless of input PyTree structure:</p>
+it always returns the flat 2-D <span class="arithmatex">\((n, n)\)</span> matrix, regardless of input shape and PyTree structure.
+<code>decompress</code> is the same function for Jacobians and Hessians.
+It only receives <span class="arithmatex">\(B\)</span> and the coloring and applies no reshaping,
+since a coloring does not record the output structure a Jacobian would need.
+For a single array input,
+reshaping the dense result to <code>(*input_shape, *input_shape)</code> recovers the layout of <code>hessian</code>.</p>
 <div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">H_bcoo</span> <span class="o">=</span> <span class="n">decompress</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>                          <span class="c1"># BCOO (default)</span>
 <a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">H_dense</span> <span class="o">=</span> <span class="n">decompress</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">coloring</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s2">"dense"</span><span class="p">)</span>  <span class="c1"># jax.Array</span>
 </code></pre></div>
 <p>For full control, <a href="../../reference/#asdex.decompress_data"><code>decompress_data</code></a> is the jittable
 primitive underneath <code>decompress</code>.
-It returns just the structural non-zero values as a <code>jax.Array</code> of shape <span class="arithmatex">\((\text{nnz},)\)</span> in pattern order,
-ready to pair with <code>coloring.sparsity.rows</code> and <code>coloring.sparsity.cols</code> to build a custom container:</p>
+It returns just the structural non-zero values as a <code>jax.Array</code> of shape <span class="arithmatex">\((\text{nnz},)\)</span> in pattern order.
+Pattern order is the order of the coordinate arrays <code>coloring.sparsity.rows</code> and <code>coloring.sparsity.cols</code>,
+in which every <a href="../../reference/#asdex.SparsityPattern"><code>SparsityPattern</code></a> stores its non-zeros.
+It is a property of the coloring and does not depend on any <code>output_format</code>.
+The values are ready to pair with these two arrays to build a custom container:</p>
 <div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">data</span> <span class="o">=</span> <span class="n">decompress_data</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">coloring</span><span class="p">)</span>  <span class="c1"># the nnz values, in pattern order</span>
 <a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">rows</span> <span class="o">=</span> <span class="n">coloring</span><span class="o">.</span><span class="n">sparsity</span><span class="o">.</span><span class="n">rows</span>        <span class="c1"># row index of each value</span>
 <a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">cols</span> <span class="o">=</span> <span class="n">coloring</span><span class="o">.</span><span class="n">sparsity</span><span class="o">.</span><span class="n">cols</span>        <span class="c1"># column index of each value</span>

@@ -803,6 +803,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#automatic-differentiation-in-brief" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -858,10 +869,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-three-step-pipeline" class="md-nav__link">
+  <a href="#the-four-step-pipeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Three-Step Pipeline
+        The Four-Step Pipeline
       
     </span>
   </a>
@@ -884,17 +895,6 @@
     <span class="md-ellipsis">
       
         Extension to Hessians
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#references" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        References
       
     </span>
   </a>
@@ -1309,6 +1309,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#automatic-differentiation-in-brief" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1364,10 +1375,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-three-step-pipeline" class="md-nav__link">
+  <a href="#the-four-step-pipeline" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The Three-Step Pipeline
+        The Four-Step Pipeline
       
     </span>
   </a>
@@ -1390,17 +1401,6 @@
     <span class="md-ellipsis">
       
         Extension to Hessians
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#references" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        References
       
     </span>
   </a>
@@ -1431,6 +1431,15 @@
 <p>Automatic sparse differentiation (ASD) exploits the sparsity structure of Jacobians and Hessians
 to compute them far more efficiently than dense automatic differentiation (AD).
 This page explains the mathematical ideas behind the approach.</p>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">¶</a></h2>
+<p>The ideas summed up below are described more thoroughly in:</p>
+<ul>
+<li><a href="https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/"><em>An Illustrated Guide to Automatic Sparse Differentiation</em></a>, Hill, Dalle, Montoison (2025), a visual walkthrough of the ideas on this page</li>
+<li><a href="https://epubs.siam.org/doi/10.1137/S0036144504444711"><em>What Color Is Your Jacobian? Graph Coloring for Computing Derivatives</em></a>, Gebremedhin, Manne, Pothen (2005)</li>
+<li><a href="https://doi.org/10.1093/imamat/13.1.117"><em>On the Estimation of Sparse Jacobian Matrices</em></a>, Curtis, Powell, Reid (1974)</li>
+<li><a href="https://epubs.siam.org/doi/book/10.1137/1.9780898717761"><em>Evaluating Derivatives: Principles and Techniques of Algorithmic Differentiation</em></a>, Griewank &amp; Walther (2008)</li>
+<li><a href="https://openreview.net/forum?id=GtXSN52nIW"><em>Sparser, Better, Faster, Stronger: Sparsity Detection for Efficient Automatic Differentiation</em></a>, Hill &amp; Dalle (2025)</li>
+</ul>
 <h2 id="automatic-differentiation-in-brief">Automatic Differentiation in Brief<a class="headerlink" href="#automatic-differentiation-in-brief" title="Permanent link">¶</a></h2>
 <p>AD computes exact derivatives of programs
 by applying the chain rule to each elementary operation.
@@ -1475,18 +1484,25 @@ The same idea applies symmetrically to columns and JVPs.</p>
 <h2 id="seed-matrices-and-compression">Seed Matrices and Compression<a class="headerlink" href="#seed-matrices-and-compression" title="Permanent link">¶</a></h2>
 <p>Graph coloring assigns each row a color
 such that rows sharing a nonzero column get different colors.
-From this coloring, we build a seed matrix <span class="arithmatex">\(S \in \mathbb{R}^{m \times c}\)</span>,
+From this coloring, we build a seed matrix <span class="arithmatex">\(S \in \mathbb{R}^{m \times c}\)</span> with one column per color,
 where <span class="arithmatex">\(c\)</span> is the number of colors.
-The seed for color <span class="arithmatex">\(c\)</span> is the sum of the standard basis vectors
-for all rows assigned that color:</p>
+Column <span class="arithmatex">\(k\)</span> of <span class="arithmatex">\(S\)</span> is the seed for color <span class="arithmatex">\(k\)</span>:
+the sum of the standard basis vectors <span class="arithmatex">\(e_i \in \mathbb{R}^m\)</span>
+of all rows assigned that color.</p>
 <div class="arithmatex">\[
-S_{:,c} = \sum_{i \,:\, \text{color}(i) = c} e_i
+S_{:,k} = \sum_{i \,:\, \text{color}(i) = k} e_i
 \]</div>
 <p>The compressed Jacobian is then:</p>
 <div class="arithmatex">\[
-B = S^\top \cdot J \in \mathbb{R}^{c \times n}
+B = S^\top J \in \mathbb{R}^{c \times n}
 \]</div>
-<p>Computing <span class="arithmatex">\(B\)</span> requires only <span class="arithmatex">\(c\)</span> VJPs — one per color — instead of <span class="arithmatex">\(m\)</span>.</p>
+<p>Row <span class="arithmatex">\(k\)</span> of <span class="arithmatex">\(B\)</span> is the sum of all rows of <span class="arithmatex">\(J\)</span> with color <span class="arithmatex">\(k\)</span>,
+obtained from a single VJP with the seed <span class="arithmatex">\(S_{:,k}\)</span>.
+Computing <span class="arithmatex">\(B\)</span> therefore requires only <span class="arithmatex">\(c\)</span> VJPs, one per color, instead of <span class="arithmatex">\(m\)</span>.
+We call this step compressed differentiation.</p>
+<p>Column coloring works the same way with the roles of rows and columns swapped.
+The seed matrix <span class="arithmatex">\(S \in \mathbb{R}^{n \times c}\)</span> sums the basis vectors of same-colored columns,
+and the compressed Jacobian <span class="arithmatex">\(B = J S \in \mathbb{R}^{m \times c}\)</span> is computed with one JVP per color.</p>
 <h2 id="decompression">Decompression<a class="headerlink" href="#decompression" title="Permanent link">¶</a></h2>
 <p>Recovering the sparse Jacobian from <span class="arithmatex">\(B\)</span> is called decompression.
 Because same-colored rows are structurally orthogonal,
@@ -1497,22 +1513,26 @@ J_{ij} = B_{\text{color}(i),\, j}
 <p>We simply read off each nonzero from the compressed matrix
 using the known color assignments.
 This is <strong>direct decompression</strong> — no systems of equations need to be solved.</p>
-<h2 id="the-three-step-pipeline">The Three-Step Pipeline<a class="headerlink" href="#the-three-step-pipeline" title="Permanent link">¶</a></h2>
-<p>ASD decomposes the problem into three independent stages:</p>
+<h2 id="the-four-step-pipeline">The Four-Step Pipeline<a class="headerlink" href="#the-four-step-pipeline" title="Permanent link">¶</a></h2>
+<p>ASD decomposes the problem into four independent steps:</p>
 <ol>
-<li><strong><a href="../sparsity-detection/">Detection</a></strong> — determine the <a href="../global-sparsity/">global sparsity pattern</a> of the Jacobian
+<li><strong><a href="../sparsity-detection/">Detection</a></strong>: determine the <a href="../global-sparsity/">global sparsity pattern</a> of the Jacobian
    by analyzing the computation graph (no numerical evaluation).</li>
-<li><strong><a href="../coloring/">Coloring</a></strong> — assign colors to rows or columns
+<li><strong><a href="../coloring/">Coloring</a></strong>: assign colors to rows or columns
    so that structurally orthogonal groups share a color.</li>
-<li><strong>Decompression</strong> — compute one AD pass per color and extract the sparse matrix.</li>
+<li><strong><a href="#seed-matrices-and-compression">Compressed differentiation</a></strong>: compute one AD pass per color,
+   producing the compressed matrix <span class="arithmatex">\(B\)</span>.</li>
+<li><strong><a href="#decompression">Decompression</a></strong>: read the nonzeros of the sparse matrix off <span class="arithmatex">\(B\)</span>.</li>
 </ol>
 <p>Steps 1 and 2 are preprocessing:
 they depend only on the function's structure and input shape,
 not on the input values.
 Once computed, the coloring can be reused across arbitrarily many evaluations.
-Step 3 is the only part that touches actual numerical data.</p>
+Steps 3 and 4 are the only parts that touch actual numerical data.
+<code>asdex</code> also exposes them separately,
+see <a href="../../how-to/jacobians/#skipping-decompression">Skipping Decompression</a>.</p>
 <h2 id="amortization">Amortization<a class="headerlink" href="#amortization" title="Permanent link">¶</a></h2>
-<p>The three-step split is designed around amortization.
+<p>The four-step split is designed around amortization.
 Detection and coloring are the most expensive steps,
 but their results depend only on the function's structure and input shape —
 not on the input values.
@@ -1521,7 +1541,7 @@ across arbitrarily many evaluations at different inputs.</p>
 <p>In a typical workflow,
 a user calls <a href="../../reference/#asdex.jacobian_coloring"><code>jacobian_coloring</code></a> (or <a href="../../reference/#asdex.hessian_coloring"><code>hessian_coloring</code></a>) once during setup
 and passes the result to <a href="../../reference/#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a> (or <a href="../../reference/#asdex.hessian_from_coloring"><code>hessian_from_coloring</code></a>) in a loop.
-The per-evaluation cost is then just the decompression step:
+The per-evaluation cost is then just compressed differentiation and decompression:
 <span class="arithmatex">\(c\)</span> AD passes plus a cheap index lookup,
 where <span class="arithmatex">\(c\)</span> is the number of colors.
 For problems where the Jacobian is evaluated hundreds or thousands of times —
@@ -1547,10 +1567,6 @@ which typically needs far fewer colors than treating the Hessian as a general ma
 computed via forward-over-reverse autodiff.
 The decompression step recovers both <span class="arithmatex">\(H_{ij}\)</span> and <span class="arithmatex">\(H_{ji}\)</span> from each entry,
 halving the effective number of unknowns.</p>
-<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">¶</a></h2>
-<ul>
-<li><a href="https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/"><em>An Illustrated Guide to Automatic Sparse Differentiation</em></a>, Hill, Dalle, Montoison (2025) — a visual walkthrough of the ideas on this page.</li>
-</ul>
 
 
 

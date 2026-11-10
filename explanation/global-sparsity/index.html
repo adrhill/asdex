@@ -1388,7 +1388,8 @@ The details are covered in <a href="../sparsity-detection/">Sparsity Detection</
 <h2 id="the-trade-off">The Trade-Off<a class="headerlink" href="#the-trade-off" title="Permanent link">¶</a></h2>
 <p>Global patterns may be less sparse than local ones.
 In the <span class="arithmatex">\(f(x) = x_1 \cdot x_2\)</span> example,
-the global pattern is fully dense even though every local pattern has a zero.
+the global pattern is fully dense even though some local patterns contain a zero,
+such as the one at <span class="arithmatex">\(x = (1, 0)\)</span>.
 This means a few extra colors and a few extra AD passes.</p>
 <p>In practice, the trade-off is overwhelmingly favorable:
 the cost of extra colors is small,
