@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794323139664,
+  "lastUpdate": 1794324609779,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -23631,6 +23631,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000004426847152346219",
             "extra": "mean: 22.09072749973141 usec\nrounds: 11622"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8dc9eef279127de29197bd6f04c7b45cd8320fb4",
+          "message": "docs: address Guillaume's doc review (#226)\n\n* docs: address Guillaume's doc review\n\nAddress the documentation review in #181.\n\n- Add matplotlib to the dev dependency group, so that a plain\n  uv sync is enough to run the test suite, and say so in the\n  contributor guide.\n- State that contributors need not update CHANGELOG.md.\n- Document the shape conventions for multi-dimensional inputs and\n  outputs, which match jax.jacfwd, jax.jacrev and jax.hessian.\n- Document how sparsity detection treats differentiated arguments,\n  non-differentiated arguments and captured constants.\n- Clarify why decompress returns the flat matrix and what the\n  pattern order of decompress_data is.\n- Recommend random inputs for correctness checks.\n- Describe ASD as four steps, name seed matrix shapes for both row\n  and column coloring, and move the references upfront.\n- Show the real jaxpr of the detection example, link the jaxpr docs,\n  mention zero-derivative primitives and add references.\n- Correct the claims about local patterns and diagonal Hessian entries.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs: add changelog entries and drop the changelog item from the PR template\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs: restore the simplified detection example and drop a reference\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs: mention how to run the tests in the README\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs: show the README test commands in a code block\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs: use the current title of the sparsity detection paper\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs: correct why decompress returns the flat matrix\n\nA coloring records the input structure but not the output structure,\nwhich jacobian obtains by tracing the function.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs: address review feedback\n\n- Drop a confusing sentence from the constants explanation.\n- Drop \"(C)\" from the row-major order remarks.\n- Name the check functions in the random input tip, and move it behind\n  the matvec explanation to separate it from the randomized probes.\n- Shorten the changelog note and show the test command in a code block.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs: introduce the three kinds of values with a colon\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-11-10T16:29:33+01:00",
+          "tree_id": "809f33c7098b97e66c41f87000a3af57cbdf69b6",
+          "url": "https://github.com/adrhill/asdex/commit/8dc9eef279127de29197bd6f04c7b45cd8320fb4"
+        },
+        "date": 1794324608516,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 776.2293452868087,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00045475181845762794",
+            "extra": "mean: 1.2882790454546786 msec\nrounds: 22"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27442.058801615167,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000034960862212899514",
+            "extra": "mean: 36.440414592404515 usec\nrounds: 6428"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 80293.22795254573,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002238843855447563",
+            "extra": "mean: 12.454350453951262 usec\nrounds: 22799"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 39948.0331061058,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006604404098074664",
+            "extra": "mean: 25.03252155979505 usec\nrounds: 10668"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 74235.70976191966,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003828285332605746",
+            "extra": "mean: 13.470606035923769 usec\nrounds: 23327"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 165.89551518895846,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004873163543819146",
+            "extra": "mean: 6.027890499999226 msec\nrounds: 18"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2745.006350199499,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000056406555867274826",
+            "extra": "mean: 364.2978821988237 usec\nrounds: 2674"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1692.696316876797,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007836377545902564",
+            "extra": "mean: 590.7734246418787 usec\nrounds: 1745"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1805.8277799226607,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004594693426539792",
+            "extra": "mean: 553.7626628176179 usec\nrounds: 433"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4452.28429378173,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011401326898317075",
+            "extra": "mean: 224.60380649920472 usec\nrounds: 3385"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 143.32043366624046,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002732593274572175",
+            "extra": "mean: 6.977372133332811 msec\nrounds: 60"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27258.229014437435,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005762513761433491",
+            "extra": "mean: 36.6861691370465 usec\nrounds: 18553"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 41075.06725795734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006706201460065658",
+            "extra": "mean: 24.34566920413924 usec\nrounds: 13268"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 36466.32844700318,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007282716412483912",
+            "extra": "mean: 27.422557811195837 usec\nrounds: 11970"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 41073.13257547117,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006845732855214185",
+            "extra": "mean: 24.34681596692235 usec\nrounds: 9933"
           }
         ]
       }
