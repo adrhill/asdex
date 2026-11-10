@@ -1,9 +1,11 @@
 # asdex
 
-## Unreleased
+## Version `v0.6.1`
 * ![Feature][badge-feature] Add `jacfwd` and `jacrev`, the sparse counterparts of `jax.jacfwd` and `jax.jacrev`.
   `jacobian` forwards to them when `mode` is `"fwd"` or `"rev"` ([#225])
 * ![Feature][badge-feature] Support `jnp.linalg.eig`, `jnp.linalg.eigvals`, `jax.scipy.linalg.schur`, and the remaining `jax.lax.linalg` primitives (`hessenberg`, `tridiagonal`, `tridiagonal_solve`, `cholesky_update`, `symmetric_product`, `householder_product`, `ormqr`) with conservative patterns, and `lu_pivots_to_permutation` with an empty pattern, since its integer output has zero derivative ([#220])
+* ![Feature][badge-feature] Support `jax.lax.cumlogsumexp` and `x.at[idx].subtract(y)`, which emits the `scatter-sub` primitive ([#213])
+* ![Feature][badge-feature] Support Hessians of functions containing `jax.lax.cond`, whose derivatives can emit the `empty2` primitive for the residuals of the branches ([#215])
 * ![Feature][badge-feature] Support `jax.lax.optimization_barrier` and `jax.device_put` ([#218])
 * ![Feature][badge-feature] Support `jax.ad_checkpoint.checkpoint_name`, which previously raised an error for its `name` primitive ([#218])
 * ![Maintenance][badge-maintenance] Support `jax.checkpoint`, `jax.custom_remat`, and `checkpoint_name` under JAX's opt-in `jax_remat3` implementation, which emits `call_hi_primitive` ([#218])
@@ -11,7 +13,7 @@
 * ![Maintenance][badge-maintenance] Support the `empty` primitive, which `jnp.empty` and `jnp.empty_like` emit since JAX 0.11.
   Its values are uninitialized, so they are not treated as zeros ([#218])
 * ![Maintenance][badge-maintenance] Support the `log2` primitive, which `jnp.log2` emits since JAX 0.11.2 ([#218])
-* ![Maintenance][badge-maintenance] Pin JAX to 0.11 in CI while JAX 0.12 support is worked on ([#216])
+* ![Maintenance][badge-maintenance] Require `jax<0.12` while JAX 0.12 support is worked on ([#216])
 * ![Documentation][badge-docs] Document the shape conventions for multi-dimensional inputs and outputs, and how sparsity detection treats non-differentiated arguments and captured constants ([#226])
 * ![Documentation][badge-docs] Rework the explanation pages: describe ASD in four steps, add references, and show the jaxpr of the sparsity detection example ([#226])
 
@@ -182,6 +184,8 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 [#220]: https://github.com/adrhill/asdex/pull/220
 [#218]: https://github.com/adrhill/asdex/pull/218
 [#216]: https://github.com/adrhill/asdex/pull/216
+[#215]: https://github.com/adrhill/asdex/pull/215
+[#213]: https://github.com/adrhill/asdex/pull/213
 [#212]: https://github.com/adrhill/asdex/pull/212
 [#207]: https://github.com/adrhill/asdex/pull/207
 [#206]: https://github.com/adrhill/asdex/pull/206

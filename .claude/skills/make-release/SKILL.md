@@ -52,8 +52,9 @@ Prepare a new release for asdex.
    IMPORTANT: Stage both `CHANGELOG.md` AND `pyproject.toml` in the commit.
    Ask the user if there are any other uncommitted files that should be included.
 
-9. Push the commit, then tag with `git tag vX.Y.Z` and push the tag with `git push --tags`.
+9. Push the commit, then tag with `git tag vX.Y.Z` and push only that tag with `git push origin vX.Y.Z`.
    `vX.Y.Z` is the new version number from `pyproject.toml`.
+   Never use `git push --tags`: it also pushes any unrelated local tags.
 
 10. Create a GitHub release:
     - Fetch the merged pull requests for this release from GitHub's auto-generated notes.
