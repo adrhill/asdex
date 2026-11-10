@@ -189,7 +189,7 @@ def _prop_scatter(
         Positions NOT in idx: depend on corresponding operand element.
         Positions in idx: depend on corresponding updates element.
 
-    For scatter-add/mul/min/max: out[idx[i]] = combine(operand[idx[i]], updates[i])
+    For scatter-add/sub/mul/min/max: out[idx[i]] = combine(operand[idx[i]], updates[i])
         Positions in idx: depend on BOTH operand AND updates.
 
     Example: arr = [a, b, c], arr.at[1].set(x) = [a, x, c]
