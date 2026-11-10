@@ -186,7 +186,7 @@ even though it is not a direct literal in the jaxpr.
 ## Constants and Non-Differentiated Arguments
 
 Not every value in a jaxpr is a differentiated input.
-The detector distinguishes three kinds of values.
+The detector distinguishes three kinds of values:
 
 **Differentiated arguments** are the arguments selected by `argnums`.
 They are the only values that start with nonempty index sets.
