@@ -18,4 +18,4 @@ Closes #
 - [ ] The code changes match the existing code style, and non-public names are underscore-prefixed.
 - [ ] Lint, format, and type checks pass (`uv run prek run --all-files`).
 - [ ] Tests cover the change and pass (`uv run pytest`).
-- [ ] Docs and `CHANGELOG.md` are updated for user-facing changes.
+- [ ] Docs are updated for user-facing changes.

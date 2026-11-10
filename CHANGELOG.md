@@ -9,6 +9,8 @@
   Its values are uninitialized, so they are not treated as zeros ([#218])
 * ![Maintenance][badge-maintenance] Support the `log2` primitive, which `jnp.log2` emits since JAX 0.11.2 ([#218])
 * ![Maintenance][badge-maintenance] Pin JAX to 0.11 in CI while JAX 0.12 support is worked on ([#216])
+* ![Documentation][badge-docs] Document the shape conventions for multi-dimensional inputs and outputs, and how sparsity detection treats non-differentiated arguments and captured constants ([#226])
+* ![Documentation][badge-docs] Rework the explanation pages: describe ASD in four steps, add references, and show the jaxpr of the sparsity detection example ([#226])
 
 ## Version `v0.6.0`
 * ![BREAKING][badge-breaking] Remove star-coloring postprocessing: the `postprocess` keyword is gone from `color_symmetric`, `jacobian_coloring`, `hessian_coloring`, `jacobian_coloring_from_sparsity`, and `hessian_coloring_from_sparsity` ([#186])
@@ -172,6 +174,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 <!-- Only link to pull requests in this changelog, not issues. -->
+[#226]: https://github.com/adrhill/asdex/pull/226
 [#218]: https://github.com/adrhill/asdex/pull/218
 [#216]: https://github.com/adrhill/asdex/pull/216
 [#212]: https://github.com/adrhill/asdex/pull/212
