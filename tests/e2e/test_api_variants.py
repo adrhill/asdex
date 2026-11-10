@@ -15,6 +15,119 @@ import asdex
 warnings.filterwarnings("ignore", category=asdex.DenseColoringWarning)
 
 
+# jacfwd and jacrev
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize(
+    ("asdex_fn", "jax_fn", "mode"),
+    [(asdex.jacfwd, jax.jacfwd, "fwd"), (asdex.jacrev, jax.jacrev, "rev")],
+)
+@pytest.mark.parametrize("output_format", ["dense", "bcoo"])
+def test_jacfwd_jacrev_match_jax(
+    asdex_fn, jax_fn, mode, output_format, chunk_size, assert_trees_allclose
+):
+    """``jacfwd`` and ``jacrev`` match their JAX namesakes and ``jacobian`` with that mode."""
+
+    def f(x, y, scale=1.0):
+        return scale * jnp.array([x[0] * y[1], x[1] ** 2, y[0] + x[2]])
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    y = jnp.array([4.0, 5.0])
+    kwargs = {"output_format": output_format, "chunk_size": chunk_size}
+    J = asdex_fn(f, x, y, argnums=(0, 1), scale=2.0, **kwargs)(x, y, scale=2.0)
+    J_mode = asdex.jacobian(f, x, y, argnums=(0, 1), mode=mode, scale=2.0, **kwargs)(
+        x, y, scale=2.0
+    )
+    J_jax = jax_fn(f, argnums=(0, 1))(x, y, scale=2.0)
+    assert_trees_allclose(J, J_jax)
+    assert_trees_allclose(J_mode, J_jax)
+
+
+@pytest.mark.jacobian
+@pytest.mark.parametrize(("mode", "target"), [("fwd", "jacfwd"), ("rev", "jacrev")])
+def test_jacobian_forwards_to_jacfwd_jacrev(monkeypatch, mode, target):
+    """``jacobian`` with an explicit mode forwards args and kwargs to jacfwd/jacrev."""
+    import asdex.decompression._api as api  # noqa: PLC0415
+
+    calls = []
+
+    def spy(f, *sample_args, **kwargs):
+        calls.append((f, sample_args, kwargs))
+        return "sentinel"
+
+    monkeypatch.setattr(api, target, spy)
+
+    def f(x, scale=1.0):
+        return scale * x**2
+
+    x = jnp.array([1.0, 2.0])
+    out = asdex.jacobian(
+        f, x, mode=mode, has_aux=False, output_format="dense", chunk_size=2, scale=3.0
+    )
+    assert out == "sentinel"
+    ((f_seen, sample_args, kwargs),) = calls
+    assert f_seen is f
+    assert sample_args == (x,)
+    assert kwargs["output_format"] == "dense"
+    assert kwargs["chunk_size"] == 2
+    assert kwargs["scale"] == 3.0
+    assert "mode" not in kwargs
+    assert ("allow_int" in kwargs) == (mode == "rev")
+
+
+@pytest.mark.jacobian
+def test_jacfwd_jacrev_use_requested_coloring(monkeypatch):
+    """``jacfwd`` colors columns and ``jacrev`` colors rows, even when the other is cheaper."""
+    import asdex.decompression._api as api  # noqa: PLC0415
+
+    seen = []
+    original = api._jacobian_coloring
+
+    def recording(*args, **kwargs):
+        coloring = original(*args, **kwargs)
+        seen.append((coloring.mode, coloring.num_colors))
+        return coloring
+
+    monkeypatch.setattr(api, "_jacobian_coloring", recording)
+
+    # A single dense row needs 3 colors forward but 1 reverse,
+    # a single dense column the opposite.
+    def dense_row(x):
+        return jnp.sum(x**2, keepdims=True)
+
+    def dense_col(x):
+        return x[0] * jnp.arange(1.0, 4.0)
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    J = asdex.jacfwd(dense_row, x, output_format="dense")(x)
+    np.testing.assert_allclose(J, jax.jacfwd(dense_row)(x))
+    J = asdex.jacrev(dense_col, x, output_format="dense")(x)
+    np.testing.assert_allclose(J, jax.jacrev(dense_col)(x))
+    assert seen == [("fwd", 3), ("rev", 3)]
+
+
+@pytest.mark.jacobian
+def test_jacrev_allow_int():
+    """``jacrev`` supports ``allow_int`` like ``jax.jacrev``, and ``jacfwd`` rejects integer inputs."""
+
+    def f(x):
+        return x.astype(jnp.float32) * 2
+
+    x = jnp.array([1, 2], dtype=jnp.int32)
+    J = asdex.jacrev(f, np.zeros(2), allow_int=True, output_format="dense")(x)
+    assert J.shape == (2, 2)
+    with pytest.raises(TypeError):
+        asdex.jacfwd(f, np.zeros(2), output_format="dense")(x)
+
+
+@pytest.mark.jacobian
+def test_jacobian_invalid_mode_raises():
+    """An unknown mode is rejected with a ValueError."""
+    with pytest.raises(ValueError, match="Unknown mode"):
+        asdex.jacobian(lambda x: x, jnp.ones(2), mode="bogus")  # ty: ignore[invalid-argument-type]
+
+
 # value_and_jacobian
 
 

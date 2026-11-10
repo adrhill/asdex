@@ -1,6 +1,9 @@
 # asdex
 
 ## Unreleased
+* ![Feature][badge-feature] Add `jacfwd` and `jacrev`, the sparse counterparts of `jax.jacfwd` and `jax.jacrev`.
+  `jacobian` forwards to them when `mode` is `"fwd"` or `"rev"` ([#225])
+* ![Feature][badge-feature] Support `jnp.linalg.eig`, `jnp.linalg.eigvals`, `jax.scipy.linalg.schur`, and the remaining `jax.lax.linalg` primitives (`hessenberg`, `tridiagonal`, `tridiagonal_solve`, `cholesky_update`, `symmetric_product`, `householder_product`, `ormqr`) with conservative patterns, and `lu_pivots_to_permutation` with an empty pattern, since its integer output has zero derivative ([#220])
 * ![Feature][badge-feature] Support `jax.lax.optimization_barrier` and `jax.device_put` ([#218])
 * ![Feature][badge-feature] Support `jax.ad_checkpoint.checkpoint_name`, which previously raised an error for its `name` primitive ([#218])
 * ![Maintenance][badge-maintenance] Support `jax.checkpoint`, `jax.custom_remat`, and `checkpoint_name` under JAX's opt-in `jax_remat3` implementation, which emits `call_hi_primitive` ([#218])
@@ -175,6 +178,8 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 
 <!-- Only link to pull requests in this changelog, not issues. -->
 [#226]: https://github.com/adrhill/asdex/pull/226
+[#225]: https://github.com/adrhill/asdex/pull/225
+[#220]: https://github.com/adrhill/asdex/pull/220
 [#218]: https://github.com/adrhill/asdex/pull/218
 [#216]: https://github.com/adrhill/asdex/pull/216
 [#212]: https://github.com/adrhill/asdex/pull/212
