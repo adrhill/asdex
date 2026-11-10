@@ -15,6 +15,7 @@ import pytest
 from asdex import jacobian_sparsity
 from tests._utils import (
     assert_flat_jacobian_sparsity_exact,
+    assert_hessian_sparsity_exact,
     assert_jacobian_sparsity_exact,
 )
 
@@ -31,12 +32,17 @@ _CUMULATIVE = [
 @pytest.mark.parametrize("cumulative", _CUMULATIVE)
 @pytest.mark.parametrize("reverse", [False, True], ids=["forward", "reverse"])
 def test_cumulative_1d(cumulative, reverse):
-    """1D cumulative ops match the numerical Jacobian in both directions."""
+    """1D cumulative ops are lower- (forward) or upper-triangular (reverse)."""
 
     def f(x):
         return cumulative(x, axis=0, reverse=reverse)
 
     x = jnp.array([0.5, 1.0, 2.0, 4.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    # Forward: out[i] depends on x[0..i]. Reverse: out[i] depends on x[i..].
+    ones = np.ones((4, 4), dtype=int)
+    expected = np.triu(ones) if reverse else np.tril(ones)
+    np.testing.assert_array_equal(result, expected)
     assert_jacobian_sparsity_exact(f, x)
 
 
@@ -191,6 +197,27 @@ def test_cumulative_sparser_than_conservative(cumulative):
     # Exact count: 4 lanes * (1+2+3) = 24 nonzeros
     expected_nnz = 4 * (1 + 2 + 3)
     assert result.nnz == expected_nnz
+
+
+# Hessian
+
+
+@pytest.mark.hessian
+@pytest.mark.parametrize("axis", [0, 1], ids=["axis0", "axis1"])
+@pytest.mark.parametrize("reverse", [False, True], ids=["forward", "reverse"])
+def test_cumlogsumexp_hessian(axis, reverse):
+    """Hessian of a 2D cumlogsumexp couples only elements within one scan lane.
+
+    The gradient of ``cumlogsumexp`` is an associative scan
+    built from ``logaddexp``, ``pad``, and strided ``slice``,
+    so this exercises a different path than the Jacobian tests.
+    """
+
+    def f(x):
+        return jnp.sum(lax.cumlogsumexp(x.reshape(3, 4), axis=axis, reverse=reverse))
+
+    x = jnp.arange(1.0, 13.0) / 4
+    assert_hessian_sparsity_exact(f, x)
 
 
 # High-level API

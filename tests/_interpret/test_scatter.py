@@ -11,6 +11,7 @@ import pytest
 from asdex import hessian_sparsity, jacobian_sparsity
 from tests._utils import (
     assert_flat_jacobian_sparsity_exact,
+    assert_hessian_sparsity_exact,
     assert_jacobian_sparsity_conservative,
     assert_jacobian_sparsity_exact,
 )
@@ -840,6 +841,22 @@ def test_scatter_hessian_slicing():
         expected[i, i + 1] = 1
         expected[i + 1, i] = 1
     np.testing.assert_array_equal(dense, expected)
+
+
+@pytest.mark.hessian
+def test_scatter_sub_hessian():
+    """Hessian through scatter-sub couples the operand with its updates.
+
+    The gradient of scatter-sub is a ``gather`` followed by ``neg``.
+    """
+
+    def f(x):
+        arr = x[:3]
+        # x[3] and x[4] are both subtracted from position 1.
+        return jnp.sum(arr.at[jnp.array([1, 1])].subtract(x[3:]) ** 2)
+
+    x = jnp.array([1.0, 2.0, 3.0, 0.5, 1.5])
+    assert_hessian_sparsity_exact(f, x)
 
 
 @pytest.mark.array_ops
