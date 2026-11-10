@@ -244,6 +244,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "shift_left"
             | "shift_right_arithmetic"
             | "shift_right_logical"
+            | "lu_pivots_to_permutation"  # integer permutation of the pivots
         ):
             _prop_zero_derivative(eqn, state)
         case "clamp":
@@ -421,15 +422,20 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         case "qr":
             _prop_qr(eqn, state)
         # Conservative fallback: all outputs depend on all inputs.
-        # Linear algebra decompositions emit pivots, reflectors, and packed factors
-        # whose positions depend on the input data,
-        # so their structural zeros are left out of the pattern.
         case (
             "nonbatchable"
             | "unvmap_any"  # from Equinox
             | "unvmap_max"  # from Equinox
             | "pure_callback"
-            | "lu"
+        ):
+            _prop_conservative_fallback(eqn, state)
+        # Linear algebra without a precise handler also uses the conservative fallback.
+        # Most of these outputs are generically dense,
+        # e.g. hessenberg and tridiagonal pack their reflectors below the band.
+        # Structural zeros, like those of schur's quasi-triangular T, are left out,
+        # and so is the independence of batch members.
+        case (
+            "lu"
             | "cholesky"
             | "triangular_solve"
             | "svd"
@@ -439,7 +445,6 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "hessenberg"
             | "tridiagonal"
             | "cholesky_update"
-            | "lu_pivots_to_permutation"
             | "symmetric_product"
             | "householder_product"
             | "ormqr"
