@@ -104,12 +104,7 @@ def jacobian(
         **sample_kwargs: {sample_kwargs}
 
     Returns:
-        A function that takes the same positional args as ``f`` and returns
-            a pytree of Jacobian blocks matching ``argnums``, with each leaf
-            shaped ``(*out_shape, *in_leaf_shape)``.
-            The block type depends on ``output_format``
-            (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
-            when ``"dense"``).
+        {returns_jac}
     """
     if mode is not None:
         _assert_jacobian_mode(mode)
@@ -197,12 +192,7 @@ def jacfwd(
         **sample_kwargs: {sample_kwargs}
 
     Returns:
-        A function that takes the same positional args as ``f`` and returns
-            a pytree of Jacobian blocks matching ``argnums``, with each leaf
-            shaped ``(*out_shape, *in_leaf_shape)``.
-            The block type depends on ``output_format``
-            (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
-            when ``"dense"``).
+        {returns_jac}
     """
     return _jacobian_fn(
         f,
@@ -253,12 +243,7 @@ def jacrev(
         **sample_kwargs: {sample_kwargs}
 
     Returns:
-        A function that takes the same positional args as ``f`` and returns
-            a pytree of Jacobian blocks matching ``argnums``, with each leaf
-            shaped ``(*out_shape, *in_leaf_shape)``.
-            The block type depends on ``output_format``
-            (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
-            when ``"dense"``).
+        {returns_jac}
     """
     return _jacobian_fn(
         f,
@@ -517,6 +502,8 @@ def _jacobian_fn(
 
     Shared by ``jacobian``, ``jacfwd``, and ``jacrev``,
     which differ only in the ``mode`` they color for.
+    With ``mode=None``, the coloring picks whichever of fwd/rev needs fewer colors,
+    or falls back to the symmetric default mode when ``symmetric`` is True.
     """
     _assert_output_format(output_format)
     _assert_chunk_size(chunk_size)
