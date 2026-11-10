@@ -65,11 +65,10 @@ def jacobian_sparsity(
 
     f_out = _strip_aux(f) if has_aux else f
 
-    closed_jaxpr = jax.make_jaxpr(f_out)(*args)
-    closed_jaxpr = _dce_closed_jaxpr(closed_jaxpr)
+    jaxpr = _dce_jaxpr(jax.make_jaxpr(f_out)(*args))
 
     input_indices, n_selected = _build_input_indices(avals, selected)
-    out_indices = _run_prop(closed_jaxpr, input_indices)
+    out_indices = _run_prop(jaxpr, input_indices)
     # One index set per flat output element, so the row count is its length.
     # This avoids a second trace of ``f`` just to compute output sizes.
     m = len(out_indices)
@@ -133,16 +132,16 @@ def _strip_aux(f: Callable) -> Callable:
     return lambda *xs: f(*xs)[0]
 
 
-def _dce_closed_jaxpr(closed_jaxpr: Jaxpr) -> Jaxpr:
+def _dce_jaxpr(jaxpr: Jaxpr) -> Jaxpr:
     """Remove equations unused by outputs while preserving all inputs.
 
     Uses ``instantiate=True`` so DCE keeps all input variables even if unused.
     This is needed because input_indices must align with the original inputs.
+    The captured constants are kept as well, aligned with ``constvars``.
     """
-    jaxpr = closed_jaxpr.jaxpr
     used_outputs = [True] * len(jaxpr.outvars)
     new_jaxpr, _ = dce_jaxpr(jaxpr, used_outputs, instantiate=True)
-    return Jaxpr(new_jaxpr, closed_jaxpr.consts)
+    return new_jaxpr
 
 
 def _build_input_indices(
@@ -186,15 +185,14 @@ def _build_input_indices(
     return input_indices, n_selected
 
 
-def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
+def _run_prop(jaxpr: Jaxpr, input_indices: list[list]) -> list:
     """Run ``_prop_jaxpr`` and concatenate index sets across all output leaves.
 
     JAX flattens pytree-structured outputs into one ``outvar`` per leaf, so
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
     """
-    jaxpr = closed_jaxpr.jaxpr
     state = _PropState()
-    _seed_const_vals(state, jaxpr.constvars, closed_jaxpr.consts)
+    _seed_const_vals(state, jaxpr.constvars, jaxpr.consts)
     output_indices_list = _prop_jaxpr(jaxpr, input_indices, state)
     flat: list = []
     for out_deps in output_indices_list:
