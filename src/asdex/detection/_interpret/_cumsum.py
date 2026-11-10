@@ -1,8 +1,10 @@
-"""Propagation rule for cumulative sum (cumsum).
+"""Propagation rule for cumulative operations.
 
 Cumulative sum produces a lower-triangular (forward) or upper-triangular (reverse)
 dependency pattern along the scan axis,
 with independent lanes across other dimensions.
+The same rule covers ``cumprod``, ``cummax``, ``cummin``, and ``cumlogsumexp``,
+whose output at position i also reads every input up to (or from) i.
 """
 
 import numpy as np
