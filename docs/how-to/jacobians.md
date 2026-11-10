@@ -274,7 +274,7 @@ J == J_jax:  {bool(jnp.allclose(J.todense(), J_jax))}
 
 Sparsity patterns and colorings always describe the flattened \((m, n)\) matrix,
 with \(m\) and \(n\) the total number of output and input elements.
-Elements are numbered in row-major (C) order, like `jnp.ravel`:
+Elements are numbered in row-major order, like `jnp.ravel`:
 
 ```python exec="true" session="jac-nd" source="above"
 coloring = jacobian_coloring(f, X)

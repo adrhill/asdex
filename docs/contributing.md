@@ -24,8 +24,7 @@ including in pull requests, issues, and discussions.
 * Comments and docstrings should make the code accessible.
 * PRs that change code must have appropriate tests.
 * PRs do not need to update [`CHANGELOG.md`](https://github.com/adrhill/asdex/blob/main/CHANGELOG.md).
-    Maintainers write the changelog entries from the commit history and PR descriptions,
-    so a clear PR description is all we ask for.
+    A clear PR description is all we ask for.
 * Changes to the code must be made via PR, not pushing to `main`.
 
 ## AI Policy
@@ -108,7 +107,11 @@ The `dev` group is required to run the test suite.
 Besides pytest and the linters, it contains the packages the tests exercise asdex against,
 including the optional dependencies matplotlib and SciPy.
 A plain `pip install asdex` does not include them,
-so always run the tests through `uv run`, which uses this environment.
+so always run the tests through `uv run`, which uses this environment:
+
+```bash
+uv run pytest
+```
 
 ### Git hooks
 

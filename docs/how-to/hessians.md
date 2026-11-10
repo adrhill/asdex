@@ -288,7 +288,7 @@ H == H_jax:  {bool(jnp.allclose(H.todense(), H_jax))}
 
 Sparsity patterns and colorings always describe the flattened \((n, n)\) matrix,
 with \(n\) the total number of input elements.
-Elements are numbered in row-major (C) order, like `jnp.ravel`:
+Elements are numbered in row-major order, like `jnp.ravel`:
 
 ```python exec="true" session="hess-nd" source="above"
 coloring = hessian_coloring(g, X)
