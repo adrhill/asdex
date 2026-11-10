@@ -12,18 +12,28 @@ This guide shows you how.
 It returns silently on success and raises a [`VerificationError`][asdex.VerificationError] on mismatch.
 
 ```python exec="true" session="verify" source="above"
+import jax
 import jax.numpy as jnp
 from asdex import jacobian_coloring, check_jacobian_correctness
 
 def f(x):
     return (x[1:] - x[:-1]) ** 2
 
-x = jnp.arange(1.0, 11.0)
+x = jax.random.normal(jax.random.key(0), (10,))  # a random input
 coloring = jacobian_coloring(f, x)
 check_jacobian_correctness(f, x, coloring)  # no output means it matches JAX
 ```
 
 The call above produces no output: success is silent, and a mismatch would raise instead.
+
+!!! tip "Verify at a random input"
+
+    The check compares derivatives at the input `x` you pass, so pick a random one.
+    Regular inputs such as `jnp.zeros`, `jnp.ones`, or `jnp.arange`
+    can make entries of the reference Jacobian vanish by coincidence.
+    A nonzero that the sparsity pattern is missing would then go unnoticed.
+    Checking at several random inputs strengthens the test further.
+
 By default this uses `method="matvec"`, computing randomized matrix-vector products (i.e., JVPs, VJPs, or HVPs, depending on the coloring).
 This is cheap, \(O(k)\) in the number of probes, and scalable.
 You can tune the probes, tolerances, and seed:

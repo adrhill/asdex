@@ -1086,9 +1086,14 @@ def decompress_data(compressed: jax.Array, coloring: ColoredPattern) -> jax.Arra
     """Gather a compressed matrix ``B`` into sparse values in pattern order.
 
     Returns a plain ``jax.Array`` of shape ``(coloring.sparsity.nnz,)``
-    holding the sparse values in ``coloring.sparsity`` order,
+    holding the sparse values in pattern order:
+    the order of the coordinate arrays
+    ``coloring.sparsity.rows`` and ``coloring.sparsity.cols``,
     so ``data[k]`` is the entry at
     ``(coloring.sparsity.rows[k], coloring.sparsity.cols[k])``.
+    This order is a property of ``coloring``
+    and is independent of any ``output_format``.
+    Use [`decompress`][asdex.decompress] for the CSR and CSC layouts.
 
     This is the jittable numeric core of decompression:
     it always returns a ``jax.Array``, so it composes inside ``jax.jit``
@@ -1131,8 +1136,13 @@ def decompress(
 
     Unlike the matrices returned by [`jacobian`][asdex.jacobian] /
     [`hessian`][asdex.hessian],
-    this is always the flat 2-D matrix regardless of input/output pytree structure:
-    ``B``'s natural domain is the 2-D compressed matrix.
+    this is always the flat 2-D matrix,
+    regardless of input/output shapes and pytree structure.
+    ``coloring`` only stores the flat pattern.
+    [`jacobian`][asdex.jacobian] and [`hessian`][asdex.hessian]
+    take the shapes and pytree structure of their result from their arguments,
+    which ``decompress`` never sees.
+    Rows and columns number the flattened output and input elements.
 
     Args:
         compressed: {compressed}

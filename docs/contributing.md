@@ -23,6 +23,9 @@ including in pull requests, issues, and discussions.
 * PRs affecting the public API, including adding new features, must update the public documentation.
 * Comments and docstrings should make the code accessible.
 * PRs that change code must have appropriate tests.
+* PRs do not need to update [`CHANGELOG.md`](https://github.com/adrhill/asdex/blob/main/CHANGELOG.md).
+    Maintainers write the changelog entries from the commit history and PR descriptions,
+    so a clear PR description is all we ask for.
 * Changes to the code must be made via PR, not pushing to `main`.
 
 ## AI Policy
@@ -100,6 +103,12 @@ Then install the development dependencies.
 ```bash
 uv sync
 ```
+
+The `dev` group is required to run the test suite.
+Besides pytest and the linters, it contains the packages the tests exercise asdex against,
+including the optional dependencies matplotlib and SciPy.
+A plain `pip install asdex` does not include them,
+so always run the tests through `uv run`, which uses this environment.
 
 ### Git hooks
 
@@ -204,6 +213,7 @@ The Julia version and the SparseMatrixColorings.jl version bound are declared in
 #### Preparing a release
 
 Unreleased changes accumulate in [`CHANGELOG.md`](https://github.com/adrhill/asdex/blob/main/CHANGELOG.md).
+The changelog is maintained by the maintainers, contributors are not expected to edit it in their PRs.
 Between releases, the `version` field in [`pyproject.toml`](https://github.com/adrhill/asdex/blob/main/pyproject.toml) may carry a `-DEV` suffix
 (for example `0.5.1-DEV`) to signal that the checkout is ahead of the last tagged release.
 This is encouraged but not strictly enforced, and cutting a release drops the suffix so that the `version` field names the release exactly.

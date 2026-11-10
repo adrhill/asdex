@@ -63,7 +63,8 @@ The details are covered in [Sparsity Detection](sparsity-detection.md).
 
 Global patterns may be less sparse than local ones.
 In the \(f(x) = x_1 \cdot x_2\) example,
-the global pattern is fully dense even though every local pattern has a zero.
+the global pattern is fully dense even though some local patterns contain a zero,
+such as the one at \(x = (1, 0)\).
 This means a few extra colors and a few extra AD passes.
 
 In practice, the trade-off is overwhelmingly favorable:

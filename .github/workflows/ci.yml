@@ -29,7 +29,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          uv sync --group dev --extra matplotlib
+          uv sync --group dev
           uv pip install "jax==${{ matrix.jax-version }}.*"
       - name: Test with coverage
         run: uv run --no-sync pytest -m "" --cov=src/asdex --cov-report=xml  # -m "" overrides default marker filter to include slow and benchmark tests
@@ -71,7 +71,7 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ env.LATEST_PYTHON }}
       - name: Install dependencies
-        run: uv sync --group dev --extra matplotlib
+        run: uv sync --group dev
       - name: Lint
         run: uv run ruff check .
       - name: Format
