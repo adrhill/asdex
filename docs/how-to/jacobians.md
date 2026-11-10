@@ -560,9 +560,10 @@ and its `*_from_coloring` form) that also returns the primal value.
 in any [output format](#output-formats).
 Unlike [`jacobian`](../reference/index.md#asdex.jacobian),
 it always returns the flat 2-D \((m, n)\) matrix, regardless of input or output shapes and PyTree structure.
-A coloring only stores this flat pattern.
-[`jacobian`](../reference/index.md#asdex.jacobian) takes the shapes and PyTree structure of its result from the arguments it is called with,
-which `decompress` never sees.
+[`jacobian`](../reference/index.md#asdex.jacobian) shapes its result using the structure of the output `f(x)`,
+which it obtains by tracing `f`.
+`decompress` only receives \(B\) and the coloring,
+and a coloring does not record the output structure.
 For a single array input and output,
 reshaping the dense result to `(*output_shape, *input_shape)` recovers the layout of `jacobian`.
 

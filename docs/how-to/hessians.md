@@ -528,9 +528,9 @@ and its `*_from_coloring` form) that also returns the primal value.
 in any [output format](#output-formats).
 Unlike [`hessian`](../reference/index.md#asdex.hessian),
 it always returns the flat 2-D \((n, n)\) matrix, regardless of input shape and PyTree structure.
-A coloring only stores this flat pattern.
-[`hessian`](../reference/index.md#asdex.hessian) takes the shape and PyTree structure of its result from the arguments it is called with,
-which `decompress` never sees.
+`decompress` is the same function for Jacobians and Hessians.
+It only receives \(B\) and the coloring and applies no reshaping,
+since a coloring does not record the output structure a Jacobian would need.
 For a single array input,
 reshaping the dense result to `(*input_shape, *input_shape)` recovers the layout of `hessian`.
 

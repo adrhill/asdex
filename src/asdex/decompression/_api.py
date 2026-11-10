@@ -1138,10 +1138,11 @@ def decompress(
     [`hessian`][asdex.hessian],
     this is always the flat 2-D matrix,
     regardless of input/output shapes and pytree structure.
-    ``coloring`` only stores the flat pattern.
-    [`jacobian`][asdex.jacobian] and [`hessian`][asdex.hessian]
-    take the shapes and pytree structure of their result from their arguments,
-    which ``decompress`` never sees.
+    [`jacobian`][asdex.jacobian] shapes its result using the structure
+    of the function's output, which it obtains by tracing the function.
+    ``decompress`` only receives ``B`` and ``coloring``,
+    which does not record the output structure,
+    so it applies no reshaping, for Jacobians and Hessians alike.
     Rows and columns number the flattened output and input elements.
 
     Args:
