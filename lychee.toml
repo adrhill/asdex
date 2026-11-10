@@ -10,6 +10,9 @@ exclude = [
   '^https://dl\.acm\.org/',
   '^https://epubs\.siam\.org/',
   '^https://pubsonline\.informs\.org/',
+  # Instagram rate-limits requests from CI runners with 429 Too Many Requests,
+  # even when there is only one request to it.
+  '^https://(www\.)?instagram\.com/',
   # github.com rate-limits page requests from CI runners with 503 Service Unavailable.
   # These links point to files in this repository.
   '^https://github\.com/adrhill/asdex/blob/',
