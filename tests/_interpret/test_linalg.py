@@ -1,8 +1,9 @@
 """Tests for linear algebra primitive handlers.
 
-Linear algebra decompositions (lu, cholesky, qr, svd, eigh)
-and triangular solves use conservative fallback
+Linear algebra decompositions (lu, cholesky, svd, eigh, eig, schur, ...)
+and triangular solves share the conservative fallback,
 since their outputs generally depend on all inputs.
+Only `qr` has a handler that models structural zeros.
 """
 
 import jax
@@ -13,7 +14,11 @@ import numpy as np
 import pytest
 
 from asdex import hessian, hessian_sparsity, jacobian_sparsity
-from tests._utils import assert_hessian_sparsity_exact
+from tests._utils import (
+    assert_hessian_sparsity_exact,
+    assert_jacobian_sparsity_conservative,
+    assert_jacobian_sparsity_exact,
+)
 
 
 @pytest.mark.fallback
@@ -290,3 +295,151 @@ def test_det_hessian_small_matrix_conservative(n):
 
     H = hessian(f, x, output_format="dense")(x)
     np.testing.assert_allclose(H, jax.hessian(f)(x), atol=1e-5)
+
+
+# A 3x3 symmetric positive definite matrix, and its flattened form.
+_SPD = jnp.array([[4.0, 2.0, 1.0], [2.0, 5.0, 2.0], [1.0, 2.0, 6.0]])
+_SPD_FLAT = _SPD.ravel()
+
+
+@pytest.mark.fallback
+@pytest.mark.parametrize(
+    ("f", "x", "expected_shape", "has_ad_rule"),
+    [
+        pytest.param(
+            # .real keeps the output real, so a numerical Jacobian exists.
+            lambda x: jnp.real(jnp.linalg.eigvals(x.reshape(3, 3))),
+            _SPD_FLAT,
+            (3, 9),
+            True,
+            id="eigvals",
+        ),
+        pytest.param(
+            # eigenvalues (3,) plus right eigenvectors (3, 3), both complex.
+            lambda x: jnp.linalg.eig(x.reshape(3, 3)),
+            _SPD_FLAT,
+            (12, 9),
+            False,
+            id="eig",
+        ),
+        # TODO(schur): T is quasi-triangular,
+        # so its entries below the first subdiagonal are always zero.
+        # For this 3x3 input, that is row 6 (T[2, 0]) of the pattern.
+        pytest.param(scipy_linalg.schur, _SPD, (18, 9), False, id="schur"),
+        pytest.param(jax.lax.linalg.hessenberg, _SPD, (11, 9), False, id="hessenberg"),
+        pytest.param(
+            jax.lax.linalg.tridiagonal, _SPD, (16, 9), False, id="tridiagonal"
+        ),
+        pytest.param(
+            lambda A: jax.lax.linalg.cholesky_update(A, A[:, 0]),
+            _SPD,
+            (9, 9),
+            False,
+            id="cholesky_update",
+        ),
+        pytest.param(
+            lambda x: jax.lax.linalg.symmetric_product(
+                x[:9].reshape(3, 3), x[9:].reshape(3, 3)
+            ),
+            jnp.arange(1.0, 19.0),
+            (9, 18),
+            False,
+            id="symmetric_product",
+        ),
+        pytest.param(
+            lambda x: jax.lax.linalg.householder_product(x[:9].reshape(3, 3), x[9:]),
+            jnp.arange(1.0, 13.0),
+            (9, 12),
+            False,
+            id="householder_product",
+        ),
+        pytest.param(
+            lambda x: jax.lax.linalg.ormqr(
+                x[:9].reshape(3, 3), x[9:12], x[12:].reshape(3, 3)
+            ),
+            jnp.arange(1.0, 22.0),
+            (9, 21),
+            False,
+            id="ormqr",
+        ),
+        pytest.param(
+            lambda x: jax.lax.linalg.tridiagonal_solve(
+                x[:3].reshape(1, 3),
+                x[3:6].reshape(1, 3),
+                x[6:9].reshape(1, 3),
+                x[9:12].reshape(1, 3, 1),
+            ).flatten(),
+            jnp.arange(1.0, 13.0),
+            (3, 12),
+            True,
+            id="tridiagonal_solve",
+        ),
+    ],
+)
+def test_linalg_decompositions_conservative(f, x, expected_shape, has_ad_rule):
+    """Every element of every linalg decomposition output depends on every input.
+
+    These primitives share the conservative fallback with `lu` and `cholesky`.
+    `eig`, `schur`, `hessenberg`, and `tridiagonal` are multi-output,
+    so a fallback that drops an output fails this test.
+
+    JAX has no differentiation rule for most of these primitives,
+    so `has_ad_rule` marks the cases that also have a numerical Jacobian
+    to compare against.
+    For the others the all-ones matrix is the reference:
+    the fallback unions every operand into every output, so it cannot miss.
+
+    Apart from `schur`, these outputs have no fixed structural zeros:
+    `hessenberg` and `tridiagonal` return the reflectors below the band
+    in their matrix output, and the rest are generically dense.
+    """
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.ones(expected_shape, dtype=int))
+    if has_ad_rule:
+        assert_jacobian_sparsity_conservative(f, x)
+
+
+@pytest.mark.fallback
+def test_eigvals_batched_conservative():
+    """Batched linalg primitives mix dependencies across batch members.
+
+    The conservative fallback unions every operand into every output,
+    so it ignores that each matrix in a batch is decomposed independently.
+
+    TODO(eig): each eigenvalue should only depend on its own matrix,
+    giving a block-diagonal pattern.
+    The same holds for every primitive in the linalg fallback group.
+    """
+
+    def f(x):
+        return jnp.real(jnp.linalg.eigvals(x.reshape(2, 2, 2))).ravel()
+
+    # Two 2x2 matrices with distinct real eigenvalues.
+    x = jnp.array([2.0, 1.0, 1.0, 3.0, 4.0, 1.0, 2.0, 5.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+
+    # Precise pattern would be:
+    # [1, 1, 1, 1, 0, 0, 0, 0]  # eigenvalues of matrix 0
+    # [0, 0, 0, 0, 1, 1, 1, 1]  # eigenvalues of matrix 1
+    expected = np.ones((4, 8), dtype=int)
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, x)
+
+
+def test_lu_pivots_to_permutation_zero_derivative():
+    """The permutation is an integer function of the pivots, so it has zero derivative.
+
+    It is reached through its real pipeline,
+    `lu` pivots followed by `lu_pivots_to_permutation`,
+    and cast to float so the numerical Jacobian is defined.
+    """
+
+    def f(x):
+        _, pivots, _ = jax.lax.linalg.lu(x.reshape(3, 3))
+        perm = jax.lax.linalg.lu_pivots_to_permutation(pivots, 3)
+        return perm.astype(x.dtype)
+
+    x = jnp.array([1.0, 2.0, 3.0, 8.0, 5.0, 6.0, 4.0, 7.0, 10.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((3, 9), dtype=int))
+    assert_jacobian_sparsity_exact(f, x)
