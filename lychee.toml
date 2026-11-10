@@ -4,9 +4,13 @@
 no_progress = true
 max_retries = 3
 
-# Scholarly publishers reject automated requests with 403 Forbidden.
 exclude = [
+  # Scholarly publishers reject automated requests with 403 Forbidden.
+  '^https://academic\.oup\.com/',
   '^https://dl\.acm\.org/',
   '^https://epubs\.siam\.org/',
   '^https://pubsonline\.informs\.org/',
+  # github.com rate-limits page requests from CI runners with 503 Service Unavailable.
+  # These links point to files in this repository.
+  '^https://github\.com/adrhill/asdex/blob/',
 ]
