@@ -135,7 +135,13 @@ jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 
 ## Development
 
-To run the test suite, clone the repository and run `uv sync && uv run pytest` using [uv](https://docs.astral.sh/uv/).
+To run the test suite, clone the repository and run the following with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync
+uv run pytest
+```
+
 See the [contributor's guide](https://adrianhill.de/asdex/contributing/#development-setup) for details.
 
 ## Related work
