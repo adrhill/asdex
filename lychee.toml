@@ -1,0 +1,22 @@
+# Configuration for the lychee link checker, used by .github/workflows/check-urls.yml.
+# Run locally with `lychee README.md CHANGELOG.md CITATION.cff 'docs/**/*.md'`.
+
+no_progress = true
+max_retries = 3
+
+exclude = [
+  # Scholarly publishers reject automated requests with 403 Forbidden.
+  '^https://academic\.oup\.com/',
+  '^https://dl\.acm\.org/',
+  '^https://epubs\.siam\.org/',
+  '^https://pubsonline\.informs\.org/',
+]
+
+# GitHub and Instagram rate-limit requests from CI runners
+# with 503 Service Unavailable and 429 Too Many Requests,
+# so space out requests to them.
+[hosts."github.com"]
+request_interval = "1s"
+
+[hosts."instagram.com"]
+request_interval = "5s"
