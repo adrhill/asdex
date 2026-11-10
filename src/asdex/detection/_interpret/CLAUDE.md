@@ -9,6 +9,8 @@ to determine Jacobian sparsity patterns.
 - `_common.py`: shared types, `_PropState`, and helpers.
   Skim its docstrings before writing a handler, since most building blocks already exist there.
 - `_foo.py` holds `_prop_foo` for the JAX primitive `foo`.
+- `_reduce_window.py` holds the windowed-reduction handler for
+  `reduce_window`, `reduce_window_sum`, `reduce_window_max`, and `reduce_window_min`.
 - Handlers for external packages (Equinox, Flax, etc.) live in subfolders such as `_equinox/`.
 
 ## Invariants

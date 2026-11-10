@@ -355,18 +355,17 @@ def _make_vit_fn():
 
 @pytest.mark.slow
 @pytest.mark.jacobian
-@pytest.mark.bug
 def test_resnet_sparsity_detection():
-    """Jacobian sparsity detection traces through a ResNet without errors.
-
-    TODO(reduce_window_max): ResNet uses max_pool,
-    which lowers to the reduce_window_max primitive.
-    """
+    """Jacobian sparsity detection traces through a ResNet without errors."""
     resnet_fn = _make_resnet_fn()
     input_shape = (8, 8, 3)
 
-    with pytest.raises(NotImplementedError, match="reduce_window_max"):
-        jacobian_sparsity(resnet_fn, np.zeros(input_shape))
+    sparsity = jacobian_sparsity(resnet_fn, np.zeros(input_shape))
+
+    n_in = 8 * 8 * 3
+    assert sparsity.n == n_in
+    assert sparsity.m == 4
+    assert sparsity.nnz > 0
 
 
 @pytest.mark.slow

@@ -21,6 +21,7 @@ https://docs.jax.dev/en/latest/jaxpr.html
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 from jax._src import config
 from jax._src.core import ClosedJaxpr, Jaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
@@ -345,6 +346,54 @@ def test_pad_padding_config_convention():
     ).jaxpr
     eqn = _unique_eqn(jaxpr, "pad")
     assert eqn.outvars[0].aval.shape == (7,)
+
+
+def test_reduce_window_invars_layout():
+    """JAX binds reduce_window invars as [operand..., init_value...].
+
+    There is one trailing scalar init value per operand,
+    which is what ``_prop_reduce_window`` splits ``eqn.invars`` on.
+    """
+
+    def f(xs):
+        return jax.lax.reduce_window(
+            xs,
+            (np.float32(0.0), np.float32(1.0)),
+            lambda a, b: (a[0] + b[0], a[1] + b[1]),
+            (2,),
+            (1,),
+        )
+
+    operands = (jnp.zeros(4, np.float32), jnp.zeros(4, np.float32))
+    jaxpr = jax.make_jaxpr(f)(operands).jaxpr
+    eqn = _unique_eqn(jaxpr, "reduce_window")
+    x_var, y_var = jaxpr.invars
+
+    assert len(eqn.invars) == 4
+    assert list(eqn.invars[:2]) == [x_var, y_var]
+    assert all(invar.aval.shape == () for invar in eqn.invars[2:])
+
+
+@pytest.mark.parametrize(
+    ("combiner", "init_value", "primitive_name"),
+    [
+        (jax.lax.add, np.float32(0.0), "reduce_window_sum"),
+        (jax.lax.max, np.float32(-np.inf), "reduce_window_max"),
+        (jax.lax.min, np.float32(np.inf), "reduce_window_min"),
+    ],
+)
+def test_reduce_window_identity_init_lowering(combiner, init_value, primitive_name):
+    """An identity init value lowers to a specialization without init invars.
+
+    Both layouts are reachable through ``jax.lax.reduce_window``,
+    so the handler has to cope with either.
+    """
+    jaxpr = jax.make_jaxpr(
+        lambda x: jax.lax.reduce_window(x, init_value, combiner, (2,), (1,))
+    )(jnp.zeros(4, np.float32)).jaxpr
+    eqn = _unique_eqn(jaxpr, primitive_name)
+
+    assert list(eqn.invars) == [jaxpr.invars[0]]
 
 
 def test_top_k_outvars_layout():

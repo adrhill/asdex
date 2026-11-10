@@ -691,6 +691,80 @@ def _dim_offsets(shape: Sequence[int], dims: Sequence[int]) -> np.ndarray:
     return offsets
 
 
+# Window geometry
+
+
+def _window_target_lists(
+    out_sizes: Sequence[int],
+    window_sizes: Sequence[int],
+    in_sizes: Sequence[int],
+    window_strides: Sequence[int],
+    base_dilation: Sequence[int],
+    window_dilation: Sequence[int],
+    padding: Sequence[tuple[int, int]],
+) -> list[list[int]]:
+    """Map each output position to the flat input positions inside its window.
+
+    Conv and windowed reduction differ in what they compute from a window,
+    not in which elements the window covers, so both share this mapping.
+    Vectorized over (output position, window tap):
+    for output position ``o``, window tap ``k``, and dimension ``i``,
+    the position in the base-dilated input is
+    ``o[i] * window_strides[i] + k[i] * window_dilation[i] - padding_lo[i]``.
+    A tap is valid when that position is nonnegative, in bounds,
+    and lands on an actual input element rather than in a dilation gap.
+
+    Args:
+        out_sizes: Output size along each dimension.
+        window_sizes: Window size along each dimension.
+        in_sizes: Input size along each dimension, before base dilation.
+        window_strides: Step between consecutive windows per dimension.
+        base_dilation: Input dilation factor per dimension.
+            A factor ``d`` inserts ``d - 1`` gaps between adjacent input elements.
+        window_dilation: Window dilation factor per dimension.
+            A factor ``d`` spaces adjacent taps ``d`` positions apart.
+        padding: ``(lo, hi)`` padding per dimension,
+            applied to the base-dilated input.
+            Only ``lo`` matters, since ``out_sizes`` already accounts for ``hi``.
+
+    Returns:
+        One list of flat input positions per flat output position,
+        both row-major over the respective sizes.
+    """
+    ndim = len(out_sizes)
+    out_size = _numel(out_sizes)
+    window_numel = _numel(window_sizes)
+
+    # Lay per-dimension parameters along axis 0,
+    # so they broadcast against (dim, output position, tap) arrays.
+    def per_dim(values) -> np.ndarray:
+        return np.asarray(list(values), dtype=np.intp).reshape(ndim, 1, 1)
+
+    # Coordinates of every output position and window tap, shape (dim, count).
+    out_coords = np.indices(out_sizes).reshape(ndim, out_size)
+    tap_coords = np.indices(window_sizes).reshape(ndim, window_numel)
+
+    # Position in the base-dilated, padded input, shape (dim, output position, tap).
+    pos = (
+        out_coords[:, :, None] * per_dim(window_strides)
+        + tap_coords[:, None, :] * per_dim(window_dilation)
+        - per_dim(lo for lo, _ in padding)
+    )
+    # Undo base dilation to get coordinates in the original input.
+    # Positions in a dilation gap or in the padding read zeros,
+    # so they contribute no dependencies and are masked out.
+    in_coords = pos // per_dim(base_dilation)
+    valid = (
+        (pos >= 0)
+        & (in_coords < per_dim(in_sizes))
+        & (pos % per_dim(base_dilation) == 0)
+    ).all(axis=0)
+
+    # Flatten the input coordinates and keep only the valid taps of each window.
+    targets = (in_coords * per_dim(_row_strides(in_sizes))).sum(axis=0)
+    return [targets[o, valid[o]].tolist() for o in range(out_size)]
+
+
 # Const value propagation
 
 
