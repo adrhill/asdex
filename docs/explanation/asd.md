@@ -10,7 +10,7 @@ The ideas summed up below are described more thoroughly in:
 
 - [_An Illustrated Guide to Automatic Sparse Differentiation_](https://iclr-blogposts.github.io/2025/blog/sparse-autodiff/), Hill, Dalle, Montoison (2025), a visual walkthrough of the ideas on this page
 - [_What Color Is Your Jacobian? Graph Coloring for Computing Derivatives_](https://epubs.siam.org/doi/10.1137/S0036144504444711), Gebremedhin, Manne, Pothen (2005)
-- [_On the Estimation of Sparse Jacobian Matrices_](https://doi.org/10.1093/imamat/13.1.117), Curtis, Powell, Reid (1974)
+- [_On the Estimation of Sparse Jacobian Matrices_](https://academic.oup.com/imamat/article/13/1/117/721987), Curtis, Powell, Reid (1974)
 - [_Evaluating Derivatives: Principles and Techniques of Algorithmic Differentiation_](https://epubs.siam.org/doi/book/10.1137/1.9780898717761), Griewank & Walther (2008)
 - [_Sparser, Better, Faster, Stronger: Sparsity Detection for Efficient Automatic Differentiation_](https://openreview.net/forum?id=GtXSN52nIW), Hill & Dalle (2025)
 
