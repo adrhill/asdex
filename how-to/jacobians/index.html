@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/bw.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1851,6 +1851,13 @@ and picks whichever needs fewer colors:</p>
 <p>The one-call <a href="../../reference/#asdex.jacobian"><code>jacobian</code></a> API accepts the same <code>mode</code> parameter:</p>
 <div class="highlight"><pre><span></span><code><a href="#__codelineno-7-1" id="__codelineno-7-1" name="__codelineno-7-1"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"rev"</span><span class="p">))</span>
 </code></pre></div>
+<p>Mirroring <code>jax.jacfwd</code> and <code>jax.jacrev</code>,
+<a href="../../reference/#asdex.jacfwd"><code>jacfwd</code></a> and <a href="../../reference/#asdex.jacrev"><code>jacrev</code></a>
+are shorthands for <code>mode="fwd"</code> and <code>mode="rev"</code>:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-8-1" id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">asdex</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacrev</span>
+<a href="#__codelineno-8-2" id="__codelineno-8-2" name="__codelineno-8-2"></a>
+<a href="#__codelineno-8-3" id="__codelineno-8-3" name="__codelineno-8-3"></a><span class="n">jac_fn</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jacrev</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+</code></pre></div>
 <p>When the number of colors is equal,
 <code>asdex</code> prefers column coloring since JVPs are generally cheaper to compute in JAX.</p>
 <h3 id="multiple-inputs-and-outputs">Multiple Inputs and Outputs<a class="headerlink" href="#multiple-inputs-and-outputs" title="Permanent link">¶</a></h3>
@@ -2022,7 +2029,7 @@ its <code>value_and_*</code> variant, and the <code>*_from_coloring</code> varia
 so you cannot wrap the returned function in <code>jax.jit</code>.
 <code>asdex</code> JIT-compiles their core internally, so they stay fast anyway.
 Just call them directly:</p>
-<div class="highlight"><pre><span></span><code><a href="#__codelineno-8-1" id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s2">"numpy_dense"</span><span class="p">)(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># do NOT jax.jit this</span>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-9-1" id="__codelineno-9-1" name="__codelineno-9-1"></a><span class="n">J</span> <span class="o">=</span> <span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="s2">"numpy_dense"</span><span class="p">)(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># do NOT jax.jit this</span>
 </code></pre></div>
 </div>
 <div class="admonition info">
@@ -2162,10 +2169,10 @@ whereas the host formats from <code>decompress</code> (<code>"numpy_dense"</code
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../../assets/_markdown_exec_pyodide.js"></script>
       

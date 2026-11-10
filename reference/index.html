@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/bw.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -989,6 +989,28 @@
     <span class="md-ellipsis">
       
         jacobian
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#asdex.jacfwd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        jacfwd
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#asdex.jacrev" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        jacrev
       
     </span>
   </a>
@@ -1970,6 +1992,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#asdex.jacfwd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        jacfwd
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#asdex.jacrev" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        jacrev
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#asdex.jacobian_from_coloring" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2715,7 +2759,9 @@
 <p>Detect sparsity, color, and return a function computing sparse Jacobians.</p>
 <p>Combines <a class="autorefs autorefs-internal" title="asdex.jacobian_coloring(f, *args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, **kwargs)" href="#asdex.jacobian_coloring"><code>jacobian_coloring</code></a>
 and <a class="autorefs autorefs-internal" title="asdex.jacobian_from_coloring(f, coloring, output_format=_DEFAULT_OUTPUT_FORMAT, *, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, chunk_size=_DEFAULT_CHUNK_SIZE)" href="#asdex.jacobian_from_coloring"><code>jacobian_from_coloring</code></a>
-in one call.</p>
+in one call.
+With <code>mode="fwd"</code> or <code>mode="rev"</code>,
+this forwards all arguments to <a class="autorefs autorefs-internal" title="asdex.jacfwd(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, output_format=_DEFAULT_OUTPUT_FORMAT, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="#asdex.jacfwd"><code>jacfwd</code></a> or <a class="autorefs autorefs-internal" title="asdex.jacrev(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, output_format=_DEFAULT_OUTPUT_FORMAT, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="#asdex.jacrev"><code>jacrev</code></a>.</p>
 <p>For repeated evaluation, wrap the returned function in <code>jax.jit</code>:
 each unjitted call re-traces <code>f</code>,
 which can cost far more than the differentiation itself.
@@ -2855,6 +2901,461 @@ Defaults to picking whichever of fwd/rev needs fewer colors
 </td>
 <td>
 <code><span title="asdex._defaults._DEFAULT_MODE">_DEFAULT_MODE</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric coloring.
+Requires a square Jacobian.
+Defaults to <code>False</code>.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex._types.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns <code>jax.Array</code>,
+<code>"numpy_dense"</code> returns <code>numpy.ndarray</code>,
+<code>"scipy_coo"</code> returns <code>scipy.sparse.coo_array</code>,
+<code>"scipy_csr"</code> returns <code>scipy.sparse.csr_array</code>,
+<code>"scipy_csc"</code> returns <code>scipy.sparse.csc_array</code>.
+SciPy formats require scipy and only support 2D Jacobians:
+the input and output must each be a single flat (1D) array
+(scalar outputs are not supported).</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>chunk_size</code>
+</td>
+<td>
+<code><span title="int">int</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Maximum number of colors to process in parallel.
+Defaults to <code>None</code>, processing all colors in a single vmapped batch.
+When specified, colors are processed in chunks of this size to reduce
+peak memory usage.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_CHUNK_SIZE">_DEFAULT_CHUNK_SIZE</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>**sample_kwargs</code>
+</td>
+<td>
+<code><span title="typing.Any">Any</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Sample keyword arguments of <code>f</code>.
+Merged with <code>sample_args</code> based on <code>f</code>'s signature.</p>
+</div>
+</td>
+<td>
+<code>{}</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[..., <span title="typing.Any">Any</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>A function that takes the same positional args as <code>f</code> and returns
+a pytree of Jacobian blocks matching <code>argnums</code>, with each leaf
+shaped <code>(*out_shape, *in_leaf_shape)</code>.
+The block type depends on <code>output_format</code>
+(<code>jax.experimental.sparse.BCOO</code> by default, or <code>jax.Array</code>
+when <code>"dense"</code>).</p>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="doc doc-object doc-function">
+<h2 class="doc doc-heading" id="asdex.jacfwd">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacfwd</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="n">_DEFAULT_HOLOMORPHIC</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="n">_DEFAULT_OUTPUT_FORMAT</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="n">_DEFAULT_CHUNK_SIZE</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacfwd" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect sparsity, color, and return a function computing sparse Jacobians in forward mode.</p>
+<p>The sparse counterpart of <code>jax.jacfwd</code>:
+colors the columns of the Jacobian and computes one JVP per color.
+Equivalent to <a class="autorefs autorefs-internal" title="asdex.jacobian(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, output_format=_DEFAULT_OUTPUT_FORMAT, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="#asdex.jacobian"><code>jacobian</code></a> with <code>mode="fwd"</code>.
+Like <code>jax.jacfwd</code>, it has no <code>allow_int</code> argument.</p>
+<p>For repeated evaluation, wrap the returned function in <code>jax.jit</code>:
+each unjitted call re-traces <code>f</code>,
+which can cost far more than the differentiation itself.
+The <code>"numpy_dense"</code> and scipy output formats cannot be jitted
+since they produce non-JAX arrays.</p>
+<p><span class="doc-section-title">Parameters:</span></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[..., <span title="typing.Any">Any</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function whose Jacobian is to be computed.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>*sample_args</code>
+</td>
+<td>
+<code><span title="typing.Any">Any</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
+</div>
+</td>
+<td>
+<code>()</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>argnums</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Specifies which positional argument(s) to differentiate
+with respect to.
+Defaults to <code>0</code>.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>has_aux</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
+Defaults to <code>False</code>.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>holomorphic</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> is promised to be holomorphic.
+Defaults to <code>False</code>.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_HOLOMORPHIC">_DEFAULT_HOLOMORPHIC</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>symmetric</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to use symmetric coloring.
+Requires a square Jacobian.
+Defaults to <code>False</code>.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_SYMMETRIC_JACOBIAN">_DEFAULT_SYMMETRIC_JACOBIAN</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>output_format</code>
+</td>
+<td>
+<code><span title="asdex._types.OutputFormat">OutputFormat</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Type of the output matrix.
+<code>"bcoo"</code> returns <code>jax.experimental.sparse.BCOO</code> (default),
+<code>"dense"</code> returns <code>jax.Array</code>,
+<code>"numpy_dense"</code> returns <code>numpy.ndarray</code>,
+<code>"scipy_coo"</code> returns <code>scipy.sparse.coo_array</code>,
+<code>"scipy_csr"</code> returns <code>scipy.sparse.csr_array</code>,
+<code>"scipy_csc"</code> returns <code>scipy.sparse.csc_array</code>.
+SciPy formats require scipy and only support 2D Jacobians:
+the input and output must each be a single flat (1D) array
+(scalar outputs are not supported).</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_OUTPUT_FORMAT">_DEFAULT_OUTPUT_FORMAT</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>chunk_size</code>
+</td>
+<td>
+<code><span title="int">int</span> | None</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Maximum number of colors to process in parallel.
+Defaults to <code>None</code>, processing all colors in a single vmapped batch.
+When specified, colors are processed in chunks of this size to reduce
+peak memory usage.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_CHUNK_SIZE">_DEFAULT_CHUNK_SIZE</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>**sample_kwargs</code>
+</td>
+<td>
+<code><span title="typing.Any">Any</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Sample keyword arguments of <code>f</code>.
+Merged with <code>sample_args</code> based on <code>f</code>'s signature.</p>
+</div>
+</td>
+<td>
+<code>{}</code>
+</td>
+</tr>
+</tbody>
+</table>
+<p><span class="doc-section-title">Returns:</span></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[..., <span title="typing.Any">Any</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>A function that takes the same positional args as <code>f</code> and returns
+a pytree of Jacobian blocks matching <code>argnums</code>, with each leaf
+shaped <code>(*out_shape, *in_leaf_shape)</code>.
+The block type depends on <code>output_format</code>
+(<code>jax.experimental.sparse.BCOO</code> by default, or <code>jax.Array</code>
+when <code>"dense"</code>).</p>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="doc doc-object doc-function">
+<h2 class="doc doc-heading" id="asdex.jacrev">
+<code class="highlight language-python"><span class="n">asdex</span><span class="o">.</span><span class="n">jacrev</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="o">*</span><span class="n">sample_args</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="n">_DEFAULT_ARGNUMS</span><span class="p">,</span> <span class="n">has_aux</span><span class="o">=</span><span class="n">_DEFAULT_HAS_AUX</span><span class="p">,</span> <span class="n">holomorphic</span><span class="o">=</span><span class="n">_DEFAULT_HOLOMORPHIC</span><span class="p">,</span> <span class="n">allow_int</span><span class="o">=</span><span class="n">_DEFAULT_ALLOW_INT</span><span class="p">,</span> <span class="n">symmetric</span><span class="o">=</span><span class="n">_DEFAULT_SYMMETRIC_JACOBIAN</span><span class="p">,</span> <span class="n">output_format</span><span class="o">=</span><span class="n">_DEFAULT_OUTPUT_FORMAT</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="n">_DEFAULT_CHUNK_SIZE</span><span class="p">,</span> <span class="o">**</span><span class="n">sample_kwargs</span><span class="p">)</span></code>
+<a class="headerlink" href="#asdex.jacrev" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p>Detect sparsity, color, and return a function computing sparse Jacobians in reverse mode.</p>
+<p>The sparse counterpart of <code>jax.jacrev</code>:
+colors the rows of the Jacobian and computes one VJP per color.
+Equivalent to <a class="autorefs autorefs-internal" title="asdex.jacobian(f, *sample_args, argnums=_DEFAULT_ARGNUMS, has_aux=_DEFAULT_HAS_AUX, holomorphic=_DEFAULT_HOLOMORPHIC, allow_int=_DEFAULT_ALLOW_INT, mode=_DEFAULT_MODE, symmetric=_DEFAULT_SYMMETRIC_JACOBIAN, output_format=_DEFAULT_OUTPUT_FORMAT, chunk_size=_DEFAULT_CHUNK_SIZE, **sample_kwargs)" href="#asdex.jacobian"><code>jacobian</code></a> with <code>mode="rev"</code>.</p>
+<p>For repeated evaluation, wrap the returned function in <code>jax.jit</code>:
+each unjitted call re-traces <code>f</code>,
+which can cost far more than the differentiation itself.
+The <code>"numpy_dense"</code> and scipy output formats cannot be jitted
+since they produce non-JAX arrays.</p>
+<p><span class="doc-section-title">Parameters:</span></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="doc-section-item">
+<td>
+<code>f</code>
+</td>
+<td>
+<code><span title="collections.abc.Callable">Callable</span>[..., <span title="typing.Any">Any</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Function whose Jacobian is to be computed.</p>
+</div>
+</td>
+<td>
+<em>required</em>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>*sample_args</code>
+</td>
+<td>
+<code><span title="typing.Any">Any</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Sample arguments of <code>f</code>.
+Only structure and dtypes are used, values are ignored.</p>
+</div>
+</td>
+<td>
+<code>()</code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>argnums</code>
+</td>
+<td>
+<code><span title="int">int</span> | <span title="collections.abc.Sequence">Sequence</span>[<span title="int">int</span>]</code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Specifies which positional argument(s) to differentiate
+with respect to.
+Defaults to <code>0</code>.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_ARGNUMS">_DEFAULT_ARGNUMS</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>has_aux</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> returns <code>(output, auxiliary_data)</code>.
+Defaults to <code>False</code>.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_HAS_AUX">_DEFAULT_HAS_AUX</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>holomorphic</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether <code>f</code> is promised to be holomorphic.
+Defaults to <code>False</code>.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_HOLOMORPHIC">_DEFAULT_HOLOMORPHIC</span></code>
+</td>
+</tr>
+<tr class="doc-section-item">
+<td>
+<code>allow_int</code>
+</td>
+<td>
+<code><span title="bool">bool</span></code>
+</td>
+<td>
+<div class="doc-md-description">
+<p>Whether to allow differentiating with respect to integer inputs.</p>
+</div>
+</td>
+<td>
+<code><span title="asdex._defaults._DEFAULT_ALLOW_INT">_DEFAULT_ALLOW_INT</span></code>
 </td>
 </tr>
 <tr class="doc-section-item">
@@ -8289,10 +8790,10 @@ for the per-mode <code>dim</code>).</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="../assets/_markdown_exec_pyodide.js"></script>
       
