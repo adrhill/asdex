@@ -69,8 +69,11 @@ before the `PROMISE_IN_BOUNDS` gather that would otherwise read out of bounds ra
 
 `_api.py` exposes four families, all built from the same two stages:
 
-- **One-shot** — `jacobian`, `hessian`, `value_and_jacobian`, `value_and_hessian`:
+- **One-shot** — `jacobian`, `jacfwd`, `jacrev`, `hessian`, `value_and_jacobian`, `value_and_hessian`:
   detect, color, then decompress in a single call.
+  `jacfwd` and `jacrev` mirror their JAX namesakes and fix the AD mode.
+  `jacobian` forwards to them for an explicit `mode`,
+  and all three share `_jacobian_fn`.
 - **From a coloring** — the `*_from_coloring` variants:
   skip detection and coloring and start from a pre-computed `ColoredPattern`.
 - **Compressed** — `compressed_*` and `value_and_compressed_*` (plus their `*_from_coloring` variants):

@@ -240,6 +240,16 @@ The one-call [`jacobian`](../reference/index.md#asdex.jacobian) API accepts the 
 jac_fn = jax.jit(jacobian(f, x, mode="rev"))
 ```
 
+Mirroring `jax.jacfwd` and `jax.jacrev`,
+[`jacfwd`](../reference/index.md#asdex.jacfwd) and [`jacrev`](../reference/index.md#asdex.jacrev)
+are shorthands for `mode="fwd"` and `mode="rev"`:
+
+```python
+from asdex import jacrev
+
+jac_fn = jax.jit(jacrev(f, x))
+```
+
 When the number of colors is equal,
 `asdex` prefers column coloring since JVPs are generally cheaper to compute in JAX.
 

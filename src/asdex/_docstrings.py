@@ -1,6 +1,6 @@
 """Shared docstring fragments for the public API.
 
-The argument descriptions and the ``jax.jit`` note below are identical across
+The argument and return descriptions and the ``jax.jit`` note below are identical across
 many entry points in the public API. They are written once here and
 interpolated into each ``{placeholder}`` by the ``@_fill_doc`` decorator,
 so a wording fix lands in one place. Only the *description* is interpolated.
@@ -17,7 +17,7 @@ and an unregistered placeholder fails loudly at import
 instead of corrupting the rendered text.
 Fragments are canonical (dedented):
 continuation lines sit at 0 spaces for the top-level ``{jit}`` note
-and 8 for the ``Args:`` descriptions.
+and 8 for the ``Args:`` and ``Returns:`` descriptions.
 ``_fill_doc`` runs ``inspect.cleandoc`` first so placeholders land at those columns
 regardless of the per-version docstring dedenting (which changed in 3.13).
 
@@ -221,6 +221,15 @@ _FORMAT_HESS = (
 )
 _FORMAT_FLAT = _FORMAT_HEAD + "\n        SciPy formats require scipy."
 
+# Return values
+
+_RETURNS_JAC = """A function that takes the same positional args as ``f`` and returns
+        a pytree of Jacobian blocks matching ``argnums``, with each leaf
+        shaped ``(*out_shape, *in_leaf_shape)``.
+        The block type depends on ``output_format``
+        (``jax.experimental.sparse.BCOO`` by default, or ``jax.Array``
+        when ``"dense"``)."""
+
 _F = TypeVar("_F", bound=Callable[..., Any])
 
 # The registered fragments, keyed by the ``{placeholder}`` name they fill.
@@ -270,6 +279,7 @@ _FRAGMENTS: dict[str, str] = {
     "format_jac": _FORMAT_JAC,
     "format_hess": _FORMAT_HESS,
     "format_flat": _FORMAT_FLAT,
+    "returns_jac": _RETURNS_JAC,
 }
 
 # A placeholder is a fragment key wrapped in braces, e.g. ``{f_jac}``.
