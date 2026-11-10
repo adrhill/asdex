@@ -133,6 +133,9 @@ def test_polynomial_size_one_x():
 
     Verified against forward mode only:
     in JAX 0.12.0, reverse mode fails for a ``polynomial`` whose x is broadcast.
+    https://github.com/jax-ml/jax/issues/42480
+
+    TODO(polynomial): use ``assert_jacobian_sparsity_exact`` once the JAX issue is fixed.
     """
 
     def f(v):
