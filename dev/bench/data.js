@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794318112020,
+  "lastUpdate": 1794323104525,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -23373,6 +23373,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006814192957256758",
             "extra": "mean: 25.862680576196848 usec\nrounds: 14858"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@adrianhill.de",
+            "name": "Bdrian Hill",
+            "username": "bdrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b70c8d962e945e770019b8e634d7b28db46c204d",
+          "message": "feat(detection): handle remaining linalg decompositions conservatively (#220)\n\n* feat(detection): handle remaining linalg decompositions conservatively\n\nDispatch `eig`, `schur`, `hessenberg`, `tridiagonal`, `cholesky_update`,\n`lu_pivots_to_permutation`, `symmetric_product`, `householder_product`,\n`ormqr`, and `tridiagonal_solve` to the existing conservative fallback\ninstead of raising \"No handler for primitive\".\n\nThey join `lu`, `cholesky`, `triangular_solve`, `svd`, and `eigh` in the\nsame fallback case: these primitives emit pivots, reflectors, and packed\nfactors whose positions depend on the input data, so their structural\nzeros are deliberately not modeled. Every output element depends on the\nunion of every operand's index sets, which cannot miss a nonzero.\n\nTests cover every output of the multi-output primitives (`eig`, `schur`,\n`hessenberg`, `tridiagonal`) so a dropped output fails, and pin the\nall-ones pattern. `assert_jacobian_sparsity_conservative` runs in the\nthree cases where JAX has a differentiation rule; TODOs record the only\ntwo patterns that are genuinely tighter (`schur`'s quasi-triangular T and\n`lu_pivots_to_permutation`'s piecewise-constant permutation).\n\nPart of #193\n\nCo-Authored-By: DeepSeek v4.1 Flash 1017\n\n* feat(detection): give lu_pivots_to_permutation an empty pattern\n\nThe permutation is an integer function of the pivots,\nso its derivative is zero and it belongs with the zero-derivative primitives\ninstead of the conservative fallback.\n\nSplit the linalg primitives into their own fallback case with an accurate comment,\ndocument schur's quasi-triangular T and the batch independence of the fallback group as TODOs,\nand add a changelog entry.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: adrhill <adrian.hill@mailbox.org>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-10T14:58:06+01:00",
+          "tree_id": "05b4a6f8d09ce6b7534b84d4950bdfc76d5a3350",
+          "url": "https://github.com/adrhill/asdex/commit/b70c8d962e945e770019b8e634d7b28db46c204d"
+        },
+        "date": 1794323102496,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 659.3467870222975,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008132699317333594",
+            "extra": "mean: 1.5166525714277614 msec\nrounds: 14"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27078.86352766866,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000037952024149883525",
+            "extra": "mean: 36.92917167584302 usec\nrounds: 6355"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 73638.37582760982,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000260550117237193",
+            "extra": "mean: 13.579875829160562 usec\nrounds: 22010"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 40399.07196566748,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000037284257862011618",
+            "extra": "mean: 24.75304385332996 usec\nrounds: 11128"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 74414.37442790839,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000024799554726603",
+            "extra": "mean: 13.438263879632368 usec\nrounds: 20930"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 167.1169089381216,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00042264912906520973",
+            "extra": "mean: 5.983834947367714 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2874.0609464606487,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017350782928519378",
+            "extra": "mean: 347.93973357853844 usec\nrounds: 1903"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1728.5370864116949,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011084119694022867",
+            "extra": "mean: 578.5238904395857 usec\nrounds: 1433"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1589.298757604162,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007362960044660372",
+            "extra": "mean: 629.2083192133625 usec\nrounds: 661"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4143.438020719124,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015323329850062746",
+            "extra": "mean: 241.34547083835528 usec\nrounds: 3292"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 145.5477861023552,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000930602538880582",
+            "extra": "mean: 6.8705957457625555 msec\nrounds: 59"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26982.77029364134,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004648736843972755",
+            "extra": "mean: 37.060686842657375 usec\nrounds: 18636"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 41531.02731735144,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006218073916723121",
+            "extra": "mean: 24.078383430265045 usec\nrounds: 13760"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 31411.27304620853,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010964717395181404",
+            "extra": "mean: 31.835704287722404 usec\nrounds: 7673"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 42302.346896020346,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005609860374224088",
+            "extra": "mean: 23.63935037594986 usec\nrounds: 12635"
           }
         ]
       }
