@@ -133,6 +133,11 @@ jac_fn = jax.jit(jacobian_from_coloring(f, coloring))
 - [Contributing](https://adrianhill.de/asdex/contributing/): guidelines for collaborating on asdex
 - [AI Policy](https://adrianhill.de/asdex/contributing/#ai-policy): guidelines for LLM contributions
 
+## Development
+
+To run the test suite, clone the repository and run `uv sync && uv run pytest` using [uv](https://docs.astral.sh/uv/).
+See the [contributor's guide](https://adrianhill.de/asdex/contributing/#development-setup) for details.
+
 ## Related work
 
 Prior work on ASD by asdex's authors Adrian Hill ([`@adrhill`](https://github.com/adrhill)) and Guillaume Dalle ([`@gdalle`](https://github.com/gdalle)), as well as Alexis Montoison ([`@amontoison`](https://github.com/amontoison)):
