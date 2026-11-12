@@ -9,6 +9,7 @@ to determine Jacobian sparsity patterns.
 - `_common.py`: shared types, `_PropState`, and helpers.
   Skim its docstrings before writing a handler, since most building blocks already exist there.
 - `_foo.py` holds `_prop_foo` for the JAX primitive `foo`.
+  For example, `_linear_solve.py` handles `custom_linear_solve`.
 - Handlers for external packages (Equinox, Flax, etc.) live in subfolders such as `_equinox/`.
 
 ## Invariants
