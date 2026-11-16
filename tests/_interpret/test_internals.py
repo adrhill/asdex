@@ -11,7 +11,8 @@ import jax.nn
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from jax._src.core import Literal, Primitive
+from jax import dtypes
+from jax._src.core import Literal, Primitive, ShapedArray
 from jax.interpreters import ad
 
 from asdex import DensePatternWarning, hessian_sparsity, jacobian, jacobian_sparsity
@@ -24,6 +25,7 @@ from asdex.detection._interpret._common import (
     _atom_shape,
     _forward_across_jaxpr_boundary,
     _index_sets,
+    _is_inexact,
     _PropState,
     _seed_const_vals,
     _singleton_index_set,
@@ -371,6 +373,124 @@ def test_unknown_primitive_conservative_after_constant_use():
         result = jacobian_sparsity(f, np.ones(3))
 
     assert result._fallbacks == ("asdex_test_unknown",)
+
+
+_unknown_int_p = Primitive("asdex_test_unknown_int")
+_unknown_int_p.def_abstract_eval(lambda x: ShapedArray(x.shape, jnp.int32))
+
+_unknown_mixed_p = Primitive("asdex_test_unknown_mixed")
+_unknown_mixed_p.multiple_results = True
+_unknown_mixed_p.def_abstract_eval(
+    lambda x: [ShapedArray(x.shape, x.dtype), ShapedArray(x.shape, jnp.int32)]
+)
+
+
+def test_unknown_primitive_integer_output_is_empty(caplog):
+    """An integer output of an unknown primitive has zero derivative.
+
+    The primitive is still logged and listed by ``print_fallbacks``,
+    since it is unknown, but it spreads no dependencies.
+    """
+
+    def f(x):
+        return x * _unknown_int_p.bind(x).astype(x.dtype)
+
+    with caplog.at_level(logging.INFO, logger="asdex.detection"):
+        result = jacobian_sparsity(f, np.ones(3))
+
+    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    assert result._fallbacks == ("asdex_test_unknown_int",)
+    (log_record,) = caplog.records
+    assert "primitive 'asdex_test_unknown_int'" in log_record.message
+
+
+def test_unknown_primitive_integer_output_is_not_blamed():
+    """An unknown primitive with only integer outputs has no conservative fallback.
+
+    Its inputs carry dependencies, but no inexact output receives them,
+    so the warning does not name it.
+    """
+
+    def f(x):
+        return jnp.sum(x) * x + _unknown_int_p.bind(x).astype(x.dtype)
+
+    with pytest.warns(DensePatternWarning) as record:
+        result = jacobian_sparsity(f, np.ones(3))
+
+    np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+    assert result._fallbacks == ("asdex_test_unknown_int",)
+    (warning,) = record
+    assert _NO_FALLBACKS_MESSAGE in str(warning.message)
+    assert "asdex_test_unknown_int" not in str(warning.message)
+
+
+def test_unknown_primitive_mixed_outputs():
+    """Only the inexact output of an unknown primitive gets the dense pattern."""
+
+    def f(x):
+        y, n = _unknown_mixed_p.bind(x)
+        return jnp.concatenate([y, n.astype(x.dtype)])
+
+    result = jacobian_sparsity(f, np.ones(3))
+    expected = np.array(
+        [
+            [1, 1, 1],  # y depends on all of x
+            [1, 1, 1],
+            [1, 1, 1],
+            [0, 0, 0],  # n is integer-valued
+            [0, 0, 0],
+            [0, 0, 0],
+        ]
+    )
+    np.testing.assert_array_equal(result.todense(), expected)
+    assert result._fallbacks == ("asdex_test_unknown_mixed",)
+
+
+class _AtomWithAval:
+    """Fake atom that only carries an abstract value."""
+
+    def __init__(self, aval):
+        self.aval = aval
+
+
+@pytest.mark.parametrize(
+    ("aval", "expected"),
+    [
+        (ShapedArray((2,), jnp.float32), True),
+        (ShapedArray((), jnp.float32, weak_type=True), True),
+        (ShapedArray((2,), jnp.bfloat16), True),
+        (ShapedArray((2,), jnp.complex64), True),
+        (ShapedArray((2,), jnp.int32), False),
+        (ShapedArray((), jnp.int32, weak_type=True), False),
+        (ShapedArray((2,), jnp.uint8), False),
+        (ShapedArray((2,), jnp.bool_), False),
+        (ShapedArray((2,), dtypes.float0), False),
+        (ShapedArray((2,), jax.random.key(0).dtype), False),
+        (FakeAval((2,)), True),
+    ],
+    ids=[
+        "float32",
+        "weak_float",
+        "bfloat16",
+        "complex64",
+        "int32",
+        "weak_int",
+        "uint8",
+        "bool",
+        "float0",
+        "prng_key",
+        "no_dtype",
+    ],
+)
+def test_is_inexact(aval, expected):
+    """Only floating and complex dtypes can have a nonzero derivative.
+
+    Atoms without a dtype, such as tokens, count as inexact,
+    which keeps their index sets and is conservative.
+    PRNG keys and ``float0`` must not crash the dtype check.
+    """
+    atom = _AtomWithAval(aval)
+    assert _is_inexact(atom) is expected  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_fallback_covers_true_jacobian():

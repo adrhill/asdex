@@ -543,7 +543,7 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     Each such primitive is logged once per detection
     and recorded in ``state.fallbacks``,
     along with whether any of its fallbacks was conservative,
-    meaning that its inputs carried dependencies to spread to every output.
+    meaning that its inputs carried dependencies to spread to an inexact output.
     Only conservative fallbacks can cost sparsity,
     so only their primitives are named if the final pattern turns out dense.
     """
@@ -569,6 +569,6 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
             name,
             _ISSUES_URL,
         )
-    if any(indices for invar in eqn.invars for indices in _index_sets(state, invar)):
-        state.fallbacks[name] = True
     _prop_dense_pattern(eqn, state)
+    if any(indices for outvar in eqn.outvars for indices in state.indices[outvar]):
+        state.fallbacks[name] = True

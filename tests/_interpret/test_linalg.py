@@ -446,6 +446,25 @@ def test_eigvals_batched_conservative():
     assert_jacobian_sparsity_conservative(f, x)
 
 
+def test_lu_integer_outputs_zero_derivative():
+    """The integer pivots and permutation of `lu` add no dependencies.
+
+    `lu` gets a dense pattern, but only its inexact output receives it.
+    Multiplying by the permutation leaves only the diagonal of `x[:3]`.
+    """
+
+    def f(x):
+        _, pivots, perm = jax.lax.linalg.lu(x.reshape(3, 3))
+        return x[:3] * (pivots + perm).astype(x.dtype)
+
+    x = jnp.array([1.0, 2.0, 3.0, 8.0, 5.0, 6.0, 4.0, 7.0, 10.0])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    expected = np.zeros((3, 9), dtype=int)
+    expected[:, :3] = np.eye(3, dtype=int)
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, x)
+
+
 def test_lu_pivots_to_permutation_zero_derivative():
     """The permutation is an integer function of the pivots, so it has zero derivative.
 

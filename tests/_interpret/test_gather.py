@@ -942,3 +942,18 @@ def test_gather_fill_mode_oob():
         dtype=int,
     )
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_gather_integer_operand_dynamic_indices_empty():
+    """Gathering from an integer operand gives an integer output, which has zero derivative.
+
+    Integer inputs are seeded with dependencies,
+    so before the dtype rule the degraded dense pattern spread them into the output.
+    """
+
+    def f(n):
+        return n[n[0]]
+
+    result = jacobian_sparsity(f, np.arange(3, dtype=np.int32)).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((1, 3), dtype=int))

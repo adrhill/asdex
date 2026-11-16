@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
+from jax import dtypes
 from jax._src.core import Jaxpr, JaxprEqn, Literal, Var
 from numpy.typing import ArrayLike
 
@@ -86,7 +87,7 @@ class _PropState:
     ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
     and so is ``fallbacks``,
     which maps every primitive that fell back to whether its fallback was conservative,
-    meaning that its inputs carried dependencies.
+    meaning that its inputs carried dependencies into an inexact output.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
     Value info on a jaxpr's vars is therefore overwritten on every entry:
@@ -223,6 +224,18 @@ def _atom_shape(atom: Atom) -> tuple[int, ...]:
 def _atom_numel(atom: Atom) -> int:
     """Get the total number of elements in a variable or literal."""
     return _numel(_atom_shape(atom))
+
+
+def _is_inexact(atom: Atom) -> bool:
+    """Whether a variable or literal can have a nonzero derivative, judged by its dtype.
+
+    Only inexact dtypes (floating and complex) can.
+    Integers, booleans, PRNG keys and ``float0`` are piecewise constant or not numbers at all.
+    Atoms without a dtype, such as tokens, are treated as inexact,
+    which keeps their index sets and is therefore conservative.
+    """
+    dtype = getattr(atom.aval, "dtype", None)
+    return dtype is None or dtypes.issubdtype(dtype, np.inexact)
 
 
 # Atom value access
