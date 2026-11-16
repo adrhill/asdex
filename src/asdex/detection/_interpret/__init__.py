@@ -263,10 +263,15 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "shift_right_arithmetic"
             | "shift_right_logical"
             | "lu_pivots_to_permutation"  # integer permutation of the pivots
-            | "mulhi"  # integer-valued
-            | "unvmap_any"  # from Equinox, boolean scalar
-            | "unvmap_all"  # from Equinox, boolean scalar
-            | "unvmap_max"  # from Equinox, integer scalar
+            # mulhi(a, b) is the high half of the double-width product of two integers.
+            | "mulhi"
+            # Equinox's unvmap_any, unvmap_all and unvmap_max reduce a boolean
+            # or integer array to a scalar over all elements and all vmap batch members.
+            # Equinox uses them in error_if and while loops
+            # to decide for a whole batch at once.
+            | "unvmap_any"
+            | "unvmap_all"
+            | "unvmap_max"
         ):
             _prop_empty_pattern(eqn, state)
         # Debug primitives have no outputs, so nothing can depend on them.
@@ -295,9 +300,18 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             "optimization_barrier"
             | "device_put"
             | "name"
-            | "nonbatchable"  # from Equinox
-            | "nontraceable"  # from Equinox
-            | "nondifferentiable_backward"  # from Equinox
+            # Equinox's nonbatchable, nontraceable and nondifferentiable_backward
+            # are identities that raise under some transformations.
+            # nonbatchable raises under vmap and has no JVP rule,
+            # nontraceable raises under every transformation,
+            # and nondifferentiable_backward raises only in reverse mode.
+            # Its forward-mode Jacobian is the identity.
+            # An empty pattern would be wrong for it,
+            # and for the other two would make asdex skip AD and return zeros
+            # where JAX raises.
+            | "nonbatchable"
+            | "nontraceable"
+            | "nondifferentiable_backward"
         ):
             _prop_pass_through(eqn, state)
         case "slice":
