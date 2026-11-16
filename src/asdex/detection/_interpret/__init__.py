@@ -121,7 +121,7 @@ def _prop_jaxpr(
     # Initialize input variables
     for var, indices in zip(jaxpr.invars, input_indices, strict=False):
         state.indices[var] = indices
-    _clear_nondifferentiable(jaxpr.invars, state)
+    _empty_nondifferentiable_indexsets(jaxpr.invars, state)
 
     # Initialize constant variables (no input dependencies)
     for var in jaxpr.constvars:
@@ -134,13 +134,15 @@ def _prop_jaxpr(
         _forget_value_info(state, eqn.outvars)
         _prop_dispatch(eqn, state)
         _check_index_set_counts(eqn, state)
-        _clear_nondifferentiable(eqn.outvars, state)
+        _empty_nondifferentiable_indexsets(eqn.outvars, state)
 
     # Return output dependencies
     return [_index_sets(state, outvar) for outvar in jaxpr.outvars]
 
 
-def _clear_nondifferentiable(variables: Sequence[Var], state: _PropState) -> None:
+def _empty_nondifferentiable_indexsets(
+    variables: Sequence[Var], state: _PropState
+) -> None:
     """Empty the index sets of variables without a differentiable dtype.
 
     Values of integer, boolean or PRNG key dtype have zero derivative,
