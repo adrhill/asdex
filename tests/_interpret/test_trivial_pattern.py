@@ -88,7 +88,7 @@ def test_debug_not_blamed_for_dense_pattern(debug):
     assert result._fallbacks == ()
     message = str(record[0].message)
     assert "debug" not in message
-    assert "No primitives without a handler were involved" in message
+    assert "No primitives without a precise handler were involved" in message
 
 
 # Dense pattern
