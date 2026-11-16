@@ -452,24 +452,7 @@ def test_searchsorted_zero_derivative():
 
 
 @pytest.mark.array_ops
-@pytest.mark.parametrize(
-    "method",
-    [
-        "scan",
-        "scan_unrolled",
-        "compare_all",
-        pytest.param(
-            "sort",
-            marks=pytest.mark.xfail(
-                jax.__version_info__ < (0, 12, 0),
-                strict=True,
-                # TODO(sort): integer operands carried along by a sort have zero derivative.
-                reason="Before JAX 0.12, the sort method lowers to a multi-operand sort, "
-                "which is conservative for the integer positions it carries along",
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("method", ["scan", "scan_unrolled", "compare_all", "sort"])
 def test_searchsorted_methods(method):
     """Every search method yields indices without dependencies.
 
