@@ -1728,7 +1728,8 @@ the handler resolves exactly which input position each output reads from
 and copies index sets accordingly — just like a permutation.</p>
 <p>When the indices are <strong>dynamic</strong> (computed from inputs),
 the handler cannot know which elements will be accessed at runtime.
-It falls back to the <a href="#fallback-handlers">conservative strategy</a> described below.</p>
+It then gives every output a dependency on every operand element and on the indices themselves,
+one of the <a href="#sources-of-conservatism">sources of conservatism</a> described below.</p>
 <p>This is why <code>asdex</code> tracks constant values through the computation graph:
 if an index array is built from literals and arithmetic on constants,
 the handler can still resolve it precisely
@@ -1773,7 +1774,10 @@ When <code>asdex</code> encounters an unhandled primitive,
 it uses a conservative fallback:
 every output element is assumed to depend on every input element.
 This is always correct — it is a superset of the true pattern —
-but it may be much less sparse than necessary.</p>
+but it may be much less sparse than necessary.
+Known primitives without a precise handler,
+such as the linear algebra decompositions (<code>lu</code>, <code>svd</code>, <code>eigh</code>, ...),
+fall back to the same pattern.</p>
 <p>To see which primitives fell back, call
 <a href="../../reference/#asdex.SparsityPattern.print_fallbacks"><code>print_fallbacks</code></a> on the detected pattern:</p>
 <div class="highlight"><pre><span></span><code><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>

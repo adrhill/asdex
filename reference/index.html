@@ -6979,11 +6979,11 @@ https://github.com/adrhill/asdex/issues.</p>
 so sparse differentiation offers no speedup over dense differentiation.
 The pattern is still correct.</p>
 <p>The message tells two causes apart.
-If detection met primitives it has no handler for,
+If detection met primitives it has no precise handler for,
 it replaced them by conservative patterns, which may be what cost the sparsity.
 The message then lists the ones whose inputs depended on the function's inputs.
 <a class="autorefs autorefs-internal" title="print_fallbacks()" href="#asdex.SparsityPattern.print_fallbacks"><code>SparsityPattern.print_fallbacks</code></a>
-lists every unknown primitive.
+lists every primitive that fell back.
 Please help out asdex's development by reporting them at
 <a href="https://github.com/adrhill/asdex/issues">https://github.com/adrhill/asdex/issues</a>.
 Otherwise, the function may be dense by nature,
