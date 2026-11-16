@@ -1739,7 +1739,8 @@ def test_convert_float_to_integer_keeps_const():
 def test_convert_float_to_integer_keeps_bounds():
     """Value bounds survive a round trip through float, so the slice enumerates its starts.
 
-    The pattern is the union over both starts,
+    The start depends on the traced x and may be 0 or 1,
+    so the union over both windows is the tightest global pattern,
     while the Jacobian at a single point selects one of them.
     """
 

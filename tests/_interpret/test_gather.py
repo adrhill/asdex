@@ -858,25 +858,30 @@ def test_gather_argsort_conservative():
 def test_gather_data_dependent_two_inputs():
     """Gather with data-dependent indices depends on the operand but not on the indices.
 
-    When x[argsort(y)] is computed,
-    each output depends on all elements of x (the operand),
-    since the index could point anywhere.
-    The Jacobian with respect to x at a fixed y is a single permutation,
-    so the pattern is checked as conservative.
+    When x[argsort(y)] is computed with both x and y traced,
+    argsort(y) may be any permutation,
+    so each output depends on all elements of x (the operand).
+    This is the tightest global pattern,
+    while the Jacobian at a single point is one permutation.
     The indices are integer-valued, so they add no dependencies on y.
     """
 
-    def f(x, y):
-        idx = jnp.argsort(y)
-        return x[idx]
+    def f(xy):
+        x, y = xy[:3], xy[3:]
+        return x[jnp.argsort(y)]
 
-    x = jnp.array([1.0, 2.0, 3.0])
-    y = jnp.array([3.0, 1.0, 2.0])
-
-    result_x = assert_jacobian_sparsity_conservative(lambda x: f(x, y), x, fallbacks=())
-    np.testing.assert_array_equal(result_x.todense(), np.ones((3, 3)))
-
-    assert_jacobian_sparsity_exact(lambda y: f(x, y), y, fallbacks=())
+    result = assert_jacobian_sparsity_conservative(
+        f, np.array([1.0, 2.0, 3.0, 3.0, 1.0, 2.0]), fallbacks=()
+    )
+    expected = np.array(
+        [
+            [1, 1, 1, 0, 0, 0],  # out[i] = x[argsort(y)[i]], any element of x
+            [1, 1, 1, 0, 0, 0],
+            [1, 1, 1, 0, 0, 0],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result.todense(), expected)
 
 
 @pytest.mark.array_ops
