@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794354328606,
+  "lastUpdate": 1794839198887,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -24018,6 +24018,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00000776645177455862",
             "extra": "mean: 19.098176550394644 usec\nrounds: 10303"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "960a5a74bd44d3953223ba32277d10af83390723",
+          "message": "feat(detection): fall back conservatively on unknown primitives (#230)\n\n* feat(detection): fall back conservatively on unknown primitives\n\nUnknown primitives used to raise NotImplementedError during sparsity detection.\nThey now use the conservative fallback, which is correct for any primitive.\n\nEach unknown primitive is logged once per detection run at INFO level on the asdex.detection logger.\nIf the detected pattern is fully dense after such a fallback, jacobian_sparsity raises the new public DensePatternWarning.\nPrimitives in the opt-in fallback group stay silent.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix(detection): raise on mutable refs and sharpen the dense-pattern warning\n\nThe conservative fallback is only correct for pure primitives.\nPrimitives on mutable refs write through an input,\nso they raise NotImplementedError instead of missing nonzeros.\n\nAn unknown primitive is only logged and recorded if its inputs carry dependencies,\nso the warning no longer names primitives that lost no sparsity.\nDensePatternWarning is attributed to the caller's code from every entry point\nand is skipped for patterns with a single row or column.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* feat(detection): expose conservative fallbacks on SparsityPattern\n\nSparsityPattern gains a `fallbacks` field with the sorted names of the unknown primitives\nthat detection replaced by conservative patterns.\nIt is shown by `print(sparsity)`, survives save/load and pytree flattening,\nand carries over into colorings.\n\nDensePatternWarning is now emitted for every fully dense pattern with several rows and columns.\nIts message names the unknown primitives that fell back,\nor states that there were none and the function is likely dense by nature.\n\nTests assert the exact fallbacks instead of searching the log.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* feat(detection): add print_fallbacks and name HiJax fallbacks by module\n\nSparsityPattern.print_fallbacks prints a summary of the conservative fallbacks,\nand print(sparsity) no longer lists them.\n\nEvery unknown primitive is now logged and listed in `fallbacks`,\nincluding those whose inputs carry no dependencies.\nDensePatternWarning only names the ones whose fallback lost dependencies,\nsince only those can cost sparsity.\n\nHiJax primitives are named `hijax:<module>.<class>`,\nwhich tells them apart from regular primitives.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* fix(detection): hedge the cause of dense patterns without fallbacks\n\nA dense pattern without unknown primitives is not necessarily dense by nature.\nKnown handlers, such as the opt-in fallback group, can over-approximate too.\nThe warning now names both causes and asks users to report unexpectedly dense patterns.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(detection): make fallbacks private and keep them in tracing order\n\nprint_fallbacks is now the only public way to see the conservative fallbacks.\nThe recorded primitives keep the order in which tracing first met them,\nin print_fallbacks and in DensePatternWarning, instead of being sorted.\n\nThe fallback section of the sparsity detection explanation is shortened\nto the print_fallbacks call and the dense-pattern warning.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: drop the intentional fallback group from the fallback section\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(detection): call fallbacks with input dependencies conservative\n\nA fallback is conservative when its inputs carry dependencies,\nwhich it spreads to every output.\nThis replaces the \"lossy\" and \"lost dependencies\" wording.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-11-16T15:25:18+01:00",
+          "tree_id": "1032df5908939443c1ef82bef5e4a43ddb9fcabf",
+          "url": "https://github.com/adrhill/asdex/commit/960a5a74bd44d3953223ba32277d10af83390723"
+        },
+        "date": 1794839197552,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1159.3024554410517,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00021001802466277065",
+            "extra": "mean: 862.5876666668098 usec\nrounds: 33"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 40099.84674170785,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022552879281940443",
+            "extra": "mean: 24.937751170003853 usec\nrounds: 9187"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 112837.51158132762,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000014100680719971648",
+            "extra": "mean: 8.862301073338099 usec\nrounds: 33354"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 81673.75853430433,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001482243683082993",
+            "extra": "mean: 12.243834714426463 usec\nrounds: 13758"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 113782.90253779471,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000011864342452100062",
+            "extra": "mean: 8.78866664231768 usec\nrounds: 41031"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 252.70617272081628,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009724799633501274",
+            "extra": "mean: 3.9571649130422157 msec\nrounds: 23"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 4345.8727124217385,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006344273402733494",
+            "extra": "mean: 230.10337995903927 usec\nrounds: 3403"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2816.4909118476935,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003272168557599369",
+            "extra": "mean: 355.05174037432744 usec\nrounds: 1818"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2736.1238869261842,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005539151627659174",
+            "extra": "mean: 365.48052695209634 usec\nrounds: 909"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 6058.092338957495,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000586624033033645",
+            "extra": "mean: 165.0684644684839 usec\nrounds: 5277"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 191.9719515393361,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000667119302340415",
+            "extra": "mean: 5.209094307691583 msec\nrounds: 91"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 40247.81908754226,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000215876206604871",
+            "extra": "mean: 24.846066760162067 usec\nrounds: 28535"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 58183.386547342445,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005434094734574694",
+            "extra": "mean: 17.187036701384226 usec\nrounds: 22724"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 51978.77839549976,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006110392619713943",
+            "extra": "mean: 19.238620661515554 usec\nrounds: 17172"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 63145.089210999635,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000040556367055788075",
+            "extra": "mean: 15.836544258548672 usec\nrounds: 22120"
           }
         ]
       }
