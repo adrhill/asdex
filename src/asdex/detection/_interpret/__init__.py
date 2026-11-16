@@ -51,7 +51,6 @@ from ._elementwise import (
     _prop_zero_derivative_const,
     _prop_zero_derivative_unary_const,
 )
-from ._empty import _prop_empty
 from ._equinox._select_if_vmap import _prop_select_if_vmap
 from ._gather import _prop_gather
 from ._iota import _prop_iota
@@ -59,8 +58,6 @@ from ._linalg import _prop_qr
 from ._mul import _prop_mul
 from ._pad import _prop_pad
 from ._pass_through import _prop_pass_through
-from ._platform_index import _prop_platform_index
-from ._random import _prop_random
 from ._reduce import _prop_reduce
 from ._reshape import _prop_reshape
 from ._rev import _prop_rev
@@ -406,8 +403,15 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_select_if_vmap(eqn, state)
         case "iota":
             _prop_iota(eqn, state)
+        # Uninitialized buffers have no input dependencies.
+        # Unlike iota, no const is recorded:
+        # reading undefined contents as zeros could drop nonzeros once the array is filled.
+        # empty2 holds the undefined residuals of a cond branch under AD,
+        # so it appears in Hessian detection.
         case "empty" | "empty2":
-            _prop_empty(eqn, state)
+            _prop_empty_pattern(eqn, state)
+        # Random number generation is not differentiable,
+        # and keys never carry dependencies.
         case (
             "random_seed"
             | "random_unwrap"
@@ -416,13 +420,15 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "random_fold_in"
             | "random_bits"
         ):
-            _prop_random(eqn, state)
+            _prop_empty_pattern(eqn, state)
         case "while":
             _prop_while(eqn, state, _prop_jaxpr)
         case "cond":
             _prop_cond(eqn, state, _prop_jaxpr)
+        # Selects the active platform, an input-free scalar.
+        # Its value is only known at runtime, so no const is recorded.
         case "platform_index":
-            _prop_platform_index(eqn, state)
+            _prop_empty_pattern(eqn, state)
         case "dynamic_slice":
             _prop_dynamic_slice(eqn, state)
         case "dynamic_update_slice":

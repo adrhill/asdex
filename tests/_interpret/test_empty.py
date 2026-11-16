@@ -1,4 +1,4 @@
-"""Tests for the empty propagation handler.
+"""Tests for the empty primitives, which get an empty pattern.
 
 Since JAX 0.11, ``jnp.empty`` and ``jnp.empty_like`` emit the ``empty`` primitive
 instead of a broadcast of zeros.

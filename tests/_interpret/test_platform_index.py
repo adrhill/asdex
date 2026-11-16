@@ -1,4 +1,4 @@
-"""Tests for the _prop_platform_index handler.
+"""Tests for the platform_index primitive, which gets an empty pattern.
 
 ``platform_index`` is used internally by ``jax.lax.platform_dependent``
 and by extension ``jnp.diag`` and other platform-dispatched ops.

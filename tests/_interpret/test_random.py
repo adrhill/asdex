@@ -1,6 +1,6 @@
-"""Tests for random primitive handlers.
+"""Tests for random primitives, which get an empty pattern.
 
-Random primitives (random_seed, random_unwrap, random_wrap, random_bits)
+Random primitives (random_seed, random_unwrap, random_wrap, random_split, random_fold_in, random_bits)
 generate values that don't depend on traced inputs,
 so they produce empty dependency sets.
 
