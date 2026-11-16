@@ -13,6 +13,7 @@ from asdex._check import (
 )
 from asdex._errors import (
     DenseColoringWarning,
+    DensePatternWarning,
     InvalidColoringError,
     VerificationError,
 )
@@ -57,6 +58,7 @@ __all__ = [
     "ColoredPattern",
     "ColoringMode",
     "DenseColoringWarning",
+    "DensePatternWarning",
     "HessianMode",
     "InvalidColoringError",
     "JacobianMode",

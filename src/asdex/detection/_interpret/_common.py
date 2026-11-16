@@ -83,7 +83,9 @@ class _PropState:
     ``indices`` is scoped to a single jaxpr:
     each nested jaxpr (cond branch, while body, jit call) gets a fresh dict,
     so intermediate index sets can be freed when the scope ends.
-    ``consts`` and ``bounds`` are shared across nested scopes by aliasing.
+    ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
+    and so is ``unknown_primitives``,
+    which collects every primitive that fell back for lack of a handler.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
     Value info on a jaxpr's vars is therefore overwritten on every entry:
@@ -95,6 +97,7 @@ class _PropState:
     indices: StateIndices = field(default_factory=dict)
     consts: StateConsts = field(default_factory=dict)
     bounds: StateBounds = field(default_factory=dict)
+    unknown_primitives: set[str] = field(default_factory=set)
 
 
 PropJaxprFn = Callable[

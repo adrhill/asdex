@@ -52,6 +52,7 @@
 ::: asdex.HessianMode
 ::: asdex.ColoringMode
 ::: asdex.VerificationError
+::: asdex.DensePatternWarning
 
 ## Compressed Differentiation
 

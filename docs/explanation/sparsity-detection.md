@@ -233,9 +233,20 @@ but it may be much less sparse than necessary.
 
 A small number of primitives use this fallback intentionally
 (e.g. callbacks into opaque Python code where dependencies cannot be analyzed).
-For all other cases, `asdex` raises an error on unknown primitives
-rather than silently falling back,
-since silent over-approximation could mask bugs in the handler coverage.
+Primitives that `asdex` does not know use the same fallback.
+Each one is reported at `INFO` level on the `asdex.detection` logger of Python's `logging` module,
+so the loss of sparsity can be traced back to its source:
+
+```python
+import logging
+
+logging.basicConfig()
+logging.getLogger("asdex.detection").setLevel(logging.INFO)
+```
+
+If the detected pattern ends up fully dense after such a fallback,
+`asdex` raises a [`DensePatternWarning`][asdex.DensePatternWarning],
+since sparse differentiation then offers no speedup over dense differentiation.
 
 !!! tip
 

@@ -3,17 +3,20 @@
 https://docs.jax.dev/en/latest/jaxpr.html
 """
 
+import logging
+import warnings
+
 import jax
 import jax.nn
 import jax.numpy as jnp
 import numpy as np
 import pytest
 from jax._src.core import Literal, Primitive
+from jax.interpreters import ad
 
-from asdex import jacobian_sparsity
+from asdex import DensePatternWarning, hessian_sparsity, jacobian_sparsity
 from asdex.detection._interpret import (
     _prop_closed_jaxpr,
-    _prop_dispatch,
     _prop_jaxpr,
 )
 from asdex.detection._interpret._common import (
@@ -99,23 +102,140 @@ def test_custom_call_missing_param_error_message():
         _prop_closed_jaxpr(eqn, _PropState(), "call_jaxpr")  # ty: ignore[invalid-argument-type]
 
 
-def test_unknown_primitive_raises():
-    """Unknown primitives raise NotImplementedError."""
-    eqn = FakeEqn("nonexistent_op", params={})
-
-    with pytest.raises(NotImplementedError, match="No handler for primitive"):
-        _prop_dispatch(eqn, _PropState())  # ty: ignore[invalid-argument-type]
+_unknown_p = Primitive("asdex_test_unknown")
+_unknown_p.def_abstract_eval(lambda x: x)
 
 
-def test_unknown_primitive_error_message():
-    """Error message includes primitive name and issue tracker URL."""
-    eqn = FakeEqn("fake_primitive", params={})
+def test_unknown_primitive_falls_back_conservatively(caplog):
+    """Unknown primitives fall back to a conservative pattern and are logged.
 
-    with pytest.raises(NotImplementedError) as exc_info:
-        _prop_dispatch(eqn, _PropState())  # ty: ignore[invalid-argument-type]
+    Only the outputs downstream of the unknown primitive lose their sparsity.
+    """
 
-    assert "fake_primitive" in str(exc_info.value)
-    assert "https://github.com/adrhill/asdex/issues" in str(exc_info.value)
+    def f(x):
+        return jnp.concatenate([_unknown_p.bind(x[:2]), x[2:] * 2])
+
+    with caplog.at_level(logging.INFO, logger="asdex.detection"):
+        result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+
+    expected = np.array(
+        [
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+        ]
+    )
+    np.testing.assert_array_equal(result, expected)
+
+    (record,) = caplog.records
+    assert record.name == "asdex.detection"
+    assert record.levelno == logging.INFO
+    assert "No handler for primitive 'asdex_test_unknown'" in record.message
+    assert "https://github.com/adrhill/asdex/issues" in record.message
+
+
+def test_unknown_primitive_logged_once_per_detection(caplog):
+    """An unknown primitive is logged once, however often it is dispatched.
+
+    The scan body is propagated once per iteration,
+    and the primitive also appears outside of it.
+    """
+
+    def f(x):
+        def body(carry, _):
+            return _unknown_p.bind(carry), None
+
+        carry, _ = jax.lax.scan(body, x[:2], None, length=3)
+        return jnp.concatenate([carry, _unknown_p.bind(x[2:])])
+
+    with caplog.at_level(logging.INFO, logger="asdex.detection"):
+        result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+
+    expected = np.array(
+        [
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+        ]
+    )
+    np.testing.assert_array_equal(result, expected)
+    assert len(caplog.records) == 1
+
+
+def test_unknown_primitive_is_silent_by_default(capsys):
+    """Without logging configuration, a sparse fallback prints nothing and does not warn."""
+
+    def f(x):
+        return jnp.concatenate([_unknown_p.bind(x[:2]), x[2:]])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        jacobian_sparsity(f, np.zeros(4))
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+def test_unknown_primitive_dense_pattern_warns():
+    """A fully dense pattern after an unknown-primitive fallback raises a warning."""
+    with pytest.warns(DensePatternWarning) as record:
+        result = jacobian_sparsity(_unknown_p.bind, np.zeros(3))
+
+    np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+    (warning,) = record
+    message = str(warning.message)
+    assert "fully dense 3\u00d73" in message
+    assert "primitive 'asdex_test_unknown'" in message
+    assert "https://github.com/adrhill/asdex/issues" in message
+
+
+def test_unknown_primitive_dense_pattern_warns_for_hessian():
+    """The dense-pattern warning also fires through ``hessian_sparsity``.
+
+    Detection runs on the jaxpr of the gradient,
+    which here contains the unknown primitive and its transpose.
+    """
+    p = Primitive("asdex_test_unknown_linear")
+    p.def_abstract_eval(lambda x: x)
+    ad.deflinear(p, lambda ct: [p.bind(ct)])
+
+    def f(x):
+        return jnp.sum(jnp.sin(p.bind(x)))
+
+    with pytest.warns(DensePatternWarning, match="asdex_test_unknown_linear"):
+        result = hessian_sparsity(f, np.zeros(3))
+
+    np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+
+
+def test_dense_pattern_without_fallback_does_not_warn():
+    """A pattern that is dense on its own merits does not raise the fallback warning."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = jacobian_sparsity(lambda x: jnp.sum(x) * x, np.ones(3))
+
+    np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+
+
+def test_known_fallback_primitive_is_not_logged(caplog):
+    """Primitives in the opt-in fallback group are neither logged nor warned about."""
+    with (
+        warnings.catch_warnings(),
+        caplog.at_level(logging.INFO, logger="asdex.detection"),
+    ):
+        warnings.simplefilter("error")
+        result = jacobian_sparsity(
+            lambda x: jnp.linalg.cholesky(x @ x.T + jnp.eye(2)), np.ones((2, 2))
+        )
+
+    # jnp.linalg.cholesky zeroes the strict upper triangle after the primitive.
+    expected = np.ones((4, 4))
+    expected[1] = 0
+    np.testing.assert_array_equal(result.todense(), expected)
+    assert caplog.records == []
 
 
 def test_prop_jaxpr_default_const_vals():

@@ -8,6 +8,8 @@ The main entry point is `_prop_jaxpr`, which walks the computation graph
 and applies the appropriate handler for each equation.
 """
 
+import logging
+
 from jax._src.core import Jaxpr, JaxprEqn
 
 from ._argmax import _prop_argmax
@@ -75,6 +77,14 @@ from ._transpose import _prop_transpose
 from ._unstack import _prop_unstack
 from ._while import _prop_while
 
+_logger = logging.getLogger("asdex.detection")
+"""Logger for sparsity detection.
+
+Named after the public subpackage rather than this private module,
+so users can configure it without depending on internals
+and other parts of asdex can get loggers of their own.
+"""
+
 
 def _prop_jaxpr(
     jaxpr: Jaxpr,
@@ -85,7 +95,8 @@ def _prop_jaxpr(
 
     Runs in a fresh scope:
     index sets are tracked in a new dict so they can be freed when the scope ends,
-    while const values and value bounds are shared with the parent scope by aliasing.
+    while const values, value bounds, and the record of unknown primitives
+    are shared with the parent scope by aliasing.
 
     Args:
         jaxpr: The jaxpr to analyze
@@ -100,7 +111,11 @@ def _prop_jaxpr(
     if parent is None:
         state = _PropState()
     else:
-        state = _PropState(consts=parent.consts, bounds=parent.bounds)
+        state = _PropState(
+            consts=parent.consts,
+            bounds=parent.bounds,
+            unknown_primitives=parent.unknown_primitives,
+        )
 
     # Initialize input variables
     for var, indices in zip(jaxpr.invars, input_indices, strict=False):
@@ -194,7 +209,8 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
     ``call_hi_primitive`` stores the actual operation as a HiJax primitive object
     (a ``HiPrim``, called ``VJPHiPrimitive`` before JAX 0.11.2)
     in ``eqn.params["_prim"]``.
-    Any HiJax primitive without a case raises, since its semantics are unknown.
+    Any HiJax primitive without a case falls back to a conservative pattern,
+    since its semantics are unknown.
 
     Jaxpr:
         invars: operands, aligned with ``_prim.jaxpr.invars``
@@ -214,8 +230,7 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
         case "CheckpointName":
             _prop_pass_through(eqn, state)
         case name:
-            msg = _report_issue(f"No handler for HiJax primitive '{name}'.")
-            raise NotImplementedError(msg)
+            _prop_unknown_primitive(eqn, state, f"HiJax primitive '{name}'")
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
@@ -458,8 +473,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "tridiagonal_solve"
         ):
             _prop_conservative_fallback(eqn, state)
-        case _:
-            _prop_throw_error(eqn, state)
+        case name:
+            _prop_unknown_primitive(eqn, state, f"primitive '{name}'")
 
 
 def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
@@ -477,10 +492,23 @@ def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
         state.indices[outvar] = _conservative_indices(all_inputs, _atom_numel(outvar))
 
 
-def _prop_throw_error(eqn: JaxprEqn, state: _PropState) -> None:
-    """Raise an error for unknown primitives.
+def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None:
+    """Fall back to a conservative pattern for a primitive without a handler.
 
-    This ensures we don't silently produce incorrect sparsity patterns.
+    The fallback is correct for any primitive,
+    since every dependency on the function's inputs flows through ``eqn.invars``.
+    It can cost a lot of sparsity though,
+    so each unknown primitive is logged once per detection
+    and recorded in ``state.unknown_primitives``,
+    which lets the caller warn if the final pattern turns out dense.
+
+    ``name`` describes the primitive in messages, e.g. ``"primitive 'foo'"``.
     """
-    msg = _report_issue(f"No handler for primitive '{eqn.primitive.name}'.")
-    raise NotImplementedError(msg)
+    if name not in state.unknown_primitives:
+        state.unknown_primitives.add(name)
+        _logger.info(
+            _report_issue(
+                f"No handler for {name}, falling back to a conservative pattern."
+            )
+        )
+    _prop_conservative_fallback(eqn, state)

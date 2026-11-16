@@ -24,6 +24,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from functools import partial
 
 import jax
@@ -356,17 +357,22 @@ def _make_vit_fn():
 @pytest.mark.slow
 @pytest.mark.jacobian
 @pytest.mark.bug
-def test_resnet_sparsity_detection():
+def test_resnet_sparsity_detection(caplog):
     """Jacobian sparsity detection traces through a ResNet without errors.
 
     TODO(reduce_window_max): ResNet uses max_pool,
     which lowers to the reduce_window_max primitive.
+    Without a handler, it falls back to a conservative pattern.
     """
     resnet_fn = _make_resnet_fn()
     input_shape = (8, 8, 3)
 
-    with pytest.raises(NotImplementedError, match="reduce_window_max"):
-        jacobian_sparsity(resnet_fn, np.zeros(input_shape))
+    with caplog.at_level(logging.INFO, logger="asdex.detection"):
+        result = jacobian_sparsity(resnet_fn, np.zeros(input_shape))
+
+    assert result.shape == (4, 8 * 8 * 3)
+    messages = [record.message for record in caplog.records]
+    assert any("primitive 'reduce_window_max'" in msg for msg in messages)
 
 
 @pytest.mark.slow

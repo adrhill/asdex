@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -18,6 +19,7 @@ from asdex._arguments import (
 )
 from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
 from asdex._docstrings import _fill_doc
+from asdex._errors import DensePatternWarning
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import _prop_jaxpr
 from asdex.detection._interpret._common import (
@@ -69,18 +71,20 @@ def jacobian_sparsity(
     closed_jaxpr = _dce_closed_jaxpr(closed_jaxpr)
 
     input_indices, n_selected = _build_input_indices(avals, selected)
-    out_indices = _run_prop(closed_jaxpr, input_indices)
+    out_indices, unknown_primitives = _run_prop(closed_jaxpr, input_indices)
     # One index set per flat output element, so the row count is its length.
     # This avoids a second trace of ``f`` just to compute output sizes.
     m = len(out_indices)
     rows, cols = _coo_from_index_sets(out_indices)
-    return SparsityPattern.from_coo(
+    sparsity = SparsityPattern.from_coo(
         rows,
         cols,
         (m, n_selected),
         input_avals=avals,
         argnums=argnums_resolved,
     )
+    _warn_if_dense_fallback(sparsity, unknown_primitives)
+    return sparsity
 
 
 @_fill_doc
@@ -186,11 +190,13 @@ def _build_input_indices(
     return input_indices, n_selected
 
 
-def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
+def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, set[str]]:
     """Run ``_prop_jaxpr`` and concatenate index sets across all output leaves.
 
     JAX flattens pytree-structured outputs into one ``outvar`` per leaf, so
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
+
+    Also returns the primitives that fell back for lack of a handler.
     """
     jaxpr = closed_jaxpr.jaxpr
     state = _PropState()
@@ -199,7 +205,33 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
     flat: list = []
     for out_deps in output_indices_list:
         flat.extend(out_deps)
-    return flat
+    return flat, state.unknown_primitives
+
+
+def _warn_if_dense_fallback(
+    sparsity: SparsityPattern, unknown_primitives: set[str]
+) -> None:
+    """Warn if unknown primitives fell back and the pattern has no zeros left.
+
+    A fallback that keeps some sparsity is only logged,
+    but a fully dense pattern makes sparse differentiation pointless.
+    """
+    m, n = sparsity.shape
+    if not unknown_primitives or sparsity.nnz == 0 or sparsity.nnz < m * n:
+        return
+    names = ", ".join(sorted(unknown_primitives))
+    warnings.warn(
+        f"Detected a fully dense {m}\u00d7{n} sparsity pattern"
+        f" after falling back to conservative patterns for: {names}.\n"
+        f"No speedup over dense differentiation.\n"
+        f"Please help out asdex's development by reporting this at"
+        f" https://github.com/adrhill/asdex/issues\n"
+        f"Suppress this warning with:"
+        f' warnings.filterwarnings("ignore",'
+        f" category=asdex.DensePatternWarning)",
+        category=DensePatternWarning,
+        stacklevel=3,
+    )
 
 
 def _coo_from_index_sets(
