@@ -13,11 +13,12 @@ import logging
 from jax._src.core import Jaxpr, JaxprEqn
 from jax._src.state.types import AbstractRef
 
+from asdex._errors import _ISSUES_URL
+
 from ._argmax import _prop_argmax
 from ._bitcast import _prop_bitcast_convert_type
 from ._broadcast import _prop_broadcast_in_dim
 from ._common import (
-    _ISSUES_URL,
     IndexSet,
     _atom_numel,
     _conservative_indices,
@@ -213,6 +214,8 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
     in ``eqn.params["_prim"]``.
     Any HiJax primitive without a case falls back to a conservative pattern,
     since its semantics are unknown.
+    It is named ``hijax:<module>.<class>`` in logs and ``SparsityPattern.fallbacks``,
+    which tells it apart from regular primitives and points to its definition.
 
     Jaxpr:
         invars: operands, aligned with ``_prim.jaxpr.invars``
@@ -231,8 +234,10 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
         # checkpoint_name under jax_remat3 emits CheckpointName, which returns its operand unchanged.
         case "CheckpointName":
             _prop_pass_through(eqn, state)
-        case name:
-            _prop_unknown_primitive(eqn, state, name, kind="HiJax primitive")
+        case _:
+            prim_type = type(prim)
+            name = f"hijax:{prim_type.__module__}.{prim_type.__name__}"
+            _prop_unknown_primitive(eqn, state, name)
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
@@ -494,9 +499,7 @@ def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
         state.indices[outvar] = _conservative_indices(all_inputs, _atom_numel(outvar))
 
 
-def _prop_unknown_primitive(
-    eqn: JaxprEqn, state: _PropState, name: str, kind: str = "primitive"
-) -> None:
+def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     """Fall back to a conservative pattern for a primitive without a handler.
 
     The fallback is correct for any pure primitive,
@@ -504,13 +507,11 @@ def _prop_unknown_primitive(
     from ``eqn.invars`` to ``eqn.outvars``.
     Primitives on mutable refs are not pure, so they raise instead.
 
-    The fallback can cost a lot of sparsity,
-    so each unknown primitive that loses dependencies is logged once per detection
+    Each unknown primitive is logged once per detection
     and recorded in ``state.unknown_primitives``,
-    which lets the caller warn if the final pattern turns out dense.
-    A primitive whose inputs carry no dependencies loses nothing and stays silent.
-
-    ``kind`` describes what ``name`` refers to in messages.
+    along with whether any of its fallbacks lost dependencies.
+    Only those that did can cost sparsity,
+    so only they are named if the final pattern turns out dense.
     """
     # A write to a ref (``jax.new_ref``) is a dependency that flows into an input,
     # and a later read picks it up from there.
@@ -520,22 +521,20 @@ def _prop_unknown_primitive(
     # and shared across nested jaxprs like ``consts`` and ``bounds``.
     if any(isinstance(atom.aval, AbstractRef) for atom in (*eqn.invars, *eqn.outvars)):
         msg = _report_issue(
-            f"No handler for {kind} '{name}', which operates on a mutable ref."
+            f"No handler for primitive '{name}', which operates on a mutable ref."
             " Mutable refs are not supported yet."
         )
         raise NotImplementedError(msg)
 
-    has_dependencies = any(
-        indices for invar in eqn.invars for indices in _index_sets(state, invar)
-    )
-    if has_dependencies and name not in state.unknown_primitives:
-        state.unknown_primitives.add(name)
+    if name not in state.unknown_primitives:
+        state.unknown_primitives[name] = False
         _logger.info(
-            "No handler for %s '%s', falling back to a conservative pattern."
+            "No handler for primitive '%s', falling back to a conservative pattern."
             " If this primitive is part of JAX,"
             " please help out asdex's development by reporting it at %s",
-            kind,
             name,
             _ISSUES_URL,
         )
+    if any(indices for invar in eqn.invars for indices in _index_sets(state, invar)):
+        state.unknown_primitives[name] = True
     _prop_conservative_fallback(eqn, state)

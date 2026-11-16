@@ -21,11 +21,10 @@ from asdex._arguments import (
 )
 from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
 from asdex._docstrings import _fill_doc
-from asdex._errors import DensePatternWarning
+from asdex._errors import _ISSUES_URL, DensePatternWarning
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import _prop_jaxpr
 from asdex.detection._interpret._common import (
-    _ISSUES_URL,
     IndexSet,
     _empty_index_sets,
     _PropState,
@@ -90,7 +89,8 @@ def jacobian_sparsity(
         argnums=argnums_resolved,
         fallbacks=tuple(sorted(unknown_primitives)),
     )
-    _warn_if_dense(sparsity)
+    lossy = sorted(name for name, lost in unknown_primitives.items() if lost)
+    _warn_if_dense(sparsity, lossy)
     return sparsity
 
 
@@ -197,13 +197,14 @@ def _build_input_indices(
     return input_indices, n_selected
 
 
-def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, set[str]]:
+def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, dict[str, bool]]:
     """Run ``_prop_jaxpr`` and concatenate index sets across all output leaves.
 
     JAX flattens pytree-structured outputs into one ``outvar`` per leaf, so
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
 
-    Also returns the unknown primitives whose fallback lost dependencies.
+    Also returns the unknown primitives,
+    each mapped to whether its fallback lost dependencies.
     """
     jaxpr = closed_jaxpr.jaxpr
     state = _PropState()
@@ -215,20 +216,21 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, set[str]]:
     return flat, state.unknown_primitives
 
 
-def _warn_if_dense(sparsity: SparsityPattern) -> None:
+def _warn_if_dense(sparsity: SparsityPattern, lossy_fallbacks: list[str]) -> None:
     """Warn if the detected pattern has no zeros left.
 
-    The message names the unknown primitives that fell back to conservative patterns,
+    The message names the unknown primitives whose fallback lost dependencies,
     since they may be what cost the sparsity.
-    Without fallbacks, the function is dense by nature.
+    Unknown primitives that only saw constants lost nothing and are left out.
+    Without lossy fallbacks, the function is dense by nature.
     Patterns with a single row or column are skipped,
     since they take one color whether they are dense or not.
     """
     m, n = sparsity.shape
     if min(m, n) <= 1 or sparsity.nnz < m * n:
         return
-    if sparsity.fallbacks:
-        names = ", ".join(sparsity.fallbacks)
+    if lossy_fallbacks:
+        names = ", ".join(lossy_fallbacks)
         cause = (
             f" after falling back to conservative patterns"
             f" for unknown primitives: {names}.\n"
@@ -238,7 +240,7 @@ def _warn_if_dense(sparsity: SparsityPattern) -> None:
     else:
         cause = (
             ".\n"
-            "Detection used no conservative fallbacks for unknown primitives,"
+            "No conservative fallback for an unknown primitive cost sparsity,"
             " so the function is likely dense by nature.\n"
         )
     # Detection is reached through several public entry points,

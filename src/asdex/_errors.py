@@ -1,5 +1,8 @@
 """Errors and warnings raised across asdex."""
 
+_ISSUES_URL = "https://github.com/adrhill/asdex/issues"
+"""Where users report missing handlers and bugs."""
+
 
 class VerificationError(AssertionError):
     """Raised when asdex's sparse result does not match JAX's dense reference.
@@ -39,8 +42,8 @@ class DensePatternWarning(UserWarning):
     The message tells two causes apart.
     If detection met primitives it has no handler for,
     it replaced them by conservative patterns, which may be what cost the sparsity.
-    The message then lists these primitives,
-    which are also stored in
+    The message then lists the ones whose inputs depended on the function's inputs.
+    Every unknown primitive is stored in
     [`SparsityPattern.fallbacks`][asdex.SparsityPattern].
     Please help out asdex's development by reporting them at
     <https://github.com/adrhill/asdex/issues>.

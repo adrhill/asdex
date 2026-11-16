@@ -25,6 +25,7 @@ from jax.tree_util import (
 from numpy.typing import NDArray
 
 from asdex._display import _render, _render_side_by_side, _render_stacked
+from asdex._errors import _ISSUES_URL
 from asdex._types import ColoringMode, _assert_coloring_mode
 
 # Serialization helpers
@@ -145,8 +146,11 @@ class SparsityPattern:
             had no handler for and replaced by a conservative pattern,
             in which every output depends on every input.
             The pattern is still correct, but may be less sparse than necessary.
+            HiJax primitives are named ``hijax:<module>.<class>``.
             Empty if detection knew every primitive,
             and for patterns that were not detected.
+            [`print_fallbacks`][asdex.SparsityPattern.print_fallbacks]
+            prints a readable summary.
     """
 
     rows: NDArray[np.int32]
@@ -496,6 +500,16 @@ class SparsityPattern:
         )
 
     # Display
+
+    def print_fallbacks(self) -> None:
+        """Print the primitives that sparsity detection replaced by conservative patterns.
+
+        These primitives had no handler,
+        so detection assumed that every output depends on every input.
+        The names are also available as
+        [`fallbacks`][asdex.SparsityPattern].
+        """
+        print(_fallbacks_str(self))  # noqa: T201
 
     def __str__(self) -> str:
         """Render sparsity pattern with header and dot/braille grid."""
@@ -1070,10 +1084,26 @@ def _sparsity_str(pattern: SparsityPattern) -> str:
         f"SparsityPattern({pattern.m}×{pattern.n}, "
         f"nnz={pattern.nnz}, sparsity={1 - pattern.density:.1%})"
     )
-    if pattern.fallbacks:
-        header += f"\nConservative fallbacks: {', '.join(pattern.fallbacks)}"
     grid = _render(pattern.m, pattern.n, pattern.rows, pattern.cols)
     return f"{header}\n{grid}"
+
+
+def _fallbacks_str(pattern: SparsityPattern) -> str:
+    """Readable summary of ``pattern.fallbacks``."""
+    if not pattern.fallbacks:
+        return "No conservative fallbacks: sparsity detection knew every primitive."
+    count = len(pattern.fallbacks)
+    noun = "primitive" if count == 1 else "primitives"
+    lines = [
+        f"Sparsity detection fell back to conservative patterns"
+        f" for {count} {noun} without a handler:",
+        *(f"  - {name}" for name in pattern.fallbacks),
+        "These patterns assume that every output depends on every input,",
+        "so the detected pattern may be less sparse than necessary.",
+        "Please help out asdex's development by reporting missing JAX primitives at",
+        f"{_ISSUES_URL}",
+    ]
+    return "\n".join(lines)
 
 
 def _sparsity_repr(pattern: SparsityPattern) -> str:

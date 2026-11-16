@@ -432,7 +432,8 @@ def test_remat3_checkpoint_name(policy):
 def test_unknown_hi_primitive_falls_back_conservatively(caplog):
     """HiJax primitives without a handler fall back to a conservative pattern.
 
-    The fallback is logged under the HiJax primitive's class name.
+    The fallback is named after the HiJax primitive's module and class,
+    with a ``hijax:`` prefix.
     """
 
     class Double(HiPrim):
@@ -460,11 +461,11 @@ def test_unknown_hi_primitive_falls_back_conservatively(caplog):
         ]
     )
     np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
-    assert sparsity.fallbacks == ("Double",)
+    name = f"hijax:{__name__}.Double"
+    assert sparsity.fallbacks == (name,)
     (record,) = caplog.records
     assert record.message.startswith(
-        "No handler for HiJax primitive 'Double',"
-        " falling back to a conservative pattern."
+        f"No handler for primitive '{name}', falling back to a conservative pattern."
     )
 
 
