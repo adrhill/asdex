@@ -478,22 +478,11 @@ def test_reduce_generic_mixing_operands():
     expected = np.array(
         [
             # re row 0 re row 1 im row 0 im row 1
-            [1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],  # real part of the product of row 0
+            # Real part of the product of each row
+            [1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
             [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
-            [
-                1,
-                1,
-                1,
-                0,
-                0,
-                0,
-                1,
-                1,
-                1,
-                0,
-                0,
-                0,
-            ],  # imaginary part of the product of row 0
+            # Imaginary part of the product of each row
+            [1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
             [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1],
         ],
         dtype=int,

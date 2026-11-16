@@ -179,6 +179,23 @@ def test_polynomial_constant_x():
     np.testing.assert_array_equal(result, np.ones((3, 2), dtype=int))
 
 
+def test_polynomial_no_dependencies():
+    """A polynomial whose operands all lack dependencies yields an empty pattern.
+
+    ``floor`` has zero derivative, so x carries no dependencies,
+    and the literal coefficients contribute nothing.
+    """
+
+    def f(x):
+        return lax.polynomial(jnp.floor(x), [1.0, 5.0, 2.0])
+
+    x = jnp.array([0.5, 1.5, 2.5])
+    assert "polynomial" in _primitive_names(f, x)
+    assert_jacobian_sparsity_exact(f, x)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
+
+
 def test_polynomial_many_coefficients():
     """More coefficients than the unroll threshold still emit a single primitive."""
 
