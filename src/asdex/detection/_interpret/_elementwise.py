@@ -29,6 +29,7 @@ from ._common import (
     _ternary_value_bounds,
     _union_elementwise,
 )
+from ._trivial_pattern import _prop_empty_pattern
 
 
 def _is_integer_division_undefined(in1_val: np.ndarray, in2_val: np.ndarray) -> bool:
@@ -145,12 +146,6 @@ _UNARY_CONST_UFUNCS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
 
 
 # Building blocks (private)
-
-
-def _zero_derivative(eqn: JaxprEqn, state: _PropState) -> None:
-    """Set empty index sets for zero-derivative outputs."""
-    for outvar in eqn.outvars:
-        state.indices[outvar] = _empty_index_sets(_atom_numel(outvar))
 
 
 def _binary_elementwise(
@@ -290,24 +285,6 @@ def _propagate_bounds_extremum(
 # Each corresponds to exactly one dispatch case in _prop_dispatch.
 
 
-def _prop_zero_derivative(eqn: JaxprEqn, state: _PropState) -> None:
-    """Zero-derivative primitives (floor, ceil, sign, ...).
-
-    Operations with zero derivative almost everywhere.
-    Their outputs are piecewise constant,
-    so infinitesimal input changes don't affect outputs.
-
-    Mathematically, for f in {floor, ceil, sign, ...}:
-        ∂f/∂x = 0  (almost everywhere)
-    Therefore, output elements have no dependencies on input elements.
-
-    Example: y = floor(x) where x = [1.7, 2.3, 3.9]
-        Input index sets:  [{0}, {1}, {2}]
-        Output index sets: [{}, {}, {}]  (empty sets, no dependence)
-    """
-    _zero_derivative(eqn, state)
-
-
 def _prop_zero_derivative_const(eqn: JaxprEqn, state: _PropState) -> None:
     """Zero-derivative primitives that also propagate const values.
 
@@ -315,7 +292,7 @@ def _prop_zero_derivative_const(eqn: JaxprEqn, state: _PropState) -> None:
     where the output is zero-derivative
     but the concrete result may be needed by downstream handlers.
     """
-    _zero_derivative(eqn, state)
+    _prop_empty_pattern(eqn, state)
     _propagate_const(eqn, state)
 
 
@@ -332,7 +309,7 @@ def _prop_zero_derivative_unary_const(eqn: JaxprEqn, state: _PropState) -> None:
     so a primitive added to the dispatch case but not to the dict
     raises instead of silently skipping const propagation.
     """
-    _zero_derivative(eqn, state)
+    _prop_empty_pattern(eqn, state)
     match eqn.primitive.name:
         case "round":
             rounding_method = eqn.params["rounding_method"]

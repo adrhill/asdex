@@ -437,8 +437,8 @@ def test_mutable_ref_from_closure_raises():
         jacobian_sparsity(f, np.ones(3))
 
 
-def test_known_fallback_primitive_is_not_logged(caplog):
-    """Primitives in the opt-in fallback group are neither logged nor warned about."""
+def test_known_dense_primitive_is_not_logged(caplog):
+    """Known primitives with a dense pattern are neither logged nor warned about."""
     with (
         warnings.catch_warnings(),
         caplog.at_level(logging.INFO, logger="asdex.detection"),

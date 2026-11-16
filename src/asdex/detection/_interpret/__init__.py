@@ -21,7 +21,6 @@ from ._broadcast import _prop_broadcast_in_dim
 from ._common import (
     IndexSet,
     _atom_numel,
-    _conservative_indices,
     _empty_index_sets,
     _forget_value_info,
     _forward_across_jaxpr_boundary,
@@ -49,7 +48,6 @@ from ._elementwise import (
     _prop_sub,
     _prop_ternary_elementwise,
     _prop_unary_elementwise,
-    _prop_zero_derivative,
     _prop_zero_derivative_const,
     _prop_zero_derivative_unary_const,
 )
@@ -77,6 +75,7 @@ from ._stack import _prop_stack
 from ._tile import _prop_tile
 from ._top_k import _prop_top_k
 from ._transpose import _prop_transpose
+from ._trivial_pattern import _prop_dense_pattern, _prop_empty_pattern
 from ._unstack import _prop_unstack
 from ._while import _prop_while
 
@@ -268,7 +267,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "shift_right_logical"
             | "lu_pivots_to_permutation"  # integer permutation of the pivots
         ):
-            _prop_zero_derivative(eqn, state)
+            _prop_empty_pattern(eqn, state)
         case "clamp":
             _prop_clamp(eqn, state)
         case "eq" | "ne" | "lt_to" | "le_to":
@@ -450,16 +449,20 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_cumsum(eqn, state)
         case "qr":
             _prop_qr(eqn, state)
-        # Conservative fallback: all outputs depend on all inputs.
-        case (
-            "nonbatchable"
-            | "unvmap_any"  # from Equinox
-            | "unvmap_max"  # from Equinox
-            | "pure_callback"
-        ):
-            _prop_conservative_fallback(eqn, state)
-        # Linear algebra without a precise handler also uses the conservative fallback.
-        # Most of these outputs are generically dense,
+        # Known primitives with a dense pattern: every output depends on every input.
+        # Unlike unknown primitives, they are not reported to the user.
+        # Opaque: the primitive's body is not visible in the jaxpr,
+        # so no tighter pattern can be derived.
+        # jax.pure_callback calls a Python function on the host that JAX does not trace,
+        # so the jaxpr only records the shapes and dtypes of its outputs.
+        # Its caller promises that the function has no side effects,
+        # which makes the dense pattern conservative.
+        # io_callback makes no such promise, so it stays an unknown primitive.
+        case "pure_callback":
+            _prop_dense_pattern(eqn, state)
+        # Improvable: correct, but a tighter pattern could be derived.
+        # Linear algebra without a precise handler:
+        # most of these outputs are generically dense,
         # e.g. hessenberg and tridiagonal pack their reflectors below the band.
         # Structural zeros, like those of schur's quasi-triangular T, are left out,
         # and so is the independence of batch members.
@@ -478,25 +481,15 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "householder_product"
             | "ormqr"
             | "tridiagonal_solve"
+            # TODO: these Equinox primitives have tighter patterns.
+            # nonbatchable is an identity, and unvmap_any and unvmap_max have zero derivative.
+            | "nonbatchable"
+            | "unvmap_any"
+            | "unvmap_max"
         ):
-            _prop_conservative_fallback(eqn, state)
+            _prop_dense_pattern(eqn, state)
         case name:
             _prop_unknown_primitive(eqn, state, name)
-
-
-def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
-    """Conservative fallback for primitives without precise handlers.
-
-    Assumes worst-case: every output element may depend on every input element.
-    This is correct but may overestimate sparsity (more nonzeros than necessary).
-
-    Used for primitives without precise handlers.
-    """
-    all_inputs: list[IndexSet] = []
-    for invar in eqn.invars:
-        all_inputs.extend(_index_sets(state, invar))
-    for outvar in eqn.outvars:
-        state.indices[outvar] = _conservative_indices(all_inputs, _atom_numel(outvar))
 
 
 def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None:
@@ -539,4 +532,4 @@ def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None
         )
     if any(indices for invar in eqn.invars for indices in _index_sets(state, invar)):
         state.unknown_primitives[name] = True
-    _prop_conservative_fallback(eqn, state)
+    _prop_dense_pattern(eqn, state)

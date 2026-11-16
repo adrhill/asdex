@@ -8,7 +8,7 @@ from ._common import (
     _PropState,
     _set_value_bounds,
 )
-from ._elementwise import _prop_zero_derivative
+from ._trivial_pattern import _prop_empty_pattern
 
 
 def _prop_argmax(eqn: JaxprEqn, state: _PropState) -> None:
@@ -33,7 +33,7 @@ def _prop_argmax(eqn: JaxprEqn, state: _PropState) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.argmax.html
     """
-    _prop_zero_derivative(eqn, state)
+    _prop_empty_pattern(eqn, state)
 
     axes = eqn.params["axes"]
     in_shape = _atom_shape(eqn.invars[0])
