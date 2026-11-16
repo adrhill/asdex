@@ -239,7 +239,7 @@ def test_dynamic_update_slice_input_dependent_start_conservative():
 def test_dynamic_slice_start_from_cast_adds_no_dependencies():
     """A start cast from a float has zero derivative, so only the operand spreads.
 
-    The start ``x[0].astype(int)`` is unbounded, so the slice degrades to a dense pattern
+    The start ``x[0].astype(int)`` is unbounded, so the slice returns a dense pattern
     over its operand ``x[1:]``, but ``x[0]`` itself is not a dependency.
 
     TODO(dynamic_slice): JAX clamps the start into [0, 1],

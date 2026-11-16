@@ -949,7 +949,7 @@ def test_gather_integer_operand_dynamic_indices_empty():
     """Gathering from an integer operand gives an integer output, which has zero derivative.
 
     Integer inputs are seeded with dependencies,
-    so before the dtype rule the degraded dense pattern spread them into the output.
+    so before the dtype rule the dense pattern spread them into the output.
     """
 
     def f(n):
