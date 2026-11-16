@@ -515,12 +515,6 @@ def _check_no_index_sets(state: _PropState, atom: Atom, primitive_name: str) -> 
         raise ValueError(msg)
 
 
-def _conservative_indices(all_indices: list[IndexSet], out_size: int) -> list[IndexSet]:
-    """Build conservative output index sets where every element depends on the union of all inputs."""
-    combined = _union_all(all_indices)
-    return [combined] * out_size
-
-
 # Index clamping
 
 

@@ -37,7 +37,6 @@ from ._common import (
     _atom_value_bounds,
     _bounded_ranges,
     _clamp_starts,
-    _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
     _merge_index_dependencies,
@@ -45,6 +44,7 @@ from ._common import (
     _position_map,
     _PropState,
 )
+from ._trivial_pattern import _prop_dense_pattern
 
 
 def _si_batch_axes(
@@ -365,8 +365,6 @@ def _prop_gather(
             )
             return
 
-    # Conservative fallback: every output depends on all inputs.
-    # Include both operand and start_indices dependencies.
-    state.indices[eqn.outvars[0]] = _conservative_indices(
-        operand_indices + si_index_sets, out_size
-    )
+    # Unresolvable indices: degrade to a dense pattern,
+    # in which every output depends on the operand and on the indices' own dependencies.
+    _prop_dense_pattern(eqn, state)

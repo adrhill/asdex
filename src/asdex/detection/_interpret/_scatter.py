@@ -15,7 +15,6 @@ from ._common import (
     _atom_value_bounds,
     _bounded_ranges,
     _clamp_starts,
-    _conservative_indices,
     _copy_index_set,
     _enumerate_bounded_patterns,
     _index_sets,
@@ -25,6 +24,7 @@ from ._common import (
     _union_all,
 )
 from ._gather import _iter_si_starts
+from ._trivial_pattern import _prop_dense_pattern
 
 
 def _scatter_flat_map(
@@ -252,9 +252,6 @@ def _prop_scatter(
             )
             return
 
-    # Dynamic indices - conservative fallback,
+    # Unresolvable indices: degrade to a dense pattern,
     # including the indices' own dependencies (mirrors gather).
-    state.indices[eqn.outvars[0]] = _conservative_indices(
-        operand_indices + updates_indices + si_index_sets,
-        _atom_numel(eqn.outvars[0]),
-    )
+    _prop_dense_pattern(eqn, state)

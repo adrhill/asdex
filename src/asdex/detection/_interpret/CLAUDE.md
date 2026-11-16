@@ -119,7 +119,7 @@ Only `_coo_from_index_sets` in `detection/_api.py` iterates a set.
 
 **Aliasing**: sets and lists in `state.indices` are shared, not copied.
 Outputs alias inputs, pass-through handlers alias whole lists,
-and `_conservative_indices` reuses one set for every position.
+and `_prop_dense_pattern` reuses one set for every position of every output.
 Never mutate a set or list read from state.
 To accumulate with `|=`, copy the target set first.
 This beats collecting operands for `_union_all`, whose temporary list per element dominates for small sets.
