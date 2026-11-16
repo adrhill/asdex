@@ -35,7 +35,8 @@ Every handler must uphold these.
 - **Index sets track derivatives, not data flow.**
   An output depends on an input only if their partial derivative can be nonzero.
   Piecewise-constant ops (`floor`, `sign`, comparisons, `argmax`) therefore emit empty sets,
-  and so do the non-inexact outputs of `_prop_dense_pattern`.
+  and so do casts from inexact to integer or boolean dtypes and the non-inexact outputs of `_prop_dense_pattern`.
+  Integer and boolean variables then only carry dependencies if they come straight from an integer input.
   `custom_jvp_call` and `custom_vjp_call` still follow their primal,
   not the rule JAX differentiates them with, a known gap
   (see the `bug` tests in `tests/_interpret/test_custom_jvp.py`

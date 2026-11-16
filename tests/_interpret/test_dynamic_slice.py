@@ -234,6 +234,34 @@ def test_dynamic_update_slice_input_dependent_start_conservative():
     assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0, 4.0]))
 
 
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_dynamic_slice_start_from_cast_adds_no_dependencies():
+    """A start cast from a float has zero derivative, so only the operand spreads.
+
+    The start ``x[0].astype(int)`` is unbounded, so the slice degrades to a dense pattern
+    over its operand ``x[1:]``, but ``x[0]`` itself is not a dependency.
+
+    TODO(dynamic_slice): JAX clamps the start into [0, 1],
+    so the precise pattern is [[0, 1, 1, 0], [0, 0, 1, 1]].
+    """
+
+    def f(x):
+        start = x[0].astype(jnp.int32)
+        return lax.dynamic_slice(x[1:], (start,), (2,))
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.array(
+        [
+            [0, 1, 1, 1],  # any window of x[1:], nothing from x[0]
+            [0, 1, 1, 1],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0, 4.0]))
+
+
 # Size-0 dimension
 
 

@@ -1657,3 +1657,93 @@ def test_reduce_precision_is_elementwise():
 
     x = jnp.arange(1.0, 4.0)
     assert_jacobian_sparsity_exact(f, x)
+
+
+# convert_element_type from inexact to integer or boolean
+
+
+@pytest.mark.elementwise
+@pytest.mark.parametrize("dtype", [jnp.int32, jnp.uint8, jnp.bool_])
+def test_convert_inexact_to_integer_zero_derivative(dtype):
+    """Casting a float to an integer or boolean is piecewise constant.
+
+    Casting back to float does not bring the dependencies back.
+    """
+
+    def f(x):
+        return x.astype(dtype).astype(jnp.float32)
+
+    x = np.array([0.5, 1.5, 2.5], dtype=np.float32)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
+    assert_jacobian_sparsity_exact(f, x)
+
+
+@pytest.mark.elementwise
+def test_convert_complex_to_integer_zero_derivative():
+    """Complex dtypes are inexact too, so casting them to an integer zeroes."""
+
+    def f(x):
+        z = x.astype(jnp.complex64)
+        return lax.convert_element_type(lax.real(z), jnp.int32).astype(jnp.float32)
+
+    x = np.array([0.5, 1.5, 2.5], dtype=np.float32)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
+
+
+@pytest.mark.elementwise
+def test_convert_complex_to_float_keeps_dependencies():
+    """Casting between inexact dtypes, including complex to real, is the identity."""
+
+    def f(x):
+        return lax.convert_element_type(x.astype(jnp.complex64), jnp.float32)
+
+    x = np.array([0.5, 1.5, 2.5], dtype=np.float32)
+    result = jacobian_sparsity(f, x).todense().astype(int)
+    np.testing.assert_array_equal(result, np.eye(3, dtype=int))
+
+
+@pytest.mark.elementwise
+def test_convert_integer_input_to_float_keeps_dependencies():
+    """Integer inputs are seeded with dependencies, and casting them keeps those.
+
+    The rule only zeroes casts from an inexact dtype.
+    """
+
+    def f(n):
+        return n.astype(jnp.float32) * 2
+
+    result = jacobian_sparsity(f, np.arange(3, dtype=np.int32)).todense().astype(int)
+    np.testing.assert_array_equal(result, np.eye(3, dtype=int))
+
+
+@pytest.mark.array_ops
+def test_convert_float_to_integer_keeps_const():
+    """The const value survives a cast from float to integer, so the gather stays precise."""
+
+    def f(x):
+        return x[jnp.array([2.0, 0.0]).astype(jnp.int32)]
+
+    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+    expected = np.array([[0, 0, 1], [1, 0, 0]], dtype=int)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.array_ops
+def test_convert_float_to_integer_keeps_bounds():
+    """Value bounds survive a round trip through float, so the slice enumerates its starts."""
+
+    def f(x):
+        start = jnp.argmax(x[:2]).astype(jnp.float32).astype(jnp.int32)
+        return lax.dynamic_slice(x, (start,), (2,))
+
+    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    expected = np.array(
+        [
+            [1, 1, 0, 0],  # out[0] = x[start], start ∈ {0, 1}
+            [0, 1, 1, 0],  # out[1] = x[start + 1]
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result, expected)
