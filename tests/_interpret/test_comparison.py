@@ -402,12 +402,16 @@ def test_lexicographic_comparators_zero_derivative():
     ``jnp.searchsorted`` on complex keys reaches all three,
     since it splits each key into a real and an imaginary part.
     The operand is fed through ``astype`` so that it carries dependencies.
+    Every element of ``x`` sorts after the first key,
+    so no factor of the diagonal is zero.
     """
     sorted_keys = jnp.array([1 + 1j, 2 + 0j, 3 - 1j], dtype=jnp.complex64)
 
     def f(x):
         return x * jnp.searchsorted(sorted_keys, x.astype(jnp.complex64))
 
-    result = jacobian_sparsity(f, np.ones(3))
+    x = np.array([1.5, 2.5, 3.5])
+    result = jacobian_sparsity(f, x)
     np.testing.assert_array_equal(result.todense(), np.eye(3))
     assert result._fallbacks == ()
+    assert_jacobian_sparsity_exact(f, x)
