@@ -536,6 +536,57 @@ def _prop_unary_elementwise(eqn: JaxprEqn, state: _PropState) -> None:
     state.indices[eqn.outvars[0]] = _index_sets(state, eqn.invars[0])
 
 
+def _prop_ldexp(eqn: JaxprEqn, state: _PropState) -> None:
+    """Ldexp computes ``x1 * 2**x2`` elementwise for an integer exponent ``x2``.
+
+    Each output depends on the corresponding element of ``x1``.
+    The exponent is an integer,
+    so ``_prop_jaxpr`` gives it no dependencies and it contributes nothing.
+
+    For y = x1 * 2^x2 element-wise:
+        ∂y/∂x1 = 2^x2
+
+    Example: y = ldexp(x, 2) where x = [a, b, c]
+        Input index sets:  [{0}, {1}, {2}]
+        Output index sets: [{0}, {1}, {2}]
+
+    Jaxpr:
+        invars[0]: x1, the float mantissa
+        invars[1]: x2, the integer exponent
+
+    https://docs.jax.dev/en/latest/_autosummary/jax.numpy.ldexp.html
+    """
+    _binary_elementwise(eqn, state)
+
+
+def _prop_frexp(eqn: JaxprEqn, state: _PropState) -> None:
+    """Frexp splits ``x`` elementwise into a mantissa and an integer exponent.
+
+    ``x = mantissa * 2**exponent``, with the mantissa in ``(-1, 1)``.
+    Each mantissa element depends on the corresponding input element.
+    The handler writes the same index sets for the exponent,
+    which ``_prop_jaxpr`` then empties, since the exponent is an integer.
+
+    For (m, e) = frexp(x) element-wise:
+        ∂m/∂x = 2^(-e)
+        ∂e/∂x = 0
+
+    Example: m, e = frexp(x) where x = [a, b, c]
+        Input index sets:  [{0}, {1}, {2}]
+        Output index sets: m = [{0}, {1}, {2}], e = [{}, {}, {}]
+
+    Jaxpr:
+        invars[0]: input array
+        outvars[0]: mantissa
+        outvars[1]: integer exponent
+
+    https://docs.jax.dev/en/latest/_autosummary/jax.numpy.frexp.html
+    """
+    in_indices = _index_sets(state, eqn.invars[0])
+    for outvar in eqn.outvars:
+        state.indices[outvar] = in_indices
+
+
 def _prop_convert_element_type(
     eqn: JaxprEqn,
     state: _PropState,

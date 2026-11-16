@@ -8,8 +8,10 @@ on:
 
 env:
   # Versions for single-version jobs and the coverage upload.
-  LATEST_PYTHON: &latest-python "3.14"
-  LATEST_JAX: &latest-jax "0.11"
+  VERSION_PYTHON_LATEST: &version-python-latest "3.14"
+  VERSION_JAX_LATEST: &version-jax-latest "0.12"
+  # The oldest supported JAX release, matching the lower bound in pyproject.toml.
+  VERSION_JAX_OLDEST: &version-jax-oldest "0.11.0"
 
 jobs:
   Tests:
@@ -18,9 +20,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.12", *latest-python]
-        # The oldest supported JAX release and the latest 0.11 release.
-        jax-version: ["0.11.0", *latest-jax]
+        python-version: ["3.12", *version-python-latest]
+        # The oldest supported JAX release,
+        # then the latest patch release of every supported minor version.
+        jax-version: [*version-jax-oldest, "0.11", *version-jax-latest]
     steps:
       - uses: actions/checkout@v7
       - name: Install uv
@@ -34,7 +37,7 @@ jobs:
       - name: Test with coverage
         run: uv run --no-sync pytest -m "" --cov=src/asdex --cov-report=xml  # -m "" overrides default marker filter to include slow and benchmark tests
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == env.LATEST_PYTHON && matrix.jax-version == env.LATEST_JAX
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == env.VERSION_PYTHON_LATEST && matrix.jax-version == env.VERSION_JAX_LATEST
         uses: codecov/codecov-action@v7
         with:
           files: coverage.xml
@@ -49,7 +52,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
       - name: Set up Python
-        run: uv python install ${{ env.LATEST_PYTHON }}
+        run: uv python install ${{ env.VERSION_PYTHON_LATEST }}
       # juliapkg reuses this Julia (found on PATH) instead of downloading its own.
       - name: Set up Julia
         uses: julia-actions/setup-julia@v2
@@ -69,7 +72,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
       - name: Set up Python
-        run: uv python install ${{ env.LATEST_PYTHON }}
+        run: uv python install ${{ env.VERSION_PYTHON_LATEST }}
       - name: Install dependencies
         run: uv sync --group dev
       - name: Lint
