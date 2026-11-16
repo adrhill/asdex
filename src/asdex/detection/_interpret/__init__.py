@@ -595,8 +595,10 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
             _ISSUES_URL,
         )
     _prop_dense_pattern(eqn, state)
-    # Outputs without a differentiable dtype are emptied after this handler returns,
-    # so they cannot make the fallback conservative.
+    # The fallback is only conservative if it adds nonzeros to the pattern,
+    # i.e. if an output keeps the dependencies the dense pattern gave it.
+    # ``_prop_jaxpr`` empties outputs without a differentiable dtype after this returns,
+    # so only the others count.
     if any(
         indices
         for outvar in eqn.outvars

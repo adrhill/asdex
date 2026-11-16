@@ -543,8 +543,8 @@ def _prop_convert_element_type(
     """Type conversion (e.g., float32 → float64) changes dtype without changing values.
 
     Dependencies pass through unchanged and the Jacobian is the identity matrix.
-    A cast to an integer or boolean dtype is not differentiable,
-    so ``_prop_jaxpr`` then empties the output index sets,
+    Casts to an integer or boolean dtype are the exception and not differentiable:
+    ``_prop_jaxpr`` empties the output index sets,
     and integer indices computed from inputs (e.g. ``x[0].astype(int)``)
     stop spreading dependencies into gather, scatter and dynamic_slice.
 
