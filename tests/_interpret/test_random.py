@@ -185,11 +185,8 @@ def test_rng_bit_generator_zero_derivative():
         _, bits = jax.lax.rng_bit_generator(key, (3,), dtype=jnp.uint32)
         return x * bits.astype(jnp.float32)
 
-    x = np.ones(3)
-    result = jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    result = assert_jacobian_sparsity_exact(f, np.ones(3))
     assert result._fallbacks == ()
-    assert_jacobian_sparsity_exact(f, x)
 
 
 @pytest.mark.array_ops
@@ -204,8 +201,5 @@ def test_random_clone_not_reported():
         key = jax.random.clone(jax.random.key(0))
         return x * jax.random.uniform(key, x.shape)
 
-    x = np.ones(3)
-    result = jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    result = assert_jacobian_sparsity_exact(f, np.ones(3))
     assert result._fallbacks == ()
-    assert_jacobian_sparsity_exact(f, x)

@@ -16,7 +16,6 @@ eqxi = eqx.internal
 
 import jax.numpy as jnp  # noqa: E402
 
-from asdex import jacobian_sparsity  # noqa: E402
 from tests._utils import assert_jacobian_sparsity_exact  # noqa: E402
 
 
@@ -36,8 +35,5 @@ def test_zero_derivative(op, dtype):
     def f(x):
         return x * op(x.astype(dtype))
 
-    x = np.arange(1.0, 4.0)
-    result = jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    result = assert_jacobian_sparsity_exact(f, np.arange(1.0, 4.0))
     assert result._fallbacks == ()
-    assert_jacobian_sparsity_exact(f, x)

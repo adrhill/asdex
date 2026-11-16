@@ -38,11 +38,8 @@ def test_mulhi_zero_derivative():
         u = x.astype(jnp.uint32)
         return x * lax.mulhi(u, u).astype(jnp.float32)
 
-    x = np.array([1e5, 2e5, 3e5])
-    result = jacobian_sparsity(f, x)
-    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    result = assert_jacobian_sparsity_exact(f, np.array([1e5, 2e5, 3e5]))
     assert result._fallbacks == ()
-    assert_jacobian_sparsity_exact(f, x)
 
 
 def _print(x):
@@ -72,14 +69,11 @@ def test_debug_is_silent(debug, caplog):
         debug(x)
         return x * 2
 
-    x = np.ones(3)
     with caplog.at_level(logging.INFO, logger="asdex.detection"):
-        result = jacobian_sparsity(f, x)
+        result = assert_jacobian_sparsity_exact(f, np.ones(3))
 
-    np.testing.assert_array_equal(result.todense(), np.eye(3))
     assert result._fallbacks == ()
     assert caplog.records == []
-    assert_jacobian_sparsity_exact(f, x)
 
 
 @_DEBUG
@@ -90,17 +84,13 @@ def test_debug_not_blamed_for_dense_pattern(debug):
         debug(x)
         return jnp.sum(x) * jnp.ones(2)
 
-    x = np.ones(3)
     with pytest.warns(DensePatternWarning) as record:
-        result = jacobian_sparsity(f, x)
+        result = assert_jacobian_sparsity_exact(f, np.ones(3))
 
-    np.testing.assert_array_equal(result.todense(), np.ones((2, 3)))
     assert result._fallbacks == ()
     message = str(record[0].message)
     assert "debug" not in message
     assert "No primitives without a precise handler were involved" in message
-    with pytest.warns(DensePatternWarning):
-        assert_jacobian_sparsity_exact(f, x)
 
 
 # Dense pattern
@@ -121,20 +111,11 @@ def _sin_callback_jvp(primals, tangents):
     return _sin_callback_with_jvp(x), jnp.cos(x) * t
 
 
-@pytest.mark.parametrize(
-    "f",
-    [_sin_callback, _sin_callback_with_jvp],
-    ids=["bare", "custom_jvp"],
-)
-def test_pure_callback_dense_and_silent(f, caplog):
+def test_pure_callback_dense_and_silent(caplog):
     """``pure_callback`` gets a dense pattern without being reported.
 
     Its body is not visible in the jaxpr, so no tighter pattern can be derived.
-    Wrapping it in ``jax.custom_jvp`` is the only form ``jax.jacobian`` accepts.
-    Detection still follows the primal and meets the ``pure_callback`` inside,
-    so the pattern is dense although the rule here is diagonal.
-    The bare form cannot be differentiated by JAX,
-    so it has no reference to check against.
+    JAX cannot differentiate it, so there is no reference to check against.
     """
     x = np.arange(1.0, 4.0)
     with (
@@ -142,15 +123,27 @@ def test_pure_callback_dense_and_silent(f, caplog):
         caplog.at_level(logging.INFO, logger="asdex.detection"),
     ):
         warnings.simplefilter("ignore", DensePatternWarning)
-        result = jacobian_sparsity(f, x)
+        result = jacobian_sparsity(_sin_callback, x)
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
     assert result._fallbacks == ()
     assert caplog.records == []
-    if f is _sin_callback_with_jvp:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DensePatternWarning)
-            assert_jacobian_sparsity_conservative(f, x)
-    else:
-        with pytest.raises(ValueError, match="Pure callbacks do not support JVP"):
-            jax.jacobian(f)(x)
+    with pytest.raises(ValueError, match="Pure callbacks do not support JVP"):
+        jax.jacobian(_sin_callback)(x)
+
+
+def test_pure_callback_with_custom_jvp_dense_and_silent(caplog):
+    """A ``pure_callback`` wrapped in ``jax.custom_jvp`` is still dense and silent.
+
+    Wrapping it in ``jax.custom_jvp`` is the only form ``jax.jacobian`` accepts.
+    Detection still follows the primal and meets the ``pure_callback`` inside,
+    so the pattern is dense although the rule here is diagonal.
+    """
+    with caplog.at_level(logging.INFO, logger="asdex.detection"):
+        result = assert_jacobian_sparsity_conservative(
+            _sin_callback_with_jvp, np.arange(1.0, 4.0)
+        )
+
+    np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+    assert result._fallbacks == ()
+    assert caplog.records == []

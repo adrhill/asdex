@@ -4,12 +4,11 @@ All three come from ``equinox/internal/_nontraceable.py``.
 They return their operand unchanged and only raise under some transformations,
 so they get the pattern of a pass-through primitive.
 
-``nondifferentiable_backward`` raises only in reverse mode,
+JAX differentiates through ``nondifferentiable_backward`` in forward mode only,
 so its patterns are checked against ``jax.jacfwd``.
-JAX cannot differentiate ``nonbatchable`` and ``nontraceable`` in either mode,
-so asdex must raise as well instead of returning zeros.
-Integer operands carry symbolic zero tangents,
-so all three can be checked against ``jax.jacobian`` for const indices.
+JAX cannot differentiate through ``nonbatchable`` and ``nontraceable``,
+so their patterns are checked by hand.
+Where JAX raises, asdex must raise as well instead of returning zeros.
 
 Requires equinox to be installed.
 """
@@ -30,95 +29,90 @@ from tests._utils import (  # noqa: E402
     assert_jacobian_sparsity_exact,
 )
 
-_IDENTITIES = [eqxi.nonbatchable, eqxi.nontraceable, eqxi.nondifferentiable_backward]
-_NOT_DIFFERENTIABLE = [
-    (eqxi.nonbatchable, NotImplementedError, "Differentiation rule"),
-    (eqxi.nontraceable, RuntimeError, "Detected differentiation"),
-]
 _X = np.arange(1.0, 4.0)
 
 
+def _scaled(op):
+    return lambda x: op(x) * 2
+
+
+def _overlapping(op):
+    """Index sets with several entries per element."""
+    return lambda x: op((x[:2] + x[1:]).reshape(1, 2))
+
+
 @pytest.mark.array_ops
-@pytest.mark.parametrize("op", _IDENTITIES, ids=lambda op: op.__name__)
-def test_identity_pattern(op):
+@pytest.mark.parametrize("build", [_scaled, _overlapping], ids=lambda b: b.__name__)
+def test_nondifferentiable_backward_pattern(build):
     """The operand's index sets pass through unchanged and nothing is reported."""
-
-    def f(x):
-        return op(x) * 2
-
-    result = jacobian_sparsity(f, _X)
-    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    f = build(eqxi.nondifferentiable_backward)
+    result = assert_flat_jacobian_sparsity_exact(f, _X, reference=jax.jacfwd)
     assert result._fallbacks == ()
-    if op is eqxi.nondifferentiable_backward:
-        assert_jacobian_sparsity_exact(f, _X, reference=jax.jacfwd)
 
 
 @pytest.mark.array_ops
-@pytest.mark.parametrize("op", _IDENTITIES, ids=lambda op: op.__name__)
-def test_non_trivial_index_sets(op):
-    """Index sets with several entries per element pass through unchanged."""
-
-    def f(x):
-        return op((x[:2] + x[1:]).reshape(1, 2))
-
-    result = jacobian_sparsity(f, _X)
-    expected = np.array([[1, 1, 0], [0, 1, 1]])
+@pytest.mark.parametrize(
+    ("build", "expected"),
+    [
+        (_scaled, np.eye(3)),
+        (_overlapping, np.array([[1, 1, 0], [0, 1, 1]])),
+    ],
+    ids=["_scaled", "_overlapping"],
+)
+@pytest.mark.parametrize(
+    "op", [eqxi.nonbatchable, eqxi.nontraceable], ids=lambda op: op.__name__
+)
+def test_not_differentiable_pattern(op, build, expected):
+    """The operand's index sets pass through unchanged and nothing is reported."""
+    result = jacobian_sparsity(build(op), _X)
     np.testing.assert_array_equal(result.todense(), expected)
     assert result._fallbacks == ()
-    if op is eqxi.nondifferentiable_backward:
-        assert_flat_jacobian_sparsity_exact(f, _X, reference=jax.jacfwd)
 
 
 @pytest.mark.array_ops
-@pytest.mark.parametrize("op", _IDENTITIES, ids=lambda op: op.__name__)
+@pytest.mark.parametrize(
+    "op",
+    [eqxi.nonbatchable, eqxi.nontraceable, eqxi.nondifferentiable_backward],
+    ids=lambda op: op.__name__,
+)
 def test_const_index_stays_resolvable(op):
-    """A const index passed through keeps its value, so the gather stays precise."""
+    """A const index passed through keeps its value, so the gather stays precise.
+
+    The index carries a symbolic zero tangent,
+    so JAX differentiates ``f`` despite the op.
+    """
 
     def f(x):
         return x[op(jnp.array([2, 0]))]
 
-    result = jacobian_sparsity(f, _X)
-    expected = np.array([[0, 0, 1], [1, 0, 0]])
-    np.testing.assert_array_equal(result.todense(), expected)
+    result = assert_jacobian_sparsity_exact(f, _X)
     assert result._fallbacks == ()
-    assert_jacobian_sparsity_exact(f, _X)
 
 
 @pytest.mark.array_ops
-def test_nondifferentiable_backward_matches_jax_per_mode():
-    """Asdex differentiates in forward mode and raises in reverse mode, like JAX.
-
-    An empty pattern would skip AD in both modes and return zeros.
-    """
-
-    def f(x):
-        return eqxi.nondifferentiable_backward(x) * 2
-
-    jac = asdex.jacobian(f, _X, mode="fwd", output_format="dense")(_X)
-    np.testing.assert_allclose(jac, jax.jacfwd(f)(_X))
-
-    with pytest.raises(RuntimeError, match="Unexpected cotangent"):
-        jax.jacrev(f)(_X)
-    with pytest.raises(RuntimeError, match="Unexpected cotangent"):
-        asdex.jacobian(f, _X, mode="rev")(_X)
-
-
-@pytest.mark.array_ops
-@pytest.mark.parametrize("mode", ["fwd", "rev"])
 @pytest.mark.parametrize(
-    ("op", "error", "match"),
-    _NOT_DIFFERENTIABLE,
-    ids=[op.__name__ for op, _, _ in _NOT_DIFFERENTIABLE],
+    ("op", "mode", "error", "match"),
+    [
+        (eqxi.nonbatchable, "fwd", NotImplementedError, "Differentiation rule"),
+        (eqxi.nonbatchable, "rev", NotImplementedError, "Differentiation rule"),
+        (eqxi.nontraceable, "fwd", RuntimeError, "Detected differentiation"),
+        (eqxi.nontraceable, "rev", RuntimeError, "Detected differentiation"),
+        (eqxi.nondifferentiable_backward, "rev", RuntimeError, "Unexpected cotangent"),
+    ],
+    ids=[
+        "nonbatchable-fwd",
+        "nonbatchable-rev",
+        "nontraceable-fwd",
+        "nontraceable-rev",
+        "nondifferentiable_backward-rev",
+    ],
 )
-def test_not_differentiable_raises_like_jax(op, error, match, mode):
+def test_raises_like_jax(op, mode, error, match):
     """Asdex raises where JAX raises instead of returning zeros.
 
     An empty pattern would skip AD and return an all-zero Jacobian.
     """
-
-    def f(x):
-        return op(x) * 2
-
+    f = _scaled(op)
     jax_jacobian = jax.jacfwd if mode == "fwd" else jax.jacrev
     with pytest.raises(error, match=match):
         jax_jacobian(f)(_X)
