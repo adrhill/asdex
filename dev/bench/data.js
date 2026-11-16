@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794848494864,
+  "lastUpdate": 1794851093694,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -24405,6 +24405,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00000553206822035597",
             "extra": "mean: 23.275489736072625 usec\nrounds: 15053"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7597145e71410ec29d4c05153f052979874da067",
+          "message": "feat(detection): classify Equinox, debug and random primitives (#234)\n\n* feat(detection): pass through Equinox's nonbatchable, nontraceable and nondifferentiable_backward\n\nAll three return their operand unchanged and only raise under some transformations.\n`nonbatchable` used to get a dense pattern,\nand the other two were unknown primitives.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): give Equinox's unvmap_any, unvmap_all and unvmap_max an empty pattern\n\nTheir outputs are boolean or integer scalars with zero derivative.\n`unvmap_any` and `unvmap_max` used to get a dense pattern,\nand `unvmap_all` was an unknown primitive.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): stop reporting jax.debug.print and jax.debug.callback as fallbacks\n\n`debug_print` and `debug_callback` have no outputs, so nothing can depend on them.\nThey no longer show up in `print_fallbacks`\nor get blamed by `DensePatternWarning`.\nAlso pins the dense, unreported pattern of `pure_callback`.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): give mulhi an empty pattern\n\nIts output is integer-valued, so it has zero derivative.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): give rng_bit_generator and random_clone an empty pattern\n\nRandom bits have zero derivative with respect to their key,\nincluding the raw uint32 key of `rng_bit_generator`.\n`random_clone` only copies a key, so only its reporting changes.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): give eq_to an empty pattern like lt_to and le_to\n\nAll three come from JAX's lexicographic sort comparators,\nwhich `jnp.searchsorted` on complex keys reaches.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: add changelog entries for the classified primitives\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: match the precise-handler wording in the debug warning test\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs(detection): explain mulhi and the Equinox primitives in the dispatch\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: let the sparsity helpers take a reference Jacobian function\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: check the classified primitives against JAX's Jacobians\n\nInputs of the mulhi and lexicographic comparator tests now avoid locally zero entries.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: return the detected pattern from the assertion helpers\n\nassert_jacobian_sparsity_conservative now ignores DensePatternWarning, since conservative patterns are often fully dense.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: check the classified primitives with the assertion helpers only\n\nEach test now detects its pattern once and reads the fallbacks from the returned pattern.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: let the assertion helpers check the fallbacks\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-16T18:44:15+01:00",
+          "tree_id": "153f5643628a6f4cf4da388bd894a9e9bc23c63f",
+          "url": "https://github.com/adrhill/asdex/commit/7597145e71410ec29d4c05153f052979874da067"
+        },
+        "date": 1794851091539,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 1107.88981227961,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00028341694426787254",
+            "extra": "mean: 902.6168387110499 usec\nrounds: 31"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 34053.925237373376,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004867061330018608",
+            "extra": "mean: 29.365190445139163 usec\nrounds: 7661"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 118233.43110622416,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001027778511425886",
+            "extra": "mean: 8.45784471146382 usec\nrounds: 37440"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 81927.23733774021,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001575045127953112",
+            "extra": "mean: 12.205952897905723 usec\nrounds: 23120"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 115997.33562221189,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015418289090250715",
+            "extra": "mean: 8.620887666393207 usec\nrounds: 31629"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 215.56766284142037,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008075201102044887",
+            "extra": "mean: 4.638914700001351 msec\nrounds: 20"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 3708.558579589371,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000016327564332245388",
+            "extra": "mean: 269.6465428653751 usec\nrounds: 3441"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2485.77915008777,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004184327648625388",
+            "extra": "mean: 402.2883529152986 usec\nrounds: 2281"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2524.069751173071,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033259351866004244",
+            "extra": "mean: 396.18556481461985 usec\nrounds: 1296"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 5839.478978120927,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000018906123157559632",
+            "extra": "mean: 171.2481548005825 usec\nrounds: 4916"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 207.3950351854745,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00017546613517437358",
+            "extra": "mean: 4.821716195403108 msec\nrounds: 87"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 34415.45562340418,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004032716216618597",
+            "extra": "mean: 29.056712511455213 usec\nrounds: 27215"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 67877.70243546389,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000032267182435581805",
+            "extra": "mean: 14.732378441223323 usec\nrounds: 15474"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 59089.074805359895,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000034464121638285756",
+            "extra": "mean: 16.92360226139962 usec\nrounds: 13974"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 70590.43046897651,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022402358958909898",
+            "extra": "mean: 14.166226120968135 usec\nrounds: 21232"
           }
         ]
       }
