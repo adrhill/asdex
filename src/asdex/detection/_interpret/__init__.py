@@ -453,6 +453,11 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         # Unlike unknown primitives, they are not reported to the user.
         # Opaque: the primitive's body is not visible in the jaxpr,
         # so no tighter pattern can be derived.
+        # jax.pure_callback calls a Python function on the host that JAX does not trace,
+        # so the jaxpr only records the shapes and dtypes of its outputs.
+        # Its caller promises that the function has no side effects,
+        # which makes the dense pattern conservative.
+        # io_callback makes no such promise, so it stays an unknown primitive.
         case "pure_callback":
             _prop_dense_pattern(eqn, state)
         # Improvable: correct, but a tighter pattern could be derived.

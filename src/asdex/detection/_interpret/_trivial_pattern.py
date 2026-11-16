@@ -21,7 +21,7 @@ from ._common import (
 def _prop_empty_pattern(eqn: JaxprEqn, state: _PropState) -> None:
     """Every output has zero derivative with respect to every input.
 
-    The right choice for primitives whose outputs cannot change
+    Use it for primitives whose outputs cannot change
     under infinitesimal changes of their inputs:
     piecewise-constant ops (``floor``, ``sign``, comparisons, bitwise ops),
     integer-valued results (``argmax``, ``lu_pivots_to_permutation``),
@@ -47,10 +47,10 @@ def _prop_empty_pattern(eqn: JaxprEqn, state: _PropState) -> None:
 def _prop_dense_pattern(eqn: JaxprEqn, state: _PropState) -> None:
     """Every output element depends on every input element.
 
-    The right choice when the primitive is understood
-    and the union of all inputs is the intended pattern,
-    e.g. because its outputs are generically dense
-    or because its body is not visible in the jaxpr.
+    Use it for known primitives
+    whose intended pattern is the union of all inputs,
+    e.g. because their outputs are generically dense
+    or because their body is not visible in the jaxpr.
     It is also the pattern for unknown primitives,
     which ``_prop_unknown_primitive`` reports before calling this handler.
 
