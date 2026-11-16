@@ -555,6 +555,29 @@ def test_custom_vjp_call_jaxpr_alignment():
     assert len(inner.jaxpr.outvars) == len(eqn.outvars) == 1
 
 
+def test_composite_jaxpr_alignment():
+    """The composite decomposition is an aligned jaxpr param.
+
+    JAX 0.11.0 stores it under ``jaxpr``; JAX 0.11.2 stores it under ``call_jaxpr``.
+    JAX absorbs the decomposition's constvars into the jaxpr's leading invars
+    and passes the same consts as the equation's leading operands,
+    so eqn.invars and the jaxpr's invars correspond 1:1
+    even for closure-captured constants.
+    """
+    const = jnp.arange(2.0)
+    f = jax.lax.composite(lambda a, b: (a * b + const, jnp.sin(a)), "scaled")
+    jaxpr = jax.make_jaxpr(f)(jnp.zeros(2), jnp.zeros(2)).jaxpr
+    eqn = _unique_eqn(jaxpr, "composite")
+
+    assert ("call_jaxpr" in eqn.params) != ("jaxpr" in eqn.params)
+    inner = eqn.params.get("call_jaxpr", eqn.params.get("jaxpr"))
+    assert isinstance(inner, Jaxpr)
+    assert inner.constvars == []
+    assert len(eqn.invars) == len(inner.invars) == 3
+    assert [v.aval for v in inner.invars] == [v.aval for v in eqn.invars]
+    assert [v.aval for v in inner.outvars] == [v.aval for v in eqn.outvars]
+
+
 def test_remat3_outputs():
     """Under remat3, ``jax.checkpoint`` and ``checkpoint_name`` leave the pattern unchanged.
 
