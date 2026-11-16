@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794845705817,
+  "lastUpdate": 1794848494864,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -24276,6 +24276,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000049752234369480545",
             "extra": "mean: 22.2393409736859 usec\nrounds: 11954"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e860419a7faa6e25b8bfdc85c820a7fb5d6412d6",
+          "message": "feat(detection): simplify handlers and report known fallbacks (#232)\n\n* refactor(detection): fold the random, empty and platform_index handlers into dispatch\n\nAll three wrote empty index sets for every output,\nso their cases now call `_prop_empty_pattern`\nand keep the reasoning as a short comment.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(detection): use _prop_empty_pattern in comparison and bitcast handlers\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(detection): degrade to the named patterns in gather, scatter, dynamic_slice and conv\n\nTheir last branches unioned every invar into the single output by hand,\nwhich is what `_prop_dense_pattern` does.\nThe input-free branch of conv is `_prop_empty_pattern`.\n`_conservative_indices` has no caller left and is removed.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: reserve \"fallback\" for unknown primitives\n\nKnown handlers that give up precision now \"degrade to a dense pattern\".\nThe explanation of dynamic gather and scatter indices links to the sources of conservatism\ninstead of the fallback section, which now says that known primitives\nwith a conservative pattern are not listed by `print_fallbacks`.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: reword the fallback marker and degradation docstrings\n\nThe `fallback` marker now means an overly conservative pattern that a sparser handler could improve.\n`test_gather_dynamic_indices_fallback` becomes `test_gather_bounded_dynamic_indices`,\nsince it tests bounded enumeration.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: add changelog entry for the fallback wording\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): report known primitives without a precise handler as fallbacks\n\nA fallback is now a conservative pattern where a tighter one is derivable.\nThe linear algebra primitives and the Equinox primitives that got a silent dense pattern\nnow go through the fallback handler,\nso they are logged, listed by print_fallbacks and named by DensePatternWarning.\n_prop_unknown_primitive becomes _prop_fallback,\nand the user-facing messages speak of primitives without a precise handler.\npure_callback keeps its silent dense pattern,\nsince its body is not visible and no tighter pattern is derivable.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: distinguish dense patterns from fallbacks\n\nA handler returns a dense pattern when that is the tightest derivable,\nas for unbounded dynamic indices,\nand falls back to one when a tighter pattern is derivable,\nas past the enumeration cap or after a broken const chain.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-16T18:00:24+01:00",
+          "tree_id": "167b5c93ffab3da385ce7338d4c936665a119f74",
+          "url": "https://github.com/adrhill/asdex/commit/e860419a7faa6e25b8bfdc85c820a7fb5d6412d6"
+        },
+        "date": 1794848493642,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 797.4512298741544,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011961173080818296",
+            "extra": "mean: 1.2539951818217272 msec\nrounds: 22"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27054.524998842408,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000038021697357664337",
+            "extra": "mean: 36.962393538337395 usec\nrounds: 8233"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 69785.43111969052,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000032939894076964444",
+            "extra": "mean: 14.32963849266587 usec\nrounds: 22716"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 39657.273773121386,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000039148284898574376",
+            "extra": "mean: 25.2160550854046 usec\nrounds: 15249"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 70471.58050054817,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002468839712938352",
+            "extra": "mean: 14.19011739054471 usec\nrounds: 21799"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 167.43499944186502,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003658011725155662",
+            "extra": "mean: 5.972466947373266 msec\nrounds: 19"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2934.8966598794173,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010082592822646197",
+            "extra": "mean: 340.7274994278967 usec\nrounds: 2621"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 2013.4314430037743,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000028966809765952012",
+            "extra": "mean: 496.6645392743702 usec\nrounds: 1515"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1874.3858594574149,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007029691827016239",
+            "extra": "mean: 533.5080794354017 usec\nrounds: 1133"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4216.214625986396,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004449423703238427",
+            "extra": "mean: 237.17957663648278 usec\nrounds: 3621"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 140.87528265732792,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004119176523392594",
+            "extra": "mean: 7.0984773278677284 msec\nrounds: 61"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27017.292499579366,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003711735368713861",
+            "extra": "mean: 37.013331369735475 usec\nrounds: 18505"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 40565.70678321262,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006276664411652581",
+            "extra": "mean: 24.651363905579277 usec\nrounds: 13858"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 38439.06015153983,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010056513442205818",
+            "extra": "mean: 26.015204223455527 usec\nrounds: 10038"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 42963.65023203737,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000553206822035597",
+            "extra": "mean: 23.275489736072625 usec\nrounds: 15053"
           }
         ]
       }
