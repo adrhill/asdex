@@ -305,7 +305,7 @@ def _prop_gather(
     partial slices, and ``operand_batching_dims``.
     For bounded dynamic start_indices, enumerates all possible index arrays
     and unions the resulting patterns.
-    For fully dynamic start_indices, falls back to conservative.
+    For fully dynamic start_indices, degrades to a dense pattern.
 
     The Jacobian is a selection/permutation matrix:
     each output element reads exactly one input element.
@@ -320,7 +320,7 @@ def _prop_gather(
     Example with data-dependent start_indices: y = x[argsort(x)]
         The indices depend on x, so each output depends on all inputs
         (both from the operand and from the index computation).
-        Conservative fallback: all outputs depend on all inputs.
+        The handler degrades to a dense pattern: all outputs depend on all inputs.
 
     Jaxpr:
         invars[0]: operand — array to gather from

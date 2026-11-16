@@ -53,7 +53,7 @@ def _prop_dynamic_slice(
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Like JAX, starts are clamped into ``[0, dim - size]`` first.
-    Otherwise falls back to conservative,
+    Otherwise degrades to a dense pattern,
     including the start indices' own dependencies.
 
     For static starts s and slice_sizes sz:
@@ -117,7 +117,7 @@ def _prop_dynamic_update_slice(
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Like JAX, starts are clamped into ``[0, dim - size]`` first.
-    Otherwise falls back to conservative,
+    Otherwise degrades to a dense pattern,
     including the start indices' own dependencies.
 
     For static starts s and update shape u_shape:

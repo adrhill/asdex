@@ -20,7 +20,7 @@ def _prop_argmax(eqn: JaxprEqn, state: _PropState) -> None:
     These bounds are stored in ``state.bounds``
     so that downstream ``gather``/``scatter``/``dynamic_slice`` handlers
     can enumerate possible index values
-    instead of falling back to conservative.
+    instead of degrading to a dense pattern.
 
     Example: y = argmax([a, b, c]) → y ∈ {0, 1, 2}
         Input index sets:  [{0}, {1}, {2}]

@@ -183,7 +183,7 @@ def _prop_scatter(
     and ``operand_batching_dims``.
     For bounded dynamic scatter_indices, enumerates all possible index arrays
     and unions the resulting patterns.
-    For fully dynamic scatter_indices, falls back to conservative.
+    For fully dynamic scatter_indices, degrades to a dense pattern.
 
     For scatter (replace): out[idx[i]] = updates[i], else out[j] = operand[j]
         Positions NOT in idx: depend on corresponding operand element.
