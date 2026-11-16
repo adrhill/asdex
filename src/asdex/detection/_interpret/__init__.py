@@ -232,7 +232,7 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
         case "CheckpointName":
             _prop_pass_through(eqn, state)
         case name:
-            _prop_unknown_primitive(eqn, state, f"HiJax primitive '{name}'")
+            _prop_unknown_primitive(eqn, state, name, kind="HiJax primitive")
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
@@ -476,7 +476,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         ):
             _prop_conservative_fallback(eqn, state)
         case name:
-            _prop_unknown_primitive(eqn, state, f"primitive '{name}'")
+            _prop_unknown_primitive(eqn, state, name)
 
 
 def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
@@ -494,7 +494,9 @@ def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
         state.indices[outvar] = _conservative_indices(all_inputs, _atom_numel(outvar))
 
 
-def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None:
+def _prop_unknown_primitive(
+    eqn: JaxprEqn, state: _PropState, name: str, kind: str = "primitive"
+) -> None:
     """Fall back to a conservative pattern for a primitive without a handler.
 
     The fallback is correct for any pure primitive,
@@ -508,7 +510,7 @@ def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None
     which lets the caller warn if the final pattern turns out dense.
     A primitive whose inputs carry no dependencies loses nothing and stays silent.
 
-    ``name`` describes the primitive in messages, e.g. ``"primitive 'foo'"``.
+    ``kind`` describes what ``name`` refers to in messages.
     """
     # A write to a ref (``jax.new_ref``) is a dependency that flows into an input,
     # and a later read picks it up from there.
@@ -518,7 +520,7 @@ def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None
     # and shared across nested jaxprs like ``consts`` and ``bounds``.
     if any(isinstance(atom.aval, AbstractRef) for atom in (*eqn.invars, *eqn.outvars)):
         msg = _report_issue(
-            f"No handler for {name}, which operates on a mutable ref."
+            f"No handler for {kind} '{name}', which operates on a mutable ref."
             " Mutable refs are not supported yet."
         )
         raise NotImplementedError(msg)
@@ -529,9 +531,10 @@ def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None
     if has_dependencies and name not in state.unknown_primitives:
         state.unknown_primitives.add(name)
         _logger.info(
-            "No handler for %s, falling back to a conservative pattern."
+            "No handler for %s '%s', falling back to a conservative pattern."
             " If this primitive is part of JAX,"
             " please help out asdex's development by reporting it at %s",
+            kind,
             name,
             _ISSUES_URL,
         )

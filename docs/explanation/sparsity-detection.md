@@ -236,19 +236,22 @@ A small number of primitives use this fallback intentionally
 Primitives that `asdex` does not know use the same fallback,
 which is correct for every primitive without side effects.
 Primitives on mutable refs (`jax.new_ref`) have side effects and raise an error instead.
-Each unknown primitive that loses sparsity is reported at `INFO` level on the `asdex.detection` logger of Python's `logging` module,
+The detected pattern lists the unknown primitives that lost sparsity this way in its `fallbacks` attribute,
 so the loss of sparsity can be traced back to its source:
 
 ```python
-import logging
-
-logging.basicConfig()
-logging.getLogger("asdex.detection").setLevel(logging.INFO)
+sparsity = asdex.jacobian_sparsity(f, x)
+sparsity.fallbacks  # e.g. ("reduce_window_max",)
 ```
 
-If the detected pattern ends up fully dense after such a fallback,
+The same names are shown by `print(sparsity)`
+and are reported at `INFO` level on the `asdex.detection` logger of Python's `logging` module.
+
+If the detected pattern is fully dense,
 `asdex` emits a [`DensePatternWarning`][asdex.DensePatternWarning],
 since sparse differentiation then offers no speedup over dense differentiation.
+The warning names the unknown primitives that fell back,
+or states that there were none, in which case the function is dense by nature.
 
 !!! tip
 

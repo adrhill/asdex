@@ -450,7 +450,7 @@ def test_unknown_hi_primitive_falls_back_conservatively(caplog):
         return jnp.concatenate([Double(jax.typeof(x[:2]))(x[:2]), x[2:]])
 
     with caplog.at_level(logging.INFO, logger="asdex.detection"):
-        result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
+        sparsity = jacobian_sparsity(f, np.zeros(3))
 
     expected = np.array(
         [
@@ -459,9 +459,13 @@ def test_unknown_hi_primitive_falls_back_conservatively(caplog):
             [0, 0, 1],
         ]
     )
-    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
+    assert sparsity.fallbacks == ("Double",)
     (record,) = caplog.records
-    assert "No handler for HiJax primitive 'Double'" in record.message
+    assert record.message.startswith(
+        "No handler for HiJax primitive 'Double',"
+        " falling back to a conservative pattern."
+    )
 
 
 @pytest.mark.array_ops

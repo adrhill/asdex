@@ -141,6 +141,12 @@ class SparsityPattern:
             That distinction drives whether
             [`example_input`][asdex.SparsityPattern.example_input]
             is a single aval or a tuple of avals.
+        fallbacks: Sorted names of the primitives that sparsity detection
+            had no handler for and replaced by a conservative pattern,
+            in which every output depends on every input.
+            The pattern is still correct, but may be less sparse than necessary.
+            Empty if detection knew every primitive,
+            and for patterns that were not detected.
     """
 
     rows: NDArray[np.int32]
@@ -148,6 +154,8 @@ class SparsityPattern:
     shape: tuple[int, int]
     input_avals: tuple[Any, ...] = field(default=())
     argnums: int | tuple[int, ...] = 0
+    # Provenance rather than structure, so it does not take part in equality.
+    fallbacks: tuple[str, ...] = field(default=(), compare=False)
 
     # Derived data, computed eagerly in __post_init__ so instances stay fully
     # initialized: pytree flattening carries these values along verbatim and
@@ -300,6 +308,7 @@ class SparsityPattern:
         *,
         input_avals: tuple[Any, ...] = (),
         argnums: int | tuple[int, ...] = 0,
+        fallbacks: tuple[str, ...] = (),
     ) -> SparsityPattern:
         """Create pattern from row and column index arrays.
 
@@ -312,6 +321,8 @@ class SparsityPattern:
                 Defaults to a single 1-D aval of size ``n``.
             argnums: Positions of ``input_avals`` that were differentiated,
                 mirroring ``jax.grad`` / ``jax.jacfwd``.
+            fallbacks: Names of the primitives that sparsity detection
+                replaced by a conservative pattern.
         """
         return cls(
             rows=np.asarray(rows, dtype=np.int32),
@@ -319,6 +330,7 @@ class SparsityPattern:
             shape=shape,
             input_avals=input_avals,
             argnums=argnums,
+            fallbacks=fallbacks,
         )
 
     @classmethod
@@ -449,6 +461,7 @@ class SparsityPattern:
             input_avals_json=np.array(_serialize_avals(self.input_avals)),
             argnums=argnums_arr,
             argnums_is_int=np.array(isinstance(self.argnums, int)),
+            fallbacks=np.array(self.fallbacks, dtype=np.str_),
         )
 
     @classmethod
@@ -479,6 +492,7 @@ class SparsityPattern:
             shape=tuple(data["shape"]),
             input_avals=input_avals,
             argnums=argnums,
+            fallbacks=_load_fallbacks(data),
         )
 
     # Display
@@ -490,6 +504,16 @@ class SparsityPattern:
     def __repr__(self) -> str:
         """Return compact single-line representation."""
         return _sparsity_repr(self)
+
+
+def _load_fallbacks(data: Any) -> tuple[str, ...]:
+    """Read ``SparsityPattern.fallbacks`` from a loaded ``.npz`` file.
+
+    Files saved before the field existed have no such entry.
+    """
+    if "fallbacks" not in data:
+        return ()
+    return tuple(str(name) for name in data["fallbacks"])
 
 
 def _empty_int32() -> NDArray[np.int32]:
@@ -801,6 +825,7 @@ class ColoredPattern:
             "input_avals_json": np.array(_serialize_avals(sp.input_avals)),
             "argnums": argnums_arr,
             "argnums_is_int": np.array(isinstance(sp.argnums, int)),
+            "fallbacks": np.array(sp.fallbacks, dtype=np.str_),
             "colors": self.colors,
             "num_colors": np.array(self.num_colors),
             "symmetric": np.array(self.symmetric),
@@ -839,6 +864,7 @@ class ColoredPattern:
             shape=tuple(data["shape"]),
             input_avals=input_avals,
             argnums=argnums,
+            fallbacks=_load_fallbacks(data),
         )
         mode = str(data["mode"])
         _assert_coloring_mode(mode)
@@ -926,6 +952,7 @@ def _sparsity_pattern_flatten_with_keys(
         pattern._dyn_flat,
         pattern._entries_sorted_unique,
         pattern._entries_key,
+        pattern.fallbacks,
     )
     return children, aux_data
 
@@ -949,6 +976,7 @@ def _sparsity_pattern_unflatten(
         dyn_flat,
         entries_sorted_unique,
         entries_key,
+        fallbacks,
     ) = aux_data
     pattern = object.__new__(SparsityPattern)
     object.__setattr__(pattern, "rows", entries_key.rows)
@@ -958,6 +986,7 @@ def _sparsity_pattern_unflatten(
         pattern, "input_avals", tree_unflatten(aval_treedef, aval_leaves)
     )
     object.__setattr__(pattern, "argnums", argnums)
+    object.__setattr__(pattern, "fallbacks", fallbacks)
     object.__setattr__(pattern, "_dyn_flat", dyn_flat)
     object.__setattr__(pattern, "_bcoo_indices", bcoo_indices)
     object.__setattr__(pattern, "_entries_sorted_unique", entries_sorted_unique)
@@ -1041,6 +1070,8 @@ def _sparsity_str(pattern: SparsityPattern) -> str:
         f"SparsityPattern({pattern.m}×{pattern.n}, "
         f"nnz={pattern.nnz}, sparsity={1 - pattern.density:.1%})"
     )
+    if pattern.fallbacks:
+        header += f"\nConservative fallbacks: {', '.join(pattern.fallbacks)}"
     grid = _render(pattern.m, pattern.n, pattern.rows, pattern.cols)
     return f"{header}\n{grid}"
 

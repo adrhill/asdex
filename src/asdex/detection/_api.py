@@ -88,8 +88,9 @@ def jacobian_sparsity(
         (m, n_selected),
         input_avals=avals,
         argnums=argnums_resolved,
+        fallbacks=tuple(sorted(unknown_primitives)),
     )
-    _warn_if_dense_fallback(sparsity, unknown_primitives)
+    _warn_if_dense(sparsity)
     return sparsity
 
 
@@ -214,27 +215,37 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, set[str]]:
     return flat, state.unknown_primitives
 
 
-def _warn_if_dense_fallback(
-    sparsity: SparsityPattern, unknown_primitives: set[str]
-) -> None:
-    """Warn if unknown primitives fell back and the pattern has no zeros left.
+def _warn_if_dense(sparsity: SparsityPattern) -> None:
+    """Warn if the detected pattern has no zeros left.
 
-    A fallback that keeps some sparsity is only logged,
-    but a fully dense pattern makes sparse differentiation pointless.
+    The message names the unknown primitives that fell back to conservative patterns,
+    since they may be what cost the sparsity.
+    Without fallbacks, the function is dense by nature.
     Patterns with a single row or column are skipped,
     since they take one color whether they are dense or not.
     """
     m, n = sparsity.shape
-    if not unknown_primitives or min(m, n) <= 1 or sparsity.nnz < m * n:
+    if min(m, n) <= 1 or sparsity.nnz < m * n:
         return
-    names = ", ".join(sorted(unknown_primitives))
+    if sparsity.fallbacks:
+        names = ", ".join(sparsity.fallbacks)
+        cause = (
+            f" after falling back to conservative patterns"
+            f" for unknown primitives: {names}.\n"
+            f"Handlers for these primitives may recover sparsity."
+            f" Please help out asdex's development by reporting this at {_ISSUES_URL}\n"
+        )
+    else:
+        cause = (
+            ".\n"
+            "Detection used no conservative fallbacks for unknown primitives,"
+            " so the function is likely dense by nature.\n"
+        )
     # Detection is reached through several public entry points,
     # so skip all asdex frames instead of counting a fixed stack level.
     warnings.warn(
-        f"Detected a fully dense {m}\u00d7{n} sparsity pattern"
-        f" after falling back to conservative patterns for: {names}.\n"
+        f"Detected a fully dense {m}\u00d7{n} sparsity pattern{cause}"
         f"No speedup over dense differentiation.\n"
-        f"Please help out asdex's development by reporting this at {_ISSUES_URL}\n"
         f"Suppress this warning with:"
         f' warnings.filterwarnings("ignore",'
         f" category=asdex.DensePatternWarning)",

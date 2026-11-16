@@ -106,6 +106,15 @@ _unknown_p = Primitive("asdex_test_unknown")
 _unknown_p.def_abstract_eval(lambda x: x)
 
 
+_unknown_linear_p = Primitive("asdex_test_unknown_linear")
+_unknown_linear_p.def_abstract_eval(lambda x: x)
+ad.deflinear(_unknown_linear_p, lambda ct: [_unknown_linear_p.bind(ct)])
+
+
+def _f_unknown_linear(x):
+    return jnp.sum(jnp.sin(_unknown_linear_p.bind(x)))
+
+
 def test_unknown_primitive_falls_back_conservatively(caplog):
     """Unknown primitives fall back to a conservative pattern and are logged.
 
@@ -116,7 +125,7 @@ def test_unknown_primitive_falls_back_conservatively(caplog):
         return jnp.concatenate([_unknown_p.bind(x[:2]), x[2:] * 2])
 
     with caplog.at_level(logging.INFO, logger="asdex.detection"):
-        result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+        sparsity = jacobian_sparsity(f, np.zeros(4))
 
     expected = np.array(
         [
@@ -126,13 +135,19 @@ def test_unknown_primitive_falls_back_conservatively(caplog):
             [0, 0, 0, 1],
         ]
     )
-    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
+    assert sparsity.fallbacks == ("asdex_test_unknown",)
 
     (record,) = caplog.records
     assert record.name == "asdex.detection"
     assert record.levelno == logging.INFO
-    assert "No handler for primitive 'asdex_test_unknown'" in record.message
-    assert "https://github.com/adrhill/asdex/issues" in record.message
+    assert record.message == (
+        "No handler for primitive 'asdex_test_unknown',"
+        " falling back to a conservative pattern."
+        " If this primitive is part of JAX,"
+        " please help out asdex's development by reporting it at"
+        " https://github.com/adrhill/asdex/issues"
+    )
 
 
 def test_unknown_primitive_logged_once_per_detection(caplog):
@@ -150,7 +165,7 @@ def test_unknown_primitive_logged_once_per_detection(caplog):
         return jnp.concatenate([carry, _unknown_p.bind(x[2:])])
 
     with caplog.at_level(logging.INFO, logger="asdex.detection"):
-        result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+        sparsity = jacobian_sparsity(f, np.zeros(4))
 
     expected = np.array(
         [
@@ -160,8 +175,32 @@ def test_unknown_primitive_logged_once_per_detection(caplog):
             [0, 0, 1, 1],
         ]
     )
-    np.testing.assert_array_equal(result, expected)
-    assert len(caplog.records) == 1
+    np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
+    assert sparsity.fallbacks == ("asdex_test_unknown",)
+    (record,) = caplog.records
+    assert "primitive 'asdex_test_unknown'" in record.message
+
+
+def test_fallbacks_lists_each_unknown_primitive_sorted():
+    """``SparsityPattern.fallbacks`` holds the sorted names of all unknown primitives."""
+
+    def f(x):
+        return jnp.concatenate([_unknown_p.bind(x[:2]), _unknown_linear_p.bind(x[2:])])
+
+    sparsity = jacobian_sparsity(f, np.zeros(4))
+
+    assert sparsity.fallbacks == ("asdex_test_unknown", "asdex_test_unknown_linear")
+    assert "Conservative fallbacks: asdex_test_unknown, asdex_test_unknown_linear" in (
+        str(sparsity)
+    )
+
+
+def test_fallbacks_empty_without_unknown_primitives():
+    """Detection that knows every primitive reports no fallbacks."""
+    sparsity = jacobian_sparsity(lambda x: jnp.sin(x) * 2, np.zeros(3))
+
+    assert sparsity.fallbacks == ()
+    assert "Conservative fallbacks" not in str(sparsity)
 
 
 def test_unknown_primitive_is_silent_by_default(capsys):
@@ -185,20 +224,12 @@ def test_unknown_primitive_dense_pattern_warns():
         result = jacobian_sparsity(_unknown_p.bind, np.zeros(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+    assert result.fallbacks == ("asdex_test_unknown",)
     (warning,) = record
     message = str(warning.message)
     assert "fully dense 3\u00d73" in message
-    assert "primitive 'asdex_test_unknown'" in message
+    assert "for unknown primitives: asdex_test_unknown." in message
     assert "https://github.com/adrhill/asdex/issues" in message
-
-
-_unknown_linear_p = Primitive("asdex_test_unknown_linear")
-_unknown_linear_p.def_abstract_eval(lambda x: x)
-ad.deflinear(_unknown_linear_p, lambda ct: [_unknown_linear_p.bind(ct)])
-
-
-def _f_unknown_linear(x):
-    return jnp.sum(jnp.sin(_unknown_linear_p.bind(x)))
 
 
 @pytest.mark.parametrize(
@@ -245,13 +276,23 @@ def test_unknown_primitive_dense_pattern_warns_for_hessian():
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
 
 
-def test_dense_pattern_without_fallback_does_not_warn():
-    """A pattern that is dense on its own merits does not raise the fallback warning."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
+_NO_FALLBACKS_MESSAGE = (
+    "Detection used no conservative fallbacks for unknown primitives"
+)
+
+
+def test_dense_pattern_without_fallback_warns_without_blame():
+    """A pattern that is dense by nature warns and states that nothing fell back."""
+    with pytest.warns(DensePatternWarning) as record:
         result = jacobian_sparsity(lambda x: jnp.sum(x) * x, np.ones(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+    assert result.fallbacks == ()
+    (warning,) = record
+    message = str(warning.message)
+    assert "fully dense 3\u00d73" in message
+    assert _NO_FALLBACKS_MESSAGE in message
+    assert "https://github.com/adrhill/asdex/issues" not in message
 
 
 def test_unknown_primitive_on_constants_is_not_blamed(caplog):
@@ -264,14 +305,17 @@ def test_unknown_primitive_on_constants_is_not_blamed(caplog):
         return jnp.sum(x) * x + _unknown_p.bind(jnp.ones(3))
 
     with (
-        warnings.catch_warnings(),
         caplog.at_level(logging.INFO, logger="asdex.detection"),
+        pytest.warns(DensePatternWarning) as record,
     ):
-        warnings.simplefilter("error")
         result = jacobian_sparsity(f, np.ones(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+    assert result.fallbacks == ()
     assert caplog.records == []
+    (warning,) = record
+    assert _NO_FALLBACKS_MESSAGE in str(warning.message)
+    assert "asdex_test_unknown" not in str(warning.message)
 
 
 def test_unknown_primitive_fallback_covers_true_jacobian():
@@ -351,6 +395,7 @@ def test_known_fallback_primitive_is_not_logged(caplog):
     expected = np.ones((4, 4))
     expected[1] = 0
     np.testing.assert_array_equal(result.todense(), expected)
+    assert result.fallbacks == ()
     assert caplog.records == []
 
 
