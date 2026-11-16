@@ -269,7 +269,9 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_ldexp(eqn, state)
         case "Frexp":
             _prop_frexp(eqn, state)
-        # jnp.searchsorted and jnp.nonzero return integer indices, which have zero derivative.
+        # jnp.searchsorted and jnp.nonzero return integer indices,
+        # which _prop_jaxpr empties whatever the handler writes.
+        # The case only keeps them from being reported as fallbacks.
         case "SearchSorted" | "Nonzero":
             _prop_empty_pattern(eqn, state)
         case _:
