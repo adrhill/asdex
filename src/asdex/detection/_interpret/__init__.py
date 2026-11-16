@@ -283,7 +283,14 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_closed_jaxpr(eqn, state, "jaxpr")
         case "call_hi_primitive":
             _prop_call_hi_primitive(eqn, state)
-        case "optimization_barrier" | "device_put" | "name":
+        case (
+            "optimization_barrier"
+            | "device_put"
+            | "name"
+            | "nonbatchable"  # from Equinox
+            | "nontraceable"  # from Equinox
+            | "nondifferentiable_backward"  # from Equinox
+        ):
             _prop_pass_through(eqn, state)
         case "slice":
             _prop_slice(eqn, state)
@@ -493,9 +500,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "householder_product"
             | "ormqr"
             | "tridiagonal_solve"
-            # TODO: these Equinox primitives have tighter patterns.
-            # nonbatchable is an identity, and unvmap_any and unvmap_max have zero derivative.
-            | "nonbatchable"
+            # TODO: these Equinox primitives have zero derivative.
             | "unvmap_any"
             | "unvmap_max"
         ) as name:
