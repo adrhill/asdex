@@ -443,23 +443,31 @@ def test_save_load_sparsity_roundtrip(tmp_path):
     np.testing.assert_array_equal(loaded.cols, original.cols)
 
 
-def test_save_load_preserves_fallbacks(tmp_path):
-    """``fallbacks`` survives save/load of patterns and colorings."""
-    sparsity = SparsityPattern.from_coo(
-        [0, 0, 1, 2], [0, 1, 1, 2], (3, 3), fallbacks=("bar", "foo")
+def _pattern_with_fallbacks(fallbacks: tuple[str, ...]) -> SparsityPattern:
+    """A small pattern carrying the given fallbacks, as detection would record them."""
+    return SparsityPattern(
+        rows=np.array([0, 0, 1, 2], dtype=np.int32),
+        cols=np.array([0, 1, 1, 2], dtype=np.int32),
+        shape=(3, 3),
+        _fallbacks=fallbacks,
     )
+
+
+def test_save_load_preserves_fallbacks(tmp_path):
+    """Fallbacks survive save/load of patterns and colorings, in their original order."""
+    sparsity = _pattern_with_fallbacks(("foo", "bar"))
     sparsity_path = tmp_path / "pattern.npz"
     sparsity.save(sparsity_path)
     colored = asdex.jacobian_coloring_from_sparsity(sparsity)
     colored_path = tmp_path / "colored.npz"
     colored.save(colored_path)
 
-    assert SparsityPattern.load(sparsity_path).fallbacks == ("bar", "foo")
-    assert ColoredPattern.load(colored_path).sparsity.fallbacks == ("bar", "foo")
+    assert SparsityPattern.load(sparsity_path)._fallbacks == ("foo", "bar")
+    assert ColoredPattern.load(colored_path).sparsity._fallbacks == ("foo", "bar")
 
 
 def test_load_without_fallbacks_entry(tmp_path):
-    """Files saved before ``fallbacks`` existed load with an empty tuple."""
+    """Files saved before fallbacks were recorded load without any."""
     original = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2))
     path = tmp_path / "pattern.npz"
     original.save(path)
@@ -467,17 +475,17 @@ def test_load_without_fallbacks_entry(tmp_path):
     del data["fallbacks"]
     np.savez(path, **data)
 
-    assert SparsityPattern.load(path).fallbacks == ()
+    assert SparsityPattern.load(path)._fallbacks == ()
 
 
 def test_fallbacks_survive_pytree_roundtrip():
-    """``fallbacks`` travels with the pattern through pytree flattening."""
-    sparsity = SparsityPattern.from_coo([0, 1], [0, 1], (2, 2), fallbacks=("foo",))
+    """Fallbacks travel with the pattern through pytree flattening."""
+    sparsity = _pattern_with_fallbacks(("foo", "bar"))
 
     leaves, treedef = jax.tree_util.tree_flatten(sparsity)
     rebuilt = jax.tree_util.tree_unflatten(treedef, leaves)
 
-    assert rebuilt.fallbacks == ("foo",)
+    assert rebuilt._fallbacks == ("foo", "bar")
 
 
 def test_save_load_hessian_coloring_decompression(tmp_path):

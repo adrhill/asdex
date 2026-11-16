@@ -233,29 +233,18 @@ but it may be much less sparse than necessary.
 
 A small number of primitives use this fallback intentionally
 (e.g. callbacks into opaque Python code where dependencies cannot be analyzed).
-Primitives that `asdex` does not know use the same fallback,
-which is correct for every primitive without side effects.
-Primitives on mutable refs (`jax.new_ref`) have side effects and raise an error instead.
-The detected pattern lists these unknown primitives in its `fallbacks` attribute,
-so the loss of sparsity can be traced back to its source:
+Primitives that `asdex` does not know use the same fallback.
+To see which primitives fell back, call
+[`print_fallbacks`](../reference/index.md#asdex.SparsityPattern.print_fallbacks) on the detected pattern:
 
 ```python
 sparsity = asdex.jacobian_sparsity(f, x)
-sparsity.fallbacks  # e.g. ("reduce_window_max",)
-sparsity.print_fallbacks()  # readable summary
+sparsity.print_fallbacks()
 ```
-
-HiJax primitives are listed as `hijax:<module>.<class>`.
-The same names are reported at `INFO` level on the `asdex.detection` logger of Python's `logging` module.
 
 If the detected pattern is fully dense,
 `asdex` emits a [`DensePatternWarning`][asdex.DensePatternWarning],
 since sparse differentiation then offers no speedup over dense differentiation.
-The warning names the unknown primitives whose inputs depended on the function's inputs,
-since only their fallbacks can cost sparsity.
-If there are none, it states that the function may be dense by nature,
-or that `asdex`'s handlers may have over-approximated its sparsity,
-and asks you to report it if you expected a sparser pattern.
 
 !!! tip
 

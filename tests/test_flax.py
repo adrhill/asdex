@@ -374,7 +374,7 @@ def test_resnet_sparsity_detection():
 
     # TODO(fallback): reduce_window_max is the only primitive without a handler.
     # Once it has one, this tuple is empty and the pattern may no longer be dense.
-    assert result.fallbacks == ("reduce_window_max",)
+    assert result._fallbacks == ("reduce_window_max",)
     assert result.shape == (4, 8 * 8 * 3)
     assert result.nnz == 4 * 8 * 8 * 3
 

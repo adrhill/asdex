@@ -462,7 +462,7 @@ def test_unknown_hi_primitive_falls_back_conservatively(caplog):
     )
     np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
     name = f"hijax:{__name__}.Double"
-    assert sparsity.fallbacks == (name,)
+    assert sparsity._fallbacks == (name,)
     (record,) = caplog.records
     assert record.message.startswith(
         f"No handler for primitive '{name}', falling back to a conservative pattern."

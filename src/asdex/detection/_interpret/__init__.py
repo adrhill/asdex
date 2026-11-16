@@ -214,7 +214,7 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
     in ``eqn.params["_prim"]``.
     Any HiJax primitive without a case falls back to a conservative pattern,
     since its semantics are unknown.
-    It is named ``hijax:<module>.<class>`` in logs and ``SparsityPattern.fallbacks``,
+    It is named ``hijax:<module>.<class>`` in logs and ``SparsityPattern.print_fallbacks``,
     which tells it apart from regular primitives and points to its definition.
 
     Jaxpr:
@@ -502,9 +502,10 @@ def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
 def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     """Fall back to a conservative pattern for a primitive without a handler.
 
-    The fallback is correct for any pure primitive,
+    The fallback is conservative for any pure primitive,
     since every dependency on the function's inputs then flows
-    from ``eqn.invars`` to ``eqn.outvars``.
+    from ``eqn.invars`` to ``eqn.outvars``
+    (see https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe).
     Primitives on mutable refs are not pure, so they raise instead.
 
     Each unknown primitive is logged once per detection

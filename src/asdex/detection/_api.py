@@ -10,6 +10,7 @@ from typing import Any
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax._src.core import ClosedJaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 
@@ -81,15 +82,16 @@ def jacobian_sparsity(
     # This avoids a second trace of ``f`` just to compute output sizes.
     m = len(out_indices)
     rows, cols = _coo_from_index_sets(out_indices)
-    sparsity = SparsityPattern.from_coo(
-        rows,
-        cols,
-        (m, n_selected),
+    # unknown_primitives keeps the order in which tracing first met each one.
+    sparsity = SparsityPattern(
+        rows=np.asarray(rows, dtype=np.int32),
+        cols=np.asarray(cols, dtype=np.int32),
+        shape=(m, n_selected),
         input_avals=avals,
         argnums=argnums_resolved,
-        fallbacks=tuple(sorted(unknown_primitives)),
+        _fallbacks=tuple(unknown_primitives),
     )
-    lossy = sorted(name for name, lost in unknown_primitives.items() if lost)
+    lossy = [name for name, lost in unknown_primitives.items() if lost]
     _warn_if_dense(sparsity, lossy)
     return sparsity
 

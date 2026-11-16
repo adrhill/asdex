@@ -142,15 +142,6 @@ class SparsityPattern:
             That distinction drives whether
             [`example_input`][asdex.SparsityPattern.example_input]
             is a single aval or a tuple of avals.
-        fallbacks: Sorted names of the primitives that sparsity detection
-            had no handler for and replaced by a conservative pattern,
-            in which every output depends on every input.
-            The pattern is still correct, but may be less sparse than necessary.
-            HiJax primitives are named ``hijax:<module>.<class>``.
-            Empty if detection knew every primitive,
-            and for patterns that were not detected.
-            [`print_fallbacks`][asdex.SparsityPattern.print_fallbacks]
-            prints a readable summary.
     """
 
     rows: NDArray[np.int32]
@@ -158,8 +149,10 @@ class SparsityPattern:
     shape: tuple[int, int]
     input_avals: tuple[Any, ...] = field(default=())
     argnums: int | tuple[int, ...] = 0
+    # Names of the primitives that detection had no handler for,
+    # in the order tracing first met them, reported by print_fallbacks.
     # Provenance rather than structure, so it does not take part in equality.
-    fallbacks: tuple[str, ...] = field(default=(), compare=False)
+    _fallbacks: tuple[str, ...] = field(default=(), compare=False, repr=False)
 
     # Derived data, computed eagerly in __post_init__ so instances stay fully
     # initialized: pytree flattening carries these values along verbatim and
@@ -312,7 +305,6 @@ class SparsityPattern:
         *,
         input_avals: tuple[Any, ...] = (),
         argnums: int | tuple[int, ...] = 0,
-        fallbacks: tuple[str, ...] = (),
     ) -> SparsityPattern:
         """Create pattern from row and column index arrays.
 
@@ -325,8 +317,6 @@ class SparsityPattern:
                 Defaults to a single 1-D aval of size ``n``.
             argnums: Positions of ``input_avals`` that were differentiated,
                 mirroring ``jax.grad`` / ``jax.jacfwd``.
-            fallbacks: Names of the primitives that sparsity detection
-                replaced by a conservative pattern.
         """
         return cls(
             rows=np.asarray(rows, dtype=np.int32),
@@ -334,7 +324,6 @@ class SparsityPattern:
             shape=shape,
             input_avals=input_avals,
             argnums=argnums,
-            fallbacks=fallbacks,
         )
 
     @classmethod
@@ -465,7 +454,7 @@ class SparsityPattern:
             input_avals_json=np.array(_serialize_avals(self.input_avals)),
             argnums=argnums_arr,
             argnums_is_int=np.array(isinstance(self.argnums, int)),
-            fallbacks=np.array(self.fallbacks, dtype=np.str_),
+            fallbacks=np.array(self._fallbacks, dtype=np.str_),
         )
 
     @classmethod
@@ -490,13 +479,13 @@ class SparsityPattern:
             input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
             argnums = 0
 
-        return cls.from_coo(
-            rows=data["rows"],
-            cols=data["cols"],
+        return cls(
+            rows=data["rows"].astype(np.int32),
+            cols=data["cols"].astype(np.int32),
             shape=tuple(data["shape"]),
             input_avals=input_avals,
             argnums=argnums,
-            fallbacks=_load_fallbacks(data),
+            _fallbacks=_load_fallbacks(data),
         )
 
     # Display
@@ -506,8 +495,9 @@ class SparsityPattern:
 
         These primitives had no handler,
         so detection assumed that every output depends on every input.
-        The names are also available as
-        [`fallbacks`][asdex.SparsityPattern].
+        They are listed in the order tracing first met them.
+        HiJax primitives are named ``hijax:<module>.<class>``.
+        Patterns that were not detected have no fallbacks.
         """
         print(_fallbacks_str(self))  # noqa: T201
 
@@ -521,7 +511,7 @@ class SparsityPattern:
 
 
 def _load_fallbacks(data: Any) -> tuple[str, ...]:
-    """Read ``SparsityPattern.fallbacks`` from a loaded ``.npz`` file.
+    """Read ``SparsityPattern._fallbacks`` from a loaded ``.npz`` file.
 
     Files saved before the field existed have no such entry.
     """
@@ -839,7 +829,7 @@ class ColoredPattern:
             "input_avals_json": np.array(_serialize_avals(sp.input_avals)),
             "argnums": argnums_arr,
             "argnums_is_int": np.array(isinstance(sp.argnums, int)),
-            "fallbacks": np.array(sp.fallbacks, dtype=np.str_),
+            "fallbacks": np.array(sp._fallbacks, dtype=np.str_),
             "colors": self.colors,
             "num_colors": np.array(self.num_colors),
             "symmetric": np.array(self.symmetric),
@@ -872,13 +862,13 @@ class ColoredPattern:
             input_avals = (ShapeDtypeStruct(shape, jnp.float_),)
             argnums = 0
 
-        sparsity = SparsityPattern.from_coo(
-            rows=data["rows"],
-            cols=data["cols"],
+        sparsity = SparsityPattern(
+            rows=data["rows"].astype(np.int32),
+            cols=data["cols"].astype(np.int32),
             shape=tuple(data["shape"]),
             input_avals=input_avals,
             argnums=argnums,
-            fallbacks=_load_fallbacks(data),
+            _fallbacks=_load_fallbacks(data),
         )
         mode = str(data["mode"])
         _assert_coloring_mode(mode)
@@ -966,7 +956,7 @@ def _sparsity_pattern_flatten_with_keys(
         pattern._dyn_flat,
         pattern._entries_sorted_unique,
         pattern._entries_key,
-        pattern.fallbacks,
+        pattern._fallbacks,
     )
     return children, aux_data
 
@@ -1000,7 +990,7 @@ def _sparsity_pattern_unflatten(
         pattern, "input_avals", tree_unflatten(aval_treedef, aval_leaves)
     )
     object.__setattr__(pattern, "argnums", argnums)
-    object.__setattr__(pattern, "fallbacks", fallbacks)
+    object.__setattr__(pattern, "_fallbacks", fallbacks)
     object.__setattr__(pattern, "_dyn_flat", dyn_flat)
     object.__setattr__(pattern, "_bcoo_indices", bcoo_indices)
     object.__setattr__(pattern, "_entries_sorted_unique", entries_sorted_unique)
@@ -1089,15 +1079,15 @@ def _sparsity_str(pattern: SparsityPattern) -> str:
 
 
 def _fallbacks_str(pattern: SparsityPattern) -> str:
-    """Readable summary of ``pattern.fallbacks``."""
-    if not pattern.fallbacks:
+    """Readable summary of ``pattern._fallbacks``."""
+    if not pattern._fallbacks:
         return "No conservative fallbacks: sparsity detection knew every primitive."
-    count = len(pattern.fallbacks)
+    count = len(pattern._fallbacks)
     noun = "primitive" if count == 1 else "primitives"
     lines = [
         f"Sparsity detection fell back to conservative patterns"
         f" for {count} {noun} without a handler:",
-        *(f"  - {name}" for name in pattern.fallbacks),
+        *(f"  - {name}" for name in pattern._fallbacks),
         "These patterns assume that every output depends on every input,",
         "so the detected pattern may be less sparse than necessary.",
         "Please help out asdex's development by reporting missing JAX primitives at",

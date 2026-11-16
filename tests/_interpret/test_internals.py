@@ -136,7 +136,7 @@ def test_unknown_primitive_falls_back_conservatively(caplog):
         ]
     )
     np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
-    assert sparsity.fallbacks == ("asdex_test_unknown",)
+    assert sparsity._fallbacks == ("asdex_test_unknown",)
 
     (record,) = caplog.records
     assert record.name == "asdex.detection"
@@ -176,31 +176,32 @@ def test_unknown_primitive_logged_once_per_detection(caplog):
         ]
     )
     np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
-    assert sparsity.fallbacks == ("asdex_test_unknown",)
+    assert sparsity._fallbacks == ("asdex_test_unknown",)
     (record,) = caplog.records
     assert "primitive 'asdex_test_unknown'" in record.message
 
 
-def test_fallbacks_lists_each_unknown_primitive_sorted(capsys):
-    """``SparsityPattern.fallbacks`` holds the sorted names of all unknown primitives.
+def test_fallbacks_listed_in_tracing_order(capsys):
+    """``print_fallbacks`` lists every unknown primitive in the order tracing met it.
 
-    ``print_fallbacks`` lists them, while ``print(sparsity)`` leaves them out.
+    The order here is the reverse of the alphabetical one.
+    ``print(sparsity)`` leaves the fallbacks out.
     """
 
     def f(x):
-        return jnp.concatenate([_unknown_p.bind(x[:2]), _unknown_linear_p.bind(x[2:])])
+        return jnp.concatenate([_unknown_linear_p.bind(x[:2]), _unknown_p.bind(x[2:])])
 
     sparsity = jacobian_sparsity(f, np.zeros(4))
 
-    assert sparsity.fallbacks == ("asdex_test_unknown", "asdex_test_unknown_linear")
+    assert sparsity._fallbacks == ("asdex_test_unknown_linear", "asdex_test_unknown")
     assert "asdex_test_unknown" not in str(sparsity)
 
     sparsity.print_fallbacks()
     assert capsys.readouterr().out == (
         "Sparsity detection fell back to conservative patterns"
         " for 2 primitives without a handler:\n"
-        "  - asdex_test_unknown\n"
         "  - asdex_test_unknown_linear\n"
+        "  - asdex_test_unknown\n"
         "These patterns assume that every output depends on every input,\n"
         "so the detected pattern may be less sparse than necessary.\n"
         "Please help out asdex's development by reporting missing JAX primitives at\n"
@@ -212,7 +213,7 @@ def test_fallbacks_empty_without_unknown_primitives(capsys):
     """Detection that knows every primitive reports no fallbacks."""
     sparsity = jacobian_sparsity(lambda x: jnp.sin(x) * 2, np.zeros(3))
 
-    assert sparsity.fallbacks == ()
+    assert sparsity._fallbacks == ()
     sparsity.print_fallbacks()
     assert capsys.readouterr().out == (
         "No conservative fallbacks: sparsity detection knew every primitive.\n"
@@ -240,7 +241,7 @@ def test_unknown_primitive_dense_pattern_warns():
         result = jacobian_sparsity(_unknown_p.bind, np.zeros(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
-    assert result.fallbacks == ("asdex_test_unknown",)
+    assert result._fallbacks == ("asdex_test_unknown",)
     (warning,) = record
     message = str(warning.message)
     assert "fully dense 3\u00d73" in message
@@ -308,7 +309,7 @@ def test_dense_pattern_without_fallback_warns_without_blame():
         result = jacobian_sparsity(lambda x: jnp.sum(x) * x, np.ones(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
-    assert result.fallbacks == ()
+    assert result._fallbacks == ()
     (warning,) = record
     message = str(warning.message)
     assert "fully dense 3\u00d73" in message
@@ -318,7 +319,7 @@ def test_dense_pattern_without_fallback_warns_without_blame():
 def test_unknown_primitive_on_constants_is_not_blamed(caplog):
     """An unknown primitive without input dependencies loses no sparsity.
 
-    It is logged and listed in ``fallbacks``,
+    It is logged and listed by ``print_fallbacks``,
     but not named as the cause of a pattern that is dense anyway.
     """
 
@@ -332,7 +333,7 @@ def test_unknown_primitive_on_constants_is_not_blamed(caplog):
         result = jacobian_sparsity(f, np.ones(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
-    assert result.fallbacks == ("asdex_test_unknown",)
+    assert result._fallbacks == ("asdex_test_unknown",)
     (log_record,) = caplog.records
     assert "primitive 'asdex_test_unknown'" in log_record.message
     (warning,) = record
@@ -343,7 +344,7 @@ def test_unknown_primitive_on_constants_is_not_blamed(caplog):
 def test_dense_pattern_warning_names_only_lossy_fallbacks():
     """The warning names unknown primitives on inputs, not those on constants.
 
-    Both are listed in ``fallbacks``.
+    Both are listed by ``print_fallbacks``.
     """
 
     def f(x):
@@ -353,7 +354,7 @@ def test_dense_pattern_warning_names_only_lossy_fallbacks():
         result = jacobian_sparsity(f, np.ones(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
-    assert result.fallbacks == ("asdex_test_unknown", "asdex_test_unknown_linear")
+    assert result._fallbacks == ("asdex_test_unknown", "asdex_test_unknown_linear")
     (warning,) = record
     message = str(warning.message)
     assert "for unknown primitives: asdex_test_unknown." in message
@@ -371,7 +372,7 @@ def test_unknown_primitive_lossy_after_constant_use():
     ):
         result = jacobian_sparsity(f, np.ones(3))
 
-    assert result.fallbacks == ("asdex_test_unknown",)
+    assert result._fallbacks == ("asdex_test_unknown",)
 
 
 def test_unknown_primitive_fallback_covers_true_jacobian():
@@ -451,7 +452,7 @@ def test_known_fallback_primitive_is_not_logged(caplog):
     expected = np.ones((4, 4))
     expected[1] = 0
     np.testing.assert_array_equal(result.todense(), expected)
-    assert result.fallbacks == ()
+    assert result._fallbacks == ()
     assert caplog.records == []
 
 
