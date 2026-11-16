@@ -39,7 +39,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "jax>=0.11.0",
+    # asdex imports JAX internals, so each new minor version is supported explicitly.
+    "jax>=0.11.0,<0.13",
     "numba>=0.63.0",
     "numpy>=1.26.0",
 ]
