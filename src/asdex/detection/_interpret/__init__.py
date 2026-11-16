@@ -268,6 +268,9 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "unvmap_max"  # from Equinox, integer scalar
         ):
             _prop_empty_pattern(eqn, state)
+        # Debug primitives have no outputs, so nothing can depend on them.
+        case "debug_print" | "debug_callback":
+            _prop_empty_pattern(eqn, state)
         case "clamp":
             _prop_clamp(eqn, state)
         case "eq" | "ne" | "lt_to" | "le_to":
