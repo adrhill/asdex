@@ -424,8 +424,9 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         # so it appears in Hessian detection.
         case "empty" | "empty2":
             _prop_empty_pattern(eqn, state)
-        # Random number generation is not differentiable,
-        # and keys never carry dependencies.
+        # Random number generation is not differentiable:
+        # random bits and derived keys have zero derivative with respect to the key,
+        # even for the raw uint32 key of rng_bit_generator.
         case (
             "random_seed"
             | "random_unwrap"
@@ -433,6 +434,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "random_split"
             | "random_fold_in"
             | "random_bits"
+            | "random_clone"
+            | "rng_bit_generator"
         ):
             _prop_empty_pattern(eqn, state)
         case "while":
