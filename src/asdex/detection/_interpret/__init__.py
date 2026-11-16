@@ -24,6 +24,7 @@ from ._common import (
     _empty_index_sets,
     _forget_value_info,
     _forward_across_jaxpr_boundary,
+    _has_differentiable_dtype,
     _index_sets,
     _PropState,
     _report_issue,
@@ -131,9 +132,26 @@ def _prop_jaxpr(
         _forget_value_info(state, eqn.outvars)
         _prop_dispatch(eqn, state)
         _check_index_set_counts(eqn, state)
+        _clear_nondifferentiable_outputs(eqn, state)
 
     # Return output dependencies
     return [_index_sets(state, outvar) for outvar in jaxpr.outvars]
+
+
+def _clear_nondifferentiable_outputs(eqn: JaxprEqn, state: _PropState) -> None:
+    """Empty the index sets of outputs without a differentiable dtype.
+
+    Values of integer, boolean or PRNG key dtype have zero derivative,
+    whatever their handler wrote.
+    Applying this to every equation keeps handlers free of dtype checks.
+
+    Example: (s, i) = sort(x, iota) where x has index sets [{0}, {1}, {2}]
+        The sort handler writes [{0, 1, 2}, ...] for the integer permutation i.
+        Output index sets of i: [{}, {}, {}]
+    """
+    for outvar in eqn.outvars:
+        if not _has_differentiable_dtype(outvar) and any(state.indices.get(outvar, ())):
+            state.indices[outvar] = _empty_index_sets(_atom_numel(outvar))
 
 
 def _check_index_set_counts(eqn: JaxprEqn, state: _PropState) -> None:
@@ -543,7 +561,7 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     Each such primitive is logged once per detection
     and recorded in ``state.fallbacks``,
     along with whether any of its fallbacks was conservative,
-    meaning that its inputs carried dependencies to spread to an inexact output.
+    meaning that its inputs carried dependencies to an output of differentiable dtype.
     Only conservative fallbacks can cost sparsity,
     so only their primitives are named if the final pattern turns out dense.
     """
@@ -570,5 +588,12 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
             _ISSUES_URL,
         )
     _prop_dense_pattern(eqn, state)
-    if any(indices for outvar in eqn.outvars for indices in state.indices[outvar]):
+    # Outputs without a differentiable dtype are emptied after this handler returns,
+    # so they cannot make the fallback conservative.
+    if any(
+        indices
+        for outvar in eqn.outvars
+        if _has_differentiable_dtype(outvar)
+        for indices in state.indices[outvar]
+    ):
         state.fallbacks[name] = True

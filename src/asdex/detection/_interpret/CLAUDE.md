@@ -34,8 +34,10 @@ Every handler must uphold these.
 
 - **Index sets track derivatives, not data flow.**
   An output depends on an input only if their partial derivative can be nonzero.
-  Piecewise-constant ops (`floor`, `sign`, comparisons, `argmax`) therefore emit empty sets,
-  and so do casts from inexact to integer or boolean dtypes and the non-inexact outputs of `_prop_dense_pattern`.
+  Piecewise-constant ops (`floor`, `sign`, comparisons, `argmax`) therefore emit empty sets.
+  Values of integer, boolean or PRNG key dtype have zero derivative,
+  so `_prop_jaxpr` empties the index sets of every equation output without a differentiable dtype
+  after its handler (see `_has_differentiable_dtype`, which follows JAX's tangent dtype rule).
   Integer and boolean variables then only carry dependencies if they come straight from an integer input.
   `custom_jvp_call` and `custom_vjp_call` still follow their primal,
   not the rule JAX differentiates them with, a known gap
@@ -63,7 +65,7 @@ Every handler must uphold these.
   Primitives on mutable refs (`new_ref`, `get`, `swap`) write through an input, so they raise `NotImplementedError`.
   `_prop_fallback` logs each one on the `asdex.detection` logger
   and records in `state.fallbacks` whether its fallback was conservative,
-  meaning that its inputs carried dependencies into an inexact output.
+  meaning that its inputs carried dependencies into an output of differentiable dtype.
   `jacobian_sparsity` stores all names in `SparsityPattern._fallbacks` in tracing order,
   and a fully dense pattern emits a `DensePatternWarning` naming those with a conservative fallback.
   HiJax primitives are named `hijax:<module>.<class>`.

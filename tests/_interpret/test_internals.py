@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 from jax import dtypes
 from jax._src.core import Literal, Primitive, ShapedArray
+from jax._src.dtypes import ExtendedDType
 from jax.interpreters import ad
 
 from asdex import DensePatternWarning, hessian_sparsity, jacobian, jacobian_sparsity
@@ -24,8 +25,8 @@ from asdex.detection._interpret._common import (
     _atom_const_val,
     _atom_shape,
     _forward_across_jaxpr_boundary,
+    _has_differentiable_dtype,
     _index_sets,
-    _is_inexact,
     _PropState,
     _seed_const_vals,
     _singleton_index_set,
@@ -453,6 +454,30 @@ class _AtomWithAval:
         self.aval = aval
 
 
+class _DtypeAval:
+    """Fake abstract value that only carries a dtype."""
+
+    def __init__(self, dtype):
+        self.dtype = dtype
+
+
+class _FloatTangentRules:
+    @staticmethod
+    def tangent_dtype(_):
+        return np.dtype(np.float32)
+
+
+class _FloatTangentDType(ExtendedDType):
+    """Extended dtype that declares a float32 tangent, so it is differentiable."""
+
+    _rules = _FloatTangentRules
+    name = "float_tangent"
+
+    @property
+    def type(self):
+        return dtypes.extended
+
+
 @pytest.mark.parametrize(
     ("aval", "expected"),
     [
@@ -466,6 +491,7 @@ class _AtomWithAval:
         (ShapedArray((2,), jnp.bool_), False),
         (ShapedArray((2,), dtypes.float0), False),
         (ShapedArray((2,), jax.random.key(0).dtype), False),
+        (_DtypeAval(_FloatTangentDType()), True),
         (FakeAval((2,)), True),
     ],
     ids=[
@@ -479,18 +505,19 @@ class _AtomWithAval:
         "bool",
         "float0",
         "prng_key",
+        "differentiable_extended",
         "no_dtype",
     ],
 )
-def test_is_inexact(aval, expected):
-    """Only floating and complex dtypes can have a nonzero derivative.
+def test_has_differentiable_dtype(aval, expected):
+    """Floating and complex dtypes are differentiable, integers, booleans and keys are not.
 
-    Atoms without a dtype, such as tokens, count as inexact,
+    Extended dtypes declare it themselves through their tangent dtype.
+    Atoms without a dtype, such as tokens, count as differentiable,
     which keeps their index sets and is conservative.
-    PRNG keys and ``float0`` must not crash the dtype check.
     """
     atom = _AtomWithAval(aval)
-    assert _is_inexact(atom) is expected  # ty: ignore[invalid-argument-type]
+    assert _has_differentiable_dtype(atom) is expected  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_fallback_covers_true_jacobian():

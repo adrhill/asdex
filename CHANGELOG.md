@@ -1,8 +1,8 @@
 # asdex
 
 ## Unreleased
-* ![Enhancement][badge-enhancement] Integer, boolean, and PRNG key values have zero derivative in sparsity detection: casting a float to an integer or boolean (e.g. `x.astype(int)`) no longer carries dependencies, and neither do the integer outputs of `lu` and of primitives without a handler.
-  Integer indices cast from floating-point values therefore no longer add dependencies to `gather`, `scatter`, and `dynamic_slice`, and an unknown primitive is only blamed by `DensePatternWarning` if one of its floating-point outputs received dependencies ([#235])
+* ![Enhancement][badge-enhancement] Values of integer, boolean, and PRNG key dtype have zero derivative in sparsity detection, as in JAX, whichever primitive produced them, e.g. `x.astype(int)`, `jnp.argsort(x)`, the pivots of `lu`, or the integer outputs of primitives without a handler.
+  Integer indices computed from inputs therefore no longer add dependencies to `gather`, `scatter`, and `dynamic_slice`, and an unknown primitive is only blamed by `DensePatternWarning` if one of its floating-point outputs received dependencies ([#235])
 * ![Enhancement][badge-enhancement] Detect sparser patterns for Equinox's `nonbatchable`, `nontraceable`, `nondifferentiable_backward`, `unvmap_any`, `unvmap_all`, and `unvmap_max`, and for `jax.lax.mulhi` and `jax.lax.rng_bit_generator`, which used to get dense patterns ([#234])
 * ![Enhancement][badge-enhancement] Stop reporting `jax.debug.print`, `jax.debug.callback`, `jax.random.clone`, and the `eq_to` comparator of `jnp.searchsorted` on complex inputs as fallbacks in `print_fallbacks` and `DensePatternWarning` ([#234])
 * ![Enhancement][badge-enhancement] Report linear algebra primitives without a precise handler, such as `lu`, `cholesky` and `svd`, as fallbacks in `print_fallbacks` and `DensePatternWarning` ([#232])

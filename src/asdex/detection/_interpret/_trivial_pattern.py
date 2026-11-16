@@ -13,7 +13,6 @@ from ._common import (
     _atom_numel,
     _empty_index_sets,
     _index_sets,
-    _is_inexact,
     _PropState,
     _union_all,
 )
@@ -40,7 +39,7 @@ def _prop_empty_pattern(eqn: JaxprEqn, state: _PropState) -> None:
 
 
 def _prop_dense_pattern(eqn: JaxprEqn, state: _PropState) -> None:
-    """Every inexact output element depends on every input element.
+    """Every output element depends on every input element.
 
     Applies to primitives whose body is not visible in the jaxpr,
     to handlers whose operands are not known at trace time,
@@ -50,29 +49,21 @@ def _prop_dense_pattern(eqn: JaxprEqn, state: _PropState) -> None:
     One union is shared across all output positions,
     which is safe since index sets in state are never mutated.
 
-    Outputs of non-inexact dtype (integers, booleans, PRNG keys)
-    have zero derivative and get empty index sets.
+    Like every handler's outputs,
+    those without a differentiable dtype are emptied afterwards by ``_prop_jaxpr``.
 
-    Mathematically, ∂yⱼ[k]/∂xᵢ[l] may be nonzero for all i, j, k, l
-    with yⱼ inexact.
+    Mathematically, ∂yⱼ[k]/∂xᵢ[l] may be nonzero for all i, j, k, l.
 
     Example: (u, s, vh) = svd(x) where x has index sets [{0}, {1}, {2}, {3}]
         Output index sets: {0, 1, 2, 3} for every element of u, s and vh
 
-    Example: (lu, pivots, perm) = lu(x) where x has index sets [{0}, {1}, {2}, {3}]
-        Output index sets: {0, 1, 2, 3} for every element of lu,
-        {} for every element of the integer pivots and perm
-
     Jaxpr:
         invars: any number, all read
-        outvars: any number, each inexact one gets the union of all input index sets
+        outvars: any number, each gets the union of all input index sets
     """
     all_inputs: list[IndexSet] = []
     for invar in eqn.invars:
         all_inputs.extend(_index_sets(state, invar))
     combined = _union_all(all_inputs)
     for outvar in eqn.outvars:
-        if _is_inexact(outvar):
-            state.indices[outvar] = [combined] * _atom_numel(outvar)
-        else:
-            state.indices[outvar] = _empty_index_sets(_atom_numel(outvar))
+        state.indices[outvar] = [combined] * _atom_numel(outvar)

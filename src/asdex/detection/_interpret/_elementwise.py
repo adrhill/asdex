@@ -21,7 +21,6 @@ from ._common import (
     _empty_index_sets,
     _exact_ints,
     _index_sets,
-    _is_inexact,
     _numel,
     _propagate_const_binary,
     _propagate_const_unary,
@@ -543,9 +542,9 @@ def _prop_convert_element_type(
 ) -> None:
     """Type conversion (e.g., float32 → float64) changes dtype without changing values.
 
-    Dependencies pass through unchanged and the Jacobian is the identity matrix,
-    unless an inexact value is cast to an integer or boolean dtype.
-    That cast is piecewise constant, so its output gets empty index sets,
+    Dependencies pass through unchanged and the Jacobian is the identity matrix.
+    A cast to an integer or boolean dtype is not differentiable,
+    so ``_prop_jaxpr`` then empties the output index sets,
     and integer indices computed from inputs (e.g. ``x[0].astype(int)``)
     stop spreading dependencies into gather, scatter and dynamic_slice.
 
@@ -570,10 +569,7 @@ def _prop_convert_element_type(
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.convert_element_type.html
     """
-    if _is_inexact(eqn.invars[0]) and not _is_inexact(eqn.outvars[0]):
-        _prop_empty_pattern(eqn, state)
-    else:
-        state.indices[eqn.outvars[0]] = _index_sets(state, eqn.invars[0])
+    state.indices[eqn.outvars[0]] = _index_sets(state, eqn.invars[0])
 
     # Consts and bounds keep flowing through every cast,
     # since downstream index handlers need them most after a cast to an integer.

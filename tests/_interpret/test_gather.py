@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 def _perm_matrix(n_out: int, n_in: int, mapping: list[int]) -> np.ndarray:
@@ -849,10 +850,12 @@ def test_gather_argsort_conservative():
 
 @pytest.mark.array_ops
 def test_gather_data_dependent_two_inputs():
-    """Gather with data-dependent indices includes both operand and index dependencies.
+    """Gather with data-dependent indices depends on the operand but not on the indices.
 
     When x[argsort(y)] is computed,
-    each output depends on all elements of both x (the operand) and y (the index source).
+    each output depends on all elements of x (the operand),
+    since the index could point anywhere.
+    The indices are integer-valued, so they add no dependencies on y.
     """
 
     def f(x, y):
@@ -860,13 +863,11 @@ def test_gather_data_dependent_two_inputs():
         return x[idx]
 
     result_x = jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=0)
-    result_y = jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=1)
-    # Each output depends on all elements of x (because index could point anywhere).
     expected_x = np.ones((3, 3), dtype=int)
-    # Each output depends on all elements of y (because argsort depends on all of y).
-    expected_y = np.ones((3, 3), dtype=int)
     np.testing.assert_array_equal(result_x.todense().astype(int), expected_x)
-    np.testing.assert_array_equal(result_y.todense().astype(int), expected_y)
+
+    x = jnp.array([1.0, 2.0, 3.0])
+    assert_jacobian_sparsity_exact(lambda y: f(x, y), np.array([3.0, 1.0, 2.0]))
 
 
 @pytest.mark.array_ops

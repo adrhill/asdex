@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 def _sort_jacobian(in_shape: tuple[int, ...], dimension: int) -> np.ndarray:
@@ -167,24 +168,18 @@ def test_sort_multi_operand():
 
 # High-level API
 @pytest.mark.array_ops
-@pytest.mark.fallback
 def test_argsort():
-    """Argsort is piecewise constant (zero derivative) but detected as dense.
+    """Argsort has zero derivative, since its output is integer-valued.
 
-    TODO(sort): argsort returns integer indices whose values don't change
-    under infinitesimal perturbations.
-    Structural sparsity detection can't distinguish index-like outputs
-    from value-like outputs in multi-operand sort.
+    The sort handler gives the permutation output dependencies,
+    but its integer dtype is not differentiable,
+    so ``_prop_jaxpr`` empties them.
     """
 
     def f(x):
         return jnp.argsort(x).astype(float)
 
-    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
-    # Precise: zero matrix (piecewise constant function)
-    # Detected: dense (structural state_indices from sort permutation)
-    expected = np.ones((4, 4), dtype=int)
-    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, np.array([3.0, 1.0, 2.0, 5.0]))
 
 
 # Compositions

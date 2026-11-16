@@ -1,5 +1,6 @@
 """Types, constants, and utilities for dependency tracking."""
 
+import functools
 import itertools
 import math
 from collections.abc import Callable, Sequence
@@ -7,7 +8,13 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from jax import dtypes
-from jax._src.core import Jaxpr, JaxprEqn, Literal, Var
+from jax._src.core import (
+    Jaxpr,
+    JaxprEqn,
+    Literal,
+    Var,
+    primal_dtype_to_tangent_dtype,
+)
 from numpy.typing import ArrayLike
 
 from asdex._errors import _ISSUES_URL
@@ -87,7 +94,7 @@ class _PropState:
     ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
     and so is ``fallbacks``,
     which maps every primitive that fell back to whether its fallback was conservative,
-    meaning that its inputs carried dependencies into an inexact output.
+    meaning that its inputs carried dependencies into an output of differentiable dtype.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
     Value info on a jaxpr's vars is therefore overwritten on every entry:
@@ -226,16 +233,27 @@ def _atom_numel(atom: Atom) -> int:
     return _numel(_atom_shape(atom))
 
 
-def _is_inexact(atom: Atom) -> bool:
+def _has_differentiable_dtype(atom: Atom) -> bool:
     """Whether a variable or literal can have a nonzero derivative, judged by its dtype.
 
-    Only inexact dtypes (floating and complex) can.
-    Integers, booleans, PRNG keys and ``float0`` are piecewise constant or not numbers at all.
-    Atoms without a dtype, such as tokens, are treated as inexact,
+    Floating and complex dtypes are differentiable.
+    Integers, booleans and PRNG keys are not,
+    so their values have zero derivative.
+    Atoms without a dtype, such as tokens, are treated as differentiable,
     which keeps their index sets and is therefore conservative.
     """
     dtype = getattr(atom.aval, "dtype", None)
-    return dtype is None or dtypes.issubdtype(dtype, np.inexact)
+    return dtype is None or _is_differentiable_dtype(dtype)
+
+
+@functools.cache
+def _is_differentiable_dtype(dtype) -> bool:
+    """Apply JAX's rule, which gives non-differentiable dtypes a ``float0`` tangent.
+
+    JAX tests for inexact dtypes,
+    except that extended dtypes such as PRNG keys declare their tangent dtype themselves.
+    """
+    return primal_dtype_to_tangent_dtype(dtype) != dtypes.float0
 
 
 # Atom value access
