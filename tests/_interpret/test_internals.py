@@ -32,6 +32,7 @@ from asdex.detection._interpret._common import (
     _singleton_index_set,
 )
 from asdex.detection._interpret._reshape import _prop_reshape
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 class FakeAval:
@@ -376,33 +377,51 @@ def test_unknown_primitive_conservative_after_constant_use():
     assert result._fallbacks == ("asdex_test_unknown",)
 
 
+# Unknown to asdex, but JAX can differentiate them,
+# so their patterns can be checked against ``jax.jacobian``.
 _unknown_int_p = Primitive("asdex_test_unknown_int")
+_unknown_int_p.def_impl(lambda x: jnp.floor(x).astype(jnp.int32))
 _unknown_int_p.def_abstract_eval(lambda x: ShapedArray(x.shape, jnp.int32))
+ad.primitive_jvps[_unknown_int_p] = lambda primals, _: (
+    _unknown_int_p.bind(*primals),
+    np.zeros(primals[0].shape, dtypes.float0),
+)
 
 _unknown_mixed_p = Primitive("asdex_test_unknown_mixed")
 _unknown_mixed_p.multiple_results = True
+_unknown_mixed_p.def_impl(
+    lambda x: [jnp.sin(x) * jnp.sum(x), jnp.floor(x).astype(jnp.int32)]
+)
 _unknown_mixed_p.def_abstract_eval(
     lambda x: [ShapedArray(x.shape, x.dtype), ShapedArray(x.shape, jnp.int32)]
 )
 
 
-def test_unknown_primitive_integer_output_is_empty(caplog):
+def _unknown_mixed_jvp(primals, tangents):
+    (x,) = primals
+    (t,) = tangents
+    t = ad.instantiate_zeros(t)
+    y, n = _unknown_mixed_p.bind(x)
+    y_dot = jnp.cos(x) * jnp.sum(x) * t + jnp.sin(x) * jnp.sum(t)
+    return [y, n], [y_dot, np.zeros(n.shape, dtypes.float0)]
+
+
+ad.primitive_jvps[_unknown_mixed_p] = _unknown_mixed_jvp
+
+
+def test_unknown_primitive_integer_output_is_empty():
     """An integer output of an unknown primitive has zero derivative.
 
-    The primitive is still logged and listed by ``print_fallbacks``,
+    The primitive is still listed by ``print_fallbacks``,
     since it is unknown, but it spreads no dependencies.
     """
 
     def f(x):
         return x * _unknown_int_p.bind(x).astype(x.dtype)
 
-    with caplog.at_level(logging.INFO, logger="asdex.detection"):
-        result = jacobian_sparsity(f, np.ones(3))
-
-    np.testing.assert_array_equal(result.todense(), np.eye(3))
-    assert result._fallbacks == ("asdex_test_unknown_int",)
-    (log_record,) = caplog.records
-    assert "primitive 'asdex_test_unknown_int'" in log_record.message
+    assert_jacobian_sparsity_exact(
+        f, np.array([1.5, 2.5, 3.5]), fallbacks=("asdex_test_unknown_int",)
+    )
 
 
 def test_unknown_primitive_integer_output_is_not_blamed():
@@ -416,10 +435,10 @@ def test_unknown_primitive_integer_output_is_not_blamed():
         return jnp.sum(x) * x + _unknown_int_p.bind(x).astype(x.dtype)
 
     with pytest.warns(DensePatternWarning) as record:
-        result = jacobian_sparsity(f, np.ones(3))
+        assert_jacobian_sparsity_exact(
+            f, np.array([1.5, 2.5, 3.5]), fallbacks=("asdex_test_unknown_int",)
+        )
 
-    np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
-    assert result._fallbacks == ("asdex_test_unknown_int",)
     (warning,) = record
     assert _NO_FALLBACKS_MESSAGE in str(warning.message)
     assert "asdex_test_unknown_int" not in str(warning.message)
@@ -432,19 +451,9 @@ def test_unknown_primitive_mixed_outputs():
         y, n = _unknown_mixed_p.bind(x)
         return jnp.concatenate([y, n.astype(x.dtype)])
 
-    result = jacobian_sparsity(f, np.ones(3))
-    expected = np.array(
-        [
-            [1, 1, 1],  # y depends on all of x
-            [1, 1, 1],
-            [1, 1, 1],
-            [0, 0, 0],  # n is integer-valued
-            [0, 0, 0],
-            [0, 0, 0],
-        ]
+    assert_jacobian_sparsity_exact(
+        f, np.array([0.3, 0.7, 1.1]), fallbacks=("asdex_test_unknown_mixed",)
     )
-    np.testing.assert_array_equal(result.todense(), expected)
-    assert result._fallbacks == ("asdex_test_unknown_mixed",)
 
 
 class _AtomWithAval:

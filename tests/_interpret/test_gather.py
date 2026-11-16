@@ -3,13 +3,19 @@
 https://docs.jax.dev/en/latest/_autosummary/jax.lax.gather.html
 """
 
+import functools
+
+import jax
 import jax.lax as lax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
-from tests._utils import assert_jacobian_sparsity_exact
+from tests._utils import (
+    assert_jacobian_sparsity_conservative,
+    assert_jacobian_sparsity_exact,
+)
 
 
 def _perm_matrix(n_out: int, n_in: int, mapping: list[int]) -> np.ndarray:
@@ -855,6 +861,8 @@ def test_gather_data_dependent_two_inputs():
     When x[argsort(y)] is computed,
     each output depends on all elements of x (the operand),
     since the index could point anywhere.
+    The Jacobian with respect to x at a fixed y is a single permutation,
+    so the pattern is checked as conservative.
     The indices are integer-valued, so they add no dependencies on y.
     """
 
@@ -862,12 +870,13 @@ def test_gather_data_dependent_two_inputs():
         idx = jnp.argsort(y)
         return x[idx]
 
-    result_x = jacobian_sparsity(f, np.zeros(3), np.zeros(3), argnums=0)
-    expected_x = np.ones((3, 3), dtype=int)
-    np.testing.assert_array_equal(result_x.todense().astype(int), expected_x)
-
     x = jnp.array([1.0, 2.0, 3.0])
-    assert_jacobian_sparsity_exact(lambda y: f(x, y), np.array([3.0, 1.0, 2.0]))
+    y = jnp.array([3.0, 1.0, 2.0])
+
+    result_x = assert_jacobian_sparsity_conservative(lambda x: f(x, y), x, fallbacks=())
+    np.testing.assert_array_equal(result_x.todense(), np.ones((3, 3)))
+
+    assert_jacobian_sparsity_exact(lambda y: f(x, y), y, fallbacks=())
 
 
 @pytest.mark.array_ops
@@ -949,12 +958,15 @@ def test_gather_fill_mode_oob():
 def test_gather_integer_operand_dynamic_indices_empty():
     """Gathering from an integer operand gives an integer output, which has zero derivative.
 
-    Integer inputs are seeded with dependencies,
-    so before the dtype rule the dense pattern spread them into the output.
+    The dynamic index would otherwise give a dense pattern over the operand.
     """
 
     def f(n):
-        return n[n[0]]
+        return n[n[0]].astype(jnp.float32)[None]
 
-    result = jacobian_sparsity(f, np.arange(3, dtype=np.int32)).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((1, 3), dtype=int))
+    assert_jacobian_sparsity_exact(
+        f,
+        np.arange(3, dtype=np.int32),
+        reference=functools.partial(jax.jacobian, allow_int=True),
+        fallbacks=(),
+    )

@@ -458,11 +458,7 @@ def test_lu_integer_outputs_zero_derivative():
         return x[:3] * (pivots + perm).astype(x.dtype)
 
     x = jnp.array([1.0, 2.0, 3.0, 8.0, 5.0, 6.0, 4.0, 7.0, 10.0])
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    expected = np.zeros((3, 9), dtype=int)
-    expected[:, :3] = np.eye(3, dtype=int)
-    np.testing.assert_array_equal(result, expected)
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, x, fallbacks=("lu",))
 
 
 def test_lu_pivots_to_permutation_zero_derivative():

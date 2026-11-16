@@ -249,7 +249,9 @@ def test_dynamic_slice_start_from_cast_adds_no_dependencies():
         start = x[0].astype(jnp.int32)
         return lax.dynamic_slice(x[1:], (start,), (2,))
 
-    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    result = assert_jacobian_sparsity_conservative(
+        f, np.array([1.0, 2.0, 3.0, 4.0]), fallbacks=()
+    )
     expected = np.array(
         [
             [0, 1, 1, 1],  # any window of x[1:], nothing from x[0]
@@ -257,8 +259,7 @@ def test_dynamic_slice_start_from_cast_adds_no_dependencies():
         ],
         dtype=int,
     )
-    np.testing.assert_array_equal(result, expected)
-    assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0, 4.0]))
+    np.testing.assert_array_equal(result.todense(), expected)
 
 
 # Size-0 dimension

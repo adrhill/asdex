@@ -1676,9 +1676,7 @@ def test_convert_inexact_to_integer_zero_derivative(dtype):
         return x.astype(dtype).astype(jnp.float32)
 
     x = np.array([0.5, 1.5, 2.5], dtype=np.float32)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
 
 
 @pytest.mark.elementwise
@@ -1690,8 +1688,7 @@ def test_convert_complex_to_integer_zero_derivative():
         return lax.convert_element_type(lax.real(z), jnp.int32).astype(jnp.float32)
 
     x = np.array([0.5, 1.5, 2.5], dtype=np.float32)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
 
 
 @pytest.mark.elementwise
@@ -1702,8 +1699,7 @@ def test_convert_complex_to_float_keeps_dependencies():
         return lax.convert_element_type(x.astype(jnp.complex64), jnp.float32)
 
     x = np.array([0.5, 1.5, 2.5], dtype=np.float32)
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.eye(3, dtype=int))
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
 
 
 @pytest.mark.elementwise
@@ -1736,20 +1732,22 @@ def test_convert_float_to_integer_keeps_const():
     def f(x):
         return x[jnp.array([2.0, 0.0]).astype(jnp.int32)]
 
-    result = jacobian_sparsity(f, np.zeros(3)).todense().astype(int)
-    expected = np.array([[0, 0, 1], [1, 0, 0]], dtype=int)
-    np.testing.assert_array_equal(result, expected)
+    assert_jacobian_sparsity_exact(f, np.arange(1.0, 4.0), fallbacks=())
 
 
 @pytest.mark.array_ops
 def test_convert_float_to_integer_keeps_bounds():
-    """Value bounds survive a round trip through float, so the slice enumerates its starts."""
+    """Value bounds survive a round trip through float, so the slice enumerates its starts.
+
+    The pattern is the union over both starts,
+    while the Jacobian at a single point selects one of them.
+    """
 
     def f(x):
         start = jnp.argmax(x[:2]).astype(jnp.float32).astype(jnp.int32)
         return lax.dynamic_slice(x, (start,), (2,))
 
-    result = jacobian_sparsity(f, np.zeros(4)).todense().astype(int)
+    result = assert_jacobian_sparsity_conservative(f, np.arange(1.0, 5.0), fallbacks=())
     expected = np.array(
         [
             [1, 1, 0, 0],  # out[0] = x[start], start ∈ {0, 1}
@@ -1757,4 +1755,4 @@ def test_convert_float_to_integer_keeps_bounds():
         ],
         dtype=int,
     )
-    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(result.todense(), expected)
