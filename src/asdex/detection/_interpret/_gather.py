@@ -39,7 +39,6 @@ from ._common import (
     _clamp_starts,
     _enumerate_bounded_patterns,
     _index_sets,
-    _merge_index_dependencies,
     _permute_indices,
     _position_map,
     _PropState,
@@ -331,7 +330,6 @@ def _prop_gather(
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.gather.html
     """
     operand_indices = _index_sets(state, eqn.invars[0])
-    si_index_sets = _index_sets(state, eqn.invars[1])
     operand_shape = _atom_shape(eqn.invars[0])
     out_size = _atom_numel(eqn.outvars[0])
 
@@ -360,11 +358,9 @@ def _prop_gather(
 
         result = _enumerate_bounded_patterns(ranges, out_size, _make)
         if result is not None:
-            state.indices[eqn.outvars[0]] = _merge_index_dependencies(
-                result, si_index_sets
-            )
+            state.indices[eqn.outvars[0]] = result
             return
 
     # Unresolvable indices: return a dense pattern,
-    # in which every output depends on the operand and on the indices' own dependencies.
+    # in which every output depends on every operand element.
     _prop_dense_pattern(eqn, state)

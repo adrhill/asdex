@@ -12,7 +12,6 @@ from ._common import (
     _clamp_starts,
     _enumerate_bounded_patterns,
     _index_sets,
-    _merge_index_dependencies,
     _numel,
     _PropState,
     _transform_indices,
@@ -53,8 +52,7 @@ def _prop_dynamic_slice(
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Like JAX, starts are clamped into ``[0, dim - size]`` first.
-    Otherwise returns a dense pattern,
-    including the start indices' own dependencies.
+    Otherwise returns a dense pattern.
 
     For static starts s and slice_sizes sz:
         out[i₀, i₁, ...] = in[s₀ + i₀, s₁ + i₁, ...]
@@ -74,10 +72,6 @@ def _prop_dynamic_slice(
     in_indices = _index_sets(state, operand)
     slice_sizes = eqn.params["slice_sizes"]
 
-    start_index_sets: list[IndexSet] = []
-    for start_atom in eqn.invars[1:]:
-        start_index_sets.extend(_index_sets(state, start_atom))
-
     # Static or bounded starts: enumerate every clamped start position.
     start_bounds = _resolve_start_bounds(eqn, 1, state)
     if start_bounds is not None:
@@ -93,16 +87,13 @@ def _prop_dynamic_slice(
 
         result = _enumerate_bounded_patterns(ranges, _numel(slice_sizes), _make_slice)
         if result is not None:
-            state.indices[eqn.outvars[0]] = _merge_index_dependencies(
-                result, start_index_sets
-            )
+            state.indices[eqn.outvars[0]] = result
             return
 
     # Unresolvable starts: some start is neither a known const nor value-bounded
     # (e.g. ``x[0].astype(int)`` depends on input values),
     # or the bounded start combinations exceed ``_MAX_ENUM_COMBINATIONS``.
-    # Any window may then be selected, so return a dense pattern,
-    # including the starts' own dependencies (mirrors gather).
+    # Any window may then be selected, so return a dense pattern (mirrors gather).
     _prop_dense_pattern(eqn, state)
 
 
@@ -117,8 +108,7 @@ def _prop_dynamic_update_slice(
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Like JAX, starts are clamped into ``[0, dim - size]`` first.
-    Otherwise returns a dense pattern,
-    including the start indices' own dependencies.
+    Otherwise returns a dense pattern.
 
     For static starts s and update shape u_shape:
         out[i] = update[i - s]  if s ≤ i < s + u_shape
@@ -141,10 +131,6 @@ def _prop_dynamic_update_slice(
     operand_shape = _atom_shape(operand)
     upd_shape = _atom_shape(update)
 
-    start_index_sets: list[IndexSet] = []
-    for start_atom in eqn.invars[2:]:
-        start_index_sets.extend(_index_sets(state, start_atom))
-
     # Static or bounded starts: enumerate every clamped start position.
     start_bounds = _resolve_start_bounds(eqn, 2, state)
     if start_bounds is not None:
@@ -164,16 +150,13 @@ def _prop_dynamic_update_slice(
             ranges, _numel(operand_shape), _make_update
         )
         if result is not None:
-            state.indices[eqn.outvars[0]] = _merge_index_dependencies(
-                result, start_index_sets
-            )
+            state.indices[eqn.outvars[0]] = result
             return
 
     # Unresolvable starts: some start is neither a known const nor value-bounded
     # (e.g. ``x[0].astype(int)`` depends on input values),
     # or the bounded start combinations exceed ``_MAX_ENUM_COMBINATIONS``.
-    # Any window may then receive the update, so return a dense pattern,
-    # including the starts' own dependencies (mirrors gather).
+    # Any window may then receive the update, so return a dense pattern (mirrors gather).
     _prop_dense_pattern(eqn, state)
 
 

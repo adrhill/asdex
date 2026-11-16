@@ -193,7 +193,7 @@ def test_dynamic_slice_input_dependent_start_conservative():
 
     The start index derives from the input without known bounds,
     so any window is possible and every output
-    must depend on all operand elements and the start's own dependencies.
+    must depend on all operand elements.
     Raising is wrong here, this is valid user code.
 
     TODO(dynamic_slice): the true pattern selects a single window,
@@ -216,8 +216,7 @@ def test_dynamic_update_slice_input_dependent_start_conservative():
     """dynamic_update_slice with an unbounded input-dependent start goes conservative.
 
     Any window may receive the update,
-    so every output must depend on the operand, the update,
-    and the start's own dependencies.
+    so every output must depend on the operand and the update.
     Raising is wrong here, this is valid user code.
 
     TODO(dynamic_update_slice): the true pattern updates a single window,
