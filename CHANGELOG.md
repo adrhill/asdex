@@ -1,6 +1,8 @@
 # asdex
 
 ## Unreleased
+* ![Enhancement][badge-enhancement] Detect sparser patterns for Equinox's `nonbatchable`, `nontraceable`, `nondifferentiable_backward`, `unvmap_any`, `unvmap_all`, and `unvmap_max`, and for `jax.lax.mulhi` and `jax.lax.rng_bit_generator`, which used to get dense patterns ([#234])
+* ![Enhancement][badge-enhancement] Stop reporting `jax.debug.print`, `jax.debug.callback`, `jax.random.clone`, and the `eq_to` comparator of `jnp.searchsorted` on complex inputs as fallbacks in `print_fallbacks` and `DensePatternWarning` ([#234])
 * ![Enhancement][badge-enhancement] Report linear algebra primitives without a precise handler, such as `lu`, `cholesky` and `svd`, as fallbacks in `print_fallbacks` and `DensePatternWarning` ([#232])
 * ![Documentation][badge-docs] Explain that dynamic `gather` and `scatter` indices are a source of conservatism, not a fallback ([#232])
 
@@ -183,6 +185,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 <!-- Only link to pull requests in this changelog, not issues. -->
+[#234]: https://github.com/adrhill/asdex/pull/234
 [#232]: https://github.com/adrhill/asdex/pull/232
 [#226]: https://github.com/adrhill/asdex/pull/226
 [#225]: https://github.com/adrhill/asdex/pull/225
