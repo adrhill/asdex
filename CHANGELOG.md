@@ -1,6 +1,11 @@
 # asdex
 
-## Unreleased
+## Version `v0.6.2`
+* ![Feature][badge-feature] Fall back to a conservative pattern, where every output depends on every input, for primitives without a handler, instead of raising `NotImplementedError`.
+  Primitives on mutable refs (`jax.new_ref`) still raise, since writes flow into their inputs ([#230])
+* ![Feature][badge-feature] Report fallbacks: `SparsityPattern.print_fallbacks` lists the unknown primitives that fell back, and each is logged once per detection run at `INFO` level on the `asdex.detection` logger ([#230])
+* ![Feature][badge-feature] Add `DensePatternWarning`, emitted when sparsity detection returns a fully dense pattern.
+  It names the unknown primitives whose fallback may have cost sparsity ([#230])
 * ![Enhancement][badge-enhancement] Values of integer, boolean, and PRNG key dtype have zero derivative in sparsity detection, as in JAX, whichever primitive produced them, e.g. `x.astype(int)`, `jnp.argsort(x)`, the pivots of `lu`, or the integer outputs of primitives without a handler.
   Integer inputs differentiated with `allow_int=True` no longer get dependencies either, matching the zero Jacobian that `jax.jacobian` and asdex compute for them.
   Integer indices computed from inputs therefore no longer add dependencies to `gather`, `scatter`, and `dynamic_slice`, and an unknown primitive is only blamed by `DensePatternWarning` if one of its floating-point outputs received dependencies ([#235])
@@ -192,6 +197,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 [#235]: https://github.com/adrhill/asdex/pull/235
 [#234]: https://github.com/adrhill/asdex/pull/234
 [#232]: https://github.com/adrhill/asdex/pull/232
+[#230]: https://github.com/adrhill/asdex/pull/230
 [#226]: https://github.com/adrhill/asdex/pull/226
 [#225]: https://github.com/adrhill/asdex/pull/225
 [#220]: https://github.com/adrhill/asdex/pull/220
