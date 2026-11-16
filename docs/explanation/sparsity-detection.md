@@ -231,9 +231,6 @@ every output element is assumed to depend on every input element.
 This is always correct — it is a superset of the true pattern —
 but it may be much less sparse than necessary.
 
-A small number of primitives use this fallback intentionally
-(e.g. callbacks into opaque Python code where dependencies cannot be analyzed).
-Primitives that `asdex` does not know use the same fallback.
 To see which primitives fell back, call
 [`print_fallbacks`](../reference/index.md#asdex.SparsityPattern.print_fallbacks) on the detected pattern:
 
