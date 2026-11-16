@@ -85,7 +85,8 @@ class _PropState:
     so intermediate index sets can be freed when the scope ends.
     ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
     and so is ``unknown_primitives``,
-    which maps every unknown primitive to whether its fallback lost dependencies.
+    which maps every unknown primitive to whether its fallback was conservative,
+    meaning that its inputs carried dependencies.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
     Value info on a jaxpr's vars is therefore overwritten on every entry:

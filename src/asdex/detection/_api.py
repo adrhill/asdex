@@ -91,8 +91,8 @@ def jacobian_sparsity(
         argnums=argnums_resolved,
         _fallbacks=tuple(unknown_primitives),
     )
-    lossy = [name for name, lost in unknown_primitives.items() if lost]
-    _warn_if_dense(sparsity, lossy)
+    conservative = [name for name, is_cons in unknown_primitives.items() if is_cons]
+    _warn_if_dense(sparsity, conservative)
     return sparsity
 
 
@@ -206,7 +206,7 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, dict[str, 
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
 
     Also returns the unknown primitives,
-    each mapped to whether its fallback lost dependencies.
+    each mapped to whether its fallback was conservative.
     """
     jaxpr = closed_jaxpr.jaxpr
     state = _PropState()
@@ -218,13 +218,16 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, dict[str, 
     return flat, state.unknown_primitives
 
 
-def _warn_if_dense(sparsity: SparsityPattern, lossy_fallbacks: list[str]) -> None:
+def _warn_if_dense(
+    sparsity: SparsityPattern, conservative_fallbacks: list[str]
+) -> None:
     """Warn if the detected pattern has no zeros left.
 
-    The message names the unknown primitives whose fallback lost dependencies,
+    The message names the unknown primitives whose fallback was conservative,
     since they may be what cost the sparsity.
-    Unknown primitives that only saw constants lost nothing and are left out.
-    Without lossy fallbacks, the function may be dense by nature,
+    Unknown primitives that only saw constants had no dependencies to spread
+    and are left out.
+    Without conservative fallbacks, the function may be dense by nature,
     or a known handler may have over-approximated its sparsity.
     Patterns with a single row or column are skipped,
     since they take one color whether they are dense or not.
@@ -232,8 +235,8 @@ def _warn_if_dense(sparsity: SparsityPattern, lossy_fallbacks: list[str]) -> Non
     m, n = sparsity.shape
     if min(m, n) <= 1 or sparsity.nnz < m * n:
         return
-    if lossy_fallbacks:
-        names = ", ".join(lossy_fallbacks)
+    if conservative_fallbacks:
+        names = ", ".join(conservative_fallbacks)
         cause = (
             f" after falling back to conservative patterns"
             f" for unknown primitives: {names}.\n"

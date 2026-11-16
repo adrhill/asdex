@@ -52,9 +52,10 @@ Every handler must uphold these.
   (see [Why Conservative Patterns Are Safe](https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe)).
   Primitives on mutable refs (`new_ref`, `get`, `swap`) write through an input, so they raise `NotImplementedError`.
   `_prop_unknown_primitive` logs each one on the `asdex.detection` logger
-  and records in `state.unknown_primitives` whether its fallback lost dependencies.
+  and records in `state.unknown_primitives` whether its fallback was conservative,
+  meaning that its inputs carried dependencies.
   `jacobian_sparsity` stores all names in `SparsityPattern._fallbacks` in tracing order,
-  and a fully dense pattern emits a `DensePatternWarning` naming those that lost dependencies.
+  and a fully dense pattern emits a `DensePatternWarning` naming those with a conservative fallback.
   HiJax primitives are named `hijax:<module>.<class>`.
   Primitives in the opt-in fallback group of `_prop_dispatch` are generically dense and stay silent.
   Handlers raise with `_report_issue` on jaxpr structure they don't understand,
@@ -73,7 +74,7 @@ Every handler takes `(eqn, state)`.
 - `consts`: `Var` to statically known values, which let gather/scatter resolve indices precisely.
 - `bounds`: `Var` to per-element inclusive integer `(lo, hi)` bounds
   for values that are bounded but not constant (e.g. `argmax` over a small axis).
-- `unknown_primitives`: unknown primitive names, each mapped to whether its fallback lost dependencies.
+- `unknown_primitives`: unknown primitive names, each mapped to whether its fallback was conservative.
 
 Helpers that touch state take the whole bundle,
 so adding a field never changes signatures.

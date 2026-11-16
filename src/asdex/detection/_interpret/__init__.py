@@ -510,9 +510,10 @@ def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None
 
     Each unknown primitive is logged once per detection
     and recorded in ``state.unknown_primitives``,
-    along with whether any of its fallbacks lost dependencies.
-    Only those that did can cost sparsity,
-    so only they are named if the final pattern turns out dense.
+    along with whether any of its fallbacks was conservative,
+    meaning that its inputs carried dependencies to spread to every output.
+    Only conservative fallbacks can cost sparsity,
+    so only their primitives are named if the final pattern turns out dense.
     """
     # A write to a ref (``jax.new_ref``) is a dependency that flows into an input,
     # and a later read picks it up from there.

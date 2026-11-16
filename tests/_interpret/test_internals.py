@@ -317,7 +317,7 @@ def test_dense_pattern_without_fallback_warns_without_blame():
 
 
 def test_unknown_primitive_on_constants_is_not_blamed(caplog):
-    """An unknown primitive without input dependencies loses no sparsity.
+    """An unknown primitive without input dependencies has no conservative fallback.
 
     It is logged and listed by ``print_fallbacks``,
     but not named as the cause of a pattern that is dense anyway.
@@ -341,7 +341,7 @@ def test_unknown_primitive_on_constants_is_not_blamed(caplog):
     assert "asdex_test_unknown" not in str(warning.message)
 
 
-def test_dense_pattern_warning_names_only_lossy_fallbacks():
+def test_dense_pattern_warning_names_only_conservative_fallbacks():
     """The warning names unknown primitives on inputs, not those on constants.
 
     Both are listed by ``print_fallbacks``.
@@ -361,8 +361,8 @@ def test_dense_pattern_warning_names_only_lossy_fallbacks():
     assert "asdex_test_unknown_linear" not in message
 
 
-def test_unknown_primitive_lossy_after_constant_use():
-    """A primitive first seen on constants still counts as lossy if later seen on inputs."""
+def test_unknown_primitive_conservative_after_constant_use():
+    """A primitive first seen on constants still counts as conservative if later seen on inputs."""
 
     def f(x):
         return _unknown_p.bind(jnp.ones(3)) + _unknown_p.bind(x)
