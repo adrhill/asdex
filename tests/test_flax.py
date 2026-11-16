@@ -33,7 +33,7 @@ import pytest
 from flax import nnx
 from flax.linen.pooling import max_pool
 
-from asdex import jacobian_sparsity
+from asdex import DensePatternWarning, jacobian_sparsity
 
 # ResNet
 # Adapted from https://github.com/jax-ml/bonsai/blob/main/bonsai/models/resnet/modeling.py
@@ -355,18 +355,28 @@ def _make_vit_fn():
 
 @pytest.mark.slow
 @pytest.mark.jacobian
-@pytest.mark.bug
+@pytest.mark.fallback
 def test_resnet_sparsity_detection():
     """Jacobian sparsity detection traces through a ResNet without errors.
 
     TODO(reduce_window_max): ResNet uses max_pool,
     which lowers to the reduce_window_max primitive.
+    Without a handler, it falls back to a conservative pattern,
+    which makes the whole pattern dense.
     """
     resnet_fn = _make_resnet_fn()
     input_shape = (8, 8, 3)
 
-    with pytest.raises(NotImplementedError, match="reduce_window_max"):
-        jacobian_sparsity(resnet_fn, np.zeros(input_shape))
+    with pytest.warns(
+        DensePatternWarning, match="for unknown primitives: reduce_window_max\\."
+    ):
+        result = jacobian_sparsity(resnet_fn, np.zeros(input_shape))
+
+    # TODO(fallback): reduce_window_max is the only primitive without a handler.
+    # Once it has one, this tuple is empty and the pattern may no longer be dense.
+    assert result._fallbacks == ("reduce_window_max",)
+    assert result.shape == (4, 8 * 8 * 3)
+    assert result.nnz == 4 * 8 * 8 * 3
 
 
 @pytest.mark.slow

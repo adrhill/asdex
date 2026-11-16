@@ -47,9 +47,17 @@ Every handler must uphold these.
   `cond` unions its branches since the taken branch is unknown,
   `while` iterates its carries to a fixed point since its trip count is unknown,
   and `scan` simulates its known trip count, stopping early once the carry repeats.
-- **Fail loudly.**
-  Unknown primitives raise `NotImplementedError`.
-  The conservative fallback is an explicit opt-in group in `_prop_dispatch`.
+- **Fail loudly on structure, fall back on unknown primitives.**
+  Unknown primitives use the conservative fallback, which is conservative for any pure primitive
+  (see [Why Conservative Patterns Are Safe](https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe)).
+  Primitives on mutable refs (`new_ref`, `get`, `swap`) write through an input, so they raise `NotImplementedError`.
+  `_prop_unknown_primitive` logs each one on the `asdex.detection` logger
+  and records in `state.unknown_primitives` whether its fallback was conservative,
+  meaning that its inputs carried dependencies.
+  `jacobian_sparsity` stores all names in `SparsityPattern._fallbacks` in tracing order,
+  and a fully dense pattern emits a `DensePatternWarning` naming those with a conservative fallback.
+  HiJax primitives are named `hijax:<module>.<class>`.
+  Primitives in the opt-in fallback group of `_prop_dispatch` are generically dense and stay silent.
   Handlers raise with `_report_issue` on jaxpr structure they don't understand,
   and `_prop_jaxpr` checks every handler's output count.
 - **Pay only for what is read.**
@@ -66,6 +74,7 @@ Every handler takes `(eqn, state)`.
 - `consts`: `Var` to statically known values, which let gather/scatter resolve indices precisely.
 - `bounds`: `Var` to per-element inclusive integer `(lo, hi)` bounds
   for values that are bounded but not constant (e.g. `argmax` over a small axis).
+- `unknown_primitives`: unknown primitive names, each mapped to whether its fallback was conservative.
 
 Helpers that touch state take the whole bundle,
 so adding a field never changes signatures.

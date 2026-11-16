@@ -8,7 +8,12 @@ The main entry point is `_prop_jaxpr`, which walks the computation graph
 and applies the appropriate handler for each equation.
 """
 
+import logging
+
 from jax._src.core import Jaxpr, JaxprEqn
+from jax._src.state.types import AbstractRef
+
+from asdex._errors import _ISSUES_URL
 
 from ._argmax import _prop_argmax
 from ._bitcast import _prop_bitcast_convert_type
@@ -75,6 +80,14 @@ from ._transpose import _prop_transpose
 from ._unstack import _prop_unstack
 from ._while import _prop_while
 
+_logger = logging.getLogger("asdex.detection")
+"""Logger for sparsity detection.
+
+Named after the public subpackage rather than this private module,
+so users can configure it without depending on internals
+and other parts of asdex can get loggers of their own.
+"""
+
 
 def _prop_jaxpr(
     jaxpr: Jaxpr,
@@ -85,7 +98,8 @@ def _prop_jaxpr(
 
     Runs in a fresh scope:
     index sets are tracked in a new dict so they can be freed when the scope ends,
-    while const values and value bounds are shared with the parent scope by aliasing.
+    while const values, value bounds, and the record of unknown primitives
+    are shared with the parent scope by aliasing.
 
     Args:
         jaxpr: The jaxpr to analyze
@@ -100,7 +114,11 @@ def _prop_jaxpr(
     if parent is None:
         state = _PropState()
     else:
-        state = _PropState(consts=parent.consts, bounds=parent.bounds)
+        state = _PropState(
+            consts=parent.consts,
+            bounds=parent.bounds,
+            unknown_primitives=parent.unknown_primitives,
+        )
 
     # Initialize input variables
     for var, indices in zip(jaxpr.invars, input_indices, strict=False):
@@ -194,7 +212,10 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
     ``call_hi_primitive`` stores the actual operation as a HiJax primitive object
     (a ``HiPrim``, called ``VJPHiPrimitive`` before JAX 0.11.2)
     in ``eqn.params["_prim"]``.
-    Any HiJax primitive without a case raises, since its semantics are unknown.
+    Any HiJax primitive without a case falls back to a conservative pattern,
+    since its semantics are unknown.
+    It is named ``hijax:<module>.<class>`` in logs and ``SparsityPattern.print_fallbacks``,
+    which tells it apart from regular primitives and points to its definition.
 
     Jaxpr:
         invars: operands, aligned with ``_prim.jaxpr.invars``
@@ -213,9 +234,10 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
         # checkpoint_name under jax_remat3 emits CheckpointName, which returns its operand unchanged.
         case "CheckpointName":
             _prop_pass_through(eqn, state)
-        case name:
-            msg = _report_issue(f"No handler for HiJax primitive '{name}'.")
-            raise NotImplementedError(msg)
+        case _:
+            prim_type = type(prim)
+            name = f"hijax:{prim_type.__module__}.{prim_type.__name__}"
+            _prop_unknown_primitive(eqn, state, name)
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
@@ -458,8 +480,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "tridiagonal_solve"
         ):
             _prop_conservative_fallback(eqn, state)
-        case _:
-            _prop_throw_error(eqn, state)
+        case name:
+            _prop_unknown_primitive(eqn, state, name)
 
 
 def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
@@ -477,10 +499,44 @@ def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
         state.indices[outvar] = _conservative_indices(all_inputs, _atom_numel(outvar))
 
 
-def _prop_throw_error(eqn: JaxprEqn, state: _PropState) -> None:
-    """Raise an error for unknown primitives.
+def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None:
+    """Fall back to a conservative pattern for a primitive without a handler.
 
-    This ensures we don't silently produce incorrect sparsity patterns.
+    The fallback is conservative for any pure primitive,
+    since every dependency on the function's inputs then flows
+    from ``eqn.invars`` to ``eqn.outvars``
+    (see https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe).
+    Primitives on mutable refs are not pure, so they raise instead.
+
+    Each unknown primitive is logged once per detection
+    and recorded in ``state.unknown_primitives``,
+    along with whether any of its fallbacks was conservative,
+    meaning that its inputs carried dependencies to spread to every output.
+    Only conservative fallbacks can cost sparsity,
+    so only their primitives are named if the final pattern turns out dense.
     """
-    msg = _report_issue(f"No handler for primitive '{eqn.primitive.name}'.")
-    raise NotImplementedError(msg)
+    # A write to a ref (``jax.new_ref``) is a dependency that flows into an input,
+    # and a later read picks it up from there.
+    # The fallback only writes index sets for outvars, so it would miss nonzeros.
+    # TODO(new_ref, get, swap): track one list of index sets per ref,
+    # seeded by ``new_ref``, updated by ``swap`` and read by ``get``,
+    # and shared across nested jaxprs like ``consts`` and ``bounds``.
+    if any(isinstance(atom.aval, AbstractRef) for atom in (*eqn.invars, *eqn.outvars)):
+        msg = _report_issue(
+            f"No handler for primitive '{name}', which operates on a mutable ref."
+            " Mutable refs are not supported yet."
+        )
+        raise NotImplementedError(msg)
+
+    if name not in state.unknown_primitives:
+        state.unknown_primitives[name] = False
+        _logger.info(
+            "No handler for primitive '%s', falling back to a conservative pattern."
+            " If this primitive is part of JAX,"
+            " please help out asdex's development by reporting it at %s",
+            name,
+            _ISSUES_URL,
+        )
+    if any(indices for invar in eqn.invars for indices in _index_sets(state, invar)):
+        state.unknown_primitives[name] = True
+    _prop_conservative_fallback(eqn, state)

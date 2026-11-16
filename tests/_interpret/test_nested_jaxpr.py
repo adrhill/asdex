@@ -7,6 +7,8 @@ enabling precise gather/scatter tracking instead of conservative fallback.
 https://docs.jax.dev/en/latest/jaxpr.html
 """
 
+import logging
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -427,8 +429,12 @@ def test_remat3_checkpoint_name(policy):
 
 
 @pytest.mark.elementwise
-def test_unknown_hi_primitive_raises():
-    """HiJax primitives without a handler raise instead of guessing a pattern."""
+def test_unknown_hi_primitive_falls_back_conservatively(caplog):
+    """HiJax primitives without a handler fall back to a conservative pattern.
+
+    The fallback is named after the HiJax primitive's module and class,
+    with a ``hijax:`` prefix.
+    """
 
     class Double(HiPrim):
         def __init__(self, aval):
@@ -442,10 +448,25 @@ def test_unknown_hi_primitive_raises():
             return 2 * x
 
     def f(x):
-        return Double(jax.typeof(x))(x)
+        return jnp.concatenate([Double(jax.typeof(x[:2]))(x[:2]), x[2:]])
 
-    with pytest.raises(NotImplementedError, match="HiJax primitive 'Double'"):
-        jacobian_sparsity(f, np.zeros(3))
+    with caplog.at_level(logging.INFO, logger="asdex.detection"):
+        sparsity = jacobian_sparsity(f, np.zeros(3))
+
+    expected = np.array(
+        [
+            [1, 1, 0],
+            [1, 1, 0],
+            [0, 0, 1],
+        ]
+    )
+    np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
+    name = f"hijax:{__name__}.Double"
+    assert sparsity._fallbacks == (name,)
+    (record,) = caplog.records
+    assert record.message.startswith(
+        f"No handler for primitive '{name}', falling back to a conservative pattern."
+    )
 
 
 @pytest.mark.array_ops

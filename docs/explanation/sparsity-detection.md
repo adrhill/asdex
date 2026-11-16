@@ -231,11 +231,17 @@ every output element is assumed to depend on every input element.
 This is always correct — it is a superset of the true pattern —
 but it may be much less sparse than necessary.
 
-A small number of primitives use this fallback intentionally
-(e.g. callbacks into opaque Python code where dependencies cannot be analyzed).
-For all other cases, `asdex` raises an error on unknown primitives
-rather than silently falling back,
-since silent over-approximation could mask bugs in the handler coverage.
+To see which primitives fell back, call
+[`print_fallbacks`](../reference/index.md#asdex.SparsityPattern.print_fallbacks) on the detected pattern:
+
+```python
+sparsity = asdex.jacobian_sparsity(f, x)
+sparsity.print_fallbacks()
+```
+
+If the detected pattern is fully dense,
+`asdex` emits a [`DensePatternWarning`][asdex.DensePatternWarning],
+since sparse differentiation then offers no speedup over dense differentiation.
 
 !!! tip
 

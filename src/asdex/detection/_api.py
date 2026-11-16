@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import os
+import warnings
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax._src.core import ClosedJaxpr
 from jax._src.interpreters.partial_eval import dce_jaxpr
 
@@ -18,6 +22,7 @@ from asdex._arguments import (
 )
 from asdex._defaults import _DEFAULT_ARGNUMS, _DEFAULT_HAS_AUX
 from asdex._docstrings import _fill_doc
+from asdex._errors import _ISSUES_URL, DensePatternWarning
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import _prop_jaxpr
 from asdex.detection._interpret._common import (
@@ -27,6 +32,9 @@ from asdex.detection._interpret._common import (
     _seed_const_vals,
     _singleton_index_set,
 )
+
+_PACKAGE_DIR = str(Path(__file__).parents[1]) + os.sep
+"""Directory of the asdex package, used to attribute warnings to the caller's code."""
 
 
 @_fill_doc
@@ -69,18 +77,23 @@ def jacobian_sparsity(
     closed_jaxpr = _dce_closed_jaxpr(closed_jaxpr)
 
     input_indices, n_selected = _build_input_indices(avals, selected)
-    out_indices = _run_prop(closed_jaxpr, input_indices)
+    out_indices, unknown_primitives = _run_prop(closed_jaxpr, input_indices)
     # One index set per flat output element, so the row count is its length.
     # This avoids a second trace of ``f`` just to compute output sizes.
     m = len(out_indices)
     rows, cols = _coo_from_index_sets(out_indices)
-    return SparsityPattern.from_coo(
-        rows,
-        cols,
-        (m, n_selected),
+    # unknown_primitives keeps the order in which tracing first met each one.
+    sparsity = SparsityPattern(
+        rows=np.asarray(rows, dtype=np.int32),
+        cols=np.asarray(cols, dtype=np.int32),
+        shape=(m, n_selected),
         input_avals=avals,
         argnums=argnums_resolved,
+        _fallbacks=tuple(unknown_primitives),
     )
+    conservative = [name for name, is_cons in unknown_primitives.items() if is_cons]
+    _warn_if_dense(sparsity, conservative)
+    return sparsity
 
 
 @_fill_doc
@@ -186,11 +199,14 @@ def _build_input_indices(
     return input_indices, n_selected
 
 
-def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
+def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, dict[str, bool]]:
     """Run ``_prop_jaxpr`` and concatenate index sets across all output leaves.
 
     JAX flattens pytree-structured outputs into one ``outvar`` per leaf, so
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
+
+    Also returns the unknown primitives,
+    each mapped to whether its fallback was conservative.
     """
     jaxpr = closed_jaxpr.jaxpr
     state = _PropState()
@@ -199,7 +215,54 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> list:
     flat: list = []
     for out_deps in output_indices_list:
         flat.extend(out_deps)
-    return flat
+    return flat, state.unknown_primitives
+
+
+def _warn_if_dense(
+    sparsity: SparsityPattern, conservative_fallbacks: list[str]
+) -> None:
+    """Warn if the detected pattern has no zeros left.
+
+    The message names the unknown primitives whose fallback was conservative,
+    since they may be what cost the sparsity.
+    Unknown primitives that only saw constants had no dependencies to spread
+    and are left out.
+    Without conservative fallbacks, the function may be dense by nature,
+    or a known handler may have over-approximated its sparsity.
+    Patterns with a single row or column are skipped,
+    since they take one color whether they are dense or not.
+    """
+    m, n = sparsity.shape
+    if min(m, n) <= 1 or sparsity.nnz < m * n:
+        return
+    if conservative_fallbacks:
+        names = ", ".join(conservative_fallbacks)
+        cause = (
+            f" after falling back to conservative patterns"
+            f" for unknown primitives: {names}.\n"
+            f"Handlers for these primitives may recover sparsity."
+            f" Please help out asdex's development by reporting this at {_ISSUES_URL}\n"
+        )
+    else:
+        cause = (
+            ".\n"
+            "No primitives without a handler were involved,"
+            " so the function may be dense by nature,\n"
+            "or asdex's handlers may have over-approximated its sparsity.\n"
+            "If you expected a sparser pattern,"
+            f" please help out asdex's development by reporting this at {_ISSUES_URL}\n"
+        )
+    # Detection is reached through several public entry points,
+    # so skip all asdex frames instead of counting a fixed stack level.
+    warnings.warn(
+        f"Detected a fully dense {m}\u00d7{n} sparsity pattern{cause}"
+        f"No speedup over dense differentiation.\n"
+        f"Suppress this warning with:"
+        f' warnings.filterwarnings("ignore",'
+        f" category=asdex.DensePatternWarning)",
+        category=DensePatternWarning,
+        skip_file_prefixes=(_PACKAGE_DIR,),
+    )
 
 
 def _coo_from_index_sets(

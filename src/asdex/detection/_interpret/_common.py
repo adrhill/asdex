@@ -9,6 +9,8 @@ import numpy as np
 from jax._src.core import Jaxpr, JaxprEqn, Literal, Var
 from numpy.typing import ArrayLike
 
+from asdex._errors import _ISSUES_URL
+
 IndexSet = set[int]
 """A single per-element dependency set.
 
@@ -70,9 +72,7 @@ Atom = Var | Literal
 def _report_issue(msg: str) -> str:
     """Append the standard report-an-issue request to an error message."""
     return (
-        f"{msg} "
-        "Please help out asdex's development by reporting this at "
-        "https://github.com/adrhill/asdex/issues"
+        f"{msg} Please help out asdex's development by reporting this at {_ISSUES_URL}"
     )
 
 
@@ -83,7 +83,10 @@ class _PropState:
     ``indices`` is scoped to a single jaxpr:
     each nested jaxpr (cond branch, while body, jit call) gets a fresh dict,
     so intermediate index sets can be freed when the scope ends.
-    ``consts`` and ``bounds`` are shared across nested scopes by aliasing.
+    ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
+    and so is ``unknown_primitives``,
+    which maps every unknown primitive to whether its fallback was conservative,
+    meaning that its inputs carried dependencies.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
     Value info on a jaxpr's vars is therefore overwritten on every entry:
@@ -95,6 +98,7 @@ class _PropState:
     indices: StateIndices = field(default_factory=dict)
     consts: StateConsts = field(default_factory=dict)
     bounds: StateBounds = field(default_factory=dict)
+    unknown_primitives: dict[str, bool] = field(default_factory=dict)
 
 
 PropJaxprFn = Callable[
