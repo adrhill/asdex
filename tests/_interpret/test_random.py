@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from asdex import jacobian_sparsity
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 @pytest.mark.array_ops
@@ -169,3 +170,34 @@ def test_random_sparser_than_conservative():
     # Diagonal has n nonzeros, conservative would have n*n
     assert result.nnz == n
     assert result.nnz < n * n
+
+
+@pytest.mark.array_ops
+def test_rng_bit_generator_zero_derivative():
+    """Bits from ``rng_bit_generator`` do not depend on its key.
+
+    The key is built from ``x[0]`` so that it carries dependencies.
+    Only the diagonal of ``x * bits`` remains, and nothing is reported.
+    """
+
+    def f(x):
+        key = jnp.zeros(4, jnp.uint32).at[0].set(x[0].astype(jnp.uint32))
+        _, bits = jax.lax.rng_bit_generator(key, (3,), dtype=jnp.uint32)
+        return x * bits.astype(jnp.float32)
+
+    assert_jacobian_sparsity_exact(f, np.ones(3), fallbacks=())
+
+
+@pytest.mark.array_ops
+def test_random_clone_not_reported():
+    """``random_clone`` copies a key, which never carries dependencies.
+
+    The pattern was already right before ``random_clone`` had a case,
+    so only the reporting changes.
+    """
+
+    def f(x):
+        key = jax.random.clone(jax.random.key(0))
+        return x * jax.random.uniform(key, x.shape)
+
+    assert_jacobian_sparsity_exact(f, np.ones(3), fallbacks=())

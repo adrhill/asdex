@@ -263,11 +263,24 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "shift_right_arithmetic"
             | "shift_right_logical"
             | "lu_pivots_to_permutation"  # integer permutation of the pivots
+            # mulhi(a, b) is the high half of the double-width product of two integers.
+            | "mulhi"
+            # Equinox's unvmap_any, unvmap_all and unvmap_max reduce a boolean
+            # or integer array to a scalar over all elements and all vmap batch members.
+            # Equinox uses them in error_if and while loops
+            # to decide for a whole batch at once.
+            | "unvmap_any"
+            | "unvmap_all"
+            | "unvmap_max"
         ):
+            _prop_empty_pattern(eqn, state)
+        # Debug primitives have no outputs, so nothing can depend on them.
+        case "debug_print" | "debug_callback":
             _prop_empty_pattern(eqn, state)
         case "clamp":
             _prop_clamp(eqn, state)
-        case "eq" | "ne" | "lt_to" | "le_to":
+        # eq_to, lt_to and le_to come from JAX's lexicographic sort comparators.
+        case "eq" | "ne" | "eq_to" | "lt_to" | "le_to":
             _prop_zero_derivative_const(eqn, state)
         case "lt":
             _prop_lt(eqn, state)
@@ -283,7 +296,23 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_closed_jaxpr(eqn, state, "jaxpr")
         case "call_hi_primitive":
             _prop_call_hi_primitive(eqn, state)
-        case "optimization_barrier" | "device_put" | "name":
+        case (
+            "optimization_barrier"
+            | "device_put"
+            | "name"
+            # Equinox's nonbatchable, nontraceable and nondifferentiable_backward
+            # are identities that raise under some transformations.
+            # nonbatchable raises under vmap and has no JVP rule,
+            # nontraceable raises under every transformation,
+            # and nondifferentiable_backward raises only in reverse mode.
+            # Its forward-mode Jacobian is the identity.
+            # An empty pattern would be wrong for it,
+            # and for the other two would make asdex skip AD and return zeros
+            # where JAX raises.
+            | "nonbatchable"
+            | "nontraceable"
+            | "nondifferentiable_backward"
+        ):
             _prop_pass_through(eqn, state)
         case "slice":
             _prop_slice(eqn, state)
@@ -410,8 +439,9 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         # so it appears in Hessian detection.
         case "empty" | "empty2":
             _prop_empty_pattern(eqn, state)
-        # Random number generation is not differentiable,
-        # and keys never carry dependencies.
+        # Random number generation is not differentiable:
+        # random bits and derived keys have zero derivative with respect to the key,
+        # even for the raw uint32 key of rng_bit_generator.
         case (
             "random_seed"
             | "random_unwrap"
@@ -419,6 +449,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "random_split"
             | "random_fold_in"
             | "random_bits"
+            | "random_clone"
+            | "rng_bit_generator"
         ):
             _prop_empty_pattern(eqn, state)
         case "while":
@@ -493,11 +525,6 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "householder_product"
             | "ormqr"
             | "tridiagonal_solve"
-            # TODO: these Equinox primitives have tighter patterns.
-            # nonbatchable is an identity, and unvmap_any and unvmap_max have zero derivative.
-            | "nonbatchable"
-            | "unvmap_any"
-            | "unvmap_max"
         ) as name:
             _prop_fallback(eqn, state, name)
         case name:
