@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794851093694,
+  "lastUpdate": 1794859209851,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -24534,6 +24534,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000022402358958909898",
             "extra": "mean: 14.166226120968135 usec\nrounds: 21232"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "befcf2321cba09264905d2fcc9e3fc1c0e708d74",
+          "message": "feat(detection): integer and boolean values have zero derivative (#235)\n\n* fix(decompression): check output dtypes before the empty-pattern shortcut\n\n`jacobian` and `compressed_jacobian` skipped the output dtype check when the pattern was empty,\nso e.g. `jnp.floor(x).astype(jnp.int32)` returned zeros in reverse mode instead of raising like `jax.jacrev`.\nThe Hessian paths already checked first.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): give non-inexact outputs of dense patterns empty index sets\n\nInteger, boolean and key outputs have zero derivative whatever the primitive computes.\n`_prop_dense_pattern` now gives them empty index sets,\nwhich affects the pivots and permutation of `lu`,\n`gather`, `scatter` and `dynamic_slice` on integer operands with dynamic indices,\nand the integer outputs of unknown primitives.\nAn unknown primitive now only counts as a conservative fallback\nif one of its inexact outputs received dependencies.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): give casts from inexact to integer or boolean dtypes an empty pattern\n\nThe cast is piecewise constant, so `x.astype(int).astype(float)` no longer detects as the identity.\nInteger indices computed from inputs then stop spreading their dependencies\ninto `gather`, `scatter` and `dynamic_slice`.\nConsts and bounds keep flowing through the cast.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: add changelog entries for the dtype rule\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: say returns a dense pattern for unbounded dynamic starts\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): empty the index sets of every output without a differentiable dtype\n\n_prop_jaxpr now applies the dtype rule after every handler instead of the cast handler and _prop_dense_pattern applying it themselves. This also covers integer outputs of other primitives, such as the permutation of argsort. _is_inexact becomes _has_differentiable_dtype and follows JAX's primal_dtype_to_tangent_dtype, which lets extended dtypes declare their own tangent dtype.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* feat(detection): give integer inputs no dependencies, as JAX does\n\n_prop_jaxpr now also empties the index sets of jaxpr inputs without a differentiable dtype. jax.jacobian gives integer inputs differentiated with allow_int a float0 tangent, so their Jacobian is zero, and asdex already decompressed it as zero. Detection used to seed them with dependencies, so n.astype(float) was the identity while (n + 1).astype(float) was zero.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(detection): remove _merge_index_dependencies\n\nIndex operands of gather, scatter and dynamic_slice are integers, which never carry dependencies now, so merging their index sets into the enumerated patterns had no effect.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: mention integer inputs in the changelog entry for the dtype rule\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* refactor(detection): rename _clear_nondifferentiable to _empty_nondifferentiable_indexsets\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* docs: explain when a fallback counts as conservative and reword the cast docstring\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: check the dtype rule tests with the assertion helpers\n\nInteger inputs and unknown primitives are checked against jax.jacobian,\nand fallbacks through the helpers' fallbacks argument.\nThe test primitives in test_internals.py get an impl and a JVP rule for this.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n* test: trace both inputs of the data-dependent gather test\n\nA closed-over y fixes argsort(y) at trace time,\nwhich makes the dense pattern conservative.\nWith both inputs traced, it is the tightest global pattern again.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-16T20:58:49+01:00",
+          "tree_id": "ebe354689b04f2f01803b6deb68dd9fe39b8ee3d",
+          "url": "https://github.com/adrhill/asdex/commit/befcf2321cba09264905d2fcc9e3fc1c0e708d74"
+        },
+        "date": 1794859208891,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 736.0232858138656,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001930945691867833",
+            "extra": "mean: 1.358652666666978 msec\nrounds: 24"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 27018.43607477713,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003969645968858209",
+            "extra": "mean: 37.01176475323614 usec\nrounds: 8693"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 69294.67969235065,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000031747610785964485",
+            "extra": "mean: 14.431122337814756 usec\nrounds: 24416"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 39182.51091803878,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005177548259072404",
+            "extra": "mean: 25.521590540529182 usec\nrounds: 15540"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 68948.44571820227,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026276538401448885",
+            "extra": "mean: 14.503590176449789 usec\nrounds: 24879"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 171.466397615742,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001162486932056417",
+            "extra": "mean: 5.8320464761906905 msec\nrounds: 21"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2939.610257522653,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000989819198711249",
+            "extra": "mean: 340.18115069538055 usec\nrounds: 2588"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1680.703859568269,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009041341906919585",
+            "extra": "mean: 594.9888163265568 usec\nrounds: 1960"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 2031.2277544878373,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002222631212572125",
+            "extra": "mean: 492.31308394175835 usec\nrounds: 1096"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4385.813018787973,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015405616815075754",
+            "extra": "mean: 228.0078963047886 usec\nrounds: 3491"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 143.7793092237474,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011087740837813964",
+            "extra": "mean: 6.955103661291166 msec\nrounds: 62"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 26749.068005078618,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000441754057318138",
+            "extra": "mean: 37.38448008020835 usec\nrounds: 18951"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 42717.24388341281,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006121045094057326",
+            "extra": "mean: 23.409750000006483 usec\nrounds: 14084"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 37787.49810980003,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007278319596215822",
+            "extra": "mean: 26.463779028033986 usec\nrounds: 12264"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 43354.506826648925,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005472333469870189",
+            "extra": "mean: 23.0656527589728 usec\nrounds: 13302"
           }
         ]
       }
