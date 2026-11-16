@@ -48,9 +48,11 @@ Every handler must uphold these.
   `while` iterates its carries to a fixed point since its trip count is unknown,
   and `scan` simulates its known trip count, stopping early once the carry repeats.
 - **Fail loudly on structure, fall back on unknown primitives.**
-  Unknown primitives use the conservative fallback, which is correct for any primitive.
-  `_prop_unknown_primitive` logs each one on the `asdex.detection` logger and records it in `state.unknown_primitives`,
-  and `jacobian_sparsity` raises a `DensePatternWarning` if the final pattern is fully dense.
+  Unknown primitives use the conservative fallback, which is correct for any pure primitive.
+  Primitives on mutable refs (`new_ref`, `get`, `swap`) write through an input, so they raise `NotImplementedError`.
+  `_prop_unknown_primitive` logs each primitive that loses dependencies on the `asdex.detection` logger
+  and records it in `state.unknown_primitives`,
+  and `jacobian_sparsity` emits a `DensePatternWarning` if the final pattern is fully dense.
   Primitives in the opt-in fallback group of `_prop_dispatch` are generically dense and stay silent.
   Handlers raise with `_report_issue` on jaxpr structure they don't understand,
   and `_prop_jaxpr` checks every handler's output count.
@@ -68,7 +70,7 @@ Every handler takes `(eqn, state)`.
 - `consts`: `Var` to statically known values, which let gather/scatter resolve indices precisely.
 - `bounds`: `Var` to per-element inclusive integer `(lo, hi)` bounds
   for values that are bounded but not constant (e.g. `argmax` over a small axis).
-- `unknown_primitives`: descriptions of the primitives that fell back for lack of a handler.
+- `unknown_primitives`: descriptions of the unknown primitives whose fallback lost dependencies.
 
 Helpers that touch state take the whole bundle,
 so adding a field never changes signatures.

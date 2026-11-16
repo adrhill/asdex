@@ -14,7 +14,7 @@ import pytest
 from jax._src.core import Literal, Primitive
 from jax.interpreters import ad
 
-from asdex import DensePatternWarning, hessian_sparsity, jacobian_sparsity
+from asdex import DensePatternWarning, hessian_sparsity, jacobian, jacobian_sparsity
 from asdex.detection._interpret import (
     _prop_closed_jaxpr,
     _prop_jaxpr,
@@ -180,7 +180,7 @@ def test_unknown_primitive_is_silent_by_default(capsys):
 
 
 def test_unknown_primitive_dense_pattern_warns():
-    """A fully dense pattern after an unknown-primitive fallback raises a warning."""
+    """A fully dense pattern after an unknown-primitive fallback emits a warning."""
     with pytest.warns(DensePatternWarning) as record:
         result = jacobian_sparsity(_unknown_p.bind, np.zeros(3))
 
@@ -192,21 +192,55 @@ def test_unknown_primitive_dense_pattern_warns():
     assert "https://github.com/adrhill/asdex/issues" in message
 
 
+_unknown_linear_p = Primitive("asdex_test_unknown_linear")
+_unknown_linear_p.def_abstract_eval(lambda x: x)
+ad.deflinear(_unknown_linear_p, lambda ct: [_unknown_linear_p.bind(ct)])
+
+
+def _f_unknown_linear(x):
+    return jnp.sum(jnp.sin(_unknown_linear_p.bind(x)))
+
+
+@pytest.mark.parametrize(
+    "detect",
+    [
+        lambda: jacobian_sparsity(_unknown_p.bind, np.zeros(3)),
+        lambda: hessian_sparsity(_f_unknown_linear, np.zeros(3)),
+        lambda: jacobian(_unknown_p.bind, np.zeros(3)),
+    ],
+    ids=["jacobian_sparsity", "hessian_sparsity", "jacobian"],
+)
+def test_dense_pattern_warning_points_at_caller(detect):
+    """The warning is attributed to user code, whichever entry point ran detection."""
+    with pytest.warns(DensePatternWarning) as record:
+        detect()
+
+    (warning,) = [w for w in record if issubclass(w.category, DensePatternWarning)]
+    assert warning.filename == __file__
+
+
+@pytest.mark.parametrize("n", [1, 3])
+def test_single_row_or_column_pattern_does_not_warn(n):
+    """Patterns with a single row or column take one color, dense or not."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        row = jacobian_sparsity(lambda x: jnp.sum(_unknown_p.bind(x)), np.zeros(n))
+        col = jacobian_sparsity(
+            lambda x: _unknown_p.bind(jnp.broadcast_to(x, (n,))), np.zeros(())
+        )
+
+    np.testing.assert_array_equal(row.todense(), np.ones((1, n)))
+    np.testing.assert_array_equal(col.todense(), np.ones((n, 1)))
+
+
 def test_unknown_primitive_dense_pattern_warns_for_hessian():
     """The dense-pattern warning also fires through ``hessian_sparsity``.
 
     Detection runs on the jaxpr of the gradient,
     which here contains the unknown primitive and its transpose.
     """
-    p = Primitive("asdex_test_unknown_linear")
-    p.def_abstract_eval(lambda x: x)
-    ad.deflinear(p, lambda ct: [p.bind(ct)])
-
-    def f(x):
-        return jnp.sum(jnp.sin(p.bind(x)))
-
     with pytest.warns(DensePatternWarning, match="asdex_test_unknown_linear"):
-        result = hessian_sparsity(f, np.zeros(3))
+        result = hessian_sparsity(_f_unknown_linear, np.zeros(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
 
@@ -218,6 +252,88 @@ def test_dense_pattern_without_fallback_does_not_warn():
         result = jacobian_sparsity(lambda x: jnp.sum(x) * x, np.ones(3))
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+
+
+def test_unknown_primitive_on_constants_is_not_blamed(caplog):
+    """An unknown primitive without input dependencies loses no sparsity.
+
+    It is neither logged nor named as the cause of a pattern that is dense anyway.
+    """
+
+    def f(x):
+        return jnp.sum(x) * x + _unknown_p.bind(jnp.ones(3))
+
+    with (
+        warnings.catch_warnings(),
+        caplog.at_level(logging.INFO, logger="asdex.detection"),
+    ):
+        warnings.simplefilter("error")
+        result = jacobian_sparsity(f, np.ones(3))
+
+    np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+    assert caplog.records == []
+
+
+def test_unknown_primitive_fallback_covers_true_jacobian():
+    """The fallback pattern contains every nonzero of the true Jacobian.
+
+    The primitive has a JVP rule, so the pattern can be checked against JAX.
+    Its Jacobian block is dense, so the conservative pattern is also exact.
+    """
+    p = Primitive("asdex_test_unknown_differentiable")
+    p.def_impl(lambda x: jnp.sin(x) * jnp.sum(x))
+    p.def_abstract_eval(lambda x: x)
+
+    def p_jvp(primals, tangents):
+        (x,) = primals
+        (t,) = tangents
+        t = ad.instantiate_zeros(t)
+        return p.bind(x), jnp.cos(x) * jnp.sum(x) * t + jnp.sin(x) * jnp.sum(t)
+
+    ad.primitive_jvps[p] = p_jvp
+
+    def f(x):
+        return jnp.concatenate([p.bind(x[:2]), x[2:] * 2])
+
+    x = np.array([0.3, 0.7, 1.1, 1.9])
+    result = jacobian_sparsity(f, x).todense().astype(int)
+
+    # Column by column, since the primitive has no batching rule for jax.jacobian.
+    columns = [jax.jvp(f, (x,), (np.eye(4)[j],))[1] for j in range(4)]
+    true_nonzeros = (np.stack(columns, axis=1) != 0).astype(int)
+
+    np.testing.assert_array_equal(result, true_nonzeros)
+
+
+def test_mutable_ref_raises():
+    """Primitives on mutable refs raise instead of falling back.
+
+    A write to a ref flows into an input of the primitive,
+    which the conservative fallback would miss.
+
+    TODO(new_ref, get, swap): track index sets per ref.
+    The precise pattern here is the identity.
+    """
+
+    def f(x):
+        ref = jax.new_ref(jnp.zeros(3))
+        ref[...] = x * 2.0
+        return ref[...]
+
+    with pytest.raises(NotImplementedError, match="mutable ref"):
+        jacobian_sparsity(f, np.ones(3))
+
+
+def test_mutable_ref_from_closure_raises():
+    """Reads and writes raise too when the ref was created outside of the function."""
+    ref = jax.new_ref(jnp.zeros(3))
+
+    def f(x):
+        ref[...] = x * 2.0
+        return ref[...]
+
+    with pytest.raises(NotImplementedError, match="mutable ref"):
+        jacobian_sparsity(f, np.ones(3))
 
 
 def test_known_fallback_primitive_is_not_logged(caplog):

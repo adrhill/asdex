@@ -11,11 +11,13 @@ and applies the appropriate handler for each equation.
 import logging
 
 from jax._src.core import Jaxpr, JaxprEqn
+from jax._src.state.types import AbstractRef
 
 from ._argmax import _prop_argmax
 from ._bitcast import _prop_bitcast_convert_type
 from ._broadcast import _prop_broadcast_in_dim
 from ._common import (
+    _ISSUES_URL,
     IndexSet,
     _atom_numel,
     _conservative_indices,
@@ -495,20 +497,42 @@ def _prop_conservative_fallback(eqn: JaxprEqn, state: _PropState) -> None:
 def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     """Fall back to a conservative pattern for a primitive without a handler.
 
-    The fallback is correct for any primitive,
-    since every dependency on the function's inputs flows through ``eqn.invars``.
-    It can cost a lot of sparsity though,
-    so each unknown primitive is logged once per detection
+    The fallback is correct for any pure primitive,
+    since every dependency on the function's inputs then flows
+    from ``eqn.invars`` to ``eqn.outvars``.
+    Primitives on mutable refs are not pure, so they raise instead.
+
+    The fallback can cost a lot of sparsity,
+    so each unknown primitive that loses dependencies is logged once per detection
     and recorded in ``state.unknown_primitives``,
     which lets the caller warn if the final pattern turns out dense.
+    A primitive whose inputs carry no dependencies loses nothing and stays silent.
 
     ``name`` describes the primitive in messages, e.g. ``"primitive 'foo'"``.
     """
-    if name not in state.unknown_primitives:
+    # A write to a ref (``jax.new_ref``) is a dependency that flows into an input,
+    # and a later read picks it up from there.
+    # The fallback only writes index sets for outvars, so it would miss nonzeros.
+    # TODO(new_ref, get, swap): track one list of index sets per ref,
+    # seeded by ``new_ref``, updated by ``swap`` and read by ``get``,
+    # and shared across nested jaxprs like ``consts`` and ``bounds``.
+    if any(isinstance(atom.aval, AbstractRef) for atom in (*eqn.invars, *eqn.outvars)):
+        msg = _report_issue(
+            f"No handler for {name}, which operates on a mutable ref."
+            " Mutable refs are not supported yet."
+        )
+        raise NotImplementedError(msg)
+
+    has_dependencies = any(
+        indices for invar in eqn.invars for indices in _index_sets(state, invar)
+    )
+    if has_dependencies and name not in state.unknown_primitives:
         state.unknown_primitives.add(name)
         _logger.info(
-            _report_issue(
-                f"No handler for {name}, falling back to a conservative pattern."
-            )
+            "No handler for %s, falling back to a conservative pattern."
+            " If this primitive is part of JAX,"
+            " please help out asdex's development by reporting it at %s",
+            name,
+            _ISSUES_URL,
         )
     _prop_conservative_fallback(eqn, state)

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import warnings
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 import jax
@@ -23,12 +25,16 @@ from asdex._errors import DensePatternWarning
 from asdex._pattern import SparsityPattern
 from asdex.detection._interpret import _prop_jaxpr
 from asdex.detection._interpret._common import (
+    _ISSUES_URL,
     IndexSet,
     _empty_index_sets,
     _PropState,
     _seed_const_vals,
     _singleton_index_set,
 )
+
+_PACKAGE_DIR = str(Path(__file__).parents[1]) + os.sep
+"""Directory of the asdex package, used to attribute warnings to the caller's code."""
 
 
 @_fill_doc
@@ -196,7 +202,7 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, set[str]]:
     JAX flattens pytree-structured outputs into one ``outvar`` per leaf, so
     concatenating preserves the row ordering used by ``jax.make_jaxpr``.
 
-    Also returns the primitives that fell back for lack of a handler.
+    Also returns the unknown primitives whose fallback lost dependencies.
     """
     jaxpr = closed_jaxpr.jaxpr
     state = _PropState()
@@ -215,22 +221,25 @@ def _warn_if_dense_fallback(
 
     A fallback that keeps some sparsity is only logged,
     but a fully dense pattern makes sparse differentiation pointless.
+    Patterns with a single row or column are skipped,
+    since they take one color whether they are dense or not.
     """
     m, n = sparsity.shape
-    if not unknown_primitives or sparsity.nnz == 0 or sparsity.nnz < m * n:
+    if not unknown_primitives or min(m, n) <= 1 or sparsity.nnz < m * n:
         return
     names = ", ".join(sorted(unknown_primitives))
+    # Detection is reached through several public entry points,
+    # so skip all asdex frames instead of counting a fixed stack level.
     warnings.warn(
         f"Detected a fully dense {m}\u00d7{n} sparsity pattern"
         f" after falling back to conservative patterns for: {names}.\n"
         f"No speedup over dense differentiation.\n"
-        f"Please help out asdex's development by reporting this at"
-        f" https://github.com/adrhill/asdex/issues\n"
+        f"Please help out asdex's development by reporting this at {_ISSUES_URL}\n"
         f"Suppress this warning with:"
         f' warnings.filterwarnings("ignore",'
         f" category=asdex.DensePatternWarning)",
         category=DensePatternWarning,
-        stacklevel=3,
+        skip_file_prefixes=(_PACKAGE_DIR,),
     )
 
 

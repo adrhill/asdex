@@ -34,7 +34,7 @@ import pytest
 from flax import nnx
 from flax.linen.pooling import max_pool
 
-from asdex import jacobian_sparsity
+from asdex import DensePatternWarning, jacobian_sparsity
 
 # ResNet
 # Adapted from https://github.com/jax-ml/bonsai/blob/main/bonsai/models/resnet/modeling.py
@@ -367,10 +367,15 @@ def test_resnet_sparsity_detection(caplog):
     resnet_fn = _make_resnet_fn()
     input_shape = (8, 8, 3)
 
-    with caplog.at_level(logging.INFO, logger="asdex.detection"):
+    with (
+        caplog.at_level(logging.INFO, logger="asdex.detection"),
+        pytest.warns(DensePatternWarning, match="primitive 'reduce_window_max'"),
+    ):
         result = jacobian_sparsity(resnet_fn, np.zeros(input_shape))
 
+    # Dense until reduce_window_max gets a precise handler.
     assert result.shape == (4, 8 * 8 * 3)
+    assert result.nnz == 4 * 8 * 8 * 3
     messages = [record.message for record in caplog.records]
     assert any("primitive 'reduce_window_max'" in msg for msg in messages)
 

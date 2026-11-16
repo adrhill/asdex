@@ -67,12 +67,13 @@ Atom = Var | Literal
 """Atomic elements in jaxpressions: named intermediates (Var) or constants (Literal)."""
 
 
+_ISSUES_URL = "https://github.com/adrhill/asdex/issues"
+
+
 def _report_issue(msg: str) -> str:
     """Append the standard report-an-issue request to an error message."""
     return (
-        f"{msg} "
-        "Please help out asdex's development by reporting this at "
-        "https://github.com/adrhill/asdex/issues"
+        f"{msg} Please help out asdex's development by reporting this at {_ISSUES_URL}"
     )
 
 
@@ -85,7 +86,7 @@ class _PropState:
     so intermediate index sets can be freed when the scope ends.
     ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
     and so is ``unknown_primitives``,
-    which collects every primitive that fell back for lack of a handler.
+    which collects every unknown primitive whose fallback lost dependencies.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
     Value info on a jaxpr's vars is therefore overwritten on every entry:

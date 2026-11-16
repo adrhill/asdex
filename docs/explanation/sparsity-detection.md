@@ -233,8 +233,10 @@ but it may be much less sparse than necessary.
 
 A small number of primitives use this fallback intentionally
 (e.g. callbacks into opaque Python code where dependencies cannot be analyzed).
-Primitives that `asdex` does not know use the same fallback.
-Each one is reported at `INFO` level on the `asdex.detection` logger of Python's `logging` module,
+Primitives that `asdex` does not know use the same fallback,
+which is correct for every primitive without side effects.
+Primitives on mutable refs (`jax.new_ref`) have side effects and raise an error instead.
+Each unknown primitive that loses sparsity is reported at `INFO` level on the `asdex.detection` logger of Python's `logging` module,
 so the loss of sparsity can be traced back to its source:
 
 ```python
@@ -245,7 +247,7 @@ logging.getLogger("asdex.detection").setLevel(logging.INFO)
 ```
 
 If the detected pattern ends up fully dense after such a fallback,
-`asdex` raises a [`DensePatternWarning`][asdex.DensePatternWarning],
+`asdex` emits a [`DensePatternWarning`][asdex.DensePatternWarning],
 since sparse differentiation then offers no speedup over dense differentiation.
 
 !!! tip

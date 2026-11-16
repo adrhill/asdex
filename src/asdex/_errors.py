@@ -32,11 +32,11 @@ class DenseColoringWarning(UserWarning):
 class DensePatternWarning(UserWarning):
     """Detected sparsity pattern is fully dense after a conservative fallback.
 
-    Raised when sparsity detection met primitives it has no handler for
+    Emitted when sparsity detection met primitives it has no handler for
     and the resulting pattern has no zeros left.
     The pattern is still correct,
     but sparse differentiation offers no speedup over dense differentiation.
     If you encounter this warning,
     please help out asdex's development by reporting the primitives at
-    https://github.com/adrhill/asdex/issues.
+    <https://github.com/adrhill/asdex/issues>.
     """
