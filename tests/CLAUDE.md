@@ -70,10 +70,12 @@ Use these fixtures in test function signatures to automatically run tests across
 
 ### Sparsity helpers (`_utils.py`)
 
-- `numerical_jacobian_sparsity(f, x, atol=1e-10, holomorphic=False)`: Reference sparsity pattern from `jax.jacobian`, thresholded by `atol`.
-- `numerical_flat_jacobian_sparsity(f, x, atol=1e-10)`: Like `numerical_jacobian_sparsity`, but flattened to `(output size, input size)`, so it works for inputs and outputs of any shape.
-- `assert_jacobian_sparsity_exact(f, x, holomorphic=False)`: Assert the detected pattern equals the numerical pattern.
-- `assert_flat_jacobian_sparsity_exact(f, x)`: Like `assert_jacobian_sparsity_exact`, for inputs or outputs that are not 1D.
+- `numerical_jacobian_sparsity(f, x, atol=1e-10, holomorphic=False, reference=jax.jacobian)`: Reference sparsity pattern from `reference`, thresholded by `atol`.
+  Pass `reference=jax.jacfwd` for functions that JAX can only differentiate in forward mode.
+  The assertion helpers below forward `reference` as well.
+- `numerical_flat_jacobian_sparsity(f, x, atol=1e-10, reference=jax.jacobian)`: Like `numerical_jacobian_sparsity`, but flattened to `(output size, input size)`, so it works for inputs and outputs of any shape.
+- `assert_jacobian_sparsity_exact(f, x, holomorphic=False, reference=jax.jacobian)`: Assert the detected pattern equals the numerical pattern.
+- `assert_flat_jacobian_sparsity_exact(f, x, reference=jax.jacobian)`: Like `assert_jacobian_sparsity_exact`, for inputs or outputs that are not 1D.
 - `assert_jacobian_sparsity_conservative(f, x)`: Assert the detected pattern is a conservative superset of the numerical pattern.
 - `assert_hessian_sparsity_exact(f, x)`: Assert the detected Hessian pattern equals the numerical pattern of `jax.hessian`.
 
