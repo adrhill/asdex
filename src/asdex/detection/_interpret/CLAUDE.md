@@ -36,9 +36,10 @@ Every handler must uphold these.
   An output depends on an input only if their partial derivative can be nonzero.
   Piecewise-constant ops (`floor`, `sign`, comparisons, `argmax`) therefore emit empty sets.
   Values of integer, boolean or PRNG key dtype have zero derivative,
-  so `_prop_jaxpr` empties the index sets of every equation output without a differentiable dtype
-  after its handler (see `_has_differentiable_dtype`, which follows JAX's tangent dtype rule).
-  Integer and boolean variables then only carry dependencies if they come straight from an integer input.
+  so `_prop_jaxpr` empties the index sets of every jaxpr input and every equation output
+  without a differentiable dtype (see `_has_differentiable_dtype`, which follows JAX's tangent dtype rule).
+  Integer and boolean variables therefore never carry dependencies,
+  not even integer inputs differentiated with `allow_int`.
   `custom_jvp_call` and `custom_vjp_call` still follow their primal,
   not the rule JAX differentiates them with, a known gap
   (see the `bug` tests in `tests/_interpret/test_custom_jvp.py`

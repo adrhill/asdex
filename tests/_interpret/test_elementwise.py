@@ -1,5 +1,7 @@
 """Tests for elementwise operation propagation."""
 
+import functools
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -1705,17 +1707,26 @@ def test_convert_complex_to_float_keeps_dependencies():
 
 
 @pytest.mark.elementwise
-def test_convert_integer_input_to_float_keeps_dependencies():
-    """Integer inputs are seeded with dependencies, and casting them keeps those.
+@pytest.mark.parametrize(
+    "f",
+    [
+        lambda n: n.astype(jnp.float32) * 2,
+        lambda n: (n + 1).astype(jnp.float32) * 2,
+    ],
+    ids=["cast", "arithmetic_then_cast"],
+)
+def test_convert_integer_input_to_float_zero_derivative(f):
+    """Integer inputs carry no dependencies, with or without integer arithmetic first.
 
-    The rule only zeroes casts from an inexact dtype.
+    ``jax.jacobian`` with ``allow_int`` gives them a ``float0`` tangent,
+    so their Jacobian is zero.
     """
-
-    def f(n):
-        return n.astype(jnp.float32) * 2
-
-    result = jacobian_sparsity(f, np.arange(3, dtype=np.int32)).todense().astype(int)
-    np.testing.assert_array_equal(result, np.eye(3, dtype=int))
+    assert_jacobian_sparsity_exact(
+        f,
+        np.arange(3, dtype=np.int32),
+        reference=functools.partial(jax.jacobian, allow_int=True),
+        fallbacks=(),
+    )
 
 
 @pytest.mark.array_ops

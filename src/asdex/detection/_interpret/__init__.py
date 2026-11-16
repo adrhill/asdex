@@ -9,8 +9,9 @@ and applies the appropriate handler for each equation.
 """
 
 import logging
+from collections.abc import Sequence
 
-from jax._src.core import Jaxpr, JaxprEqn
+from jax._src.core import Jaxpr, JaxprEqn, Var
 from jax._src.state.types import AbstractRef
 
 from asdex._errors import _ISSUES_URL
@@ -120,6 +121,7 @@ def _prop_jaxpr(
     # Initialize input variables
     for var, indices in zip(jaxpr.invars, input_indices, strict=False):
         state.indices[var] = indices
+    _clear_nondifferentiable(jaxpr.invars, state)
 
     # Initialize constant variables (no input dependencies)
     for var in jaxpr.constvars:
@@ -132,26 +134,29 @@ def _prop_jaxpr(
         _forget_value_info(state, eqn.outvars)
         _prop_dispatch(eqn, state)
         _check_index_set_counts(eqn, state)
-        _clear_nondifferentiable_outputs(eqn, state)
+        _clear_nondifferentiable(eqn.outvars, state)
 
     # Return output dependencies
     return [_index_sets(state, outvar) for outvar in jaxpr.outvars]
 
 
-def _clear_nondifferentiable_outputs(eqn: JaxprEqn, state: _PropState) -> None:
-    """Empty the index sets of outputs without a differentiable dtype.
+def _clear_nondifferentiable(variables: Sequence[Var], state: _PropState) -> None:
+    """Empty the index sets of variables without a differentiable dtype.
 
     Values of integer, boolean or PRNG key dtype have zero derivative,
-    whatever their handler wrote.
-    Applying this to every equation keeps handlers free of dtype checks.
+    as in JAX, which gives them a ``float0`` tangent.
+    ``_prop_jaxpr`` applies this to the inputs of every jaxpr
+    and to the outputs of every equation, whatever their handler wrote.
+    Integer inputs differentiated with ``allow_int`` therefore carry no dependencies,
+    and handlers need no dtype checks.
 
     Example: (s, i) = sort(x, iota) where x has index sets [{0}, {1}, {2}]
         The sort handler writes [{0, 1, 2}, ...] for the integer permutation i.
         Output index sets of i: [{}, {}, {}]
     """
-    for outvar in eqn.outvars:
-        if not _has_differentiable_dtype(outvar) and any(state.indices.get(outvar, ())):
-            state.indices[outvar] = _empty_index_sets(_atom_numel(outvar))
+    for var in variables:
+        if not _has_differentiable_dtype(var) and any(state.indices.get(var, ())):
+            state.indices[var] = _empty_index_sets(_atom_numel(var))
 
 
 def _check_index_set_counts(eqn: JaxprEqn, state: _PropState) -> None:
