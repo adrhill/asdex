@@ -1470,6 +1470,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.print_fallbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        print_fallbacks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#asdex.SparsityPattern.__str__" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1606,6 +1617,17 @@
     <span class="md-ellipsis">
       
         VerificationError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#asdex.DensePatternWarning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DensePatternWarning
       
     </span>
   </a>
@@ -2466,6 +2488,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.print_fallbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        print_fallbacks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#asdex.SparsityPattern.__str__" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2602,6 +2635,17 @@
     <span class="md-ellipsis">
       
         VerificationError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#asdex.DensePatternWarning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DensePatternWarning
       
     </span>
   </a>
@@ -6623,6 +6667,19 @@ If None, uses all 1s.</p>
 </div>
 </div>
 <div class="doc doc-object doc-function">
+<h3 class="doc doc-heading" id="asdex.SparsityPattern.print_fallbacks">
+<code class="highlight language-python"><span class="n">print_fallbacks</span><span class="p">()</span></code>
+<a class="headerlink" href="#asdex.SparsityPattern.print_fallbacks" title="Permanent link">¶</a></h3>
+<div class="doc doc-contents">
+<p>Print the primitives that sparsity detection replaced by conservative patterns.</p>
+<p>These primitives had no handler,
+so detection assumed that every output depends on every input.
+They are listed in the order tracing first met them.
+HiJax primitives are named <code>hijax:&lt;module&gt;.&lt;class&gt;</code>.
+Patterns that were not detected have no fallbacks.</p>
+</div>
+</div>
+<div class="doc doc-object doc-function">
 <h3 class="doc doc-heading" id="asdex.SparsityPattern.__str__">
 <code class="highlight language-python"><span class="fm">__str__</span><span class="p">()</span></code>
 <a class="headerlink" href="#asdex.SparsityPattern.__str__" title="Permanent link">¶</a></h3>
@@ -6908,6 +6965,30 @@ which is a bug — asdex's patterns should always be conservative
 If you encounter this error,
 please help out asdex's development by reporting this at
 https://github.com/adrhill/asdex/issues.</p>
+</div>
+</div>
+<div class="doc doc-object doc-class">
+<h2 class="doc doc-heading" id="asdex.DensePatternWarning">
+<code>asdex.DensePatternWarning</code>
+<a class="headerlink" href="#asdex.DensePatternWarning" title="Permanent link">¶</a></h2>
+<div class="doc doc-contents first">
+<p class="doc doc-class-bases">
+              Bases: <code><span title="UserWarning">UserWarning</span></code></p>
+<p>Detected sparsity pattern is fully dense.</p>
+<p>Emitted when sparsity detection finds no zeros,
+so sparse differentiation offers no speedup over dense differentiation.
+The pattern is still correct.</p>
+<p>The message tells two causes apart.
+If detection met primitives it has no handler for,
+it replaced them by conservative patterns, which may be what cost the sparsity.
+The message then lists the ones whose inputs depended on the function's inputs.
+<a class="autorefs autorefs-internal" title="print_fallbacks()" href="#asdex.SparsityPattern.print_fallbacks"><code>SparsityPattern.print_fallbacks</code></a>
+lists every unknown primitive.
+Please help out asdex's development by reporting them at
+<a href="https://github.com/adrhill/asdex/issues">https://github.com/adrhill/asdex/issues</a>.
+Otherwise, the function may be dense by nature,
+or asdex's handlers may have over-approximated its sparsity.
+If you expected a sparser pattern, please report this too.</p>
 </div>
 </div><h2 id="compressed-differentiation">Compressed Differentiation<a class="headerlink" href="#compressed-differentiation" title="Permanent link">¶</a></h2>
 <p>Advanced entry points that stop at the compressed matrix <span class="arithmatex">\(B\)</span>,

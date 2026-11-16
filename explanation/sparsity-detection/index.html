@@ -1774,11 +1774,14 @@ it uses a conservative fallback:
 every output element is assumed to depend on every input element.
 This is always correct — it is a superset of the true pattern —
 but it may be much less sparse than necessary.</p>
-<p>A small number of primitives use this fallback intentionally
-(e.g. callbacks into opaque Python code where dependencies cannot be analyzed).
-For all other cases, <code>asdex</code> raises an error on unknown primitives
-rather than silently falling back,
-since silent over-approximation could mask bugs in the handler coverage.</p>
+<p>To see which primitives fell back, call
+<a href="../../reference/#asdex.SparsityPattern.print_fallbacks"><code>print_fallbacks</code></a> on the detected pattern:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="n">sparsity</span> <span class="o">=</span> <span class="n">asdex</span><span class="o">.</span><span class="n">jacobian_sparsity</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<a href="#__codelineno-1-2" id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="n">sparsity</span><span class="o">.</span><span class="n">print_fallbacks</span><span class="p">()</span>
+</code></pre></div>
+<p>If the detected pattern is fully dense,
+<code>asdex</code> emits a <a class="autorefs autorefs-internal" title="asdex.DensePatternWarning" href="../../reference/#asdex.DensePatternWarning"><code>DensePatternWarning</code></a>,
+since sparse differentiation then offers no speedup over dense differentiation.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>More precise handlers can be added for fallback primitives

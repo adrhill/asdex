@@ -1407,6 +1407,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.print_fallbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        print_fallbacks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#asdex.SparsityPattern.__str__" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1816,6 +1827,17 @@
     <span class="md-ellipsis">
       
         load
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asdex.SparsityPattern.print_fallbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        print_fallbacks
       
     </span>
   </a>
@@ -2566,6 +2588,19 @@ If None, uses all 1s.</p>
 </tr>
 </tbody>
 </table>
+</div>
+</div>
+<div class="doc doc-object doc-function">
+<h3 class="doc doc-heading" id="asdex.SparsityPattern.print_fallbacks">
+<code class="highlight language-python"><span class="n">print_fallbacks</span><span class="p">()</span></code>
+<a class="headerlink" href="#asdex.SparsityPattern.print_fallbacks" title="Permanent link">¶</a></h3>
+<div class="doc doc-contents">
+<p>Print the primitives that sparsity detection replaced by conservative patterns.</p>
+<p>These primitives had no handler,
+so detection assumed that every output depends on every input.
+They are listed in the order tracing first met them.
+HiJax primitives are named <code>hijax:&lt;module&gt;.&lt;class&gt;</code>.
+Patterns that were not detected have no fallbacks.</p>
 </div>
 </div>
 <div class="doc doc-object doc-function">
