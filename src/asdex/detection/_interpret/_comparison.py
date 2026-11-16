@@ -10,13 +10,12 @@ import numpy as np
 from jax._src.core import JaxprEqn
 
 from ._common import (
-    _atom_numel,
     _atom_shape,
     _binary_value_bounds,
-    _empty_index_sets,
     _propagate_const_binary,
     _PropState,
 )
+from ._trivial_pattern import _prop_empty_pattern
 
 
 def _get_bounds(
@@ -48,7 +47,7 @@ def _prop_comparison(eqn: JaxprEqn, state: _PropState, ufunc: np.ufunc) -> None:
     For ``<`` and ``<=`` the least favorable pair is ``(hi(a), lo(b))``,
     for ``>`` and ``>=`` it is ``(lo(a), hi(b))``.
     """
-    state.indices[eqn.outvars[0]] = _empty_index_sets(_atom_numel(eqn.outvars[0]))
+    _prop_empty_pattern(eqn, state)
     _propagate_const_binary(eqn, state, ufunc)
     bounds = _get_bounds(eqn, state)
     if bounds is None:

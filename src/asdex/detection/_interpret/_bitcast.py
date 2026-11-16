@@ -5,11 +5,10 @@ from jax._src.core import JaxprEqn
 
 from ._common import (
     _atom_const_val,
-    _atom_numel,
     _atom_shape,
-    _empty_index_sets,
     _PropState,
 )
+from ._trivial_pattern import _prop_empty_pattern
 
 
 def _prop_bitcast_convert_type(eqn: JaxprEqn, state: _PropState) -> None:
@@ -66,8 +65,8 @@ def _prop_bitcast_convert_type(eqn: JaxprEqn, state: _PropState) -> None:
 
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.bitcast_convert_type.html
     """
+    _prop_empty_pattern(eqn, state)
     out_var = eqn.outvars[0]
-    state.indices[out_var] = _empty_index_sets(_atom_numel(out_var))
 
     in_val = _atom_const_val(eqn.invars[0], state)
     in_dtype = getattr(eqn.invars[0].aval, "dtype", None)
