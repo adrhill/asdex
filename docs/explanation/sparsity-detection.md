@@ -253,7 +253,9 @@ If the detected pattern is fully dense,
 since sparse differentiation then offers no speedup over dense differentiation.
 The warning names the unknown primitives whose inputs depended on the function's inputs,
 since only their fallbacks can cost sparsity.
-If there are none, it states that the function is likely dense by nature.
+If there are none, it states that the function may be dense by nature,
+or that `asdex`'s handlers may have over-approximated its sparsity,
+and asks you to report it if you expected a sparser pattern.
 
 !!! tip
 

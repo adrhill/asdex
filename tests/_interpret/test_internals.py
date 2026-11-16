@@ -293,12 +293,17 @@ def test_unknown_primitive_dense_pattern_warns_for_hessian():
 
 
 _NO_FALLBACKS_MESSAGE = (
-    "No conservative fallback for an unknown primitive cost sparsity"
+    "No primitives without a handler were involved,"
+    " so the function may be dense by nature,\n"
+    "or asdex's handlers may have over-approximated its sparsity.\n"
+    "If you expected a sparser pattern,"
+    " please help out asdex's development by reporting this at"
+    " https://github.com/adrhill/asdex/issues\n"
 )
 
 
 def test_dense_pattern_without_fallback_warns_without_blame():
-    """A pattern that is dense by nature warns and states that nothing fell back."""
+    """A pattern that is dense by nature warns without naming any primitive."""
     with pytest.warns(DensePatternWarning) as record:
         result = jacobian_sparsity(lambda x: jnp.sum(x) * x, np.ones(3))
 
@@ -308,7 +313,6 @@ def test_dense_pattern_without_fallback_warns_without_blame():
     message = str(warning.message)
     assert "fully dense 3\u00d73" in message
     assert _NO_FALLBACKS_MESSAGE in message
-    assert "https://github.com/adrhill/asdex/issues" not in message
 
 
 def test_unknown_primitive_on_constants_is_not_blamed(caplog):

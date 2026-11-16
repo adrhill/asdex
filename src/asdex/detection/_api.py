@@ -222,7 +222,8 @@ def _warn_if_dense(sparsity: SparsityPattern, lossy_fallbacks: list[str]) -> Non
     The message names the unknown primitives whose fallback lost dependencies,
     since they may be what cost the sparsity.
     Unknown primitives that only saw constants lost nothing and are left out.
-    Without lossy fallbacks, the function is dense by nature.
+    Without lossy fallbacks, the function may be dense by nature,
+    or a known handler may have over-approximated its sparsity.
     Patterns with a single row or column are skipped,
     since they take one color whether they are dense or not.
     """
@@ -240,8 +241,11 @@ def _warn_if_dense(sparsity: SparsityPattern, lossy_fallbacks: list[str]) -> Non
     else:
         cause = (
             ".\n"
-            "No conservative fallback for an unknown primitive cost sparsity,"
-            " so the function is likely dense by nature.\n"
+            "No primitives without a handler were involved,"
+            " so the function may be dense by nature,\n"
+            "or asdex's handlers may have over-approximated its sparsity.\n"
+            "If you expected a sparser pattern,"
+            f" please help out asdex's development by reporting this at {_ISSUES_URL}\n"
         )
     # Detection is reached through several public entry points,
     # so skip all asdex frames instead of counting a fixed stack level.

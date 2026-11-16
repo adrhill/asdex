@@ -47,5 +47,7 @@ class DensePatternWarning(UserWarning):
     [`SparsityPattern.fallbacks`][asdex.SparsityPattern].
     Please help out asdex's development by reporting them at
     <https://github.com/adrhill/asdex/issues>.
-    Otherwise, the function is dense by nature.
+    Otherwise, the function may be dense by nature,
+    or asdex's handlers may have over-approximated its sparsity.
+    If you expected a sparser pattern, please report this too.
     """
