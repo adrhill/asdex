@@ -447,8 +447,10 @@ def test_searchsorted_zero_derivative():
         return jnp.searchsorted(x[:4], x[4:]).astype(float)
 
     x = jnp.array([0.5, 1.5, 2.5, 3.5, 1.0, 3.0])
-    result = jacobian_sparsity(f, x).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((2, 6), dtype=int))
+    result = assert_jacobian_sparsity_exact(f, x, fallbacks=())
+    np.testing.assert_array_equal(
+        result.todense().astype(int), np.zeros((2, 6), dtype=int)
+    )
 
 
 @pytest.mark.array_ops
@@ -464,7 +466,7 @@ def test_searchsorted_methods(method):
         return x[4:] * idx
 
     x = jnp.array([0.5, 1.5, 2.5, 3.5, 1.0, 3.0])
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.array(
         [
@@ -492,7 +494,7 @@ def test_searchsorted_const_as_index():
         return x[jnp.searchsorted(sorted_arr, query)]
 
     x = jnp.array([1.0, 2.0, 3.0, 4.0])
-    assert_jacobian_sparsity_conservative(f, x)
+    assert_jacobian_sparsity_conservative(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.ones((2, 4), dtype=int))
 
@@ -508,8 +510,11 @@ def test_nonzero_zero_derivative():
         (idx,) = jnp.nonzero(x > 1.0, size=2)
         return idx.astype(float)
 
-    result = jacobian_sparsity(f, jnp.array([0.5, 1.5, 2.5])).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((2, 3), dtype=int))
+    x = jnp.array([0.5, 1.5, 2.5])
+    result = assert_jacobian_sparsity_exact(f, x, fallbacks=())
+    np.testing.assert_array_equal(
+        result.todense().astype(int), np.zeros((2, 3), dtype=int)
+    )
 
 
 @pytest.mark.array_ops
@@ -521,7 +526,7 @@ def test_nonzero_2d_fill_value():
         return x[:4] * (rows + cols)
 
     x = jnp.array([0.5, 1.5, 2.5, 3.5, 0.2, 4.5])
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.array(
         [
@@ -549,7 +554,7 @@ def test_nonzero_as_index():
         return x[idx]
 
     x = jnp.array([0.5, 1.5, 2.5])
-    assert_jacobian_sparsity_conservative(f, x)
+    assert_jacobian_sparsity_conservative(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.ones((2, 3), dtype=int))
 
@@ -570,7 +575,7 @@ def test_nonzero_const_as_index():
         return x[idx]
 
     x = jnp.array([1.0, 2.0, 3.0, 4.0])
-    assert_jacobian_sparsity_conservative(f, x)
+    assert_jacobian_sparsity_conservative(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.ones((2, 4), dtype=int))
 

@@ -1771,7 +1771,7 @@ def test_ldexp_broadcast():
         return jnp.ldexp(x.reshape(3, 1), jnp.arange(2)).ravel()
 
     x = jnp.array([1.5, 3.0, 0.7])
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.array(
         [
@@ -1795,7 +1795,7 @@ def test_ldexp_exponent_from_input():
         return jnp.ldexp(x[:2], jnp.argmax(x).astype(jnp.int32))
 
     x = jnp.array([1.5, 3.0, 0.7])
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     expected = np.array(
         [
@@ -1815,7 +1815,7 @@ def test_ldexp_hessian():
     def f(x):
         return jnp.sum(jnp.ldexp(x, 2) ** 2)
 
-    assert_hessian_sparsity_exact(f, jnp.array([1.5, 3.0, 0.7]))
+    assert_hessian_sparsity_exact(f, jnp.array([1.5, 3.0, 0.7]), fallbacks=())
 
 
 @pytest.mark.elementwise
@@ -1832,7 +1832,7 @@ def test_frexp_mantissa():
         return mantissa
 
     x = jnp.array([1.5, 3.0, 0.7])
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.eye(3, dtype=int))
 
@@ -1845,8 +1845,11 @@ def test_frexp_exponent():
         _, exponent = jnp.frexp(x)
         return exponent.astype(float)
 
-    result = jacobian_sparsity(f, jnp.array([1.5, 3.0, 0.7])).todense().astype(int)
-    np.testing.assert_array_equal(result, np.zeros((3, 3), dtype=int))
+    x = jnp.array([1.5, 3.0, 0.7])
+    result = assert_jacobian_sparsity_exact(f, x, fallbacks=())
+    np.testing.assert_array_equal(
+        result.todense().astype(int), np.zeros((3, 3), dtype=int)
+    )
 
 
 @pytest.mark.elementwise
@@ -1859,7 +1862,7 @@ def test_frexp_2d():
 
     # Values outside of [0.5, 1) have a nonzero exponent.
     x = jnp.array([1.5, 3.0, 5.0, 4.5, 9.0, 2.2])
-    assert_jacobian_sparsity_exact(f, x)
+    assert_jacobian_sparsity_exact(f, x, fallbacks=())
     result = jacobian_sparsity(f, x).todense().astype(int)
     np.testing.assert_array_equal(result, np.eye(6, dtype=int))
 
