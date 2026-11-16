@@ -94,7 +94,7 @@ def _propagate_const(eqn: JaxprEqn, state: _PropState) -> None:
     If both inputs are statically known,
     apply the matching numpy ufunc and store the result.
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
-    static index arrays and fall back to conservative.
+    static index arrays and fall back to a dense pattern.
     """
     ufunc = _BINARY_CONST_UFUNCS.get(eqn.primitive.name)
     if ufunc is not None:
@@ -130,7 +130,7 @@ def _lax_round(val: np.ndarray, rounding_method: lax.RoundingMethod) -> np.ndarr
 # Its dispatch case exists only to propagate consts for exactly these primitives,
 # so a missing key can only mean the dict and the case drifted apart.
 # Raising KeyError surfaces that, instead of silently breaking the const chain
-# and degrading downstream gather/scatter to a conservative pattern.
+# and making downstream gather/scatter fall back to a conservative pattern.
 # _BINARY_CONST_UFUNCS is looked up with .get instead,
 # because its handlers are shared with primitives it deliberately leaves out.
 # For example, _prop_binary_const also handles complex and polygamma,
@@ -303,7 +303,7 @@ def _prop_zero_derivative_unary_const(eqn: JaxprEqn, state: _PropState) -> None:
     which appear in integer index arithmetic
     (e.g. inside the ``jnp.floor_divide`` expansion).
     Without const propagation here the chain breaks
-    and downstream gather/scatter falls back to conservative.
+    and downstream gather/scatter falls back to a dense pattern.
 
     Indexes ``_UNARY_CONST_UFUNCS`` directly,
     so a primitive added to the dispatch case but not to the dict
@@ -550,7 +550,7 @@ def _prop_convert_element_type(
     JAX inserts ``convert_element_type`` for index dtype changes
     (e.g. int64 → int32) before gather/scatter;
     without const propagation here the chain breaks
-    and gathers fall back to conservative.
+    and gathers fall back to a dense pattern.
 
     Example: y = x.astype(float64) where x = [a, b, c]
         Input index sets:  [{0}, {1}, {2}]

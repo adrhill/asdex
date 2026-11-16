@@ -388,7 +388,7 @@ def test_iota_dimension_semantics():
 def test_empty_outputs():
     """``jnp.empty`` and ``jnp.empty_like`` have the requested shape and depend on no input.
 
-    ``_prop_empty`` sizes its output from the requested shape
+    The ``empty`` case sizes its output from the outvar's shape
     and records no dependencies,
     which needs ``empty_like`` to read only the shape and dtype of its argument.
     """

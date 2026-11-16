@@ -1,5 +1,9 @@
 # asdex
 
+## Unreleased
+* ![Enhancement][badge-enhancement] Report linear algebra primitives without a precise handler, such as `lu`, `cholesky` and `svd`, as fallbacks in `print_fallbacks` and `DensePatternWarning` ([#232])
+* ![Documentation][badge-docs] Explain that dynamic `gather` and `scatter` indices are a source of conservatism, not a fallback ([#232])
+
 ## Version `v0.6.1`
 * ![Feature][badge-feature] Add `jacfwd` and `jacrev`, the sparse counterparts of `jax.jacfwd` and `jax.jacrev`.
   `jacobian` forwards to them when `mode` is `"fwd"` or `"rev"` ([#225])
@@ -179,6 +183,7 @@ J = asdex.jacobian(f, x, y, argnums=(0, 1))(x, y)
 * ![Feature][badge-feature] Initial release ([#70])
 
 <!-- Only link to pull requests in this changelog, not issues. -->
+[#232]: https://github.com/adrhill/asdex/pull/232
 [#226]: https://github.com/adrhill/asdex/pull/226
 [#225]: https://github.com/adrhill/asdex/pull/225
 [#220]: https://github.com/adrhill/asdex/pull/220

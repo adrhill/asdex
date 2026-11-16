@@ -176,7 +176,8 @@ and copies index sets accordingly — just like a permutation.
 
 When the indices are **dynamic** (computed from inputs),
 the handler cannot know which elements will be accessed at runtime.
-It falls back to the [conservative strategy](#fallback-handlers) described below.
+It then gives every output a dependency on every operand element and on the indices themselves,
+one of the [sources of conservatism](#sources-of-conservatism) described below.
 
 This is why `asdex` tracks constant values through the computation graph:
 if an index array is built from literals and arithmetic on constants,
@@ -230,6 +231,9 @@ it uses a conservative fallback:
 every output element is assumed to depend on every input element.
 This is always correct — it is a superset of the true pattern —
 but it may be much less sparse than necessary.
+Known primitives without a precise handler,
+such as the linear algebra decompositions (`lu`, `svd`, `eigh`, ...),
+fall back to the same pattern.
 
 To see which primitives fell back, call
 [`print_fallbacks`](../reference/index.md#asdex.SparsityPattern.print_fallbacks) on the detected pattern:

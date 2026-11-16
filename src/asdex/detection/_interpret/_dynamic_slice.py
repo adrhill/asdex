@@ -10,7 +10,6 @@ from ._common import (
     _atom_value_bounds,
     _bounded_ranges,
     _clamp_starts,
-    _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
     _merge_index_dependencies,
@@ -18,6 +17,7 @@ from ._common import (
     _PropState,
     _transform_indices,
 )
+from ._trivial_pattern import _prop_dense_pattern
 
 
 def _resolve_start_bounds(
@@ -53,7 +53,7 @@ def _prop_dynamic_slice(
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Like JAX, starts are clamped into ``[0, dim - size]`` first.
-    Otherwise falls back to conservative,
+    Otherwise returns a dense pattern,
     including the start indices' own dependencies.
 
     For static starts s and slice_sizes sz:
@@ -101,11 +101,9 @@ def _prop_dynamic_slice(
     # Unresolvable starts: some start is neither a known const nor value-bounded
     # (e.g. ``x[0].astype(int)`` depends on input values),
     # or the bounded start combinations exceed ``_MAX_ENUM_COMBINATIONS``.
-    # Any window may then be selected, so fall back to conservative,
+    # Any window may then be selected, so return a dense pattern,
     # including the starts' own dependencies (mirrors gather).
-    state.indices[eqn.outvars[0]] = _conservative_indices(
-        in_indices + start_index_sets, _numel(slice_sizes)
-    )
+    _prop_dense_pattern(eqn, state)
 
 
 def _prop_dynamic_update_slice(
@@ -119,7 +117,7 @@ def _prop_dynamic_update_slice(
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Like JAX, starts are clamped into ``[0, dim - size]`` first.
-    Otherwise falls back to conservative,
+    Otherwise returns a dense pattern,
     including the start indices' own dependencies.
 
     For static starts s and update shape u_shape:
@@ -174,11 +172,9 @@ def _prop_dynamic_update_slice(
     # Unresolvable starts: some start is neither a known const nor value-bounded
     # (e.g. ``x[0].astype(int)`` depends on input values),
     # or the bounded start combinations exceed ``_MAX_ENUM_COMBINATIONS``.
-    # Any window may then receive the update, so fall back to conservative,
+    # Any window may then receive the update, so return a dense pattern,
     # including the starts' own dependencies (mirrors gather).
-    state.indices[eqn.outvars[0]] = _conservative_indices(
-        operand_indices + upd_indices + start_index_sets, _numel(operand_shape)
-    )
+    _prop_dense_pattern(eqn, state)
 
 
 def _dynamic_update_for_starts(

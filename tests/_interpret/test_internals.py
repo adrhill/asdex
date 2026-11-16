@@ -142,7 +142,7 @@ def test_unknown_primitive_falls_back_conservatively(caplog):
     assert record.name == "asdex.detection"
     assert record.levelno == logging.INFO
     assert record.message == (
-        "No handler for primitive 'asdex_test_unknown',"
+        "No precise handler for primitive 'asdex_test_unknown',"
         " falling back to a conservative pattern."
         " If this primitive is part of JAX,"
         " please help out asdex's development by reporting it at"
@@ -199,12 +199,12 @@ def test_fallbacks_listed_in_tracing_order(capsys):
     sparsity.print_fallbacks()
     assert capsys.readouterr().out == (
         "Sparsity detection fell back to conservative patterns"
-        " for 2 primitives without a handler:\n"
+        " for 2 primitives without a precise handler:\n"
         "  - asdex_test_unknown_linear\n"
         "  - asdex_test_unknown\n"
         "These patterns assume that every output depends on every input,\n"
         "so the detected pattern may be less sparse than necessary.\n"
-        "Please help out asdex's development by reporting missing JAX primitives at\n"
+        "Please help out asdex's development by reporting them at\n"
         "https://github.com/adrhill/asdex/issues\n"
     )
 
@@ -216,7 +216,7 @@ def test_fallbacks_empty_without_unknown_primitives(capsys):
     assert sparsity._fallbacks == ()
     sparsity.print_fallbacks()
     assert capsys.readouterr().out == (
-        "No conservative fallbacks: sparsity detection knew every primitive.\n"
+        "No conservative fallbacks: every primitive had a precise handler.\n"
     )
 
 
@@ -245,7 +245,7 @@ def test_unknown_primitive_dense_pattern_warns():
     (warning,) = record
     message = str(warning.message)
     assert "fully dense 3\u00d73" in message
-    assert "for unknown primitives: asdex_test_unknown." in message
+    assert "for primitives without a precise handler: asdex_test_unknown." in message
     assert "https://github.com/adrhill/asdex/issues" in message
 
 
@@ -294,7 +294,7 @@ def test_unknown_primitive_dense_pattern_warns_for_hessian():
 
 
 _NO_FALLBACKS_MESSAGE = (
-    "No primitives without a handler were involved,"
+    "No primitives without a precise handler were involved,"
     " so the function may be dense by nature,\n"
     "or asdex's handlers may have over-approximated its sparsity.\n"
     "If you expected a sparser pattern,"
@@ -357,7 +357,7 @@ def test_dense_pattern_warning_names_only_conservative_fallbacks():
     assert result._fallbacks == ("asdex_test_unknown", "asdex_test_unknown_linear")
     (warning,) = record
     message = str(warning.message)
-    assert "for unknown primitives: asdex_test_unknown." in message
+    assert "for primitives without a precise handler: asdex_test_unknown." in message
     assert "asdex_test_unknown_linear" not in message
 
 
@@ -367,9 +367,7 @@ def test_unknown_primitive_conservative_after_constant_use():
     def f(x):
         return _unknown_p.bind(jnp.ones(3)) + _unknown_p.bind(x)
 
-    with pytest.warns(
-        DensePatternWarning, match="unknown primitives: asdex_test_unknown"
-    ):
+    with pytest.warns(DensePatternWarning, match="precise handler: asdex_test_unknown"):
         result = jacobian_sparsity(f, np.ones(3))
 
     assert result._fallbacks == ("asdex_test_unknown",)
@@ -437,8 +435,8 @@ def test_mutable_ref_from_closure_raises():
         jacobian_sparsity(f, np.ones(3))
 
 
-def test_known_dense_primitive_is_not_logged(caplog):
-    """Known primitives with a dense pattern are neither logged nor warned about."""
+def test_known_primitive_without_precise_handler_is_reported(caplog):
+    """A known primitive without a precise handler is logged and listed like an unknown one."""
     with (
         warnings.catch_warnings(),
         caplog.at_level(logging.INFO, logger="asdex.detection"),
@@ -452,8 +450,12 @@ def test_known_dense_primitive_is_not_logged(caplog):
     expected = np.ones((4, 4))
     expected[1] = 0
     np.testing.assert_array_equal(result.todense(), expected)
-    assert result._fallbacks == ()
-    assert caplog.records == []
+    assert result._fallbacks == ("cholesky",)
+    (record,) = caplog.records
+    assert record.message.startswith(
+        "No precise handler for primitive 'cholesky',"
+        " falling back to a conservative pattern."
+    )
 
 
 def test_prop_jaxpr_default_const_vals():
@@ -741,7 +743,7 @@ def test_custom_jvp_rule_adding_dependencies_missed():
     and must be flipped to the diagonal pattern when the handler is fixed.
 
     TODO(custom_jvp_call): propagate through the custom JVP rule
-    (or fall back conservatively)
+    (or fall back to a conservative pattern)
     so the detected pattern covers the true 2·I Jacobian.
     """
 

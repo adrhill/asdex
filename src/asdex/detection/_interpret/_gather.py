@@ -37,7 +37,6 @@ from ._common import (
     _atom_value_bounds,
     _bounded_ranges,
     _clamp_starts,
-    _conservative_indices,
     _enumerate_bounded_patterns,
     _index_sets,
     _merge_index_dependencies,
@@ -45,6 +44,7 @@ from ._common import (
     _position_map,
     _PropState,
 )
+from ._trivial_pattern import _prop_dense_pattern
 
 
 def _si_batch_axes(
@@ -305,7 +305,7 @@ def _prop_gather(
     partial slices, and ``operand_batching_dims``.
     For bounded dynamic start_indices, enumerates all possible index arrays
     and unions the resulting patterns.
-    For fully dynamic start_indices, falls back to conservative.
+    For fully dynamic start_indices, returns a dense pattern.
 
     The Jacobian is a selection/permutation matrix:
     each output element reads exactly one input element.
@@ -320,7 +320,7 @@ def _prop_gather(
     Example with data-dependent start_indices: y = x[argsort(x)]
         The indices depend on x, so each output depends on all inputs
         (both from the operand and from the index computation).
-        Conservative fallback: all outputs depend on all inputs.
+        The handler returns a dense pattern: all outputs depend on all inputs.
 
     Jaxpr:
         invars[0]: operand — array to gather from
@@ -365,8 +365,6 @@ def _prop_gather(
             )
             return
 
-    # Conservative fallback: every output depends on all inputs.
-    # Include both operand and start_indices dependencies.
-    state.indices[eqn.outvars[0]] = _conservative_indices(
-        operand_indices + si_index_sets, out_size
-    )
+    # Unresolvable indices: return a dense pattern,
+    # in which every output depends on the operand and on the indices' own dependencies.
+    _prop_dense_pattern(eqn, state)

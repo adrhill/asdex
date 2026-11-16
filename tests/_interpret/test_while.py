@@ -153,7 +153,7 @@ def test_while_body_closure_captured_index():
 
     The gather projects all carry elements onto carry[0].
     Without forwarding state_consts into the body jaxpr,
-    the gather falls back to conservative and the result is dense.
+    the gather falls back to a dense pattern and the result is dense.
     With the fix, the fixed point is sparse.
     """
     indices = jnp.array([0, 0, 0])

@@ -43,8 +43,8 @@ so add a new one to that table before using it.
 Use markers to run subsets of tests:
 
 ```bash
-uv run pytest -m fallback        # Run only fallback tests
-uv run pytest -m "not fallback"  # Skip fallback tests
+uv run pytest -m fallback        # Run only tests of overly conservative patterns
+uv run pytest -m "not fallback"  # Skip tests of overly conservative patterns
 uv run pytest -m "not slow"     # Skip slow tests
 uv run pytest -m coloring        # Run only coloring tests
 uv run pytest -m jacobian        # Run only sparse Jacobian tests
@@ -81,6 +81,9 @@ Use these fixtures in test function signatures to automatically run tests across
 
 - Each test function should have a docstring explaining what it tests.
 - Tests documenting **expected future behavior** (TODOs) should use the `fallback` marker and include a `TODO(primitive)` comment explaining the precise expected behavior.
+  The marker means "this pattern is overly conservative and a sparser one could be implemented",
+  whether the primitive is known or an unknown primitive that falls back.
+  Dense patterns that are already the tightest derivable, such as that of `pure_callback`, do not get it.
 - **Whenever you discover a conservative pattern** (the handler produces a correct but overly dense result), you **must** document it with a `TODO(primitive)` comment showing the true precise pattern.
   Catching these is extremely valuable — each one is a concrete roadmap entry for improving sparsity detection.
 - Tests documenting **known bugs** should use the `bug` marker and `pytest.raises` to assert the current (broken) behavior.

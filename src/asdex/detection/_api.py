@@ -77,21 +77,21 @@ def jacobian_sparsity(
     closed_jaxpr = _dce_closed_jaxpr(closed_jaxpr)
 
     input_indices, n_selected = _build_input_indices(avals, selected)
-    out_indices, unknown_primitives = _run_prop(closed_jaxpr, input_indices)
+    out_indices, fallbacks = _run_prop(closed_jaxpr, input_indices)
     # One index set per flat output element, so the row count is its length.
     # This avoids a second trace of ``f`` just to compute output sizes.
     m = len(out_indices)
     rows, cols = _coo_from_index_sets(out_indices)
-    # unknown_primitives keeps the order in which tracing first met each one.
+    # fallbacks keeps the order in which tracing first met each one.
     sparsity = SparsityPattern(
         rows=np.asarray(rows, dtype=np.int32),
         cols=np.asarray(cols, dtype=np.int32),
         shape=(m, n_selected),
         input_avals=avals,
         argnums=argnums_resolved,
-        _fallbacks=tuple(unknown_primitives),
+        _fallbacks=tuple(fallbacks),
     )
-    conservative = [name for name, is_cons in unknown_primitives.items() if is_cons]
+    conservative = [name for name, is_cons in fallbacks.items() if is_cons]
     _warn_if_dense(sparsity, conservative)
     return sparsity
 
@@ -215,7 +215,7 @@ def _run_prop(closed_jaxpr, input_indices: list[list]) -> tuple[list, dict[str, 
     flat: list = []
     for out_deps in output_indices_list:
         flat.extend(out_deps)
-    return flat, state.unknown_primitives
+    return flat, state.fallbacks
 
 
 def _warn_if_dense(
@@ -223,9 +223,9 @@ def _warn_if_dense(
 ) -> None:
     """Warn if the detected pattern has no zeros left.
 
-    The message names the unknown primitives whose fallback was conservative,
+    The message names the primitives whose fallback was conservative,
     since they may be what cost the sparsity.
-    Unknown primitives that only saw constants had no dependencies to spread
+    Primitives that fell back on constants alone had no dependencies to spread
     and are left out.
     Without conservative fallbacks, the function may be dense by nature,
     or a known handler may have over-approximated its sparsity.
@@ -239,14 +239,14 @@ def _warn_if_dense(
         names = ", ".join(conservative_fallbacks)
         cause = (
             f" after falling back to conservative patterns"
-            f" for unknown primitives: {names}.\n"
+            f" for primitives without a precise handler: {names}.\n"
             f"Handlers for these primitives may recover sparsity."
             f" Please help out asdex's development by reporting this at {_ISSUES_URL}\n"
         )
     else:
         cause = (
             ".\n"
-            "No primitives without a handler were involved,"
+            "No primitives without a precise handler were involved,"
             " so the function may be dense by nature,\n"
             "or asdex's handlers may have over-approximated its sparsity.\n"
             "If you expected a sparser pattern,"

@@ -62,7 +62,7 @@ StateBounds = dict[Var, ValueBounds]
 Used to track bounded-but-not-constant values
 (e.g. output of ``argmax`` over a small axis)
 so that dynamic index handlers can enumerate all possible values
-instead of falling back to conservative.
+instead of returning a dense pattern.
 """
 
 Atom = Var | Literal
@@ -84,8 +84,8 @@ class _PropState:
     each nested jaxpr (cond branch, while body, jit call) gets a fresh dict,
     so intermediate index sets can be freed when the scope ends.
     ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
-    and so is ``unknown_primitives``,
-    which maps every unknown primitive to whether its fallback was conservative,
+    and so is ``fallbacks``,
+    which maps every primitive that fell back to whether its fallback was conservative,
     meaning that its inputs carried dependencies.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
@@ -98,7 +98,7 @@ class _PropState:
     indices: StateIndices = field(default_factory=dict)
     consts: StateConsts = field(default_factory=dict)
     bounds: StateBounds = field(default_factory=dict)
-    unknown_primitives: dict[str, bool] = field(default_factory=dict)
+    fallbacks: dict[str, bool] = field(default_factory=dict)
 
 
 PropJaxprFn = Callable[
@@ -115,12 +115,12 @@ When ``gather``, ``scatter``, ``dynamic_slice``, or ``dynamic_update_slice``
 receive indices that are not statically known but have bounded value ranges
 (e.g. from ``argmax`` over a small axis),
 we enumerate all possible index arrays and union the resulting sparsity patterns.
-This yields a tighter pattern than the conservative all-to-all fallback.
+This yields a tighter pattern than the dense one.
 
 The cap prevents combinatorial blowup for multi-element index arrays:
 an index with *k* elements where each has *r* possible values
 gives *r^k* combinations.
-If this exceeds the cap, the handler falls back to conservative.
+If this exceeds the cap, the handler falls back to a dense pattern.
 
 The value 64 is chosen to keep enumeration fast
 while covering the common cases
@@ -407,7 +407,7 @@ def _propagate_const_unary(
     If the input is statically known,
     apply ``transform`` and store the result.
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
-    static index arrays and fall back to conservative.
+    static index arrays and fall back to a dense pattern.
     """
     in_val = _atom_const_val(eqn.invars[0], state)
     if in_val is not None:
@@ -427,7 +427,7 @@ def _propagate_const_binary(
     e.g. because XLA leaves it implementation-defined,
     and then no const is recorded.
     Without this, downstream handlers (e.g. ``gather``, ``scatter``) cannot resolve
-    static index arrays and fall back to conservative.
+    static index arrays and fall back to a dense pattern.
     """
     in1 = _atom_const_val(eqn.invars[0], state)
     if in1 is None:
@@ -513,12 +513,6 @@ def _check_no_index_sets(state: _PropState, atom: Atom, primitive_name: str) -> 
             "but found non-empty index sets."
         )
         raise ValueError(msg)
-
-
-def _conservative_indices(all_indices: list[IndexSet], out_size: int) -> list[IndexSet]:
-    """Build conservative output index sets where every element depends on the union of all inputs."""
-    combined = _union_all(all_indices)
-    return [combined] * out_size
 
 
 # Index clamping
@@ -703,7 +697,7 @@ def _seed_const_vals(state: _PropState, constvars, consts) -> None:
 
     Without this, gather/scatter inside nested jaxprs (cond branches,
     while bodies, jit-wrapped calls) cannot resolve closure-captured
-    index arrays and fall back to conservative.
+    index arrays and fall back to a dense pattern.
 
     Values are stored as-is rather than converted with ``np.asarray``:
     conversion copies device arrays to host and keeps the copies alive

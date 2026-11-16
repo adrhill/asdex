@@ -40,11 +40,11 @@ class DensePatternWarning(UserWarning):
     The pattern is still correct.
 
     The message tells two causes apart.
-    If detection met primitives it has no handler for,
+    If detection met primitives it has no precise handler for,
     it replaced them by conservative patterns, which may be what cost the sparsity.
     The message then lists the ones whose inputs depended on the function's inputs.
     [`SparsityPattern.print_fallbacks`][asdex.SparsityPattern.print_fallbacks]
-    lists every unknown primitive.
+    lists every primitive that fell back.
     Please help out asdex's development by reporting them at
     <https://github.com/adrhill/asdex/issues>.
     Otherwise, the function may be dense by nature,

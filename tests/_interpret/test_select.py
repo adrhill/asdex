@@ -160,7 +160,7 @@ def test_select_n_bounds_merge_floor_div():
     The floor-div correction branch (q-1) has bounds [-1,0],
     so the merged result is [-1,1], which dynamic_slice clamps to [0,2].
     This is slightly conservative (true range is [0,1])
-    but much better than the fully-dense fallback.
+    but much better than a fully dense pattern.
     """
 
     def f(x):

@@ -7,7 +7,7 @@ These tests cover cases not in the main test files:
 - lax.stack (vs jnp.stack)
 - Aliased inputs (same array stacked twice)
 - Prime dimensions
-- Conservative fallbacks
+- Conservative patterns
 """
 
 import jax
@@ -213,7 +213,7 @@ def test_unstack_prime_dims():
     np.testing.assert_array_equal(detected, numerical)
 
 
-# Conservative fallbacks
+# Conservative patterns
 
 
 @pytest.mark.control_flow
@@ -221,7 +221,7 @@ def test_unstack_prime_dims():
 def test_stack_inside_cond():
     """Stack inside conditional branch.
 
-    TODO(cond): Conservative fallback.
+    TODO(cond): Conservative pattern.
     Expected precise pattern is identity (stacking a with b in true branch).
     """
 
@@ -257,9 +257,9 @@ def test_stack_inside_cond():
 def test_stack_mixed_const_nonconst():
     """Stack const with non-const, gather using const part.
 
-    TODO(stack): Conservative fallback.
+    TODO(stack): Conservative pattern.
     When stacking const with non-const, the result is not tracked as const,
-    so downstream gather falls back to conservative.
+    so downstream gather falls back to a dense pattern.
     Expected precise pattern would be [[1,0,0,0], [0,0,1,0]] (x[0] and x[2]).
     """
 

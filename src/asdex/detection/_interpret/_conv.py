@@ -6,7 +6,6 @@ from jax._src.core import JaxprEqn
 from ._common import (
     IndexSet,
     _atom_shape,
-    _conservative_indices,
     _dim_offsets,
     _index_sets,
     _numel,
@@ -14,6 +13,7 @@ from ._common import (
     _row_strides,
     _union_all,
 )
+from ._trivial_pattern import _prop_dense_pattern, _prop_empty_pattern
 
 
 def _window_target_lists(
@@ -135,18 +135,16 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
 
     # Convolution is bilinear in (data, kernel),
     # so an input-dependent kernel (e.g. a hypernetwork) is valid user code.
-    # Without precise bilinear tracking, fall back to conservative:
+    # Without precise bilinear tracking, fall back to a dense pattern:
     # every output depends on the data and kernel dependencies.
     # TODO: track the precise pattern (data window plus full kernel per output).
     if any(rhs_indices):
-        state.indices[eqn.outvars[0]] = _conservative_indices(
-            lhs_indices + rhs_indices, out_size
-        )
+        _prop_dense_pattern(eqn, state)
         return
 
     # Neither operand carries dependencies, so every output set is empty.
     if not any(lhs_indices):
-        state.indices[eqn.outvars[0]] = _conservative_indices([], out_size)
+        _prop_empty_pattern(eqn, state)
         return
 
     if out_size == 0:
