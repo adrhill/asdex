@@ -263,6 +263,9 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "shift_right_arithmetic"
             | "shift_right_logical"
             | "lu_pivots_to_permutation"  # integer permutation of the pivots
+            | "unvmap_any"  # from Equinox, boolean scalar
+            | "unvmap_all"  # from Equinox, boolean scalar
+            | "unvmap_max"  # from Equinox, integer scalar
         ):
             _prop_empty_pattern(eqn, state)
         case "clamp":
@@ -500,9 +503,6 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "householder_product"
             | "ormqr"
             | "tridiagonal_solve"
-            # TODO: these Equinox primitives have zero derivative.
-            | "unvmap_any"
-            | "unvmap_max"
         ) as name:
             _prop_fallback(eqn, state, name)
         case name:
