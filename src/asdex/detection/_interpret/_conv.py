@@ -135,7 +135,7 @@ def _prop_conv_general_dilated(eqn: JaxprEqn, state: _PropState) -> None:
 
     # Convolution is bilinear in (data, kernel),
     # so an input-dependent kernel (e.g. a hypernetwork) is valid user code.
-    # Without precise bilinear tracking, degrade to a dense pattern:
+    # Without precise bilinear tracking, fall back to a dense pattern:
     # every output depends on the data and kernel dependencies.
     # TODO: track the precise pattern (data window plus full kernel per output).
     if any(rhs_indices):

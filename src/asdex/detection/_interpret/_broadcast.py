@@ -72,7 +72,7 @@ def _prop_broadcast_in_dim(
     # Gather/scatter handlers need concrete index arrays to resolve which input elements are accessed.
     # When the broadcast input is statically known (literal or traced from constants),
     # propagate its value so downstream handlers can use it
-    # instead of degrading to a dense pattern.
+    # instead of returning a dense pattern.
     in_val = _atom_const_val(in_atom, state)
     if in_val is not None:
         intermediate_shape = _intermediate_shape(

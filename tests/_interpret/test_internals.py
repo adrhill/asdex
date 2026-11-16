@@ -743,7 +743,7 @@ def test_custom_jvp_rule_adding_dependencies_missed():
     and must be flipped to the diagonal pattern when the handler is fixed.
 
     TODO(custom_jvp_call): propagate through the custom JVP rule
-    (or degrade to a conservative pattern)
+    (or fall back to a conservative pattern)
     so the detected pattern covers the true 2·I Jacobian.
     """
 

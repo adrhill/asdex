@@ -89,8 +89,8 @@ Try to break the implementation by testing inputs the handler might not expect:
 - **Boundary parameters**: empty parameter lists, all-dimensions, single-dimension, negative indices (if applicable).
 - **Compositions**: the primitive chained with itself (e.g. double-reverse, transpose-of-transpose) or with related ops.
 - **Non-contiguous patterns**: inputs where dependencies are not simply `{i}` per element (e.g. from a prior broadcast or reduction) to verify `.copy()` and set merging behave correctly.
-- **Conservative audit**: for each test case, verify the result is strictly sparser than what `_prop_dense_pattern()` would produce. If the handler silently degrades to a dense pattern on any shape the primitive supports, investigate.
-  If the degradation cannot be fixed immediately, you **must** add a `@pytest.mark.fallback` test with a `TODO(primitive)` comment showing the precise expected pattern.
+- **Conservative audit**: for each test case, verify the result is strictly sparser than what `_prop_dense_pattern()` would produce. If the handler silently falls back to a dense pattern on any shape the primitive supports, investigate.
+  If the fallback cannot be fixed immediately, you **must** add a `@pytest.mark.fallback` test with a `TODO(primitive)` comment showing the precise expected pattern.
   Catching conservative patterns is extremely valuable for future development.
 - **Const chain**: if the primitive can appear between a literal and a downstream consumer (e.g. type conversions, reshapes, broadcasts on index arrays), write a test composing it with a downstream gather and verify the gather resolves precisely.
 

@@ -831,7 +831,7 @@ def test_gather_batching_dims():
 
 @pytest.mark.array_ops
 def test_gather_argsort_conservative():
-    """Gather with argsort indices degrades to a dense pattern.
+    """Gather with argsort indices returns a dense pattern.
 
     When indices are computed from inputs (data-dependent),
     the output depends on all inputs.

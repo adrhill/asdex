@@ -889,10 +889,10 @@ def test_scatter_batching_dims():
 
 @pytest.mark.array_ops
 def test_scatter_dynamic_too_many_combinations():
-    """Scatter with bounded but too-many-combinations indices degrades to a dense pattern.
+    """Scatter with bounded but too-many-combinations indices falls back to a dense pattern.
 
     When ``argmax`` over a large axis produces bounds exceeding
-    the enumeration limit, the handler degrades to a dense pattern.
+    the enumeration limit, the handler falls back to a dense pattern.
     """
 
     def f(x):
@@ -910,7 +910,7 @@ def test_scatter_dynamic_too_many_combinations():
 @pytest.mark.array_ops
 @pytest.mark.fallback
 def test_scatter_input_dependent_indices_conservative():
-    """Scatter with input-dependent indices degrades to a dense pattern.
+    """Scatter with input-dependent indices returns a dense pattern.
 
     The write targets cannot be resolved statically,
     so every output must depend on the operand, the updates,

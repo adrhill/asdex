@@ -21,7 +21,7 @@ Every handler must uphold these.
    A handler may report extra nonzeros,
    but a missing one silently corrupts the decompressed Jacobian.
    If a required const value or bound is missing, return a conservative pattern rather than guessing.
-   Value-dependent handlers degrade in steps:
+   Value-dependent handlers lose precision in steps:
    an exact const first,
    then every candidate within known bounds, enumerated and unioned (capped by `_MAX_ENUM_COMBINATIONS`),
    and otherwise a conservative pattern.

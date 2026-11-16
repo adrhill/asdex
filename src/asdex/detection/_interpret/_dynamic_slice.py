@@ -53,7 +53,7 @@ def _prop_dynamic_slice(
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Like JAX, starts are clamped into ``[0, dim - size]`` first.
-    Otherwise degrades to a dense pattern,
+    Otherwise returns a dense pattern,
     including the start indices' own dependencies.
 
     For static starts s and slice_sizes sz:
@@ -101,7 +101,7 @@ def _prop_dynamic_slice(
     # Unresolvable starts: some start is neither a known const nor value-bounded
     # (e.g. ``x[0].astype(int)`` depends on input values),
     # or the bounded start combinations exceed ``_MAX_ENUM_COMBINATIONS``.
-    # Any window may then be selected, so degrade to a dense pattern,
+    # Any window may then be selected, so return a dense pattern,
     # including the starts' own dependencies (mirrors gather).
     _prop_dense_pattern(eqn, state)
 
@@ -117,7 +117,7 @@ def _prop_dynamic_update_slice(
     With bounded dynamic starts, enumerates all possible start positions
     and unions the resulting patterns.
     Like JAX, starts are clamped into ``[0, dim - size]`` first.
-    Otherwise degrades to a dense pattern,
+    Otherwise returns a dense pattern,
     including the start indices' own dependencies.
 
     For static starts s and update shape u_shape:
@@ -172,7 +172,7 @@ def _prop_dynamic_update_slice(
     # Unresolvable starts: some start is neither a known const nor value-bounded
     # (e.g. ``x[0].astype(int)`` depends on input values),
     # or the bounded start combinations exceed ``_MAX_ENUM_COMBINATIONS``.
-    # Any window may then receive the update, so degrade to a dense pattern,
+    # Any window may then receive the update, so return a dense pattern,
     # including the starts' own dependencies (mirrors gather).
     _prop_dense_pattern(eqn, state)
 

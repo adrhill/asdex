@@ -259,7 +259,7 @@ def test_stack_mixed_const_nonconst():
 
     TODO(stack): Conservative pattern.
     When stacking const with non-const, the result is not tracked as const,
-    so downstream gather degrades to a dense pattern.
+    so downstream gather falls back to a dense pattern.
     Expected precise pattern would be [[1,0,0,0], [0,0,1,0]] (x[0] and x[2]).
     """
 
