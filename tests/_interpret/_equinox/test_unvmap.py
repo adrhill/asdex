@@ -35,5 +35,4 @@ def test_zero_derivative(op, dtype):
     def f(x):
         return x * op(x.astype(dtype))
 
-    result = assert_jacobian_sparsity_exact(f, np.arange(1.0, 4.0))
-    assert result._fallbacks == ()
+    assert_jacobian_sparsity_exact(f, np.arange(1.0, 4.0), fallbacks=())

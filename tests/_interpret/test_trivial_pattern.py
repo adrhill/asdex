@@ -38,8 +38,7 @@ def test_mulhi_zero_derivative():
         u = x.astype(jnp.uint32)
         return x * lax.mulhi(u, u).astype(jnp.float32)
 
-    result = assert_jacobian_sparsity_exact(f, np.array([1e5, 2e5, 3e5]))
-    assert result._fallbacks == ()
+    assert_jacobian_sparsity_exact(f, np.array([1e5, 2e5, 3e5]), fallbacks=())
 
 
 def _print(x):
@@ -70,9 +69,7 @@ def test_debug_is_silent(debug, caplog):
         return x * 2
 
     with caplog.at_level(logging.INFO, logger="asdex.detection"):
-        result = assert_jacobian_sparsity_exact(f, np.ones(3))
-
-    assert result._fallbacks == ()
+        assert_jacobian_sparsity_exact(f, np.ones(3), fallbacks=())
     assert caplog.records == []
 
 
@@ -85,9 +82,7 @@ def test_debug_not_blamed_for_dense_pattern(debug):
         return jnp.sum(x) * jnp.ones(2)
 
     with pytest.warns(DensePatternWarning) as record:
-        result = assert_jacobian_sparsity_exact(f, np.ones(3))
-
-    assert result._fallbacks == ()
+        assert_jacobian_sparsity_exact(f, np.ones(3), fallbacks=())
     message = str(record[0].message)
     assert "debug" not in message
     assert "No primitives without a precise handler were involved" in message
@@ -141,9 +136,8 @@ def test_pure_callback_with_custom_jvp_dense_and_silent(caplog):
     """
     with caplog.at_level(logging.INFO, logger="asdex.detection"):
         result = assert_jacobian_sparsity_conservative(
-            _sin_callback_with_jvp, np.arange(1.0, 4.0)
+            _sin_callback_with_jvp, np.arange(1.0, 4.0), fallbacks=()
         )
 
     np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
-    assert result._fallbacks == ()
     assert caplog.records == []

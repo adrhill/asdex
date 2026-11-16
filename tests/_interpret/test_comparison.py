@@ -410,5 +410,4 @@ def test_lexicographic_comparators_zero_derivative():
     def f(x):
         return x * jnp.searchsorted(sorted_keys, x.astype(jnp.complex64))
 
-    result = assert_jacobian_sparsity_exact(f, np.array([1.5, 2.5, 3.5]))
-    assert result._fallbacks == ()
+    assert_jacobian_sparsity_exact(f, np.array([1.5, 2.5, 3.5]), fallbacks=())

@@ -80,9 +80,10 @@ Use these fixtures in test function signatures to automatically run tests across
   It ignores `DensePatternWarning`, since conservative patterns are often fully dense.
 - `assert_hessian_sparsity_exact(f, x)`: Assert the detected Hessian pattern equals the numerical pattern of `jax.hessian`.
 
-The `assert_*` helpers return the detected `SparsityPattern`.
-Check its other fields, such as `_fallbacks`, on that return value
-instead of detecting the pattern a second time.
+The `assert_*` helpers take `fallbacks`, the expected names of primitives without a precise handler,
+and check them unless it is `None` (the default).
+They return the detected `SparsityPattern`,
+so that tests can check its other fields without detecting the pattern a second time.
 
 ## Conventions
 

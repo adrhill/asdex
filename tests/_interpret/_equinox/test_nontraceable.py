@@ -46,8 +46,7 @@ def _overlapping(op):
 def test_nondifferentiable_backward_pattern(build):
     """The operand's index sets pass through unchanged and nothing is reported."""
     f = build(eqxi.nondifferentiable_backward)
-    result = assert_flat_jacobian_sparsity_exact(f, _X, reference=jax.jacfwd)
-    assert result._fallbacks == ()
+    assert_flat_jacobian_sparsity_exact(f, _X, reference=jax.jacfwd, fallbacks=())
 
 
 @pytest.mark.array_ops
@@ -85,8 +84,7 @@ def test_const_index_stays_resolvable(op):
     def f(x):
         return x[op(jnp.array([2, 0]))]
 
-    result = assert_jacobian_sparsity_exact(f, _X)
-    assert result._fallbacks == ()
+    assert_jacobian_sparsity_exact(f, _X, fallbacks=())
 
 
 @pytest.mark.array_ops
