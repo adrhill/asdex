@@ -77,7 +77,12 @@ Use these fixtures in test function signatures to automatically run tests across
 - `assert_jacobian_sparsity_exact(f, x, holomorphic=False, reference=jax.jacobian)`: Assert the detected pattern equals the numerical pattern.
 - `assert_flat_jacobian_sparsity_exact(f, x, reference=jax.jacobian)`: Like `assert_jacobian_sparsity_exact`, for inputs or outputs that are not 1D.
 - `assert_jacobian_sparsity_conservative(f, x)`: Assert the detected pattern is a conservative superset of the numerical pattern.
+  It ignores `DensePatternWarning`, since conservative patterns are often fully dense.
 - `assert_hessian_sparsity_exact(f, x)`: Assert the detected Hessian pattern equals the numerical pattern of `jax.hessian`.
+
+The `assert_*` helpers return the detected `SparsityPattern`.
+Check its other fields, such as `_fallbacks`, on that return value
+instead of detecting the pattern a second time.
 
 ## Conventions
 

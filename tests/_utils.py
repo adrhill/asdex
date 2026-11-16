@@ -1,9 +1,15 @@
-"""Shared test utilities."""
+"""Shared test utilities.
+
+The assertion helpers return the detected pattern,
+so that tests can check its other fields without detecting it again.
+"""
+
+import warnings
 
 import jax
 import numpy as np
 
-from asdex import hessian_sparsity, jacobian_sparsity
+from asdex import DensePatternWarning, hessian_sparsity, jacobian_sparsity
 
 
 def numerical_jacobian_sparsity(
@@ -32,11 +38,12 @@ def numerical_flat_jacobian_sparsity(f, x, atol=1e-10, reference=jax.jacobian):
 
 def assert_jacobian_sparsity_exact(f, x, holomorphic=False, reference=jax.jacobian):
     """Assert detected sparsity matches numerical Jacobian exactly."""
-    detected = jacobian_sparsity(f, x).todense().astype(int)
+    sparsity = jacobian_sparsity(f, x)
     expected = numerical_jacobian_sparsity(
         f, x, holomorphic=holomorphic, reference=reference
     )
-    np.testing.assert_array_equal(detected, expected)
+    np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
+    return sparsity
 
 
 def assert_flat_jacobian_sparsity_exact(f, x, reference=jax.jacobian):
@@ -45,9 +52,10 @@ def assert_flat_jacobian_sparsity_exact(f, x, reference=jax.jacobian):
     Use this instead of ``assert_jacobian_sparsity_exact``
     when the input or output is not 1D.
     """
-    detected = jacobian_sparsity(f, x).todense().astype(int)
+    sparsity = jacobian_sparsity(f, x)
     expected = numerical_flat_jacobian_sparsity(f, x, reference=reference)
-    np.testing.assert_array_equal(detected, expected)
+    np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
+    return sparsity
 
 
 def assert_jacobian_sparsity_conservative(f, x):
@@ -56,14 +64,21 @@ def assert_jacobian_sparsity_conservative(f, x):
     When calling this function, also verify the detected pattern against
     a manually defined ``expected`` matrix using ``np.testing.assert_array_equal``.
     This ensures both correctness (covers numerical) and precision (matches intent).
+    Conservative patterns are often fully dense,
+    so ``DensePatternWarning`` is ignored.
     """
-    detected = jacobian_sparsity(f, x).todense().astype(int)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DensePatternWarning)
+        sparsity = jacobian_sparsity(f, x)
     numerical = numerical_jacobian_sparsity(f, x)
+    detected = sparsity.todense().astype(int)
     assert np.all(detected >= numerical), "Detected pattern must cover numerical"
+    return sparsity
 
 
 def assert_hessian_sparsity_exact(f, x):
     """Assert detected Hessian sparsity matches the numerical Hessian exactly."""
-    detected = hessian_sparsity(f, x).todense().astype(int)
+    sparsity = hessian_sparsity(f, x)
     expected = (~np.isclose(jax.hessian(f)(x), 0, atol=1e-10)).astype(int)
-    np.testing.assert_array_equal(detected, expected)
+    np.testing.assert_array_equal(sparsity.todense().astype(int), expected)
+    return sparsity
