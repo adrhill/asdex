@@ -274,7 +274,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_empty_pattern(eqn, state)
         case "clamp":
             _prop_clamp(eqn, state)
-        case "eq" | "ne" | "lt_to" | "le_to":
+        # eq_to, lt_to and le_to come from JAX's lexicographic sort comparators.
+        case "eq" | "ne" | "eq_to" | "lt_to" | "le_to":
             _prop_zero_derivative_const(eqn, state)
         case "lt":
             _prop_lt(eqn, state)

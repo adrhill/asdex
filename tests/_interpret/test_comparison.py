@@ -392,3 +392,22 @@ def test_size_zero(op):
 
     result = jacobian_sparsity(f, np.zeros(3)).todense()
     assert result.shape == (0, 3)
+
+
+@pytest.mark.control_flow
+def test_lexicographic_comparators_zero_derivative():
+    """``eq_to``, ``lt_to`` and ``le_to`` have zero derivative and are not reported.
+
+    JAX's lexicographic sort comparators emit them.
+    ``jnp.searchsorted`` on complex keys reaches all three,
+    since it splits each key into a real and an imaginary part.
+    The operand is fed through ``astype`` so that it carries dependencies.
+    """
+    sorted_keys = jnp.array([1 + 1j, 2 + 0j, 3 - 1j], dtype=jnp.complex64)
+
+    def f(x):
+        return x * jnp.searchsorted(sorted_keys, x.astype(jnp.complex64))
+
+    result = jacobian_sparsity(f, np.ones(3))
+    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    assert result._fallbacks == ()
