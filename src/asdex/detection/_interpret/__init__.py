@@ -263,6 +263,7 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "shift_right_arithmetic"
             | "shift_right_logical"
             | "lu_pivots_to_permutation"  # integer permutation of the pivots
+            | "mulhi"  # integer-valued
             | "unvmap_any"  # from Equinox, boolean scalar
             | "unvmap_all"  # from Equinox, boolean scalar
             | "unvmap_max"  # from Equinox, integer scalar

@@ -2,7 +2,7 @@
 
 Those with a module of their own are tested there.
 This file covers the rest:
-``debug_print`` and ``debug_callback`` (no outputs),
+``mulhi`` (integer-valued), ``debug_print`` and ``debug_callback`` (no outputs),
 which get an empty pattern,
 and ``pure_callback``, whose body is not visible,
 which gets a dense pattern without being reported.
@@ -15,11 +15,28 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from jax import lax
 
 from asdex import DensePatternWarning, jacobian_sparsity
 from tests._utils import assert_jacobian_sparsity_conservative
 
 # Empty pattern
+
+
+@pytest.mark.elementwise
+def test_mulhi_zero_derivative():
+    """``mulhi`` is integer-valued, so it adds no dependencies to ``x * mulhi(u, u)``.
+
+    The operand is fed through ``astype`` so that it carries dependencies.
+    """
+
+    def f(x):
+        u = x.astype(jnp.uint32)
+        return x * lax.mulhi(u, u).astype(jnp.float32)
+
+    result = jacobian_sparsity(f, np.ones(3))
+    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    assert result._fallbacks == ()
 
 
 def _print(x):
