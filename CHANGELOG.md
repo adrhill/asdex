@@ -1,7 +1,8 @@
 # asdex
 
 ## Unreleased
-* ![Documentation][badge-docs] Explain that dynamic `gather` and `scatter` indices are a source of conservatism, not a fallback, and that known primitives with a conservative pattern, such as the linear algebra decompositions, are not listed by `print_fallbacks` ([#232])
+* ![Enhancement][badge-enhancement] Report linear algebra primitives without a precise handler, such as `lu`, `cholesky` and `svd`, as fallbacks in `print_fallbacks` and `DensePatternWarning` ([#232])
+* ![Documentation][badge-docs] Explain that dynamic `gather` and `scatter` indices are a source of conservatism, not a fallback ([#232])
 
 ## Version `v0.6.1`
 * ![Feature][badge-feature] Add `jacfwd` and `jacrev`, the sparse counterparts of `jax.jacfwd` and `jax.jacrev`.

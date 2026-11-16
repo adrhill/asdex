@@ -1,8 +1,8 @@
 """Tests for linear algebra primitive handlers.
 
 Linear algebra decompositions (lu, cholesky, svd, eigh, eig, schur, ...)
-and triangular solves get a dense pattern,
-since their outputs generally depend on all inputs.
+and triangular solves have no precise handler,
+so they fall back to a dense pattern and are reported as fallbacks.
 Only `qr` has a handler that models structural zeros.
 """
 
@@ -13,7 +13,7 @@ import jax.scipy.linalg as scipy_linalg
 import numpy as np
 import pytest
 
-from asdex import hessian, hessian_sparsity, jacobian_sparsity
+from asdex import DensePatternWarning, hessian, hessian_sparsity, jacobian_sparsity
 from tests._utils import (
     assert_hessian_sparsity_exact,
     assert_jacobian_sparsity_conservative,
@@ -218,6 +218,26 @@ def test_lu_conservative():
 
     expected = np.vstack([expected_p, expected_l, expected_u])
     np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.fallback
+def test_lu_reported_as_fallback():
+    """The lu primitive has no precise handler, so it is reported as a fallback.
+
+    TODO(lu): the pivot choice has zero derivative,
+    so entry (i, j) of the packed output depends on every row,
+    but only on columns 0 to i - 1 and j for i <= j,
+    and on columns 0 to j for i > j.
+    """
+
+    def f(x):
+        return jax.lax.linalg.lu(x)[0]
+
+    with pytest.warns(DensePatternWarning, match="precise handler: lu\\."):
+        sparsity = jacobian_sparsity(f, np.ones((3, 3)))
+
+    assert sparsity._fallbacks == ("lu",)
+    np.testing.assert_array_equal(sparsity.todense(), np.ones((9, 9)))
 
 
 @pytest.mark.fallback

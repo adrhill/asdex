@@ -465,7 +465,7 @@ def test_unknown_hi_primitive_falls_back_conservatively(caplog):
     assert sparsity._fallbacks == (name,)
     (record,) = caplog.records
     assert record.message.startswith(
-        f"No handler for primitive '{name}', falling back to a conservative pattern."
+        f"No precise handler for primitive '{name}', falling back to a conservative pattern."
     )
 
 

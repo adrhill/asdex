@@ -5,7 +5,7 @@ to determine Jacobian sparsity patterns.
 
 ## Structure
 
-- `__init__.py`: `_prop_jaxpr`, `_prop_dispatch`, and `_prop_unknown_primitive`.
+- `__init__.py`: `_prop_jaxpr`, `_prop_dispatch`, and `_prop_fallback`.
 - `_trivial_pattern.py`: `_prop_empty_pattern` and `_prop_dense_pattern`,
   the whole-equation patterns that ignore the primitive's structure.
 - `_common.py`: shared types, `_PropState`, and helpers.
@@ -49,24 +49,24 @@ Every handler must uphold these.
   `cond` unions its branches since the taken branch is unknown,
   `while` iterates its carries to a fixed point since its trip count is unknown,
   and `scan` simulates its known trip count, stopping early once the carry repeats.
-- **Fail loudly on structure, fall back on unknown primitives.**
+- **Fail loudly on structure, fall back on missing precision.**
+  A fallback is a conservative pattern where a tighter one is derivable.
   Three handlers write a pattern for a whole equation:
-  `_prop_empty_pattern` for known primitives whose outputs all have zero derivative,
-  `_prop_dense_pattern` for known primitives whose outputs all get the union of all inputs,
-  and `_prop_unknown_primitive` for primitives without a `case`.
-  Only the last one is a fallback, and only it is reported to the user.
+  `_prop_empty_pattern` for primitives whose outputs all have zero derivative,
+  `_prop_dense_pattern` for primitives whose outputs all get the union of all inputs,
+  and `_prop_fallback` for unknown primitives and known ones without a precise handler.
+  Only the last one is reported to the user.
   It writes the dense pattern, which is conservative for any pure primitive
   (see [Why Conservative Patterns Are Safe](https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe)).
   Primitives on mutable refs (`new_ref`, `get`, `swap`) write through an input, so they raise `NotImplementedError`.
-  `_prop_unknown_primitive` logs each one on the `asdex.detection` logger
-  and records in `state.unknown_primitives` whether its fallback was conservative,
+  `_prop_fallback` logs each one on the `asdex.detection` logger
+  and records in `state.fallbacks` whether its fallback was conservative,
   meaning that its inputs carried dependencies.
   `jacobian_sparsity` stores all names in `SparsityPattern._fallbacks` in tracing order,
   and a fully dense pattern emits a `DensePatternWarning` naming those with a conservative fallback.
   HiJax primitives are named `hijax:<module>.<class>`.
-  Known primitives that get a dense pattern stay silent, in one of two tiers of `_prop_dispatch`:
-  opaque ones (`pure_callback`), whose body is not visible so no tighter pattern can be derived,
-  and improvable ones (the linalg decompositions), whose dense pattern is correct but could be tightened.
+  `pure_callback` gets a silent dense pattern, since its body is not visible
+  and no tighter pattern can be derived.
   Handlers raise with `_report_issue` on jaxpr structure they don't understand,
   and `_prop_jaxpr` checks every handler's output count.
 - **Pay only for what is read.**
@@ -83,7 +83,7 @@ Every handler takes `(eqn, state)`.
 - `consts`: `Var` to statically known values, which let gather/scatter resolve indices precisely.
 - `bounds`: `Var` to per-element inclusive integer `(lo, hi)` bounds
   for values that are bounded but not constant (e.g. `argmax` over a small axis).
-- `unknown_primitives`: unknown primitive names, each mapped to whether its fallback was conservative.
+- `fallbacks`: names of the primitives that fell back, each mapped to whether its fallback was conservative.
 
 Helpers that touch state take the whole bundle,
 so adding a field never changes signatures.
@@ -141,7 +141,7 @@ Alias whenever the output equals the input by construction, since copying costs 
 ## Adding a Handler
 
 1. Write `_prop_<name>(eqn, state)` in its module, or in a subfolder for external packages.
-2. Add a `case` in `_prop_dispatch`, removing the primitive from the improvable tier if present.
+2. Add a `case` in `_prop_dispatch`, removing the primitive from the known fallbacks if present.
 3. Add tests in `tests/_interpret/test_<module>.py` (see `tests/CLAUDE.md`).
 4. Write the docstring as: semantic summary, Jacobian structure in math,
    example trace of index sets, the `eqn.invars` / `eqn.params` layout read,

@@ -368,7 +368,8 @@ def test_resnet_sparsity_detection():
     input_shape = (8, 8, 3)
 
     with pytest.warns(
-        DensePatternWarning, match="for unknown primitives: reduce_window_max\\."
+        DensePatternWarning,
+        match="for primitives without a precise handler: reduce_window_max\\.",
     ):
         result = jacobian_sparsity(resnet_fn, np.zeros(input_shape))
 

@@ -41,9 +41,9 @@ def _prop_empty_pattern(eqn: JaxprEqn, state: _PropState) -> None:
 def _prop_dense_pattern(eqn: JaxprEqn, state: _PropState) -> None:
     """Every output element depends on every input element.
 
-    Applies to primitives with generically dense outputs,
-    primitives whose body is not visible in the jaxpr,
-    and unknown primitives, which ``_prop_unknown_primitive`` reports first.
+    Applies to primitives whose body is not visible in the jaxpr,
+    to handlers whose operands are not known at trace time,
+    and to primitives without a precise handler, which ``_prop_fallback`` reports first.
     "Dense" is relative to the equation's inputs,
     so the pattern of the whole function can remain sparse.
     One union is shared across all output positions,

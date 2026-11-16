@@ -84,8 +84,8 @@ class _PropState:
     each nested jaxpr (cond branch, while body, jit call) gets a fresh dict,
     so intermediate index sets can be freed when the scope ends.
     ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
-    and so is ``unknown_primitives``,
-    which maps every unknown primitive to whether its fallback was conservative,
+    and so is ``fallbacks``,
+    which maps every primitive that fell back to whether its fallback was conservative,
     meaning that its inputs carried dependencies.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
@@ -98,7 +98,7 @@ class _PropState:
     indices: StateIndices = field(default_factory=dict)
     consts: StateConsts = field(default_factory=dict)
     bounds: StateBounds = field(default_factory=dict)
-    unknown_primitives: dict[str, bool] = field(default_factory=dict)
+    fallbacks: dict[str, bool] = field(default_factory=dict)
 
 
 PropJaxprFn = Callable[

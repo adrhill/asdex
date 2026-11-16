@@ -1081,16 +1081,16 @@ def _sparsity_str(pattern: SparsityPattern) -> str:
 def _fallbacks_str(pattern: SparsityPattern) -> str:
     """Readable summary of ``pattern._fallbacks``."""
     if not pattern._fallbacks:
-        return "No conservative fallbacks: sparsity detection knew every primitive."
+        return "No conservative fallbacks: every primitive had a precise handler."
     count = len(pattern._fallbacks)
     noun = "primitive" if count == 1 else "primitives"
     lines = [
         f"Sparsity detection fell back to conservative patterns"
-        f" for {count} {noun} without a handler:",
+        f" for {count} {noun} without a precise handler:",
         *(f"  - {name}" for name in pattern._fallbacks),
         "These patterns assume that every output depends on every input,",
         "so the detected pattern may be less sparse than necessary.",
-        "Please help out asdex's development by reporting missing JAX primitives at",
+        "Please help out asdex's development by reporting them at",
         f"{_ISSUES_URL}",
     ]
     return "\n".join(lines)

@@ -113,7 +113,7 @@ def _prop_jaxpr(
         state = _PropState(
             consts=parent.consts,
             bounds=parent.bounds,
-            unknown_primitives=parent.unknown_primitives,
+            fallbacks=parent.fallbacks,
         )
 
     # Initialize input variables
@@ -233,7 +233,7 @@ def _prop_call_hi_primitive(eqn: JaxprEqn, state: _PropState) -> None:
         case _:
             prim_type = type(prim)
             name = f"hijax:{prim_type.__module__}.{prim_type.__name__}"
-            _prop_unknown_primitive(eqn, state, name)
+            _prop_fallback(eqn, state, name)
 
 
 def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
@@ -455,10 +455,8 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_cumsum(eqn, state)
         case "qr":
             _prop_qr(eqn, state)
-        # Known primitives with a dense pattern: every output depends on every input.
-        # Unlike unknown primitives, they are not reported to the user.
-        # Opaque: the primitive's body is not visible in the jaxpr,
-        # so no tighter pattern can be derived.
+        # The body of pure_callback is not visible in the jaxpr,
+        # so the dense pattern is the tightest derivable and not a fallback.
         # jax.pure_callback calls a Python function on the host that JAX does not trace,
         # so the jaxpr only records the shapes and dtypes of its outputs.
         # Its caller promises that the function has no side effects,
@@ -466,12 +464,20 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
         # io_callback makes no such promise, so it stays an unknown primitive.
         case "pure_callback":
             _prop_dense_pattern(eqn, state)
-        # Improvable: correct, but a tighter pattern could be derived.
-        # Linear algebra without a precise handler:
-        # most of these outputs are generically dense,
+        # Known primitives without a precise handler fall back like unknown ones.
+        # All of them could treat batch members independently.
+        # TODO(lu): the pivot choice has zero derivative,
+        # so entry (i, j) of the packed output depends on every row,
+        # but only on columns 0 to i - 1 and j for i <= j,
+        # and on columns 0 to j for i > j.
+        # TODO(cholesky): the strict upper triangle of the output is empty,
+        # and L[i, j] depends only on lower-triangle entries A[k, l]
+        # with l <= j and either k <= j or k == i.
+        # TODO(triangular_solve): for a lower-triangular a,
+        # row i of the solution depends only on rows 0 to i of a and b.
+        # TODO(schur): the entries of T below its subdiagonal are empty.
+        # Most other outputs are generically dense,
         # e.g. hessenberg and tridiagonal pack their reflectors below the band.
-        # Structural zeros, like those of schur's quasi-triangular T, are left out,
-        # and so is the independence of batch members.
         case (
             "lu"
             | "cholesky"
@@ -492,14 +498,14 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             | "nonbatchable"
             | "unvmap_any"
             | "unvmap_max"
-        ):
-            _prop_dense_pattern(eqn, state)
+        ) as name:
+            _prop_fallback(eqn, state, name)
         case name:
-            _prop_unknown_primitive(eqn, state, name)
+            _prop_fallback(eqn, state, name)
 
 
-def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None:
-    """Fall back to a conservative pattern for a primitive without a handler.
+def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
+    """Fall back to the dense pattern for a primitive without a precise handler.
 
     The fallback is conservative for any pure primitive,
     since every dependency on the function's inputs then flows
@@ -507,8 +513,8 @@ def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None
     (see https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe).
     Primitives on mutable refs are not pure, so they raise instead.
 
-    Each unknown primitive is logged once per detection
-    and recorded in ``state.unknown_primitives``,
+    Each such primitive is logged once per detection
+    and recorded in ``state.fallbacks``,
     along with whether any of its fallbacks was conservative,
     meaning that its inputs carried dependencies to spread to every output.
     Only conservative fallbacks can cost sparsity,
@@ -527,15 +533,15 @@ def _prop_unknown_primitive(eqn: JaxprEqn, state: _PropState, name: str) -> None
         )
         raise NotImplementedError(msg)
 
-    if name not in state.unknown_primitives:
-        state.unknown_primitives[name] = False
+    if name not in state.fallbacks:
+        state.fallbacks[name] = False
         _logger.info(
-            "No handler for primitive '%s', falling back to a conservative pattern."
+            "No precise handler for primitive '%s', falling back to a conservative pattern."
             " If this primitive is part of JAX,"
             " please help out asdex's development by reporting it at %s",
             name,
             _ISSUES_URL,
         )
     if any(indices for invar in eqn.invars for indices in _index_sets(state, invar)):
-        state.unknown_primitives[name] = True
+        state.fallbacks[name] = True
     _prop_dense_pattern(eqn, state)
