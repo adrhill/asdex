@@ -62,7 +62,7 @@ def test_gather_indices_through_select_n():
 
 
 @pytest.mark.array_ops
-def test_gather_dynamic_indices_fallback():
+def test_gather_bounded_dynamic_indices():
     """Gather with bounded dynamic indices enumerates possible index arrays.
 
     idx = argmax(x[:2]) can only be 0 or 1, so indices are [0,1] or [1,2].
@@ -831,7 +831,7 @@ def test_gather_batching_dims():
 
 @pytest.mark.array_ops
 def test_gather_argsort_conservative():
-    """Gather with argsort indices falls back to conservative.
+    """Gather with argsort indices degrades to a dense pattern.
 
     When indices are computed from inputs (data-dependent),
     the output depends on all inputs.

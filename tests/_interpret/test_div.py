@@ -111,7 +111,7 @@ def test_lax_div_integer_undefined_is_unknown(num, den):
 
 @pytest.mark.elementwise
 def test_div_integer_zero_divisor_index_conservative():
-    """An index computed by integer division by zero falls back to conservative.
+    """An index computed by integer division by zero degrades to a dense pattern.
 
     lax.div(i, 0) is implementation-defined in XLA,
     so the gather index is unknown

@@ -2,7 +2,7 @@
 
 Verifies that _seed_const_vals and _forward_const_vals correctly transfer
 concrete index values into jit-wrapped and custom_jvp functions,
-enabling precise gather/scatter tracking instead of conservative fallback.
+enabling precise gather/scatter tracking instead of a dense pattern.
 
 https://docs.jax.dev/en/latest/jaxpr.html
 """
@@ -478,7 +478,7 @@ def test_jit_const_output_escapes_to_outer_consumer():
     from the inner jaxpr's outputs to the outer equation's outvars,
     mirroring the existing bounds forwarding.
     The outer matmul can then skip the known zeros,
-    keeping the diagonal pattern instead of a dense fallback.
+    keeping the diagonal pattern instead of a dense one.
     """
 
     @jax.jit

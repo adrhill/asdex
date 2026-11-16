@@ -1,7 +1,7 @@
 """Tests for linear algebra primitive handlers.
 
 Linear algebra decompositions (lu, cholesky, svd, eigh, eig, schur, ...)
-and triangular solves share the conservative fallback,
+and triangular solves get a dense pattern,
 since their outputs generally depend on all inputs.
 Only `qr` has a handler that models structural zeros.
 """
@@ -23,7 +23,7 @@ from tests._utils import (
 
 @pytest.mark.fallback
 def test_cholesky_conservative():
-    """Cholesky decomposition uses conservative fallback for the cholesky primitive.
+    """Cholesky decomposition gets a dense pattern for the cholesky primitive.
 
     The upper triangle of L is always zero, so those outputs have no dependencies.
     The lower triangle entries each depend on all inputs (conservative).
@@ -38,7 +38,7 @@ def test_cholesky_conservative():
     result = pattern.todense()
 
     # Output L[i,j] is non-zero only for i >= j (lower triangle)
-    # Conservative fallback: each non-zero output depends on all 9 inputs
+    # Dense pattern: each non-zero output depends on all 9 inputs
     # Output indices (row-major): 0,1,2 / 3,4,5 / 6,7,8
     # Lower triangle: (0,0)=0, (1,0)=3, (1,1)=4, (2,0)=6, (2,1)=7, (2,2)=8
     expected = np.array(
@@ -60,7 +60,7 @@ def test_cholesky_conservative():
 
 @pytest.mark.fallback
 def test_qr_conservative():
-    """QR decomposition uses conservative fallback.
+    """QR decomposition gets a conservative pattern.
 
     Returns flattened pattern for (Q, R) where both are (3,3).
     Q genuinely depends on all inputs.
@@ -118,7 +118,7 @@ def test_qr_pivoting_unsupported():
 
 @pytest.mark.fallback
 def test_svd_conservative():
-    """SVD uses conservative fallback.
+    """SVD gets a dense pattern.
 
     Returns flattened pattern for (U, s, Vh) where U:(3,3), s:(3,), Vh:(3,3).
     All outputs genuinely depend on all inputs.
@@ -141,7 +141,7 @@ def test_svd_conservative():
 
 @pytest.mark.fallback
 def test_eigh_conservative():
-    """Eigenvalue decomposition uses conservative fallback.
+    """Eigenvalue decomposition gets a dense pattern.
 
     Returns flattened pattern for (eigvals, eigvecs) where eigvals:(3,), eigvecs:(3,3).
     All outputs genuinely depend on all inputs.
@@ -164,7 +164,7 @@ def test_eigh_conservative():
 
 @pytest.mark.fallback
 def test_lu_conservative():
-    """LU decomposition uses conservative fallback for the lu primitive.
+    """LU decomposition gets a dense pattern for the lu primitive.
 
     Returns flattened pattern for (P, L, U) where all are (3,3).
     P is a permutation matrix (no gradient dependencies).
@@ -222,7 +222,7 @@ def test_lu_conservative():
 
 @pytest.mark.fallback
 def test_triangular_solve_conservative():
-    """Triangular solve uses conservative fallback for the triangular_solve primitive.
+    """Triangular solve gets a dense pattern for the triangular_solve primitive.
 
     The detected pattern is currently fully dense:
     every solution entry depends on every entry of A and b.
@@ -277,7 +277,7 @@ def test_det_hessian_small_matrix_conservative(n):
     Since JAX 0.11.1, ``jnp.linalg.det`` computes small determinants
     from a closed-form LU decomposition
     whose derivative emits ``triangular_solve``,
-    which uses the conservative fallback.
+    which gets a dense pattern.
     TODO(triangular_solve): ∂²det/∂A[i,j]∂A[k,l] is nonzero only for i ≠ k and j ≠ l.
     For A = [[a, b], [c, d]], det = a·d - b·c, so the Hessian is antidiagonal:
         [0, 0, 0, 1],  # ∂²det/∂a∂d = 1
@@ -379,15 +379,15 @@ _SPD_FLAT = _SPD.ravel()
 def test_linalg_decompositions_conservative(f, x, expected_shape, has_ad_rule):
     """Every element of every linalg decomposition output depends on every input.
 
-    These primitives share the conservative fallback with `lu` and `cholesky`.
+    These primitives get a dense pattern, like `lu` and `cholesky`.
     `eig`, `schur`, `hessenberg`, and `tridiagonal` are multi-output,
-    so a fallback that drops an output fails this test.
+    so a dense pattern that drops an output fails this test.
 
     JAX has no differentiation rule for most of these primitives,
     so `has_ad_rule` marks the cases that also have a numerical Jacobian
     to compare against.
     For the others the all-ones matrix is the reference:
-    the fallback unions every operand into every output, so it cannot miss.
+    the dense pattern unions every operand into every output, so it cannot miss.
 
     Apart from `schur`, these outputs have no fixed structural zeros:
     `hessenberg` and `tridiagonal` return the reflectors below the band
@@ -403,12 +403,12 @@ def test_linalg_decompositions_conservative(f, x, expected_shape, has_ad_rule):
 def test_eigvals_batched_conservative():
     """Batched linalg primitives mix dependencies across batch members.
 
-    The conservative fallback unions every operand into every output,
+    The dense pattern unions every operand into every output,
     so it ignores that each matrix in a batch is decomposed independently.
 
     TODO(eig): each eigenvalue should only depend on its own matrix,
     giving a block-diagonal pattern.
-    The same holds for every primitive in the linalg fallback group.
+    The same holds for every linalg primitive with a dense pattern.
     """
 
     def f(x):

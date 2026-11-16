@@ -91,7 +91,7 @@ def test_squeeze_const_chain_with_select_n():
     ``lt(idx, 0)`` checks for negatives,
     ``select_n`` picks ``idx`` or ``idx + size``.
     If squeeze breaks const propagation,
-    the gather sees dynamic indices and falls back to conservative.
+    the gather sees dynamic indices and degrades to a dense pattern.
     """
     # Simulate the pattern from sif2jax network flow problems.
     index_array = jnp.array([[1, 3], [0, 2]])  # (2, 2) closure const

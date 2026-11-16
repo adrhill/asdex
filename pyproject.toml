@@ -111,7 +111,7 @@ markers = [
     "coloring: row coloring algorithm tests",
     "jacobian: sparse Jacobian computation tests",
     "hessian: Hessian sparsity detection and computation",
-    "fallback: documents conservative fallback behavior",
+    "fallback: documents an overly conservative pattern that a sparser handler could improve",
     "bug: documents known bugs",
     "slow: tests that take more than 1 second",
     "benchmark: performance benchmarks (skipped by default, provided by pytest-benchmark)",

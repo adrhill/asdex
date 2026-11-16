@@ -259,7 +259,7 @@ def test_convert_element_type_propagates_const():
     """convert_element_type propagates const values for downstream gather.
 
     JAX inserts convert_element_type (int64 → int32) before gather.
-    Without const propagation, the gather falls back to conservative.
+    Without const propagation, the gather degrades to a dense pattern.
     """
     indices = jnp.array([2, 0, 1])
 
@@ -477,10 +477,10 @@ def test_div_bounds_skip_zero_crossing_divisor():
     """Division bounds are not propagated when divisor spans zero.
 
     When the divisor range includes zero, interval division is undefined,
-    so bounds should not be propagated and the consumer falls back to conservative.
+    so bounds should not be propagated and the consumer degrades to a dense pattern.
     argmax(x[:3]) ∈ {0,1,2}, so idx-1 ∈ {-1,0,1} which spans zero.
     lax.div(6, idx-1) is undefined at zero, so bounds are dropped.
-    Without bounds, dynamic_slice falls back to conservative (all index sets).
+    Without bounds, dynamic_slice degrades to a dense pattern (all index sets).
     """
 
     def f(x):
@@ -490,7 +490,7 @@ def test_div_bounds_skip_zero_crossing_divisor():
         return lax.dynamic_slice(x, (start,), (2,))
 
     result = jacobian_sparsity(f, np.zeros(5)).todense().astype(int)
-    # All 1s: conservative fallback since div bounds span zero.
+    # All 1s: dense pattern since div bounds span zero.
     expected = np.ones((2, 5), dtype=int)
     np.testing.assert_array_equal(result, expected)
 
@@ -607,14 +607,14 @@ def test_clamp_bounds_propagate_to_dynamic_slice():
 @pytest.mark.elementwise
 @pytest.mark.fallback
 def test_clip_of_unbounded_index_is_conservative():
-    """Clipping an index that has no bounds falls back to conservative.
+    """Clipping an index that has no bounds degrades to a dense pattern.
 
     ``max`` and ``min`` only propagate bounds when *both* operands are bounded,
     so clipping an otherwise unknown index does not currently bound it.
 
     TODO(max/min): clip fixes the result to [0, 2] whatever the index is,
     so the precise pattern enumerates start positions {0,1,2}, giving
-    rows [1, 1, 1, 0] and [0, 1, 1, 1] instead of the all-ones fallback.
+    rows [1, 1, 1, 0] and [0, 1, 1, 1] instead of the all-ones pattern.
     Reaching it means treating a missing operand interval as the dtype's
     full range, which is exact for integers but needs care for floats (NaN).
     """
@@ -703,7 +703,7 @@ def test_clip_brings_index_back_under_enumeration_cap():
     """Clipping a wide interval makes bounded enumeration viable again.
 
     argmax over 100 elements has bounds [0, 99], which exceeds
-    ``_MAX_ENUM_COMBINATIONS`` and falls back to conservative.
+    ``_MAX_ENUM_COMBINATIONS`` and degrades to a dense pattern.
     Clipping to [0, 3] leaves 4 combinations, so the gather is precise.
     """
 
@@ -1490,7 +1490,7 @@ def test_wrapped_add_bounds_are_dropped_before_narrowing(narrow):
     Narrowing that interval would claim the single start 21,
     but JAX starts the slice anywhere in 21..26 or more.
     The overflowing sum must lose its bounds,
-    so the slice falls back to a conservative pattern.
+    so the slice degrades to a dense pattern.
     """
 
     def f(x):

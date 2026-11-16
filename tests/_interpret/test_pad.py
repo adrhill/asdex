@@ -308,7 +308,7 @@ def test_pad_conservative_audit():
     """Pad sparsity is strictly sparser than dense.
 
     The detected pattern must have fewer nonzeros than n_outputs * n_inputs,
-    confirming the handler is not falling back to a conservative all-ones result.
+    confirming the handler does not degrade to a conservative all-ones result.
     """
 
     def f(x):
