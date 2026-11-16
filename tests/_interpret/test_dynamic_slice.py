@@ -193,7 +193,7 @@ def test_dynamic_slice_input_dependent_start_conservative():
 
     The start index derives from the input without known bounds,
     so any window is possible and every output
-    must depend on all operand elements and the start's own dependencies.
+    must depend on all operand elements.
     Raising is wrong here, this is valid user code.
 
     TODO(dynamic_slice): the true pattern selects a single window,
@@ -216,8 +216,7 @@ def test_dynamic_update_slice_input_dependent_start_conservative():
     """dynamic_update_slice with an unbounded input-dependent start goes conservative.
 
     Any window may receive the update,
-    so every output must depend on the operand, the update,
-    and the start's own dependencies.
+    so every output must depend on the operand and the update.
     Raising is wrong here, this is valid user code.
 
     TODO(dynamic_update_slice): the true pattern updates a single window,
@@ -232,6 +231,35 @@ def test_dynamic_update_slice_input_dependent_start_conservative():
     expected = np.ones((4, 4), dtype=int)
     np.testing.assert_array_equal(result, expected)
     assert_jacobian_sparsity_conservative(f, np.array([1.0, 2.0, 3.0, 4.0]))
+
+
+@pytest.mark.array_ops
+@pytest.mark.fallback
+def test_dynamic_slice_start_from_cast_adds_no_dependencies():
+    """A start cast from a float has zero derivative, so only the operand spreads.
+
+    The start ``x[0].astype(int)`` is unbounded, so the slice returns a dense pattern
+    over its operand ``x[1:]``, but ``x[0]`` itself is not a dependency.
+
+    TODO(dynamic_slice): JAX clamps the start into [0, 1],
+    so the precise pattern is [[0, 1, 1, 0], [0, 0, 1, 1]].
+    """
+
+    def f(x):
+        start = x[0].astype(jnp.int32)
+        return lax.dynamic_slice(x[1:], (start,), (2,))
+
+    result = assert_jacobian_sparsity_conservative(
+        f, np.array([1.0, 2.0, 3.0, 4.0]), fallbacks=()
+    )
+    expected = np.array(
+        [
+            [0, 1, 1, 1],  # any window of x[1:], nothing from x[0]
+            [0, 1, 1, 1],
+        ],
+        dtype=int,
+    )
+    np.testing.assert_array_equal(result.todense(), expected)
 
 
 # Size-0 dimension

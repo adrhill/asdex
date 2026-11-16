@@ -11,7 +11,9 @@ import jax.nn
 import jax.numpy as jnp
 import numpy as np
 import pytest
-from jax._src.core import Literal, Primitive
+from jax import dtypes
+from jax._src.core import Literal, Primitive, ShapedArray
+from jax._src.dtypes import ExtendedDType
 from jax.interpreters import ad
 
 from asdex import DensePatternWarning, hessian_sparsity, jacobian, jacobian_sparsity
@@ -23,12 +25,14 @@ from asdex.detection._interpret._common import (
     _atom_const_val,
     _atom_shape,
     _forward_across_jaxpr_boundary,
+    _has_differentiable_dtype,
     _index_sets,
     _PropState,
     _seed_const_vals,
     _singleton_index_set,
 )
 from asdex.detection._interpret._reshape import _prop_reshape
+from tests._utils import assert_jacobian_sparsity_exact
 
 
 class FakeAval:
@@ -371,6 +375,158 @@ def test_unknown_primitive_conservative_after_constant_use():
         result = jacobian_sparsity(f, np.ones(3))
 
     assert result._fallbacks == ("asdex_test_unknown",)
+
+
+# Unknown to asdex, but JAX can differentiate them,
+# so their patterns can be checked against ``jax.jacobian``.
+_unknown_int_p = Primitive("asdex_test_unknown_int")
+_unknown_int_p.def_impl(lambda x: jnp.floor(x).astype(jnp.int32))
+_unknown_int_p.def_abstract_eval(lambda x: ShapedArray(x.shape, jnp.int32))
+ad.primitive_jvps[_unknown_int_p] = lambda primals, _: (
+    _unknown_int_p.bind(*primals),
+    np.zeros(primals[0].shape, dtypes.float0),
+)
+
+_unknown_mixed_p = Primitive("asdex_test_unknown_mixed")
+_unknown_mixed_p.multiple_results = True
+_unknown_mixed_p.def_impl(
+    lambda x: [jnp.sin(x) * jnp.sum(x), jnp.floor(x).astype(jnp.int32)]
+)
+_unknown_mixed_p.def_abstract_eval(
+    lambda x: [ShapedArray(x.shape, x.dtype), ShapedArray(x.shape, jnp.int32)]
+)
+
+
+def _unknown_mixed_jvp(primals, tangents):
+    (x,) = primals
+    (t,) = tangents
+    t = ad.instantiate_zeros(t)
+    y, n = _unknown_mixed_p.bind(x)
+    y_dot = jnp.cos(x) * jnp.sum(x) * t + jnp.sin(x) * jnp.sum(t)
+    return [y, n], [y_dot, np.zeros(n.shape, dtypes.float0)]
+
+
+ad.primitive_jvps[_unknown_mixed_p] = _unknown_mixed_jvp
+
+
+def test_unknown_primitive_integer_output_is_empty():
+    """An integer output of an unknown primitive has zero derivative.
+
+    The primitive is still listed by ``print_fallbacks``,
+    since it is unknown, but it spreads no dependencies.
+    """
+
+    def f(x):
+        return x * _unknown_int_p.bind(x).astype(x.dtype)
+
+    assert_jacobian_sparsity_exact(
+        f, np.array([1.5, 2.5, 3.5]), fallbacks=("asdex_test_unknown_int",)
+    )
+
+
+def test_unknown_primitive_integer_output_is_not_blamed():
+    """An unknown primitive with only integer outputs has no conservative fallback.
+
+    Its inputs carry dependencies, but no inexact output receives them,
+    so the warning does not name it.
+    """
+
+    def f(x):
+        return jnp.sum(x) * x + _unknown_int_p.bind(x).astype(x.dtype)
+
+    with pytest.warns(DensePatternWarning) as record:
+        assert_jacobian_sparsity_exact(
+            f, np.array([1.5, 2.5, 3.5]), fallbacks=("asdex_test_unknown_int",)
+        )
+
+    (warning,) = record
+    assert _NO_FALLBACKS_MESSAGE in str(warning.message)
+    assert "asdex_test_unknown_int" not in str(warning.message)
+
+
+def test_unknown_primitive_mixed_outputs():
+    """Only the inexact output of an unknown primitive gets the dense pattern."""
+
+    def f(x):
+        y, n = _unknown_mixed_p.bind(x)
+        return jnp.concatenate([y, n.astype(x.dtype)])
+
+    assert_jacobian_sparsity_exact(
+        f, np.array([0.3, 0.7, 1.1]), fallbacks=("asdex_test_unknown_mixed",)
+    )
+
+
+class _AtomWithAval:
+    """Fake atom that only carries an abstract value."""
+
+    def __init__(self, aval):
+        self.aval = aval
+
+
+class _DtypeAval:
+    """Fake abstract value that only carries a dtype."""
+
+    def __init__(self, dtype):
+        self.dtype = dtype
+
+
+class _FloatTangentRules:
+    @staticmethod
+    def tangent_dtype(_):
+        return np.dtype(np.float32)
+
+
+class _FloatTangentDType(ExtendedDType):
+    """Extended dtype that declares a float32 tangent, so it is differentiable."""
+
+    _rules = _FloatTangentRules
+    name = "float_tangent"
+
+    @property
+    def type(self):
+        return dtypes.extended
+
+
+@pytest.mark.parametrize(
+    ("aval", "expected"),
+    [
+        (ShapedArray((2,), jnp.float32), True),
+        (ShapedArray((), jnp.float32, weak_type=True), True),
+        (ShapedArray((2,), jnp.bfloat16), True),
+        (ShapedArray((2,), jnp.complex64), True),
+        (ShapedArray((2,), jnp.int32), False),
+        (ShapedArray((), jnp.int32, weak_type=True), False),
+        (ShapedArray((2,), jnp.uint8), False),
+        (ShapedArray((2,), jnp.bool_), False),
+        (ShapedArray((2,), dtypes.float0), False),
+        (ShapedArray((2,), jax.random.key(0).dtype), False),
+        (_DtypeAval(_FloatTangentDType()), True),
+        (FakeAval((2,)), True),
+    ],
+    ids=[
+        "float32",
+        "weak_float",
+        "bfloat16",
+        "complex64",
+        "int32",
+        "weak_int",
+        "uint8",
+        "bool",
+        "float0",
+        "prng_key",
+        "differentiable_extended",
+        "no_dtype",
+    ],
+)
+def test_has_differentiable_dtype(aval, expected):
+    """Floating and complex dtypes are differentiable, integers, booleans and keys are not.
+
+    Extended dtypes declare it themselves through their tangent dtype.
+    Atoms without a dtype, such as tokens, count as differentiable,
+    which keeps their index sets and is conservative.
+    """
+    atom = _AtomWithAval(aval)
+    assert _has_differentiable_dtype(atom) is expected  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_primitive_fallback_covers_true_jacobian():

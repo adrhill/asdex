@@ -715,6 +715,30 @@ def test_rev_rejects_non_floating_output():
         asdex.jacobian(f, np.zeros(2), mode="rev", output_format="dense")(x)
 
 
+@pytest.mark.jacobian
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda f: asdex.jacobian(f, np.zeros(2), mode="rev", output_format="dense"),
+        lambda f: asdex.compressed_jacobian(f, np.zeros(2), mode="rev"),
+    ],
+    ids=["jacobian", "compressed_jacobian"],
+)
+def test_rev_rejects_non_floating_output_with_empty_pattern(make):
+    """An empty pattern does not skip the output dtype check.
+
+    ``floor`` has zero derivative, so the pattern is empty
+    and no VJP is ever evaluated.
+    The check must still raise, like ``jax.jacrev`` does.
+    """
+
+    def f(x):
+        return jnp.floor(x).astype(jnp.int32)
+
+    with pytest.raises(TypeError, match="floating"):
+        make(f)(jnp.array([1.0, 2.0]))
+
+
 # kwargs binding
 
 

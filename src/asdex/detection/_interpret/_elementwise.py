@@ -542,8 +542,11 @@ def _prop_convert_element_type(
 ) -> None:
     """Type conversion (e.g., float32 → float64) changes dtype without changing values.
 
-    Dependencies pass through unchanged.
-    The Jacobian is the identity matrix.
+    Dependencies pass through unchanged and the Jacobian is the identity matrix.
+    Casts to an integer or boolean dtype are the exception and not differentiable:
+    ``_prop_jaxpr`` empties the output index sets,
+    and integer indices computed from inputs (e.g. ``x[0].astype(int)``)
+    stop spreading dependencies into gather, scatter and dynamic_slice.
 
     Also propagates const values and value bounds with the new dtype
     so downstream gather/scatter can resolve static indices.
@@ -556,6 +559,10 @@ def _prop_convert_element_type(
         Input index sets:  [{0}, {1}, {2}]
         Output index sets: [{0}, {1}, {2}]
 
+    Example: y = x.astype(int32) where x = [a, b, c]
+        Input index sets:  [{0}, {1}, {2}]
+        Output index sets: [{}, {}, {}]
+
     Jaxpr:
         invars[0]: input array
         new_dtype: target dtype
@@ -564,6 +571,8 @@ def _prop_convert_element_type(
     """
     state.indices[eqn.outvars[0]] = _index_sets(state, eqn.invars[0])
 
+    # Consts and bounds keep flowing through every cast,
+    # since downstream index handlers need them most after a cast to an integer.
     in_val = _atom_const_val(eqn.invars[0], state)
     if in_val is not None:
         new_dtype = eqn.params.get("new_dtype")

@@ -18,7 +18,6 @@ from ._common import (
     _copy_index_set,
     _enumerate_bounded_patterns,
     _index_sets,
-    _merge_index_dependencies,
     _numel,
     _PropState,
     _union_all,
@@ -199,8 +198,7 @@ def _prop_scatter(
 
     Example with dynamic scatter_indices: arr.at[traced_idx].set(x)
         Cannot determine which position receives the update.
-        Conservative: all outputs depend on all inputs,
-        including the scatter_indices' own dependencies.
+        Conservative: all outputs depend on all inputs.
 
     Jaxpr:
         invars[0]: operand — base array
@@ -217,7 +215,6 @@ def _prop_scatter(
     """
     operand_indices = _index_sets(state, eqn.invars[0])
     indices_atom = eqn.invars[1]
-    si_index_sets = _index_sets(state, indices_atom)
     updates_indices = _index_sets(state, eqn.invars[2])
 
     concrete_indices = _atom_const_val(indices_atom, state)
@@ -247,11 +244,8 @@ def _prop_scatter(
 
         result = _enumerate_bounded_patterns(ranges, out_size, _make)
         if result is not None:
-            state.indices[eqn.outvars[0]] = _merge_index_dependencies(
-                result, si_index_sets
-            )
+            state.indices[eqn.outvars[0]] = result
             return
 
-    # Unresolvable indices: return a dense pattern,
-    # including the indices' own dependencies (mirrors gather).
+    # Unresolvable indices: return a dense pattern (mirrors gather).
     _prop_dense_pattern(eqn, state)

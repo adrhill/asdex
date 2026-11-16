@@ -49,6 +49,9 @@ def _prop_dense_pattern(eqn: JaxprEqn, state: _PropState) -> None:
     One union is shared across all output positions,
     which is safe since index sets in state are never mutated.
 
+    Like every handler's outputs,
+    those without a differentiable dtype are emptied afterwards by ``_prop_jaxpr``.
+
     Mathematically, ∂yⱼ[k]/∂xᵢ[l] may be nonzero for all i, j, k, l.
 
     Example: (u, s, vh) = svd(x) where x has index sets [{0}, {1}, {2}, {3}]

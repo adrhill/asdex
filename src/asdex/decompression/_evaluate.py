@@ -164,6 +164,8 @@ def _jacobian_with_value(
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
     out_struct = _cached_out_struct(f_out, args, call_cache)
+    # Before the empty short-circuit, so an empty pattern cannot hide an invalid dtype.
+    _validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if m == 0 or sparsity.nnz == 0:
         jac = _build_jacobian(
@@ -190,7 +192,6 @@ def _jacobian_with_value(
         )
         data = _decompress_data(compressed, coloring)
 
-    _validate_output_dtypes(y, coloring.mode, holomorphic)
     jac = _build_jacobian(data, coloring, output_format, out_struct)
     return y, aux, jac
 

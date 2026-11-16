@@ -913,8 +913,7 @@ def test_scatter_input_dependent_indices_conservative():
     """Scatter with input-dependent indices returns a dense pattern.
 
     The write targets cannot be resolved statically,
-    so every output must depend on the operand, the updates,
-    and the indices' own dependencies,
+    so every output must depend on the operand and the updates,
     mirroring gather in the same situation.
     Raising is wrong here, this is valid user code.
 

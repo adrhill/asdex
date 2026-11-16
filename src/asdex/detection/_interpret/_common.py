@@ -1,12 +1,20 @@
 """Types, constants, and utilities for dependency tracking."""
 
+import functools
 import itertools
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
-from jax._src.core import Jaxpr, JaxprEqn, Literal, Var
+from jax import dtypes
+from jax._src.core import (
+    Jaxpr,
+    JaxprEqn,
+    Literal,
+    Var,
+    primal_dtype_to_tangent_dtype,
+)
 from numpy.typing import ArrayLike
 
 from asdex._errors import _ISSUES_URL
@@ -86,7 +94,7 @@ class _PropState:
     ``consts`` and ``bounds`` are shared across nested scopes by aliasing,
     and so is ``fallbacks``,
     which maps every primitive that fell back to whether its fallback was conservative,
-    meaning that its inputs carried dependencies.
+    meaning that its inputs carried dependencies into an output of differentiable dtype.
     JAX caches traced jaxprs, so one inner jaxpr (and its ``Var`` objects)
     can be propagated from several call sites.
     Value info on a jaxpr's vars is therefore overwritten on every entry:
@@ -176,35 +184,6 @@ def _enumerate_bounded_patterns(
     return accumulated
 
 
-def _merge_index_dependencies(
-    result: list[IndexSet], index_sets: list[IndexSet]
-) -> list[IndexSet]:
-    """Union the index operand's own index sets into every enumerated pattern.
-
-    ``_enumerate_bounded_patterns`` resolves which operand positions
-    a bounded dynamic index may read or write,
-    but the index operand itself may depend on the function's inputs.
-    Those dependencies reach every position the enumeration produced,
-    so they are unioned in afterwards.
-
-    Builds a new list rather than mutating ``result`` in place,
-    which is required since enumerated patterns may alias input index sets.
-
-    Example: result = [{0, 1}, {1, 2}], index_sets = [{4}]
-        The index operand depends on input 4,
-        so every enumerated position picks up 4.
-        Returns [{0, 1, 4}, {1, 2, 4}].
-
-    Example: result = [{0, 1}, {1, 2}], index_sets = [{}]
-        Integer indices typically carry no dependencies,
-        so ``result`` is returned unchanged.
-    """
-    if not any(index_sets):
-        return result
-    combined = _union_all(index_sets)
-    return [iset | combined for iset in result]
-
-
 # Shape and size
 
 
@@ -223,6 +202,29 @@ def _atom_shape(atom: Atom) -> tuple[int, ...]:
 def _atom_numel(atom: Atom) -> int:
     """Get the total number of elements in a variable or literal."""
     return _numel(_atom_shape(atom))
+
+
+def _has_differentiable_dtype(atom: Atom) -> bool:
+    """Whether a variable or literal can have a nonzero derivative, judged by its dtype.
+
+    Floating and complex dtypes are differentiable.
+    Integers, booleans and PRNG keys are not,
+    so their values have zero derivative.
+    Atoms without a dtype, such as tokens, are treated as differentiable,
+    which keeps their index sets and is therefore conservative.
+    """
+    dtype = getattr(atom.aval, "dtype", None)
+    return dtype is None or _is_differentiable_dtype(dtype)
+
+
+@functools.cache
+def _is_differentiable_dtype(dtype) -> bool:
+    """Apply JAX's rule, which gives non-differentiable dtypes a ``float0`` tangent.
+
+    JAX tests for inexact dtypes,
+    except that extended dtypes such as PRNG keys declare their tangent dtype themselves.
+    """
+    return primal_dtype_to_tangent_dtype(dtype) != dtypes.float0
 
 
 # Atom value access

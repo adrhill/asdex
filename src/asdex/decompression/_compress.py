@@ -184,6 +184,9 @@ def _compress_jacobian(
 
     m = sparsity.m
     f_out = _strip_aux(f) if has_aux else f
+    out_struct = _cached_out_struct(f_out, args, call_cache)
+    # Before the empty short-circuit, so an empty pattern cannot hide an invalid dtype.
+    _validate_output_dtypes(out_struct, coloring.mode, holomorphic)
 
     if m == 0 or sparsity.nnz == 0:
         compressed = _empty_compressed(coloring, args)
@@ -192,11 +195,9 @@ def _compress_jacobian(
             return compressed, value, aux
         return compressed, (f(*args) if need_value else None), None
 
-    out_struct = _cached_out_struct(f_out, args, call_cache)
     compressed, y, aux = _jacobian_compressed(
         f, args, coloring, out_struct, has_aux=has_aux, chunk_size=chunk_size
     )
-    _validate_output_dtypes(y, coloring.mode, holomorphic)
     return compressed, y, aux
 
 
