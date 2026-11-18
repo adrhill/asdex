@@ -87,17 +87,17 @@ No general-purpose equivalent exists for JAX, although there are a few prototype
 We list them in the table below with their main features, using the following shortcuts: "D1/D2" for "distance-1/distance-2", "IG/BG/AG" for "intersection/bipartite/adjacency graph" (see @gebremedhin2005what_color for definitions).
 
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
-| Package                            | Sparsity detection                           | Coloring                                                                |
+| Package                            | Sparsity detection                  | Coloring                                                                |
 +====================================+=====================================+=========================================================================+
-| `sparsejac`[^gh-sparsejac]         | None                                | D1 on IG (from `networkx`)                                            |
+| `sparsejac`[^gh-sparsejac]         | None                                | D1 on IG (from `networkx`)                                              |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
-| `sparsediffax`[^gh-sparsediffax]   | None                                | D2 on BG & star on AG (from SMC)                                            |
+| `sparsediffax`[^gh-sparsediffax]   | None                                | D2 on BG & star on AG (from SMC)                                        |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
 | `jax-nansparse`[^gh-jax-nansparse] | `NaN` tracing                       | None                                                                    |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
 | `jax2sympy`[^gh-jax2sympy]         | `jaxpr` symbolic conversion         | None                                                                    |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
-| `asdex`                            | `jaxpr` tracing                     | D2 on BG & star on AG (based on SMC)                                        |
+| `asdex`                            | `jaxpr` tracing                     | D2 on BG & star on AG (based on SMC)                                    |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
 
 A `jaxpr`-based approach to sparsity pattern detection has been outlined by @simpson2024sparse_jax_blog.
