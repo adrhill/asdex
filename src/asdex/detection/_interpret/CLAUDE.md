@@ -62,7 +62,7 @@ Every handler must uphold these.
   and `_prop_fallback` for unknown primitives and known ones without a precise handler.
   Only the last one is reported to the user.
   It writes the dense pattern, which is conservative
-  whenever every dependency that JAX differentiates flows from the inputs of a primitive to its outputs
+  whenever every dependency that JAX differentiates flows from the inputs of a primitive to its outputs, e.g., for any pure primitive
   (see [Why Conservative Patterns Are Safe](https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe)).
   Side effects on the host do not break this, since JAX does not differentiate through them.
   Primitives on mutable refs (`new_ref`, `get`, `swap`) write through an input, so they raise `NotImplementedError`.
