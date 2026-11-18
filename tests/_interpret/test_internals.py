@@ -566,7 +566,7 @@ def test_mutable_ref_raises():
     A write to a ref flows into an input of the primitive,
     which the conservative fallback would miss.
     Refs are unsupported by design,
-    and the error says so and points to functional updates.
+    and the error says so and suggests how to rewrite the function.
     """
 
     def f(x):
@@ -576,7 +576,7 @@ def test_mutable_ref_raises():
 
     with pytest.raises(
         NotImplementedError,
-        match=r"'new_ref'.*mutable ref.*not supported by design.*\.at\[",
+        match=r"'new_ref'.*mutable array reference.*does not support by design.*\.at\[",
     ):
         jacobian_sparsity(f, np.ones(3))
 
@@ -592,7 +592,7 @@ def test_mutable_ref_from_closure_raises():
         ref[...] = x * 2.0
         return ref[...]
 
-    with pytest.raises(NotImplementedError, match=r"'swap'.*mutable ref"):
+    with pytest.raises(NotImplementedError, match=r"'swap'.*mutable array reference"):
         jacobian_sparsity(f, np.ones(3))
 
 

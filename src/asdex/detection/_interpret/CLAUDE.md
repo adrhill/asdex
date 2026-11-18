@@ -70,6 +70,8 @@ Every handler must uphold these.
   supporting refs would make conservativeness rest
   on every handler with a nested jaxpr tracking writes,
   rather than on this one argument.
+  A ref that outlives a call also makes the function depend on earlier calls,
+  so a pattern detected once would not be guaranteed to hold at evaluation time.
   `_prop_fallback` logs each one on the `asdex.detection` logger
   and records in `state.fallbacks` whether its fallback was conservative,
   meaning that its inputs carried dependencies into an output of differentiable dtype.

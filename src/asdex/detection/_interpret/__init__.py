@@ -569,6 +569,8 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     supporting refs would make conservativeness rest
     on every handler with a nested jaxpr tracking writes,
     rather than on this one argument.
+    A ref that outlives a call also makes the function depend on earlier calls,
+    so a pattern detected once would not be guaranteed to hold at evaluation time.
 
     Each such primitive is logged once per detection
     and recorded in ``state.fallbacks``,
@@ -583,11 +585,15 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     # This limitation is deliberate, so the message does not ask for an issue report.
     if any(isinstance(atom.aval, AbstractRef) for atom in (*eqn.invars, *eqn.outvars)):
         msg = (
-            f"Primitive '{name}' operates on a mutable ref (`jax.new_ref`)."
-            " Mutable refs are not supported by design:"
-            " a write stores dependencies in the ref instead of in an output,"
-            " so sparsity detection cannot guarantee a conservative pattern."
-            " Rewrite the function with functional updates such as `x.at[idx].set(y)`."
+            f"Primitive '{name}' operates on a mutable array reference (`jax.new_ref`),"
+            " which asdex does not support by design."
+            " A sparsity pattern is detected once and reused for every evaluation,"
+            " which is only valid if the output of the function"
+            " depends on nothing but its inputs."
+            " Rewrite the function without references,"
+            " for example by returning values,"
+            " by threading them through the carry of a loop,"
+            " or with functional updates such as `x.at[idx].set(y)`."
         )
         raise NotImplementedError(msg)
 

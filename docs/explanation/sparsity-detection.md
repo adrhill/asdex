@@ -255,13 +255,13 @@ since sparse differentiation then offers no speedup over dense differentiation.
 
 !!! warning "Mutable references are not supported"
 
-    The fallback is conservative because every dependency flows
-    from the inputs of a primitive to its outputs.
-    Mutable array references (`jax.new_ref`) are the one exception:
-    a write stores a dependency in the reference itself,
-    and a later read picks it up from there.
-    `asdex` therefore does not support them by design
-    and raises a `NotImplementedError` when it encounters one.
+    `asdex` detects a sparsity pattern once and reuses it for every later evaluation.
+    This is only valid if the output of the function depends on nothing but its inputs.
+    Mutable array references (`jax.new_ref`) let a function hold state besides its inputs,
+    so a pattern detected for it is not guaranteed to hold when the function is evaluated.
+    Since a missing nonzero silently corrupts the result,
+    `asdex` raises a `NotImplementedError` for every function that uses mutable references,
+    including those where the reference never leaves the function.
 
 ## Sources of Conservatism
 
