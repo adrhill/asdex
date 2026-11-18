@@ -1792,6 +1792,16 @@ since sparse differentiation then offers no speedup over dense differentiation.<
 to reduce conservatism and produce sparser patterns.
 Please open an issue if you encounter overly conservative patterns.</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Mutable references are not supported</p>
+<p><code>asdex</code> detects a sparsity pattern once and reuses it for every later evaluation.
+This is only valid if the output of the function depends on nothing but its inputs.
+Mutable array references (<code>jax.new_ref</code>) let a function hold state besides its inputs,
+so a pattern detected for it is not guaranteed to hold when the function is evaluated.
+Since a missing nonzero silently corrupts the result,
+<code>asdex</code> raises a <code>NotImplementedError</code> for every function that uses mutable references,
+including those where the reference never leaves the function.</p>
+</div>
 <h2 id="sources-of-conservatism">Sources of Conservatism<a class="headerlink" href="#sources-of-conservatism" title="Permanent link">¶</a></h2>
 <p>Even with precise handlers,
 three mechanisms make global patterns conservative relative to local ones:</p>
