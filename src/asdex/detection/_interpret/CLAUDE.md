@@ -61,19 +61,22 @@ Every handler must uphold these.
   `_prop_dense_pattern` for primitives whose outputs all get the union of all inputs,
   and `_prop_fallback` for unknown primitives and known ones without a precise handler.
   Only the last one is reported to the user.
-  It writes the dense pattern, which is conservative for any pure primitive
+  It writes the dense pattern, which is conservative
+  whenever every dependency that JAX differentiates flows from the inputs of a primitive to its outputs
   (see [Why Conservative Patterns Are Safe](https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe)).
+  Side effects on the host do not break this, since JAX does not differentiate through them.
   Primitives on mutable refs (`new_ref`, `get`, `swap`) write through an input, so they raise `NotImplementedError`.
-  This is by design: detection only supports pure functions,
-  so that conservativeness rests on this one argument
-  instead of on every handler with a nested jaxpr tracking writes.
+  This is by design:
+  supporting refs would make conservativeness rest
+  on every handler with a nested jaxpr tracking writes,
+  rather than on this one argument.
   `_prop_fallback` logs each one on the `asdex.detection` logger
   and records in `state.fallbacks` whether its fallback was conservative,
   meaning that its inputs carried dependencies into an output of differentiable dtype.
   `jacobian_sparsity` stores all names in `SparsityPattern._fallbacks` in tracing order,
   and a fully dense pattern emits a `DensePatternWarning` naming those with a conservative fallback.
   HiJax primitives are named `hijax:<module>.<class>`.
-  `pure_callback` gets a silent dense pattern, since its body is not visible
+  `pure_callback` and `io_callback` get a silent dense pattern, since their bodies are not visible
   and no tighter pattern can be derived.
   Handlers raise with `_report_issue` on jaxpr structure they don't understand,
   and `_prop_jaxpr` checks every handler's output count.

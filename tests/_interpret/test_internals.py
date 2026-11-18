@@ -565,7 +565,7 @@ def test_mutable_ref_raises():
 
     A write to a ref flows into an input of the primitive,
     which the conservative fallback would miss.
-    Sparsity detection only supports pure functions,
+    Refs are unsupported by design,
     and the error says so and points to functional updates.
     """
 
@@ -575,20 +575,24 @@ def test_mutable_ref_raises():
         return ref[...]
 
     with pytest.raises(
-        NotImplementedError, match=r"mutable ref.*only supports pure functions.*\.at\["
+        NotImplementedError,
+        match=r"'new_ref'.*mutable ref.*not supported by design.*\.at\[",
     ):
         jacobian_sparsity(f, np.ones(3))
 
 
 def test_mutable_ref_from_closure_raises():
-    """Reads and writes raise too when the ref was created outside of the function."""
+    """Reads and writes raise too when the ref was created outside of the function.
+
+    The jaxpr then has no ``new_ref``, so the write (``swap``) is the first to raise.
+    """
     ref = jax.new_ref(jnp.zeros(3))
 
     def f(x):
         ref[...] = x * 2.0
         return ref[...]
 
-    with pytest.raises(NotImplementedError, match="mutable ref"):
+    with pytest.raises(NotImplementedError, match=r"'swap'.*mutable ref"):
         jacobian_sparsity(f, np.ones(3))
 
 
