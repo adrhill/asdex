@@ -125,7 +125,7 @@ JAX's intermediate representation of a function.
 Abstract interpretation propagates index sets through each `jaxpr` primitive to determine which inputs influence which outputs,
 yielding a conservative pattern that may contain false positives but never misses a nonzero.
 Working at the `jaxpr` level, the detector reuses JAX's own program representation
-and naturally handles functions built from arbitrary JAX primitives.
+and naturally handles functions built from arbitrary JAX primitives.[^mutable-refs]
 It also makes second-order detection free:
 because `jax.grad(f)` produces an ordinary JAX function with a `jaxpr` of its own,
 and the Hessian of a scalar-valued function `f` is the Jacobian of its gradient,
@@ -133,6 +133,7 @@ and the Hessian of a scalar-valued function `f` is the Jacobian of its gradient,
 with no separate second-order detector to implement or maintain.
 
 [^jaxpr]: <https://docs.jax.dev/en/latest/jaxpr.html>
+[^mutable-refs]: The only exceptions are mutable array references (i.e., `jax.new_ref`), which `asdex` rejects by design: since sparsity patterns are detected once and then reused for every evaluation, they are only valid if the output of a function depends on nothing but its inputs.
 
 **Coloring.**
 The detected pattern gives rise to a graph coloring problem, which `asdex` solves approximately using standard greedy algorithms.
