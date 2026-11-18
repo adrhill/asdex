@@ -79,7 +79,7 @@ in Julia [@bezanson2017julia], through the combination of
 and `SparseMatrixColorings.jl` (SMC) [@montoison2025revisiting_coloring] for coloring.
 These packages, to which the present authors contributed,
 now serve as core sparse differentiation infrastructure for downstream software such as `NonlinearSolve.jl` [@pal2026nonlinearsolve].
-The speedups they enable are documented, e.g., in @hill2025sct_paper:
+The speedups ASD enables are documented, e.g., in @hill2025sct_paper:
 the Jacobian of a discretized Brusselator PDE with 73,728 inputs and outputs requires only 10 colors,
 so once detection and coloring are prepared, ASD computes it about 7,300 times faster than standard AD.
 
