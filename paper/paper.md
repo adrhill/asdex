@@ -133,7 +133,7 @@ and the Hessian of a scalar-valued function `f` is the Jacobian of its gradient,
 with no separate second-order detector to implement or maintain.
 
 [^jaxpr]: <https://docs.jax.dev/en/latest/jaxpr.html>
-[^mutable-refs]: The only exception are mutable array references (i.e., `jax.new_ref`), which `asdex` rejects by design: Since sparsity patterns are detected once and then reused for every evaluation, they are only valid if the output of a function depends on nothing but its inputs.
+[^mutable-refs]: The only exceptions are mutable array references (i.e., `jax.new_ref`), which `asdex` rejects by design: since sparsity patterns are detected once and then reused for every evaluation, they are only valid if the output of a function depends on nothing but its inputs.
 
 **Coloring.**
 The detected pattern gives rise to a graph coloring problem, which `asdex` solves approximately using standard greedy algorithms.
