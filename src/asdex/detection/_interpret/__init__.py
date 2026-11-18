@@ -560,7 +560,7 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     """Fall back to the dense pattern for a primitive without a precise handler.
 
     The fallback is conservative whenever every dependency that JAX differentiates
-    flows from ``eqn.invars`` to ``eqn.outvars``
+    flows from ``eqn.invars`` to ``eqn.outvars``, e.g., for any pure primitive
     (see https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe).
     Side effects on the host do not break this, since JAX does not differentiate through them.
     Mutable refs do, since a write stores dependencies in the ref, which is an input.
