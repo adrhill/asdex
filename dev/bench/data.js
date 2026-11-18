@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794861350997,
+  "lastUpdate": 1795010607659,
   "repoUrl": "https://github.com/adrhill/asdex",
   "entries": {
     "Benchmark": [
@@ -24792,6 +24792,135 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000048486387954123355",
             "extra": "mean: 15.138761266281838 usec\nrounds: 24542"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adrian.hill@mailbox.org",
+            "name": "Adrian Hill",
+            "username": "adrhill"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "19f82858fa9319e24700a822388a5b2e3c4e068e",
+          "message": "docs(detection): explain that mutable refs are unsupported by design (#236)\n\n* fix(detection): explain that mutable refs are unsupported by design\n\nThe error for primitives on mutable refs (`jax.new_ref`) said they were \"not supported yet\" and asked for an issue report.\nSparsity detection only supports pure functions,\nsince the conservative fallback relies on every dependency flowing from a primitive's inputs to its outputs.\n\n- The error now states this and points to functional updates such as `x.at[idx].set(y)`.\n- The explanation of fallback handlers in the docs describes the limitation.\n- The TODOs for tracking index sets per ref are removed.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs(detection): scope the unsupported-ref explanation to refs\n\nThe dense fallback is conservative whenever every dependency that JAX\ndifferentiates flows from the inputs of a primitive to its outputs.\nHost side effects do not break this, only mutable refs do,\nso the error message, docstring and docs no longer claim\nthat detection supports pure functions only.\n\n`io_callback` now gets the dense pattern silently, like `pure_callback`,\ninstead of being reported as an unknown primitive.\n\nThe docs paragraph on refs moves into a warning admonition\nat the end of the Fallback Handlers section.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* docs(detection): state the design decision behind unsupported refs\n\nA sparsity pattern is detected once and reused for every evaluation,\nwhich is only valid if the output of the function depends on nothing but its inputs.\nThe docs warning and the error message now give this reason\ninstead of describing how the interpreter propagates dependencies.\n\nThe error message also suggests returning values\nor threading them through the carry of a loop,\nbesides functional updates.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* Update src/asdex/detection/_interpret/__init__.py\n\n* Update src/asdex/detection/_interpret/CLAUDE.md\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-11-18T15:02:51+01:00",
+          "tree_id": "ec0a1cef97db42925b419eda071f0f5c4f99de54",
+          "url": "https://github.com/adrhill/asdex/commit/19f82858fa9319e24700a822388a5b2e3c4e068e"
+        },
+        "date": 1795010606136,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_benchmarks.py::test_heat_detection",
+            "value": 825.9513037775635,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004373932474469126",
+            "extra": "mean: 1.2107251304361517 msec\nrounds: 23"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_coloring",
+            "value": 28054.92685156664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002634508629674536",
+            "extra": "mean: 35.644363119918744 usec\nrounds: 6513"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_materialization",
+            "value": 92469.2957807273,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000012929632718391795",
+            "extra": "mean: 10.814400515943182 usec\nrounds: 21707"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_value_and_materialization",
+            "value": 63597.068937826385,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000017632944651525007",
+            "extra": "mean: 15.72399509445345 usec\nrounds: 17531"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_heat_end_to_end",
+            "value": 92295.55584771841,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013984420030296915",
+            "extra": "mean: 10.834757869056384 usec\nrounds: 26242"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_detection",
+            "value": 176.17725902096322,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003453832313996767",
+            "extra": "mean: 5.6761014761900155 msec\nrounds: 21"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_coloring",
+            "value": 2881.4053661576972,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012685647926694105",
+            "extra": "mean: 347.05286932032135 usec\nrounds: 2663"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_materialization",
+            "value": 1517.8568926401924,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000057792569739424745",
+            "extra": "mean: 658.8236380180604 usec\nrounds: 989"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_value_and_materialization",
+            "value": 1761.5261661381812,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000048819630865696733",
+            "extra": "mean: 567.6895519481917 usec\nrounds: 924"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_convnet_end_to_end",
+            "value": 4650.803331711731,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017723040199912348",
+            "extra": "mean: 215.01661727586952 usec\nrounds: 3091"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_detection",
+            "value": 160.73891109017714,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009596182101000789",
+            "extra": "mean: 6.22126897101464 msec\nrounds: 69"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_coloring",
+            "value": 27544.804096826843,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025546975068224626",
+            "extra": "mean: 36.304487644375726 usec\nrounds: 21124"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_materialization",
+            "value": 55120.51390023765,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000030143750816599607",
+            "extra": "mean: 18.142065979462657 usec\nrounds: 16687"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_value_and_materialization",
+            "value": 34969.618391104545,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011662205216012982",
+            "extra": "mean: 28.596251432196834 usec\nrounds: 9426"
+          },
+          {
+            "name": "tests/test_benchmarks.py::test_rosenbrock_end_to_end",
+            "value": 54918.936430405134,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002608747414016748",
+            "extra": "mean: 18.208655611297736 usec\nrounds: 16734"
           }
         ]
       }
