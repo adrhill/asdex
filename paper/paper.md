@@ -82,20 +82,20 @@ now serve as core sparse differentiation infrastructure for downstream software 
 The speedups they enable are documented in @hill2025sct_paper.
 
 No general-purpose equivalent exists for JAX, although there are a few prototypes.
-We list them in the table below with their main features:
+We list them in the table below with their main features, using the following shortcuts: "D1/D2" for "distance-1/distance-2", "IG/BG/AG" for "intersection/bipartite/adjacency graph" (see @gebremedhin2005what_color for definitions).
 
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
-| Package                            | Detection                           | Coloring                                                                |
+| Package                            | Sparsity detection                           | Coloring                                                                |
 +====================================+=====================================+=========================================================================+
-| `sparsejac`[^gh-sparsejac]         | None                                | Distance-1 (from `networkx`)                                            |
+| `sparsejac`[^gh-sparsejac]         | None                                | D1 on IG (from `networkx`)                                            |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
-| `sparsediffax`[^gh-sparsediffax]   | None                                | Distance-2 & star (from SMC)                                            |
+| `sparsediffax`[^gh-sparsediffax]   | None                                | D2 on BG & star on AG (from SMC)                                            |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
 | `jax-nansparse`[^gh-jax-nansparse] | `NaN` tracing                       | None                                                                    |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
 | `jax2sympy`[^gh-jax2sympy]         | `jaxpr` symbolic conversion         | None                                                                    |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
-| `asdex`                            | `jaxpr` tracing                     | Distance-2 & star (based on SMC)                                        |
+| `asdex`                            | `jaxpr` tracing                     | D2 on BG & star on AG (based on SMC)                                        |
 +------------------------------------+-------------------------------------+-------------------------------------------------------------------------+
 
 A `jaxpr`-based approach to sparsity pattern detection has been outlined by @simpson2024sparse_jax_blog.
@@ -103,7 +103,9 @@ Parts of the ASD pipeline have also been reimplemented internally by application
 The sparse linear solver `JAX-AMG`[^gh-jax-amg] [@liu2026jax_amg] combines `jaxpr`-based sparsity detection with a parallel greedy distance-1 coloring,
 while the finite element framework `tatva`[^gh-tatva] [@pundir2026tatva] pairs `jaxpr`-based detection with greedy distance-2 coloring from its companion package `tatva-coloring`.
 
-We built `asdex` rather than contributing to the general-purpose packages above because none of them combined the "proper" sparsity detection paradigm (`jaxpr` tracing) with the state-of-the-art coloring techniques (distance-2 and star colorings).
+We built `asdex` rather than contributing to the general-purpose packages above because none of them combined the "proper" sparsity detection paradigm (`jaxpr` tracing, which `asdex` implements) with the state-of-the-art coloring techniques (distance-2 and star colorings).
+In addition, unlike `sparsejac` and `sparsediffax` which were designed as research prototypes, `asdex` comes with an extensive documentation, a comprehensive test suite and a generic API that preserves a lot of JAX's flexibility (see below).
+In other words, we built it to become a production-ready sparse differentiation toolbox which doesn't rely on any Julia runtime.
 Additionally, many of the alternatives listed above were made public only recently (we became aware of the concurrent works `JAX-AMG` and `tatva` as we were writing up this paper).
 
 [^gh-sparsejac]: <https://github.com/mfschubert/sparsejac>
