@@ -564,6 +564,9 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     from ``eqn.invars`` to ``eqn.outvars``
     (see https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe).
     Primitives on mutable refs are not pure, so they raise instead.
+    Sparsity detection only supports pure functions by design,
+    since conservativeness would otherwise rest on every handler tracking writes
+    rather than on this one argument.
 
     Each such primitive is logged once per detection
     and recorded in ``state.fallbacks``,
@@ -575,13 +578,13 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     # A write to a ref (``jax.new_ref``) is a dependency that flows into an input,
     # and a later read picks it up from there.
     # The fallback only writes index sets for outvars, so it would miss nonzeros.
-    # TODO(new_ref, get, swap): track one list of index sets per ref,
-    # seeded by ``new_ref``, updated by ``swap`` and read by ``get``,
-    # and shared across nested jaxprs like ``consts`` and ``bounds``.
+    # This limitation is deliberate, so the message does not ask for an issue report.
     if any(isinstance(atom.aval, AbstractRef) for atom in (*eqn.invars, *eqn.outvars)):
-        msg = _report_issue(
-            f"No handler for primitive '{name}', which operates on a mutable ref."
-            " Mutable refs are not supported yet."
+        msg = (
+            f"Primitive '{name}' operates on a mutable ref (`jax.new_ref`)."
+            " Sparsity detection only supports pure functions,"
+            " since it cannot guarantee a conservative pattern for writes to a ref."
+            " Rewrite the function with functional updates such as `x.at[idx].set(y)`."
         )
         raise NotImplementedError(msg)
 

@@ -235,6 +235,14 @@ Known primitives without a precise handler,
 such as the linear algebra decompositions (`lu`, `svd`, `eigh`, ...),
 fall back to the same pattern.
 
+The fallback is only correct for pure functions,
+where every dependency flows from the inputs of a primitive to its outputs.
+Mutable array references (`jax.new_ref`) break this assumption:
+a write stores a dependency in the reference itself, and a later read picks it up from there.
+`asdex` therefore only supports pure functions
+and raises a `NotImplementedError` when it encounters a mutable reference.
+Use functional updates such as `x.at[idx].set(y)` instead.
+
 To see which primitives fell back, call
 [`print_fallbacks`](../reference/index.md#asdex.SparsityPattern.print_fallbacks) on the detected pattern:
 

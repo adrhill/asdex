@@ -565,9 +565,8 @@ def test_mutable_ref_raises():
 
     A write to a ref flows into an input of the primitive,
     which the conservative fallback would miss.
-
-    TODO(new_ref, get, swap): track index sets per ref.
-    The precise pattern here is the identity.
+    Sparsity detection only supports pure functions,
+    and the error says so and points to functional updates.
     """
 
     def f(x):
@@ -575,7 +574,9 @@ def test_mutable_ref_raises():
         ref[...] = x * 2.0
         return ref[...]
 
-    with pytest.raises(NotImplementedError, match="mutable ref"):
+    with pytest.raises(
+        NotImplementedError, match=r"mutable ref.*only supports pure functions.*\.at\["
+    ):
         jacobian_sparsity(f, np.ones(3))
 
 

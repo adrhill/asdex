@@ -64,6 +64,9 @@ Every handler must uphold these.
   It writes the dense pattern, which is conservative for any pure primitive
   (see [Why Conservative Patterns Are Safe](https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe)).
   Primitives on mutable refs (`new_ref`, `get`, `swap`) write through an input, so they raise `NotImplementedError`.
+  This is by design: detection only supports pure functions,
+  so that conservativeness rests on this one argument
+  instead of on every handler with a nested jaxpr tracking writes.
   `_prop_fallback` logs each one on the `asdex.detection` logger
   and records in `state.fallbacks` whether its fallback was conservative,
   meaning that its inputs carried dependencies into an output of differentiable dtype.
