@@ -565,9 +565,8 @@ def test_mutable_ref_raises():
 
     A write to a ref flows into an input of the primitive,
     which the conservative fallback would miss.
-
-    TODO(new_ref, get, swap): track index sets per ref.
-    The precise pattern here is the identity.
+    Refs are unsupported by design,
+    and the error says so and suggests how to rewrite the function.
     """
 
     def f(x):
@@ -575,19 +574,25 @@ def test_mutable_ref_raises():
         ref[...] = x * 2.0
         return ref[...]
 
-    with pytest.raises(NotImplementedError, match="mutable ref"):
+    with pytest.raises(
+        NotImplementedError,
+        match=r"'new_ref'.*mutable array reference.*does not support by design.*\.at\[",
+    ):
         jacobian_sparsity(f, np.ones(3))
 
 
 def test_mutable_ref_from_closure_raises():
-    """Reads and writes raise too when the ref was created outside of the function."""
+    """Reads and writes raise too when the ref was created outside of the function.
+
+    The jaxpr then has no ``new_ref``, so the write (``swap``) is the first to raise.
+    """
     ref = jax.new_ref(jnp.zeros(3))
 
     def f(x):
         ref[...] = x * 2.0
         return ref[...]
 
-    with pytest.raises(NotImplementedError, match="mutable ref"):
+    with pytest.raises(NotImplementedError, match=r"'swap'.*mutable array reference"):
         jacobian_sparsity(f, np.ones(3))
 
 

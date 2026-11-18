@@ -512,14 +512,14 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
             _prop_cumsum(eqn, state)
         case "qr":
             _prop_qr(eqn, state)
-        # The body of pure_callback is not visible in the jaxpr,
+        # The body of a callback is not visible in the jaxpr,
         # so the dense pattern is the tightest derivable and not a fallback.
-        # jax.pure_callback calls a Python function on the host that JAX does not trace,
+        # jax.pure_callback and io_callback call a Python function on the host that JAX does not trace,
         # so the jaxpr only records the shapes and dtypes of its outputs.
-        # Its caller promises that the function has no side effects,
-        # which makes the dense pattern conservative.
-        # io_callback makes no such promise, so it stays an unknown primitive.
-        case "pure_callback":
+        # The side effects of io_callback do not make the dense pattern less conservative:
+        # JAX does not differentiate through the host,
+        # so a value that one callback stores and another returns has zero derivative.
+        case "pure_callback" | "io_callback":
             _prop_dense_pattern(eqn, state)
         # Known primitives without a precise handler fall back like unknown ones.
         # All of them could treat batch members independently.
@@ -559,11 +559,18 @@ def _prop_dispatch(eqn: JaxprEqn, state: _PropState) -> None:
 def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     """Fall back to the dense pattern for a primitive without a precise handler.
 
-    The fallback is conservative for any pure primitive,
-    since every dependency on the function's inputs then flows
-    from ``eqn.invars`` to ``eqn.outvars``
+    The fallback is conservative whenever every dependency that JAX differentiates
+    flows from ``eqn.invars`` to ``eqn.outvars``, e.g., for any pure primitive
     (see https://adrianhill.de/asdex/explanation/global-sparsity/#why-conservative-patterns-are-safe).
-    Primitives on mutable refs are not pure, so they raise instead.
+    Side effects on the host do not break this, since JAX does not differentiate through them.
+    Mutable refs do, since a write stores dependencies in the ref, which is an input.
+    Primitives on mutable refs therefore raise instead.
+    This is by design:
+    supporting refs would make conservativeness rest
+    on every handler with a nested jaxpr tracking writes,
+    rather than on this one argument.
+    A ref that outlives a call also makes the function depend on earlier calls,
+    so a pattern detected once would not be guaranteed to hold at evaluation time.
 
     Each such primitive is logged once per detection
     and recorded in ``state.fallbacks``,
@@ -575,13 +582,18 @@ def _prop_fallback(eqn: JaxprEqn, state: _PropState, name: str) -> None:
     # A write to a ref (``jax.new_ref``) is a dependency that flows into an input,
     # and a later read picks it up from there.
     # The fallback only writes index sets for outvars, so it would miss nonzeros.
-    # TODO(new_ref, get, swap): track one list of index sets per ref,
-    # seeded by ``new_ref``, updated by ``swap`` and read by ``get``,
-    # and shared across nested jaxprs like ``consts`` and ``bounds``.
+    # This limitation is deliberate, so the message does not ask for an issue report.
     if any(isinstance(atom.aval, AbstractRef) for atom in (*eqn.invars, *eqn.outvars)):
-        msg = _report_issue(
-            f"No handler for primitive '{name}', which operates on a mutable ref."
-            " Mutable refs are not supported yet."
+        msg = (
+            f"Primitive '{name}' operates on a mutable array reference (`jax.new_ref`),"
+            " which asdex does not support by design."
+            " A sparsity pattern is detected once and reused for every evaluation,"
+            " which is only valid if the output of the function"
+            " depends on nothing but its inputs."
+            " Rewrite the function without references,"
+            " for example by returning values,"
+            " by threading them through the carry of a loop,"
+            " or with functional updates such as `x.at[idx].set(y)`."
         )
         raise NotImplementedError(msg)
 

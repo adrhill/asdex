@@ -253,6 +253,16 @@ since sparse differentiation then offers no speedup over dense differentiation.
     to reduce conservatism and produce sparser patterns.
     Please open an issue if you encounter overly conservative patterns.
 
+!!! warning "Mutable references are not supported"
+
+    `asdex` detects a sparsity pattern once and reuses it for every later evaluation.
+    This is only valid if the output of the function depends on nothing but its inputs.
+    Mutable array references (`jax.new_ref`) let a function hold state besides its inputs,
+    so a pattern detected for it is not guaranteed to hold when the function is evaluated.
+    Since a missing nonzero silently corrupts the result,
+    `asdex` raises a `NotImplementedError` for every function that uses mutable references,
+    including those where the reference never leaves the function.
+
 ## Sources of Conservatism
 
 Even with precise handlers,

@@ -4,8 +4,8 @@ Those with a module of their own are tested there.
 This file covers the rest:
 ``mulhi`` (integer-valued), ``debug_print`` and ``debug_callback`` (no outputs),
 which get an empty pattern,
-and ``pure_callback``, whose body is not visible,
-which gets a dense pattern without being reported.
+and ``pure_callback`` and ``io_callback``, whose bodies are not visible,
+which get a dense pattern without being reported.
 """
 
 import logging
@@ -16,6 +16,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from jax import lax
+from jax.experimental import io_callback
 
 from asdex import DensePatternWarning, jacobian_sparsity
 from tests._utils import (
@@ -125,6 +126,58 @@ def test_pure_callback_dense_and_silent(caplog):
     assert caplog.records == []
     with pytest.raises(ValueError, match="Pure callbacks do not support JVP"):
         jax.jacobian(_sin_callback)(x)
+
+
+def test_io_callback_dense_and_silent(caplog):
+    """``io_callback`` gets a dense pattern without being reported, like ``pure_callback``.
+
+    Its side effects do not matter for the pattern,
+    since JAX does not differentiate through the host.
+    """
+
+    def f(x):
+        return io_callback(np.sin, jax.ShapeDtypeStruct(x.shape, x.dtype), x)
+
+    x = np.arange(1.0, 4.0)
+    with (
+        warnings.catch_warnings(),
+        caplog.at_level(logging.INFO, logger="asdex.detection"),
+    ):
+        warnings.simplefilter("ignore", DensePatternWarning)
+        result = jacobian_sparsity(f, x)
+
+    np.testing.assert_array_equal(result.todense(), np.ones((3, 3)))
+    assert result._fallbacks == ()
+    assert caplog.records == []
+    with pytest.raises(ValueError, match="IO callbacks do not support JVP"):
+        jax.jacobian(f)(x)
+
+
+def test_io_callback_host_state_has_no_dependencies(caplog):
+    """A value that one ``io_callback`` stores and another returns carries no dependencies.
+
+    The second callback has no inputs, so JAX treats its output as a constant.
+    JAX cannot differentiate the first one, so there is no reference to check against.
+    """
+    host = {}
+
+    def write(x):
+        host["x"] = np.asarray(x)
+        return np.zeros((), dtype=x.dtype)
+
+    def f(x):
+        io_callback(write, jax.ShapeDtypeStruct((), x.dtype), x, ordered=True)
+        stored = io_callback(
+            lambda: host["x"], jax.ShapeDtypeStruct(x.shape, x.dtype), ordered=True
+        )
+        return stored + x
+
+    with caplog.at_level(logging.INFO, logger="asdex.detection"):
+        result = jacobian_sparsity(f, np.arange(1.0, 4.0))
+
+    np.testing.assert_array_equal(result.todense(), np.eye(3))
+    assert result._fallbacks == ()
+    assert caplog.records == []
 
 
 def test_pure_callback_with_custom_jvp_dense_and_silent(caplog):
