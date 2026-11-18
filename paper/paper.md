@@ -79,7 +79,9 @@ in Julia [@bezanson2017julia], through the combination of
 and `SparseMatrixColorings.jl` (SMC) [@montoison2025revisiting_coloring] for coloring.
 These packages, to which the present authors contributed,
 now serve as core sparse differentiation infrastructure for downstream software such as `NonlinearSolve.jl` [@pal2026nonlinearsolve].
-The speedups they enable are documented in @hill2025sct_paper.
+The speedups ASD enables are documented, e.g., in @hill2025sct_paper:
+the Jacobian of a discretized Brusselator PDE with 73,728 inputs and outputs requires only 10 colors,
+so once detection and coloring are prepared, ASD computes it about 7,300 times faster than standard AD.
 
 No general-purpose equivalent exists for JAX, although there are a few prototypes.
 We list them in the table below with their main features, using the following shortcuts: "D1/D2" for "distance-1/distance-2", "IG/BG/AG" for "intersection/bipartite/adjacency graph" (see @gebremedhin2005what_color for definitions).
@@ -197,11 +199,17 @@ and continuously published benchmarks tracking detection, coloring, and evaluati
 This issue centralizes most of the related discussions and shows that there is sustained interest in such a feature in the JAX ecosystem.
 As for `asdex` itself, it has already been
 applied to accelerate the computation of Hessians in machine learning interatomic potentials [@langer2026truncated]
-and has been integrated into `splineax`[^gh-splineax],
-a sparsity-focused extension of the popular linear and least-squares library `lineax` [@rader2023lineax].
+and of Jacobians for the Gauss-Newton training of physics-informed neural networks [@korolev2026block_sparse_gn].
+It has also been adopted across scientific computing domains:
+it is a dependency of the numerical linear algebra package `splineax`[^gh-splineax],
+a sparsity-focused extension of the popular linear and least-squares library `lineax` [@rader2023lineax],
+the finite element code `feax`[^gh-feax],
+and the chemical process simulator `difflow` [@kitchin2026difflow],
+while the interior-point solver `POUNCE` [@kitchin2026pounce] documents its use for nonlinear optimization.
 
 [^jax-issue-1032]: <https://github.com/jax-ml/jax/issues/1032>
 [^gh-splineax]: <https://github.com/nardi/splineax>
+[^gh-feax]: <https://github.com/Naruki-Ichihara/feax>
 
 # AI usage disclosure
 
