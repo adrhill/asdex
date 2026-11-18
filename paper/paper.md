@@ -195,11 +195,17 @@ and continuously published benchmarks tracking detection, coloring, and evaluati
 This issue centralizes most of the related discussions and shows that there is sustained interest in such a feature in the JAX ecosystem.
 As for `asdex` itself, it has already been
 applied to accelerate the computation of Hessians in machine learning interatomic potentials [@langer2026truncated]
-and has been integrated into `splineax`[^gh-splineax],
-a sparsity-focused extension of the popular linear and least-squares library `lineax` [@rader2023lineax].
+and of Jacobians for the Gauss-Newton training of physics-informed neural networks [@korolev2026block_sparse_gn].
+It has also been adopted across scientific computing domains:
+it is a dependency of the numerical linear algebra package `splineax`[^gh-splineax],
+a sparsity-focused extension of the popular linear and least-squares library `lineax` [@rader2023lineax],
+the finite element code `feax`[^gh-feax],
+and the chemical process simulator `difflow` [@kitchin2026difflow],
+while the interior-point solver `POUNCE` [@kitchin2026pounce] documents its use for nonlinear optimization.
 
 [^jax-issue-1032]: <https://github.com/jax-ml/jax/issues/1032>
 [^gh-splineax]: <https://github.com/nardi/splineax>
+[^gh-feax]: <https://github.com/Naruki-Ichihara/feax>
 
 # AI usage disclosure
 
